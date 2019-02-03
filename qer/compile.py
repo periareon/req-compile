@@ -7,20 +7,6 @@ import qer.metadata
 import qer.pypi
 
 
-def _filter_roots(roots, extras):
-    all_reqs = {}
-    for root in roots:
-        keep_req = True
-        if root.marker:
-            if extras:
-                keep_req = any(root.marker.evaluate({'extra': extra}) for extra in extras)
-            else:
-                keep_req = root.marker.evaluate({'extra': None})
-        if keep_req:
-            all_reqs[root.name] = root
-    return all_reqs
-
-
 class MetadataSources(object):
     def __init__(self, metadata, source):
         self.metadata = metadata
@@ -76,51 +62,56 @@ class DistributionCollection(object):
                     break
         return req
 
+    def get_reverse_deps(self, project_name):
+        reverse_deps = {}
+        for dist_name, dist in self.dists.iteritems():
+            for subreq in dist.metadata.reqs:
+                if subreq.name == project_name:
+                    reverse_deps[dist_name] = subreq
+                    break
+        return reverse_deps
 
-def compile_roots(roots, source, extras=(), dists=None, round=1):
-    if not isinstance(roots, list):
-        roots = list(roots)
 
+def compile_roots(root, source, extras=(), dists=None, round=1, toplevel=None):
     logger = logging.getLogger('qer.compile')
-    if not dists.orig_roots:
-        dists.orig_roots = roots
 
-    all_reqs = _filter_roots(roots, extras)
+    if not qer.metadata.filter_req(root, extras):
+        return
 
-    try:
-        for name, item in all_reqs.iteritems():
-            specifier = dists.build_constraints(name).specifier
-            if name in dists:
-                logger.info('Reusing dist %s %s', name, dists.dists[name].metadata.version)
-                dists.dists[name].sources.add(source)
-                metadata = dists.dists[name].metadata
-            else:
-                dist = qer.pypi.download_candidate(name, specifier=specifier)
-                metadata = qer.metadata.extract_metadata(dist)
-                dists.add_dist(metadata, source)
+    specifier = dists.build_constraints(root.name).specifier
+    if root.name in dists:
+        logger.info('Reusing dist %s %s', root.name, dists.dists[root.name].metadata.version)
+        dists.dists[root.name].sources.add(source)
+        metadata = dists.dists[root.name].metadata
+    else:
+        try:
+            dist = qer.pypi.download_candidate(root.name, specifier=specifier)
+        except qer.pypi.NoCandidateException as ex:
+            logger.error('No candidate for %s. Contributions: %s',
+                         ex.project_name, dists.get_reverse_deps(ex.project_name))
+            raise
 
-                # See how the new constraints do with the already collected reqs
-                for dist in dists.dists.values():
-                    if dist.metadata.name != DistributionCollection.CONSTRAINTS_ENTRY:
-                        constraints = dists.build_constraints(dist.metadata.name)
-                        if not constraints.specifier.contains(dist.metadata.version):
-                            logger.error('Already select dist violated (%s %s)', dist.metadata.name,dist.metadata.version)
+        metadata = qer.metadata.extract_metadata(dist, extras=extras)
+        dists.add_dist(metadata, source)
 
-                            # Remove all downstream reqs
-                            dists.remove_source(dist.metadata.name)
-                            dists.remove_dist(dist.metadata.name)
+        # See how the new constraints do with the already collected reqs
+        for dist in dists.dists.values():
+            if dist.metadata.name != DistributionCollection.CONSTRAINTS_ENTRY:
+                constraints = dists.build_constraints(dist.metadata.name)
+                if not constraints.specifier.contains(dist.metadata.version):
+                    logger.error('Already select dist violated (%s %s)', dist.metadata.name,dist.metadata.version)
 
-                            dists.add_global_constraint(pkg_resources.Requirement.parse(
-                                '{}!={}'.format(dist.metadata.name, dist.metadata.version)))
-                            return compile_roots(dists.orig_roots, 'rerun',
-                                                 extras=extras, dists=dists, round=round+1)
+                    # Remove all downstream reqs
+                    dists.remove_source(dist.metadata.name)
+                    dists.remove_dist(dist.metadata.name)
 
+                    dists.add_global_constraint(pkg_resources.Requirement.parse(
+                        '{}!={}'.format(dist.metadata.name, dist.metadata.version)))
+                    return compile_roots(toplevel, 'rerun',
+                                         extras=extras, dists=dists, round=round+1, toplevel=toplevel)
 
-            compile_roots(metadata.reqs, name, dists=dists, round=round)
-    except qer.pypi.NoCandidateException as ex:
-        raise
-
-    return dists
+    for req in metadata.reqs:
+        compile_roots(req, root.name, dists=dists, round=round, toplevel=toplevel)
 
 
 def _merge_requirements(req1, req2):

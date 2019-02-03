@@ -5,6 +5,7 @@ import logging
 import pkg_resources
 
 import qer.compile
+import qer.metadata
 
 
 def _generate_lines(dists):
@@ -27,7 +28,16 @@ def run_compile(input_requirements):
     roots = pkg_resources.parse_requirements(input_reqs)
 
     results = qer.compile.DistributionCollection()
-    qer.compile.compile_roots(roots, 'root', dists=results)
+    ROOT_REQ = 'root'
+    root_req = pkg_resources.Requirement.parse(ROOT_REQ)
+
+    metadata = qer.metadata.DistInfo()
+    metadata.name = ROOT_REQ
+    metadata.version = '0'
+    metadata.reqs = list(roots)
+    results.add_dist(metadata, ROOT_REQ)
+
+    qer.compile.compile_roots(root_req, ROOT_REQ, dists=results, toplevel=root_req)
 
     lines = sorted(_generate_lines(results))
     print('\n'.join(lines))

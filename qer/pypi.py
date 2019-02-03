@@ -93,6 +93,12 @@ class NoCandidateException(Exception):
         self.project_name = None
         self.specifier = None
 
+    def __str__(self):
+        return 'NoCandidateException - no candidate for "{}" satisfies {}'.format(
+            self.project_name,
+            self.specifier
+        )
+
 
 def download_candidate(project_name, py_ver='py2', specifier=None, allow_prerelease=False, skip_source=True):
     candidates = _scan_page_links('https://pypi.org/simple', project_name)
