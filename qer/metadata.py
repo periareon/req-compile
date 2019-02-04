@@ -54,8 +54,8 @@ def _fetch_from_source(tar_gz, extras):
 
         if egg_info:
             filename = os.path.basename(tar_gz)
-            name = filename.split('-')[0]
-            version = pkg_resources.parse_version(filename.split('-')[1])
+            name = '-'.join(filename.split('-')[0:-1])
+            version = pkg_resources.parse_version(filename.split('-')[-1].replace('.tar.gz', ''))
             return _parse_requires_file(tar.extractfile(egg_info + '/requires.txt').read(),
                                         name,
                                         version,
@@ -103,15 +103,15 @@ def _parse_flat_metadata(contents, extras):
 
 def _parse_requires_file(contents, name, version, extras):
     result = DistInfo()
-    raw_reqs = []
-    for line in contents.split('\n'):
-        if line.lower().startswith('name:'):
-            result.name = line.split(':')[1].strip()
-        if line.lower().startswith('version:'):
-            result.version = pkg_resources.parse_version(line.split(':')[1].strip())
-        if line.lower().startswith('requires-dist:'):
-            raw_reqs.append(line.split(':')[1].strip())
-
-    result.reqs = [req for req in pkg_resources.parse_requirements(raw_reqs)
-                   if filter_req(req, extras)]
+    reqs = []
+    sections  = list(pkg_resources.split_sections(contents))
+    for section in sections:
+        if section[0] is None:
+            reqs.extend(pkg_resources.parse_requirements(section[1]))
+        elif section[0].startswith(':python_version'):
+            for req in section[1]:
+                reqs.append(pkg_resources.Requirement.parse(req + ' ' + section[0].replace(':', ';')))
+    result.reqs = reqs
+    result.name = name
+    result.version = version
     return result
