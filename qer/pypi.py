@@ -15,7 +15,7 @@ logger = logging.getLogger('qer.pypi')
 
 
 @functools32.lru_cache()
-def _scan_page_links(index_url, project_name):
+def _scan_page_links(index_url, project_name, session):
     """
 
     Args:
@@ -27,7 +27,9 @@ def _scan_page_links(index_url, project_name):
     """
     url = '{index_url}/{project_name}/'.format(index_url=index_url, project_name=project_name)
     logging.getLogger('qer.net.pypi').info('Fetching versions for %s', project_name)
-    contents = requests.get(url)
+    if session is None:
+        session = requests
+    contents = session.get(url)
 
     class LinksHTMLParser(HTMLParser):
         def __init__(self):
@@ -51,7 +53,7 @@ def _scan_page_links(index_url, project_name):
             elif 'tar.gz' in data or 'tgz' in data:
                 data_parts = data.split('-')
                 name = data_parts[0]
-                version = pkg_resources.parse_version(data_parts[1])
+                version = pkg_resources.parse_version(data_parts[-1].replace('.tar.gz', ''))
                 self.dists.insert(0, Candidate(name, data, version, (), self.active_link))
 
     parser = LinksHTMLParser()
@@ -60,7 +62,7 @@ def _scan_page_links(index_url, project_name):
     return parser.dists
 
 
-def _do_download(filename, link):
+def _do_download(filename, link, session):
     split_link = link.split('#sha256=')
     sha = split_link[1]
 
@@ -79,7 +81,9 @@ def _do_download(filename, link):
         print "File hash doesn't match"
 
     logger.info('Downloading %s -> %s', split_link[0], filename)
-    response = requests.get(split_link[0], stream=True)
+    if session is None:
+        session = requests
+    response = session.get(split_link[0], stream=True)
 
     with open(filename, 'wb') as handle:
         for block in response.iter_content(1024):
@@ -88,8 +92,8 @@ def _do_download(filename, link):
 
 
 class NoCandidateException(Exception):
-    def __init__(self, *args, **kwargs):
-        super(NoCandidateException, self).__init__(*args, **kwargs)
+    def __init__(self, *args):
+        super(NoCandidateException, self).__init__(*args)
         self.project_name = None
         self.specifier = None
 
@@ -100,8 +104,15 @@ class NoCandidateException(Exception):
         )
 
 
-def download_candidate(project_name, py_ver='py2', specifier=None, allow_prerelease=False, skip_source=True):
-    candidates = _scan_page_links('https://pypi.org/simple', project_name)
+def start_session():
+    return requests.Session()
+
+
+def download_candidate(project_name, py_ver='py2', specifier=None, allow_prerelease=False,
+                       index_url=None, skip_source=True, session=None):
+    if index_url is None:
+        index_url = 'https://pypi.org/simple'
+    candidates = _scan_page_links(index_url, project_name, session)
 
     for candidate in candidates:
         if not ('py2' in candidate.py_version or 'cp27' in candidate.py_version) and skip_source:
@@ -113,7 +124,7 @@ def download_candidate(project_name, py_ver='py2', specifier=None, allow_prerele
         if specifier is not None and not specifier.contains(candidate.version):
             continue
 
-        return _do_download(candidate.filename, candidate.link)
+        return _do_download(candidate.filename, candidate.link, session)
 
     if not skip_source:
         ex = NoCandidateException()
@@ -121,8 +132,5 @@ def download_candidate(project_name, py_ver='py2', specifier=None, allow_prerele
         ex.specifier = specifier
         raise ex
 
-    return download_candidate(project_name, py_ver, specifier, allow_prerelease, False)
-
-
-# if __name__ == '__main__':
-#     download_candidate('pylint')
+    return download_candidate(project_name, py_ver=py_ver, specifier=specifier,
+                              allow_prerelease=allow_prerelease, index_url=index_url, skip_source=False, session=session)

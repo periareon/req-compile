@@ -72,7 +72,7 @@ class DistributionCollection(object):
         return reverse_deps
 
 
-def compile_roots(root, source, extras=(), dists=None, round=1, toplevel=None):
+def compile_roots(root, source, extras=(), dists=None, round=1, index_url=None, toplevel=None, session=None):
     logger = logging.getLogger('qer.compile')
 
     if not qer.metadata.filter_req(root, extras):
@@ -85,7 +85,7 @@ def compile_roots(root, source, extras=(), dists=None, round=1, toplevel=None):
         metadata = dists.dists[root.name].metadata
     else:
         try:
-            dist = qer.pypi.download_candidate(root.name, specifier=specifier)
+            dist = qer.pypi.download_candidate(root.name, specifier=specifier, index_url=index_url, session=session)
         except qer.pypi.NoCandidateException as ex:
             logger.error('No candidate for %s. Contributions: %s',
                          ex.project_name, dists.get_reverse_deps(ex.project_name))
@@ -108,10 +108,11 @@ def compile_roots(root, source, extras=(), dists=None, round=1, toplevel=None):
                     dists.add_global_constraint(pkg_resources.Requirement.parse(
                         '{}!={}'.format(dist.metadata.name, dist.metadata.version)))
                     return compile_roots(toplevel, 'rerun',
-                                         extras=extras, dists=dists, round=round+1, toplevel=toplevel)
+                                         extras=extras, dists=dists, round=round+1,
+                                         toplevel=toplevel, index_url=index_url, session=session)
 
     for req in metadata.reqs:
-        compile_roots(req, root.name, dists=dists, round=round, toplevel=toplevel)
+        compile_roots(req, root.name, dists=dists, round=round, toplevel=toplevel, index_url=index_url, session=session)
 
 
 def _merge_requirements(req1, req2):
@@ -138,25 +139,3 @@ def _merge_requirements(req1, req2):
 
     req_str = req1.name + ','.join(''.join(parts) for parts in all_specs) + new_marker
     return pkg_resources.Requirement.parse(req_str)
-
-
-if __name__ == '__main__':
-    logging.basicConfig()
-    logging.getLogger().setLevel(logging.INFO)
-
-    results = DistributionCollection([pkg_resources.Requirement.parse('pylint<1.9')])
-    dists = compile_roots(roots=[
-        pkg_resources.Requirement.parse('pymodbus'),
-        pkg_resources.Requirement.parse('pylint'),
-        pkg_resources.Requirement.parse('pytest'),
-        pkg_resources.Requirement.parse('pytest-mccabe'),
-        pkg_resources.Requirement.parse('pytest-timeout'),
-    ], source='#constraints#', dists=results)
-
-    for dist in dists.dists.values():
-        constraints = dists.build_constraints(dist.metadata.name)
-        if constraints is not None:
-            constraints = '- ' + str(constraints.specifier)
-        else:
-            constraints = ''
-        print '{}=={} # via {} {}'.format(dist.metadata.name, dist.metadata.version, ','.join(dist.sources), constraints)
