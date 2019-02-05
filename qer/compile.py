@@ -1,4 +1,3 @@
-import collections
 import logging
 
 import pkg_resources
@@ -99,7 +98,7 @@ def compile_roots(root, source, extras=(), dists=None, round=1, index_url=None, 
             if dist.metadata.name != DistributionCollection.CONSTRAINTS_ENTRY:
                 constraints = dists.build_constraints(dist.metadata.name)
                 if not constraints.specifier.contains(dist.metadata.version):
-                    logger.error('Already select dist violated (%s %s)', dist.metadata.name,dist.metadata.version)
+                    logger.error('Already selected dist violated (%s %s)', dist.metadata.name,dist.metadata.version)
 
                     # Remove all downstream reqs
                     dists.remove_source(dist.metadata.name)
