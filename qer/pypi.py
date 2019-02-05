@@ -1,6 +1,7 @@
 import collections
 import logging
 import os
+import urlparse
 from HTMLParser import HTMLParser
 
 import pkg_resources
@@ -60,7 +61,7 @@ def _scan_page_links(index_url, project_name):
     return parser.dists
 
 
-def _do_download(filename, link):
+def _do_download(index_url, filename, link):
     split_link = link.split('#sha256=')
     sha = split_link[1]
 
@@ -78,8 +79,11 @@ def _do_download(filename, link):
 
         print "File hash doesn't match"
 
-    logger.info('Downloading %s -> %s', split_link[0], filename)
-    response = requests.get(split_link[0], stream=True)
+    full_link = split_link[0]
+    if full_link.startswith('..'):
+        full_link = urlparse.urljoin(index_url + '/nonsense/', full_link)
+    logging.getLogger('qer.net.pypi').info('Downloading %s -> %s', full_link, filename)
+    response = requests.get(full_link, stream=True)
 
     with open(filename, 'wb') as handle:
         for block in response.iter_content(1024):
@@ -101,7 +105,9 @@ class NoCandidateException(Exception):
 
 
 def download_candidate(project_name, py_ver='py2', specifier=None, allow_prerelease=False, skip_source=True):
-    candidates = _scan_page_links('https://pypi.org/simple', project_name)
+    # candidates = _scan_page_links('https://pypi.org/simple', project_name)
+    index_url = 'https://cheeseshop.corp.spacex.com/spacex/prod/+simple'
+    candidates = _scan_page_links(index_url, project_name)
 
     for candidate in candidates:
         if not ('py2' in candidate.py_version or 'cp27' in candidate.py_version) and skip_source:
@@ -113,7 +119,7 @@ def download_candidate(project_name, py_ver='py2', specifier=None, allow_prerele
         if specifier is not None and not specifier.contains(candidate.version):
             continue
 
-        return _do_download(candidate.filename, candidate.link)
+        return _do_download(index_url, candidate.filename, candidate.link)
 
     if not skip_source:
         ex = NoCandidateException()
