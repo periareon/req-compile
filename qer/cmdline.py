@@ -24,19 +24,23 @@ def _generate_lines(dists):
         if dist.metadata.name in blacklist:
             continue
 
-        constraints = dists.build_constraints(dist.metadata.name)
-        if constraints is not None and constraints.specifier:
-            constraints = str(constraints.specifier)
-        else:
+        components = dists.get_reverse_deps(dist.metadata.name)
+        if not components:
             constraints = ''
-
-        if not dist.sources or dist.sources == {ROOT_REQ}:
-            transitive = ' '
         else:
-            transitive = ' via ' + ', '.join(dist.sources) + ' '
+            constraints = []
+            for component in components:
+                if component == qer.compile.DistributionCollection.CONSTRAINTS_ENTRY or component == ROOT_REQ:
+                    continue
+                for req in dists.dists[component].metadata.reqs:
+                    if req.name == dist.metadata.name:
+                        specifics = ' (' + str(req.specifier) + ')' if req.specifier else ''
+                        constraints += [component + specifics]
+                        break
+            constraints = ', '.join(constraints)
 
         constraint = '{}=={}'.format(dist.metadata.name, dist.metadata.version).ljust(40)
-        yield '{}# {}{}'.format(constraint, transitive, constraints)
+        yield '{}# {}'.format(constraint, constraints)
 
 
 def run_compile(input_requirements, index_url):
