@@ -1,16 +1,16 @@
 from __future__ import print_function
+
 import argparse
 import logging
 import string
 from contextlib import closing
 
 import pkg_resources
-import requests
 
 import qer.compile
 import qer.metadata
 import qer.pypi
-
+from qer import utils
 
 ROOT_REQ = 'root'
 
@@ -73,8 +73,7 @@ def _build_root_metadata(roots):
     return metadata
 
 
-def run_compile(input_requirements, constraint_files, index_url):
-
+def run_compile(input_reqfiles, constraint_files, index_url):
     root_req = pkg_resources.Requirement.parse(ROOT_REQ)
 
     constraint_roots = []
@@ -92,8 +91,7 @@ def run_compile(input_requirements, constraint_files, index_url):
 
     constraints = list(_generate_constraints(constraint_results))
 
-    input_reqs = open(input_requirements, 'r').readlines()
-    roots = pkg_resources.parse_requirements(input_reqs)
+    roots = utils.reqs_from_files(input_reqfiles)
     results = qer.compile.DistributionCollection(constraints)
     results.add_dist(_build_root_metadata(roots), ROOT_REQ)
 
@@ -110,12 +108,12 @@ def main():
     # logging.getLogger('qer.net').setLevel(logging.INFO)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('input_requirements', type=str)
-    parser.add_argument('--index-url', type=str, default=None)
-    parser.add_argument('--constraint', type=str, default=None)
+    parser.add_argument('requirement_files', nargs='+', help='Input requirements files')
+    parser.add_argument('-i', '--index-url', type=str, default=None)
+    parser.add_argument('-c', '--constraints', nargs='+', help='Contraints files. Not included in final compilation')
 
     args = parser.parse_args()
-    run_compile(args.input_requirements, [args.constraint] if args.constraint else None, args.index_url)
+    run_compile(args.requirement_files, args.constraints if args.constraints else None, args.index_url)
 
 
 if __name__ == '__main__':
