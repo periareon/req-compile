@@ -16,19 +16,22 @@ logger = logging.getLogger('qer.pypi')
 
 
 @functools32.lru_cache()
-def _scan_page_links(index_url, project_name):
+def _scan_page_links(index_url, project_name, session):
     """
 
     Args:
         index_url:
         project_name:
+        session (requests.Session): Session
 
     Returns:
         (list[Candidate])
     """
-    url = '{index_url}/{project_name}/'.format(index_url=index_url, project_name=project_name)
+    url = '{index_url}/{project_name}'.format(index_url=index_url, project_name=project_name)
     logging.getLogger('qer.net.pypi').info('Fetching versions for %s', project_name)
-    contents = requests.get(url)
+    if session is None:
+        session = requests
+    contents = session.get(url)
 
     class LinksHTMLParser(HTMLParser):
         def __init__(self):
@@ -43,25 +46,36 @@ def _scan_page_links(index_url, project_name):
                         self.active_link = attr[1]
                         break
 
-        def handle_data(self, data):
-            if 'whl' in data:
-                data_parts = data.split('-')
+        def handle_data(self, filename):
+            extensions = ('.whl', '.tar.gz', '.tgz', '.zip')
+            if 'whl' in filename:
+                data_parts = filename.split('-')
                 name = data_parts[0]
                 version = pkg_resources.parse_version(data_parts[1])
-                self.dists.insert(0, Candidate(name, data, version, tuple(data_parts[2].split('.')), self.active_link))
-            elif 'tar.gz' in data or 'tgz' in data:
-                data_parts = data.split('-')
+                abi = data_parts[3]
+                platform = data_parts[4].split('.')[0]
+                if platform == 'any' or platform == 'win_amd64':
+                    self.dists.insert(0, Candidate(name,
+                                                   filename,
+                                                   version,
+                                                   tuple(data_parts[2].split('.')),
+                                                   self.active_link))
+            elif 'tar.gz' in filename or 'tgz' in filename or 'zip' in filename:
+                data_parts = filename.split('-')
                 name = data_parts[0]
-                version = pkg_resources.parse_version(data_parts[1])
-                self.dists.insert(0, Candidate(name, data, version, (), self.active_link))
+                version_text = data_parts[-1]
+                for ext in extensions:
+                    version_text = version_text.replace(ext, '')
+                version = pkg_resources.parse_version(version_text)
+                self.dists.insert(0, Candidate(name, filename, version, (), self.active_link))
 
     parser = LinksHTMLParser()
     parser.feed(contents.content)
 
-    return parser.dists
+    return sorted(parser.dists, key=lambda x: x.version, reverse=True)
 
 
-def _do_download(index_url, filename, link):
+def _do_download(index_url, filename, link, session):
     split_link = link.split('#sha256=')
     sha = split_link[1]
 
@@ -81,9 +95,11 @@ def _do_download(index_url, filename, link):
 
     full_link = split_link[0]
     if full_link.startswith('..'):
-        full_link = urlparse.urljoin(index_url + '/nonsense/', full_link)
+        full_link = urlparse.urljoin(index_url + '/nonsense', full_link)
     logging.getLogger('qer.net.pypi').info('Downloading %s -> %s', full_link, filename)
-    response = requests.get(full_link, stream=True)
+    if session is None:
+        session = requests
+    response = session.get(full_link, stream=True)
 
     with open(filename, 'wb') as handle:
         for block in response.iter_content(1024):
@@ -92,8 +108,8 @@ def _do_download(index_url, filename, link):
 
 
 class NoCandidateException(Exception):
-    def __init__(self, *args, **kwargs):
-        super(NoCandidateException, self).__init__(*args, **kwargs)
+    def __init__(self, *args):
+        super(NoCandidateException, self).__init__(*args)
         self.project_name = None
         self.specifier = None
 
@@ -104,22 +120,31 @@ class NoCandidateException(Exception):
         )
 
 
-def download_candidate(project_name, py_ver='py2', specifier=None, allow_prerelease=False, skip_source=True):
-    # candidates = _scan_page_links('https://pypi.org/simple', project_name)
-    index_url = 'https://cheeseshop.corp.spacex.com/spacex/prod/+simple'
-    candidates = _scan_page_links(index_url, project_name)
+def start_session():
+    return requests.Session()
+
+
+def download_candidate(project_name, py_ver='py2', specifier=None, allow_prerelease=False,
+                       index_url=None, skip_source=True, session=None):
+    logger = logging.getLogger('qer.download')
+    logger.info('Downloading %s, with constraints %s', project_name, specifier)
+    if index_url is None:
+        index_url = 'https://pypi.org/simple'
+    candidates = _scan_page_links(index_url, project_name, session)
 
     for candidate in candidates:
         if not ('py2' in candidate.py_version or 'cp27' in candidate.py_version) and skip_source:
             continue
 
-        if not allow_prerelease and candidate.version.is_prerelease:
+        has_equality = any(spec.operator == '==' for spec in specifier)
+
+        if not has_equality and not allow_prerelease and candidate.version.is_prerelease:
             continue
 
         if specifier is not None and not specifier.contains(candidate.version):
             continue
 
-        return _do_download(index_url, candidate.filename, candidate.link)
+        return _do_download(index_url, candidate.filename, candidate.link, session)
 
     if not skip_source:
         ex = NoCandidateException()
@@ -127,8 +152,5 @@ def download_candidate(project_name, py_ver='py2', specifier=None, allow_prerele
         ex.specifier = specifier
         raise ex
 
-    return download_candidate(project_name, py_ver, specifier, allow_prerelease, False)
-
-
-# if __name__ == '__main__':
-#     download_candidate('pylint')
+    return download_candidate(project_name, py_ver=py_ver, specifier=specifier,
+                              allow_prerelease=allow_prerelease, index_url=index_url, skip_source=False, session=session)

@@ -32,8 +32,43 @@ def extract_metadata(dist, extras=()):
     """"""
     if dist.lower().endswith('.whl'):
         return _fetch_from_wheel(dist, extras=extras)
+    if dist.lower().endswith('.zip'):
+        return _fetch_from_zip(dist, extras=extras)
     elif dist.lower().endswith('.tar.gz'):
         return _fetch_from_source(dist, extras=extras)
+
+
+def _fetch_from_zip(zip_file, extras):
+    zfile = zipfile.ZipFile(zip_file, 'r')
+    try:
+        metadata_file = None
+        pkg_info_file = None
+        egg_info = None
+
+        for name in zfile.namelist():
+            if name.lower().endswith('pkg-info'):
+                pkg_info_file = name
+            elif name.lower().endswith('.egg-info'):
+                egg_info = name
+            elif name.lower().endswith('metadata'):
+                metadata_file = name
+
+        if egg_info:
+            filename = os.path.basename(zip_file)
+            name = '-'.join(filename.split('-')[0:-1])
+            version = pkg_resources.parse_version(filename.split('-')[-1].replace('.tar.gz', ''))
+            return _parse_requires_file(zip_file.extractfile(egg_info + '/requires.txt').read(),
+                                        name,
+                                        version,
+                                        extras)
+
+        if pkg_info_file:
+            return _parse_flat_metadata(zfile.read(pkg_info_file), extras)
+
+        if metadata_file:
+            return _parse_flat_metadata(zfile.read(metadata_file), extras)
+    finally:
+        zfile.close()
 
 
 def _fetch_from_source(tar_gz, extras):
@@ -56,7 +91,12 @@ def _fetch_from_source(tar_gz, extras):
             filename = os.path.basename(tar_gz)
             name = '-'.join(filename.split('-')[0:-1])
             version = pkg_resources.parse_version(filename.split('-')[-1].replace('.tar.gz', ''))
-            return _parse_requires_file(tar.extractfile(egg_info + '/requires.txt').read(),
+            requires_contents = ''
+            try:
+                requires_contents = tar.extractfile(egg_info + '/requires.txt').read()
+            except KeyError:
+                pass
+            return _parse_requires_file(requires_contents,
                                         name,
                                         version,
                                         extras)
