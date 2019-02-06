@@ -1,3 +1,4 @@
+"""Logic for compiling requirements"""
 import logging
 
 import pkg_resources
@@ -58,7 +59,8 @@ class DistributionCollection(object):
 
     def build_constraints(self, project_name):
         normalized_name = _normalize_project_name(project_name)
-        req = None if normalized_name == DistributionCollection.CONSTRAINTS_ENTRY else pkg_resources.Requirement.parse(normalized_name)
+        req = None if normalized_name == DistributionCollection.CONSTRAINTS_ENTRY \
+            else pkg_resources.Requirement.parse(normalized_name)
         for dist_name, dist in self.dists.iteritems():
             for subreq in dist.metadata.reqs:
                 if _normalize_project_name(subreq.name) == normalized_name:
@@ -77,7 +79,8 @@ class DistributionCollection(object):
         return reverse_deps
 
 
-def compile_roots(root, source, extras=(), dists=None, round=1, index_url=None, toplevel=None, session=None):
+def compile_roots(root, source, extras=(), dists=None, round=1, index_url=None,
+                  toplevel=None, session=None, wheeldir=None):
     logger = logging.getLogger('qer.compile')
 
     if not qer.metadata.filter_req(root, extras):
@@ -92,7 +95,7 @@ def compile_roots(root, source, extras=(), dists=None, round=1, index_url=None, 
     else:
         try:
             dist = qer.pypi.download_candidate(root.name, specifier=specifier,
-                                               index_url=index_url, session=session)
+                                               index_url=index_url, session=session, wheeldir=wheeldir)
         except qer.pypi.NoCandidateException as ex:
             logger.error('No candidate for %s. Contributions: %s',
                          ex.project_name, dists.get_reverse_deps(ex.project_name))
@@ -106,7 +109,8 @@ def compile_roots(root, source, extras=(), dists=None, round=1, index_url=None, 
             if dist.metadata.name != DistributionCollection.CONSTRAINTS_ENTRY:
                 constraints = dists.build_constraints(dist.metadata.name)
                 if not constraints.specifier.contains(dist.metadata.version):
-                    logger.error('Already selected dist violated (%s %s)', dist.metadata.name, dist.metadata.version)
+                    logger.error('Already selected dist violated (%s %s)',
+                                 dist.metadata.name, dist.metadata.version)
 
                     # Remove all downstream reqs
                     dists.remove_source(dist.metadata.name)
@@ -116,11 +120,12 @@ def compile_roots(root, source, extras=(), dists=None, round=1, index_url=None, 
                         '{}!={}'.format(dist.metadata.name, dist.metadata.version)))
                     return compile_roots(toplevel, 'rerun',
                                          extras=extras, dists=dists, round=round+1,
-                                         toplevel=toplevel, index_url=index_url, session=session)
+                                         toplevel=toplevel, index_url=index_url, session=session,
+                                         wheeldir=wheeldir)
 
     for req in metadata.reqs:
         compile_roots(req, _normalize_project_name(root.name), dists=dists, round=round,
-                      toplevel=toplevel, index_url=index_url, session=session)
+                      toplevel=toplevel, index_url=index_url, session=session, wheeldir=wheeldir)
 
 
 def _merge_requirements(req1, req2):

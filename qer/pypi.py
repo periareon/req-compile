@@ -1,6 +1,8 @@
 import collections
 import logging
 import os
+import shutil
+import tempfile
 import urlparse
 from HTMLParser import HTMLParser
 
@@ -75,7 +77,7 @@ def _scan_page_links(index_url, project_name, session):
     return sorted(parser.dists, key=lambda x: x.version, reverse=True)
 
 
-def _do_download(index_url, filename, link, session):
+def _do_download(index_url, filename, link, session, wheeldir):
     split_link = link.split('#sha256=')
     sha = split_link[1]
 
@@ -101,10 +103,11 @@ def _do_download(index_url, filename, link, session):
         session = requests
     response = session.get(full_link, stream=True)
 
-    with open(filename, 'wb') as handle:
-        for block in response.iter_content(1024):
+    output_file = os.path.join(wheeldir, filename)
+    with open(output_file, 'wb') as handle:
+        for block in response.iter_content(4 * 1024):
             handle.write(block)
-    return filename
+    return output_file
 
 
 class NoCandidateException(Exception):
@@ -125,12 +128,17 @@ def start_session():
 
 
 def download_candidate(project_name, py_ver='py2', specifier=None, allow_prerelease=False,
-                       index_url=None, skip_source=True, session=None):
+                       index_url=None, skip_source=True, session=None, wheeldir=None):
     logger = logging.getLogger('qer.download')
     logger.info('Downloading %s, with constraints %s', project_name, specifier)
     if index_url is None:
         index_url = 'https://pypi.org/simple'
     candidates = _scan_page_links(index_url, project_name, session)
+
+    delete_wheeldir = False
+    if wheeldir is None:
+        wheeldir = tempfile.mkdtemp()
+        delete_wheeldir = True
 
     for candidate in candidates:
         if not ('py2' in candidate.py_version or 'cp27' in candidate.py_version) and skip_source:
@@ -144,7 +152,7 @@ def download_candidate(project_name, py_ver='py2', specifier=None, allow_prerele
         if specifier is not None and not specifier.contains(candidate.version):
             continue
 
-        return _do_download(index_url, candidate.filename, candidate.link, session)
+        return _do_download(index_url, candidate.filename, candidate.link, session, wheeldir)
 
     if not skip_source:
         ex = NoCandidateException()
@@ -153,4 +161,5 @@ def download_candidate(project_name, py_ver='py2', specifier=None, allow_prerele
         raise ex
 
     return download_candidate(project_name, py_ver=py_ver, specifier=specifier,
-                              allow_prerelease=allow_prerelease, index_url=index_url, skip_source=False, session=session)
+                              allow_prerelease=allow_prerelease, index_url=index_url,
+                              skip_source=False, session=session, wheeldir=wheeldir)

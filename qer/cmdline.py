@@ -73,7 +73,7 @@ def _build_root_metadata(roots):
     return metadata
 
 
-def run_compile(input_reqfiles, constraint_files, index_url):
+def run_compile(input_reqfiles, constraint_files, index_url, wheeldir):
     root_req = pkg_resources.Requirement.parse(ROOT_REQ)
 
     constraint_roots = []
@@ -87,7 +87,8 @@ def run_compile(input_reqfiles, constraint_files, index_url):
 
     with closing(qer.pypi.start_session()) as session:
         qer.compile.compile_roots(root_req, ROOT_REQ, dists=constraint_results,
-                                  toplevel=root_req, index_url=index_url, session=session)
+                                  toplevel=root_req, index_url=index_url, session=session,
+                                  wheeldir=wheeldir)
 
     constraints = list(_generate_constraints(constraint_results))
 
@@ -97,7 +98,8 @@ def run_compile(input_reqfiles, constraint_files, index_url):
 
     with closing(qer.pypi.start_session()) as session:
         qer.compile.compile_roots(root_req, ROOT_REQ, dists=results,
-                                  toplevel=root_req, index_url=index_url, session=session)
+                                  toplevel=root_req, index_url=index_url, session=session,
+                                  wheeldir=wheeldir)
 
         lines = sorted(_generate_lines(results, constraint_results), key=string.lower)
         print('\n'.join(lines))
@@ -110,10 +112,13 @@ def compile_main():
     parser = argparse.ArgumentParser()
     parser.add_argument('requirement_files', nargs='+', help='Input requirements files')
     parser.add_argument('-i', '--index-url', type=str, default=None)
-    parser.add_argument('-c', '--constraints', nargs='+', help='Contraints files. Not included in final compilation')
+    parser.add_argument('-c', '--constraints', nargs='+',
+                        help='Contraints files. Not included in final compilation')
+    parser.add_argument('-w', '--wheel-dir', type=str, default=None)
 
     args = parser.parse_args()
-    run_compile(args.requirement_files, args.constraints if args.constraints else None, args.index_url)
+    run_compile(args.requirement_files, args.constraints if args.constraints else None,
+                args.index_url, args.wheel_dir)
 
 
 if __name__ == '__main__':
