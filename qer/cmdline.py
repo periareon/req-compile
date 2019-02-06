@@ -103,7 +103,7 @@ def run_compile(input_reqfiles, constraint_files, index_url):
         print('\n'.join(lines))
 
 
-def main():
+def compile_main():
     logging.basicConfig(level=logging.DEBUG)
     # logging.getLogger('qer.net').setLevel(logging.INFO)
 
@@ -117,4 +117,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    compile_main()

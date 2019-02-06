@@ -23,7 +23,7 @@ def run_hash(requirements_files):
     return hasher.hexdigest()
 
 
-def main():
+def hash_main():
     logging.basicConfig(level=logging.DEBUG)
 
     parser = argparse.ArgumentParser()
@@ -34,4 +34,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    hash_main()
