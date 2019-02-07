@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import argparse
 import logging
+import os
 import string
 from contextlib import closing
 
@@ -76,6 +77,9 @@ def _build_root_metadata(roots):
 def run_compile(input_reqfiles, constraint_files, index_url, wheeldir):
     root_req = pkg_resources.Requirement.parse(ROOT_REQ)
 
+    if not os.path.exists(wheeldir):
+        os.mkdir(wheeldir)
+
     constraint_roots = []
     if constraint_files:
         for constraint_file in constraint_files:
@@ -112,7 +116,7 @@ def compile_main():
     parser = argparse.ArgumentParser()
     parser.add_argument('requirement_files', nargs='+', help='Input requirements files')
     parser.add_argument('-i', '--index-url', type=str, default=None)
-    parser.add_argument('-c', '--constraints', nargs='+',
+    parser.add_argument('-c', '--constraints', action='append',
                         help='Contraints files. Not included in final compilation')
     parser.add_argument('-w', '--wheel-dir', type=str, default=None)
 

@@ -50,7 +50,7 @@ def _scan_page_links(index_url, project_name, session):
 
         def handle_data(self, filename):
             extensions = ('.whl', '.tar.gz', '.tgz', '.zip')
-            if 'whl' in filename:
+            if '.whl' in filename:
                 data_parts = filename.split('-')
                 name = data_parts[0]
                 version = pkg_resources.parse_version(data_parts[1])
@@ -62,7 +62,7 @@ def _scan_page_links(index_url, project_name, session):
                                                    version,
                                                    tuple(data_parts[2].split('.')),
                                                    self.active_link))
-            elif 'tar.gz' in filename or 'tgz' in filename or 'zip' in filename:
+            elif '.tar.gz' in filename or '.tgz' in filename or '.zip' in filename:
                 data_parts = filename.split('-')
                 name = data_parts[0]
                 version_text = data_parts[-1]
@@ -104,7 +104,6 @@ def _do_download(index_url, filename, link, session, wheeldir):
     if session is None:
         session = requests
     response = session.get(full_link, stream=True)
-
 
     with open(output_file, 'wb') as handle:
         for block in response.iter_content(4 * 1024):

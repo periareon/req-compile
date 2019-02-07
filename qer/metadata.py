@@ -116,7 +116,7 @@ def _fetch_from_wheel(wheel, extras):
         metadata_file = None
         infos = zfile.namelist()
         for info in infos:
-            if info.lower().endswith('metadata') or info.lower().endswith('metadata.json'):
+            if info.lower().endswith('metadata'):
                 metadata_file = info
 
         if metadata_file:
