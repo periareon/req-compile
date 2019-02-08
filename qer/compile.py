@@ -46,7 +46,7 @@ class DistributionCollection(object):
             if source in dist.sources:
                 dist.sources.remove(source)
                 if not dist.sources:
-                    dists_to_remove.append(dist.metadata.name)
+                    dists_to_remove.append(_normalize_project_name(dist.metadata.name))
 
         for dist in dists_to_remove:
             del self.dists[dist]
