@@ -1,6 +1,9 @@
 import itertools
+from collections import defaultdict
 
 import pkg_resources
+
+from qer.compile import _merge_requirements
 
 
 def _req_iter_from_file(reqfile_name):
@@ -16,4 +19,9 @@ def reqs_from_files(requirements_files):
     raw_reqs = iter([])
     for reqfile_name in requirements_files:
         raw_reqs = itertools.chain(raw_reqs, _req_iter_from_file(reqfile_name))
-    return raw_reqs
+
+    reqs = defaultdict(lambda: None)
+    for req in raw_reqs:
+        reqs[req.name] = _merge_requirements(reqs[req.name], req)
+
+    return list(reqs.values())

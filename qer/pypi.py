@@ -33,7 +33,7 @@ def _scan_page_links(index_url, project_name, session):
     logging.getLogger('qer.net.pypi').info('Fetching versions for %s', project_name)
     if session is None:
         session = requests
-    contents = session.get(url)
+    contents = session.get(url + '/')
 
     class LinksHTMLParser(HTMLParser):
         def __init__(self):
@@ -81,29 +81,31 @@ def _do_download(index_url, filename, link, session, wheeldir):
     split_link = link.split('#sha256=')
     sha = split_link[1]
 
-    if os.path.exists(filename):
+    output_file = os.path.join(wheeldir, filename)
+
+    if os.path.exists(output_file):
         hasher = sha256()
-        with open(filename, 'rb') as handle:
+        with open(output_file, 'rb') as handle:
             while True:
                 block = handle.read(1024)
                 if not block:
                     break
                 hasher.update(block)
         if hasher.hexdigest() == sha:
-            logger.info('Reusing %s', filename)
-            return filename
+            logger.info('Reusing %s', output_file)
+            return output_file
 
         print "File hash doesn't match"
 
     full_link = split_link[0]
     if full_link.startswith('..'):
         full_link = urlparse.urljoin(index_url + '/nonsense', full_link)
-    logging.getLogger('qer.net.pypi').info('Downloading %s -> %s', full_link, filename)
+    logging.getLogger('qer.net.pypi').info('Downloading %s -> %s', full_link, output_file)
     if session is None:
         session = requests
     response = session.get(full_link, stream=True)
 
-    output_file = os.path.join(wheeldir, filename)
+
     with open(output_file, 'wb') as handle:
         for block in response.iter_content(4 * 1024):
             handle.write(block)

@@ -90,6 +90,8 @@ def compile_roots(root, source, extras=(), dists=None, round=1, index_url=None,
     if root.name in dists:
         normalized_name = _normalize_project_name(root.name)
         logger.info('Reusing dist %s %s', root.name, dists.dists[normalized_name].metadata.version)
+        if not specifier.contains(dists.dists[normalized_name].metadata.version):
+            raise EnvironmentError('Already existing dist did not match constraint: {}'.format(specifier))
         dists.dists[normalized_name].sources.add(source)
         metadata = dists.dists[normalized_name].metadata
     else:
