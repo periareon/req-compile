@@ -97,8 +97,8 @@ def compile_roots(root, source, extras=(), dists=None, round=1, index_url=None,
             dist = qer.pypi.download_candidate(root.name, specifier=specifier,
                                                index_url=index_url, session=session, wheeldir=wheeldir)
         except qer.pypi.NoCandidateException as ex:
-            logger.error('No candidate for %s. Contributions: %s',
-                         ex.project_name, dists.get_reverse_deps(ex.project_name))
+            logger.info('No candidate for %s. Contributions: %s',
+                        ex.project_name, dists.get_reverse_deps(ex.project_name))
             raise
 
         metadata = qer.metadata.extract_metadata(dist, extras=extras)
@@ -109,7 +109,7 @@ def compile_roots(root, source, extras=(), dists=None, round=1, index_url=None,
             if dist.metadata.name != DistributionCollection.CONSTRAINTS_ENTRY:
                 constraints = dists.build_constraints(dist.metadata.name)
                 if not constraints.specifier.contains(dist.metadata.version):
-                    logger.error('Already selected dist violated (%s %s)',
+                    logger.info('Already selected dist violated (%s %s)',
                                  dist.metadata.name, dist.metadata.version)
 
                     # Remove all downstream reqs

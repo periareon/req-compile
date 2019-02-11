@@ -4,6 +4,7 @@ import argparse
 import logging
 import os
 import string
+import sys
 from contextlib import closing
 
 import pkg_resources
@@ -73,6 +74,39 @@ def _generate_constraints(dists):
             yield req
 
 
+def _generate_no_candidate_display(ex, dists, constraint_dists, root_mapping):
+    project_name = utils.normalize_project_name(ex.project_name)
+    components = dists.get_reverse_deps(project_name)
+    if not components:
+        print('No package available for %s, latest is %s', file=sys.stderr)
+    else:
+        print('No version of {} could satisfy the following requirements:'.format(ex.project_name), file=sys.stderr)
+        for component in components:
+            for req in dists.dists[component].metadata.reqs:
+                if utils.normalize_project_name(req.name) == project_name:
+                    if component == qer.compile.DistributionCollection.CONSTRAINTS_ENTRY:
+                        constraints_reason = _get_reason_constraint(constraint_dists, None,
+                                                                    project_name, root_mapping)
+                        if constraints_reason:
+                            print('   ' + constraints_reason, file=sys.stderr)
+                    else:
+                        specifics = str(req.specifier) if req.specifier else ''
+                        if component.startswith(ROOT_REQ):
+                            source = root_mapping.get(component, 'input file')
+                        else:
+                            constraints_reason = _get_reason_constraint(dists, constraint_dists,
+                                                                        component, root_mapping)
+                            if constraints_reason:
+                                constraints_reason = ' (via ' + constraints_reason + ')'
+                            source = '{} {}{}'.format(component, dists.dists[component].metadata.version, constraints_reason)
+
+                        print('   {} requires {}{}'.format(source,
+                                                           ex.project_name, specifics),
+                              file=sys.stderr)
+                        break
+    sys.exit(1)
+
+
 def _build_root_metadata(roots, name):
     metadata = qer.metadata.DistInfo()
     metadata.name = name
@@ -104,36 +138,38 @@ def run_compile(input_reqfiles, constraint_files, index_url, wheeldir, no_combin
         constraints = list(_generate_constraints(constraint_results))
 
     results = qer.compile.DistributionCollection(constraints)
-
     root_mapping = {}
-    if no_combine:
-        fake_reqs = []
-        idx = 1
-        for input_reqfile in input_reqfiles:
-            roots = utils.reqs_from_files([input_reqfile])
-            name = '{}{}'.format(ROOT_REQ, idx)
-            root_mapping[name] = input_reqfile
-            dist_info = _build_root_metadata(roots, name)
-            fake_reqs.append(pkg_resources.Requirement(name))
-            results.add_dist(dist_info,
-                             input_reqfile)
-            idx += 1
-        results.add_dist(_build_root_metadata(fake_reqs, ROOT_REQ), ROOT_REQ)
-    else:
-        roots = utils.reqs_from_files(input_reqfiles)
-        results.add_dist(_build_root_metadata(roots, ROOT_REQ), ROOT_REQ)
+    try:
+        if no_combine:
+            fake_reqs = []
+            idx = 1
+            for input_reqfile in input_reqfiles:
+                roots = utils.reqs_from_files([input_reqfile])
+                name = '{}{}'.format(ROOT_REQ, idx)
+                root_mapping[name] = input_reqfile
+                dist_info = _build_root_metadata(roots, name)
+                fake_reqs.append(pkg_resources.Requirement(name))
+                results.add_dist(dist_info,
+                                 input_reqfile)
+                idx += 1
+            results.add_dist(_build_root_metadata(fake_reqs, ROOT_REQ), ROOT_REQ)
+        else:
+            roots = utils.reqs_from_files(input_reqfiles)
+            results.add_dist(_build_root_metadata(roots, ROOT_REQ), ROOT_REQ)
 
-    with closing(qer.pypi.start_session()) as session:
-        qer.compile.compile_roots(root_req, ROOT_REQ, dists=results,
-                                  toplevel=root_req, index_url=index_url, session=session,
-                                  wheeldir=wheeldir)
+        with closing(qer.pypi.start_session()) as session:
+            qer.compile.compile_roots(root_req, ROOT_REQ, dists=results,
+                                      toplevel=root_req, index_url=index_url, session=session,
+                                      wheeldir=wheeldir)
 
-        lines = sorted(_generate_lines(results, constraint_results, root_mapping), key=string.lower)
-        print('\n'.join(lines))
+            lines = sorted(_generate_lines(results, constraint_results, root_mapping), key=string.lower)
+            print('\n'.join(lines))
+    except qer.pypi.NoCandidateException as ex:
+        _generate_no_candidate_display(ex, results, constraint_results, root_mapping)
 
 
 def compile_main():
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.ERROR)
 
     parser = argparse.ArgumentParser()
     parser.add_argument('requirement_files', nargs='+', help='Input requirements files')
