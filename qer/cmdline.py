@@ -74,27 +74,27 @@ def _build_root_metadata(roots):
     return metadata
 
 
-def run_compile(input_reqfiles, constraint_files, index_url, wheeldir):
-    root_req = pkg_resources.Requirement.parse(ROOT_REQ)
+def run_compile(input_reqfiles, constraint_files, index_url, wheeldir, no_combine):
+    root_req = utils.parse_requirement(ROOT_REQ)
 
     if not os.path.exists(wheeldir):
         os.mkdir(wheeldir)
 
-    constraint_roots = []
-    if constraint_files:
-        for constraint_file in constraint_files:
-            with open(constraint_file, 'r') as handle:
-                constraint_roots += pkg_resources.parse_requirements(handle.readlines())
-
+    constraints = None
     constraint_results = qer.compile.DistributionCollection()
-    constraint_results.add_dist(_build_root_metadata(constraint_roots), ROOT_REQ)
 
-    with closing(qer.pypi.start_session()) as session:
-        qer.compile.compile_roots(root_req, ROOT_REQ, dists=constraint_results,
-                                  toplevel=root_req, index_url=index_url, session=session,
-                                  wheeldir=wheeldir)
+    if constraint_files:
+        constraint_roots = utils.reqs_from_files(constraint_files)
 
-    constraints = list(_generate_constraints(constraint_results))
+        constraint_results = qer.compile.DistributionCollection()
+        constraint_results.add_dist(_build_root_metadata(constraint_roots), ROOT_REQ)
+
+        with closing(qer.pypi.start_session()) as session:
+            qer.compile.compile_roots(root_req, ROOT_REQ, dists=constraint_results,
+                                      toplevel=root_req, index_url=index_url, session=session,
+                                      wheeldir=wheeldir)
+
+        constraints = list(_generate_constraints(constraint_results))
 
     roots = utils.reqs_from_files(input_reqfiles)
     results = qer.compile.DistributionCollection(constraints)
@@ -119,10 +119,11 @@ def compile_main():
     parser.add_argument('-c', '--constraints', action='append',
                         help='Contraints files. Not included in final compilation')
     parser.add_argument('-w', '--wheel-dir', type=str, default=None)
+    parser.add_argument('-n', '--no-combine', type=bool, default=True)
 
     args = parser.parse_args()
     run_compile(args.requirement_files, args.constraints if args.constraints else None,
-                args.index_url, args.wheel_dir)
+                args.index_url, args.wheel_dir, args.no_combine)
 
 
 if __name__ == '__main__':

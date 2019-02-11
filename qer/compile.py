@@ -5,16 +5,14 @@ import pkg_resources
 
 import qer.metadata
 import qer.pypi
+from qer import utils
+from qer.utils import merge_requirements, _normalize_project_name
 
 
 class MetadataSources(object):
     def __init__(self, metadata, source):
         self.metadata = metadata
         self.sources = {source}
-
-
-def _normalize_project_name(project_name):
-    return project_name.lower().replace('-', '_').replace('.', '_')
 
 
 class DistributionCollection(object):
@@ -60,11 +58,11 @@ class DistributionCollection(object):
     def build_constraints(self, project_name):
         normalized_name = _normalize_project_name(project_name)
         req = None if normalized_name == DistributionCollection.CONSTRAINTS_ENTRY \
-            else pkg_resources.Requirement.parse(normalized_name)
+            else utils.parse_requirement(normalized_name)
         for dist_name, dist in self.dists.iteritems():
             for subreq in dist.metadata.reqs:
                 if _normalize_project_name(subreq.name) == normalized_name:
-                    req = _merge_requirements(req, subreq)
+                    req = merge_requirements(req, subreq)
                     break
         return req
 
@@ -118,7 +116,7 @@ def compile_roots(root, source, extras=(), dists=None, round=1, index_url=None,
                     dists.remove_source(dist.metadata.name)
                     dists.remove_dist(dist.metadata.name)
 
-                    dists.add_global_constraint(pkg_resources.Requirement.parse(
+                    dists.add_global_constraint(utils.parse_requirement(
                         '{}!={}'.format(dist.metadata.name, dist.metadata.version)))
                     return compile_roots(toplevel, 'rerun',
                                          extras=extras, dists=dists, round=round+1,
@@ -128,29 +126,3 @@ def compile_roots(root, source, extras=(), dists=None, round=1, index_url=None,
     for req in metadata.reqs:
         compile_roots(req, _normalize_project_name(root.name), dists=dists, round=round,
                       toplevel=toplevel, index_url=index_url, session=session, wheeldir=wheeldir)
-
-
-def _merge_requirements(req1, req2):
-    if req1 is not None and req2 is None:
-        return req1
-    if req2 is not None and req1 is None:
-        return req2
-
-    assert _normalize_project_name(req1.name) == _normalize_project_name(req2.name)
-    all_specs = set(req1.specs or []) | set(req2.specs or [])
-    if req1.marker and req2.marker and str(req1.marker) != str(req2.marker):
-        if str(req1.marker) in str(req2.marker):
-            new_marker = ';' + str(req2.marker)
-        elif str(req2.marker) in str(req1.marker):
-            new_marker = ';' + str(req1.marker)
-        else:
-            new_marker = ';' + str(req1.marker) + ' and ' + str(req2.marker)
-    elif req1.marker:
-        new_marker = ';' + str(req1.marker)
-    elif req2.marker:
-        new_marker = ';' + str(req2.marker)
-    else:
-        new_marker = ''
-
-    req_str = _normalize_project_name(req1.name) + ','.join(''.join(parts) for parts in all_specs) + new_marker
-    return pkg_resources.Requirement.parse(req_str)

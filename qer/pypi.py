@@ -33,11 +33,12 @@ def _scan_page_links(index_url, project_name, session):
     logging.getLogger('qer.net.pypi').info('Fetching versions for %s', project_name)
     if session is None:
         session = requests
-    contents = session.get(url + '/')
+    response = session.get(url + '/')
 
     class LinksHTMLParser(HTMLParser):
-        def __init__(self):
+        def __init__(self, url):
             HTMLParser.__init__(self)
+            self.url = url
             self.dists = []
             self.active_link = None
 
@@ -45,7 +46,7 @@ def _scan_page_links(index_url, project_name, session):
             if tag == 'a':
                 for attr in attrs:
                     if attr[0] == 'href':
-                        self.active_link = attr[1]
+                        self.active_link = urlparse.urljoin(self.url, attr[1])
                         break
 
         def handle_data(self, filename):
@@ -71,8 +72,8 @@ def _scan_page_links(index_url, project_name, session):
                 version = pkg_resources.parse_version(version_text)
                 self.dists.insert(0, Candidate(name, filename, version, (), self.active_link))
 
-    parser = LinksHTMLParser()
-    parser.feed(contents.content)
+    parser = LinksHTMLParser(response.url)
+    parser.feed(response.content)
 
     return sorted(parser.dists, key=lambda x: x.version, reverse=True)
 
@@ -98,8 +99,6 @@ def _do_download(index_url, filename, link, session, wheeldir):
         print "File hash doesn't match"
 
     full_link = split_link[0]
-    if full_link.startswith('..'):
-        full_link = urlparse.urljoin(index_url + '/nonsense', full_link)
     logging.getLogger('qer.net.pypi').info('Downloading %s -> %s', full_link, output_file)
     if session is None:
         session = requests

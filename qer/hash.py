@@ -4,7 +4,7 @@ from collections import defaultdict
 
 from hashlib import sha256
 
-from qer.compile import _merge_requirements
+from qer.utils import merge_requirements
 import qer.utils
 
 
@@ -15,7 +15,7 @@ def run_hash(requirements_files):
     """
     reqs = defaultdict(lambda: None)
     for req in qer.utils.reqs_from_files(requirements_files):
-        reqs[req.name] = _merge_requirements(reqs[req.name], req)
+        reqs[req.name] = merge_requirements(reqs[req.name], req)
 
     hasher = sha256()
     for req in reqs.values():

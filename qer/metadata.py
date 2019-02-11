@@ -5,7 +5,7 @@ import functools
 
 import pkg_resources
 
-from qer import pypi
+from qer import pypi, utils
 
 
 class DistInfo(object):
@@ -136,7 +136,7 @@ def _parse_flat_metadata(contents, extras):
         if line.lower().startswith('requires-dist:'):
             raw_reqs.append(line.split(':')[1].strip())
 
-    result.reqs = [req for req in pkg_resources.parse_requirements(raw_reqs)
+    result.reqs = [req for req in utils.parse_requirements(raw_reqs)
                    if filter_req(req, extras)]
     return result
 
@@ -147,10 +147,10 @@ def _parse_requires_file(contents, name, version, extras):
     sections  = list(pkg_resources.split_sections(contents))
     for section in sections:
         if section[0] is None:
-            reqs.extend(pkg_resources.parse_requirements(section[1]))
+            reqs.extend(utils.parse_requirements(section[1]))
         elif section[0].startswith(':python_version'):
             for req in section[1]:
-                reqs.append(pkg_resources.Requirement.parse(req + ' ' + section[0].replace(':', ';')))
+                reqs.append(utils.parse_requirement(req + ' ' + section[0].replace(':', ';')))
     result.reqs = reqs
     result.name = name
     result.version = version
