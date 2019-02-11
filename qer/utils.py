@@ -63,7 +63,7 @@ def merge_requirements(req1, req2):
     if req2 is not None and req1 is None:
         return req2
 
-    assert _normalize_project_name(req1.name) == _normalize_project_name(req2.name)
+    assert normalize_project_name(req1.name) == normalize_project_name(req2.name)
     all_specs = set(req1.specs or []) | set(req2.specs or [])
     if req1.marker and req2.marker and str(req1.marker) != str(req2.marker):
         if str(req1.marker) in str(req2.marker):
@@ -79,10 +79,10 @@ def merge_requirements(req1, req2):
     else:
         new_marker = ''
 
-    req_str = _normalize_project_name(req1.name) + ','.join(''.join(parts) for parts in all_specs) + new_marker
+    req_str = normalize_project_name(req1.name) + ','.join(''.join(parts) for parts in all_specs) + new_marker
     return parse_requirement(req_str)
 
 
 @functools32.lru_cache(maxsize=500)
-def _normalize_project_name(project_name):
+def normalize_project_name(project_name):
     return project_name.lower().replace('-', '_').replace('.', '_')

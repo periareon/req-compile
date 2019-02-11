@@ -6,7 +6,7 @@ import pkg_resources
 import qer.metadata
 import qer.pypi
 from qer import utils
-from qer.utils import merge_requirements, _normalize_project_name
+from qer.utils import merge_requirements, normalize_project_name
 
 
 class MetadataSources(object):
@@ -31,12 +31,12 @@ class DistributionCollection(object):
 
     def add_dist(self, metadata, source):
         if metadata.name in self.dists:
-            self.dists[_normalize_project_name(metadata.name)].sources.add(source)
+            self.dists[normalize_project_name(metadata.name)].sources.add(source)
         else:
-            self.dists[_normalize_project_name(metadata.name)] = MetadataSources(metadata, source)
+            self.dists[normalize_project_name(metadata.name)] = MetadataSources(metadata, source)
 
     def remove_dist(self, name):
-        del self.dists[_normalize_project_name(name)]
+        del self.dists[normalize_project_name(name)]
 
     def remove_source(self, source):
         dists_to_remove = []
@@ -44,34 +44,34 @@ class DistributionCollection(object):
             if source in dist.sources:
                 dist.sources.remove(source)
                 if not dist.sources:
-                    dists_to_remove.append(_normalize_project_name(dist.metadata.name))
+                    dists_to_remove.append(normalize_project_name(dist.metadata.name))
 
         for dist in dists_to_remove:
             del self.dists[dist]
 
     def __contains__(self, item):
-        return _normalize_project_name(item) in self.dists
+        return normalize_project_name(item) in self.dists
 
     def add_global_constraint(self, constraint):
         self.constraints_dist.reqs.append(constraint)
 
     def build_constraints(self, project_name):
-        normalized_name = _normalize_project_name(project_name)
+        normalized_name = normalize_project_name(project_name)
         req = None if normalized_name == DistributionCollection.CONSTRAINTS_ENTRY \
             else utils.parse_requirement(normalized_name)
         for dist_name, dist in self.dists.iteritems():
             for subreq in dist.metadata.reqs:
-                if _normalize_project_name(subreq.name) == normalized_name:
+                if normalize_project_name(subreq.name) == normalized_name:
                     req = merge_requirements(req, subreq)
                     break
         return req
 
     def get_reverse_deps(self, project_name):
         reverse_deps = {}
-        normalized_name = _normalize_project_name(project_name)
+        normalized_name = normalize_project_name(project_name)
         for dist_name, dist in self.dists.iteritems():
             for subreq in dist.metadata.reqs:
-                if _normalize_project_name(subreq.name) == normalized_name:
+                if normalize_project_name(subreq.name) == normalized_name:
                     reverse_deps[dist_name] = subreq
                     break
         return reverse_deps
@@ -86,7 +86,7 @@ def compile_roots(root, source, extras=(), dists=None, round=1, index_url=None,
 
     specifier = dists.build_constraints(root.name).specifier
     if root.name in dists:
-        normalized_name = _normalize_project_name(root.name)
+        normalized_name = normalize_project_name(root.name)
         logger.info('Reusing dist %s %s', root.name, dists.dists[normalized_name].metadata.version)
         if not specifier.contains(dists.dists[normalized_name].metadata.version):
             raise EnvironmentError('Already existing dist did not match constraint: {}'.format(specifier))
@@ -124,5 +124,5 @@ def compile_roots(root, source, extras=(), dists=None, round=1, index_url=None,
                                          wheeldir=wheeldir)
 
     for req in metadata.reqs:
-        compile_roots(req, _normalize_project_name(root.name), dists=dists, round=round,
+        compile_roots(req, normalize_project_name(root.name), dists=dists, round=round,
                       toplevel=toplevel, index_url=index_url, session=session, wheeldir=wheeldir)
