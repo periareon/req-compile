@@ -3,8 +3,10 @@ from __future__ import print_function
 import argparse
 import logging
 import os
+import shutil
 import string
 import sys
+import tempfile
 from contextlib import closing
 
 import pkg_resources
@@ -118,8 +120,13 @@ def _build_root_metadata(roots, name):
 def run_compile(input_reqfiles, constraint_files, index_url, wheeldir, no_combine):
     root_req = utils.parse_requirement(ROOT_REQ)
 
-    if not os.path.exists(wheeldir):
-        os.mkdir(wheeldir)
+    if wheeldir:
+        if not os.path.exists(wheeldir):
+            os.mkdir(wheeldir)
+        delete_wheeldir = False
+    else:
+        wheeldir = tempfile.mkdtemp()
+        delete_wheeldir = True
 
     constraints = None
     constraint_results = qer.compile.DistributionCollection()
@@ -167,6 +174,8 @@ def run_compile(input_reqfiles, constraint_files, index_url, wheeldir, no_combin
     except qer.pypi.NoCandidateException as ex:
         _generate_no_candidate_display(ex, results, constraint_results, root_mapping)
 
+    if delete_wheeldir:
+        shutil.rmtree(wheeldir)
 
 def compile_main():
     logging.basicConfig(level=logging.ERROR)
