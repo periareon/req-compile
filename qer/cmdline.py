@@ -34,7 +34,8 @@ def _get_reason_constraint(dists, constraint_dists, project_name, root_mapping):
         for component in components:
             if component == ROOT_REQ:
                 continue
-            for req in dists.dists[component].metadata.reqs:
+            metadata = dists.dists[component].metadata
+            for req in metadata.reqs:
                 if utils.normalize_project_name(req.name) == project_name:
                     if component == qer.compile.DistributionCollection.CONSTRAINTS_ENTRY:
                         constraints_reason = _get_reason_constraint(constraint_dists, None,
@@ -44,8 +45,17 @@ def _get_reason_constraint(dists, constraint_dists, project_name, root_mapping):
                     else:
                         specifics = ' (' + str(req.specifier) + ')' if req.specifier else ''
                         if component.startswith(ROOT_REQ):
-                            component = root_mapping[component]
-                        constraints += [component + specifics]
+                            source = root_mapping[component]
+                        else:
+                            all_matched = True
+                            for extra in metadata.extras:
+                                result = utils.filter_req(req, (extra,))
+                                all_matched &= result
+                                if result:
+                                    source = metadata.name + '[' + extra + ']'
+                            if not metadata.extras or (all_matched and len(metadata.extras) > 1):
+                                source = metadata.name
+                        constraints += [source + specifics]
                         break
         constraints = ', '.join(constraints)
     return constraints
@@ -59,9 +69,7 @@ def _generate_lines(dists, constraint_dists, root_mapping):
             continue
 
         constraints = _get_reason_constraint(dists, constraint_dists, dist.metadata.name, root_mapping)
-
-        constraint = '{}=={}'.format(dist.metadata.name, dist.metadata.version).ljust(43)
-        yield '{}# {}'.format(constraint, constraints)
+        yield '{}# {}'.format(str(dist.metadata).ljust(43), constraints)
 
 
 def _generate_constraints(dists):

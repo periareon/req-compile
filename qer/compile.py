@@ -6,6 +6,7 @@ import pkg_resources
 
 import qer.metadata
 import qer.pypi
+import qer.utils
 from qer import utils
 from qer.utils import merge_requirements, normalize_project_name
 
@@ -85,12 +86,13 @@ def compile_roots(root, source, extras=(), dists=None, round=1, index_url=None,
                   toplevel=None, session=None, wheeldir=None):
     logger = logging.getLogger('qer.compile')
 
-    if not qer.metadata.filter_req(root, extras):
+    if not qer.utils.filter_req(root, extras):
         return
 
     print(' ' * round + str(root), end='')
 
     recurse_reqs = False
+    extras = None
     if root.name in dists:
         normalized_name = normalize_project_name(root.name)
         logger.info('Reusing dist %s %s', root.name, dists.dists[normalized_name].metadata.version)
@@ -115,7 +117,7 @@ def compile_roots(root, source, extras=(), dists=None, round=1, index_url=None,
         else:
             print(' ... DOWNLOAD')
 
-        metadata = qer.metadata.extract_metadata(dist, extras=extras)
+        metadata = qer.metadata.extract_metadata(dist, extras=root.extras)
         dists.add_dist(metadata, source)
         recurse_reqs = True
 
@@ -134,11 +136,12 @@ def compile_roots(root, source, extras=(), dists=None, round=1, index_url=None,
                     dists.add_global_constraint(utils.parse_requirement(
                         '{}!={}'.format(dist.metadata.name, dist.metadata.version)))
                     return compile_roots(toplevel, 'rerun',
-                                         extras=extras, dists=dists, round=1,
+                                         extras=None, dists=dists, round=1,
                                          toplevel=toplevel, index_url=index_url, session=session,
                                          wheeldir=wheeldir)
 
     if recurse_reqs:
         for req in metadata.reqs:
             compile_roots(req, normalize_project_name(root.name), dists=dists, round=round + 1,
+                          extras=root.extras,
                           toplevel=toplevel, index_url=index_url, session=session, wheeldir=wheeldir)

@@ -79,7 +79,11 @@ def merge_requirements(req1, req2):
     else:
         new_marker = ''
 
-    req_str = normalize_project_name(req1.name) + ','.join(''.join(parts) for parts in all_specs) + new_marker
+    extras = tuple(sorted(list(set(req1.extras) | set(req2.extras))))
+    extras_str = ''
+    if extras:
+        extras_str = '[' + ','.join(extras) + ']'
+    req_str = normalize_project_name(req1.name) + extras_str + ','.join(''.join(parts) for parts in all_specs) + new_marker
     return parse_requirement(req_str)
 
 
@@ -93,3 +97,13 @@ def normalize_project_name(project_name):
         value = project_name.lower().replace('-', '_').replace('.', '_')
         name_cache[project_name] = value
         return value
+
+
+def filter_req(req, extras):
+    keep_req = True
+    if req.marker:
+        if extras:
+            keep_req = any(req.marker.evaluate({'extra': extra}) for extra in extras)
+        else:
+            keep_req = req.marker.evaluate({'extra': None})
+    return keep_req

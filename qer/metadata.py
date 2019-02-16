@@ -1,11 +1,11 @@
 import os
 import tarfile
 import zipfile
-import functools
 
 import pkg_resources
 
-from qer import pypi, utils
+from qer import utils
+from qer.utils import filter_req
 
 
 class DistInfo(object):
@@ -14,19 +14,17 @@ class DistInfo(object):
         self.name = None
         self.version = None
         self.meta = False
+        self.extras = ()
+
+    def __str__(self):
+        extras = ''
+        if self.extras:
+            extras = '[' + ','.join(self.extras) + ']'
+        return '{}{}=={}'.format(self.name, extras,
+                                 self.version)
 
     def __repr__(self):
         return self.name + ' ' + self.version + '\n' + '\n'.join([str(req) for req in self.reqs])
-
-
-def filter_req(req, extras):
-    keep_req = True
-    if req.marker:
-        if extras:
-            keep_req = any(req.marker.evaluate({'extra': extra}) for extra in extras)
-        else:
-            keep_req = req.marker.evaluate({'extra': None})
-    return keep_req
 
 
 def extract_metadata(dist, extras=()):
@@ -139,6 +137,7 @@ def _parse_flat_metadata(contents, extras):
 
     result.reqs = [req for req in utils.parse_requirements(raw_reqs)
                    if filter_req(req, extras)]
+    result.extras = extras
     return result
 
 
