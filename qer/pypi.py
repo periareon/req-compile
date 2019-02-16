@@ -94,7 +94,7 @@ def _do_download(index_url, filename, link, session, wheeldir):
                 hasher.update(block)
         if hasher.hexdigest() == sha:
             logger.info('Reusing %s', output_file)
-            return output_file
+            return output_file, True
 
         print "File hash doesn't match"
 
@@ -107,7 +107,7 @@ def _do_download(index_url, filename, link, session, wheeldir):
     with open(output_file, 'wb') as handle:
         for block in response.iter_content(4 * 1024):
             handle.write(block)
-    return output_file
+    return output_file, False
 
 
 class NoCandidateException(Exception):

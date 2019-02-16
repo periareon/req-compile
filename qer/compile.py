@@ -1,4 +1,5 @@
 """Logic for compiling requirements"""
+from __future__ import print_function
 import logging
 
 import pkg_resources
@@ -52,6 +53,9 @@ class DistributionCollection(object):
     def __contains__(self, item):
         return normalize_project_name(item) in self.dists
 
+    def __iter__(self):
+        return iter(self.dists)
+
     def add_global_constraint(self, constraint):
         self.constraints_dist.reqs.append(constraint)
 
@@ -84,25 +88,36 @@ def compile_roots(root, source, extras=(), dists=None, round=1, index_url=None,
     if not qer.metadata.filter_req(root, extras):
         return
 
-    specifier = dists.build_constraints(root.name).specifier
+    print(' ' * round + str(root), end='')
+
+    recurse_reqs = False
     if root.name in dists:
         normalized_name = normalize_project_name(root.name)
         logger.info('Reusing dist %s %s', root.name, dists.dists[normalized_name].metadata.version)
-        if not specifier.contains(dists.dists[normalized_name].metadata.version):
-            raise EnvironmentError('Already existing dist did not match constraint: {}'.format(specifier))
         dists.dists[normalized_name].sources.add(source)
         metadata = dists.dists[normalized_name].metadata
+        print(' ... REUSE')
+        if metadata.meta:
+            recurse_reqs = True
     else:
+        specifier = dists.build_constraints(root.name).specifier
         try:
-            dist = qer.pypi.download_candidate(root.name, specifier=specifier,
-                                               index_url=index_url, session=session, wheeldir=wheeldir)
+            dist, cached = qer.pypi.download_candidate(root.name, specifier=specifier,
+                                                       index_url=index_url, session=session,
+                                                       wheeldir=wheeldir)
         except qer.pypi.NoCandidateException as ex:
             logger.info('No candidate for %s. Contributions: %s',
                         ex.project_name, dists.get_reverse_deps(ex.project_name))
             raise
 
+        if cached:
+            print(' ... CACHED')
+        else:
+            print(' ... DOWNLOAD')
+
         metadata = qer.metadata.extract_metadata(dist, extras=extras)
         dists.add_dist(metadata, source)
+        recurse_reqs = True
 
         # See how the new constraints do with the already collected reqs
         for dist in dists.dists.values():
@@ -119,10 +134,11 @@ def compile_roots(root, source, extras=(), dists=None, round=1, index_url=None,
                     dists.add_global_constraint(utils.parse_requirement(
                         '{}!={}'.format(dist.metadata.name, dist.metadata.version)))
                     return compile_roots(toplevel, 'rerun',
-                                         extras=extras, dists=dists, round=round+1,
+                                         extras=extras, dists=dists, round=1,
                                          toplevel=toplevel, index_url=index_url, session=session,
                                          wheeldir=wheeldir)
 
-    for req in metadata.reqs:
-        compile_roots(req, normalize_project_name(root.name), dists=dists, round=round,
-                      toplevel=toplevel, index_url=index_url, session=session, wheeldir=wheeldir)
+    if recurse_reqs:
+        for req in metadata.reqs:
+            compile_roots(req, normalize_project_name(root.name), dists=dists, round=round + 1,
+                          toplevel=toplevel, index_url=index_url, session=session, wheeldir=wheeldir)

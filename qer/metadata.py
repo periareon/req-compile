@@ -13,6 +13,7 @@ class DistInfo(object):
         self.reqs = []
         self.name = None
         self.version = None
+        self.meta = False
 
     def __repr__(self):
         return self.name + ' ' + self.version + '\n' + '\n'.join([str(req) for req in self.reqs])

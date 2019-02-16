@@ -83,6 +83,13 @@ def merge_requirements(req1, req2):
     return parse_requirement(req_str)
 
 
-@functools32.lru_cache(maxsize=500)
+name_cache = {}
+
+
 def normalize_project_name(project_name):
-    return project_name.lower().replace('-', '_').replace('.', '_')
+    if project_name in name_cache:
+        return name_cache[project_name]
+    else:
+        value = project_name.lower().replace('-', '_').replace('.', '_')
+        name_cache[project_name] = value
+        return value

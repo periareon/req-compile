@@ -114,6 +114,7 @@ def _build_root_metadata(roots, name):
     metadata.name = name
     metadata.version = '0'
     metadata.reqs = list(roots)
+    metadata.meta = True
     return metadata
 
 
