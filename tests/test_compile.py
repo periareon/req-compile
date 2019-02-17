@@ -16,22 +16,6 @@ def test_mock_pypi(mock_metadata, mock_pypi):
     assert qer.pypi.download_candidate('test') == (os.path.join('normal', 'test.METADATA'), False)
 
 
-def test_mock_pypi_register_result(mock_metadata, mock_pypi):
-    mock_pypi('multi',
-              pkg_resources.parse_requirements(
-                  [
-                      'x==1.0.0',
-                      'x==0.9.0',
-                      'unrelated==1.0'
-                  ]))
-
-    assert qer.pypi.download_candidate('x') == (os.path.join('multi', 'x-1.0.0.METADATA'), False)
-    assert qer.pypi.download_candidate('x') == (os.path.join('multi', 'x-1.0.0.METADATA'), False)
-
-    assert qer.pypi.download_candidate('x', pkg_resources.Requirement.parse('x<1.0.0').specifier) == \
-           (os.path.join('multi', 'x-0.9.0.METADATA'), False)
-
-
 def _real_outputs(results):
     outputs = []
     for dist in results:

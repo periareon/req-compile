@@ -19,7 +19,8 @@ def metadata_provider():
 
 def _to_path(scenario, req):
     if req.specs:
-        specific_path = os.path.join(scenario, req.name + '-' + req.specs[0][1] + '.METADATA')
+        specific_path = os.path.join(os.path.dirname(__file__), scenario,
+                                     req.name + '-' + req.specs[0][1] + '.METADATA')
         if os.path.exists(specific_path):
             return specific_path
     return os.path.join(scenario, req.name + '.METADATA')
