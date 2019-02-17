@@ -5,7 +5,7 @@ import logging
 
 try:
     from functools32 import lru_cache
-except ModuleNotFoundError:
+except ImportError:
     from functools import lru_cache
 
 import pkg_resources

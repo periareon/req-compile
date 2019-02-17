@@ -11,7 +11,7 @@ import requests
 from hashlib import sha256
 try:
     from functools32 import lru_cache
-except ModuleNotFoundError:
+except ImportError:
     from functools import lru_cache
 
 Candidate = collections.namedtuple('Candidate', 'name filename version py_version link')

@@ -1,5 +1,4 @@
 os:
-  - windows
   - linux
 language: python
 python:
@@ -12,6 +11,7 @@ deploy:
   distributions: sdist bdist_wheel
   password:
     secure: wCScunokVychOFNH3D2+7h0YI4pgBnJd1c/xMSWqvwW+Dv2xGdZfRSNJc/kzqjHGxRNBQREbObxwCgXfxDdQQ8hNrCCUBh5lT5RIjY/shW3PPVI0I72oD3oj2KRbu2bbZH1/x/bBnyZvuAJS7HBq4oqb8Ly3ubX1sNe6fM5vohrhdIeTBafFTd7rY9w48Boc4RY5QW8sqPaRKGS3CGO9V/IeuBhJVj7ljRkvNp6WBe+/aQYQmJxAT/0wcTBdA6OrmjgN9mZPAZpYoiX0Blvr6XjAQY1HVxnITHduuHkOp14UoosEHyrjmWhzXwsqY7Kf+FmIkCyxSlZeO9XMxnQ9hw0Z4i5J+/2xGHCsaf6+0t87HKoKvjKHw5PanDcz6byrM473SP+8fTxpnM3+acYeaDYh8R+i0lw+Aj+m8uzF5kfrL7WtG1l2DdMD9qVie4rCuylRgNm5j9dUJ9Dy4Qa9n2dGskOheTS3Ey3ppvAM61QybvQiR7klGxzlCTtRf5qXEuc+51s1M9Hfv7XX+i2ks3QtbzpBy7jier7P33vQObtI0Hk+mN75KkkYJTnvx2/pk8qBFzNAgekd97tuw4OmPUn7OzeoTpxxlLEoQESq5jgC4Bn5G5G6f6i2ZKpuUgrIBE4gojV7bW/t2dbOHt6LC2nwV8stp/aOyrg0FFsuNKk=
+  skip_existing: true
 
 install:
 - pip install -r requirements.txt -r test-requirements.txt
