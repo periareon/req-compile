@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='qer',
-    version='0.2.0',
+    version='0.2.1',
     author='Spencer Putt',
     author_email='sputt@alumni.iu.edu',
     description='Python requirements compiler',
@@ -18,7 +18,9 @@ setup(
         ],
     },
     classifiers=[
-        'Programming Language :: Python :: 2',
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3.5',
         'Operating System :: OS Independent',
         'Environment :: Console',
         'Topic :: Software Development',

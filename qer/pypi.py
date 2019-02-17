@@ -118,6 +118,9 @@ class NoCandidateException(Exception):
         super(NoCandidateException, self).__init__(*args)
         self.project_name = None
         self.specifier = None
+        self.results = None
+        self.constraint_results = None
+        self.mapping = None
 
     def __str__(self):
         return 'NoCandidateException - no candidate for "{}" satisfies {}'.format(

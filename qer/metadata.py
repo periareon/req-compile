@@ -43,10 +43,10 @@ def _fetch_from_zip(zip_file, extras):
                                         extras)
 
         if pkg_info_file:
-            return _parse_flat_metadata(zfile.read(pkg_info_file), extras)
+            return _parse_flat_metadata(zfile.read(pkg_info_file).decode('utf-8'), extras)
 
         if metadata_file:
-            return _parse_flat_metadata(zfile.read(metadata_file), extras)
+            return _parse_flat_metadata(zfile.read(metadata_file).decode('utf-8'), extras)
     finally:
         zfile.close()
 
@@ -73,7 +73,7 @@ def _fetch_from_source(tar_gz, extras):
             version = pkg_resources.parse_version(filename.split('-')[-1].replace('.tar.gz', ''))
             requires_contents = ''
             try:
-                requires_contents = tar.extractfile(egg_info + '/requires.txt').read()
+                requires_contents = tar.extractfile(egg_info + '/requires.txt').read().decode('utf-8')
             except KeyError:
                 pass
             return _parse_requires_file(requires_contents,
@@ -125,7 +125,7 @@ def _parse_flat_metadata(contents, extras):
 
 def _parse_requires_file(contents, name, version, extras):
     reqs = []
-    sections  = list(pkg_resources.split_sections(contents))
+    sections = list(pkg_resources.split_sections(contents))
     for section in sections:
         if section[0] is None:
             reqs.extend(utils.parse_requirements(section[1]))

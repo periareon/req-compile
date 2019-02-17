@@ -1,5 +1,10 @@
 import six
 
+try:
+    from functools32 import lru_cache
+except ImportError:
+    from functools import lru_cache
+
 from qer import utils
 from qer.utils import normalize_project_name, merge_requirements, filter_req, merge_extras
 
@@ -44,12 +49,12 @@ class DistributionCollection(object):
     def add_global_constraint(self, constraint):
         self.constraints_dist.reqs.append(constraint)
 
-    def build_constraints(self, project_name):
+    def build_constraints(self, project_name, extras=()):
         normalized_name = normalize_project_name(project_name)
         req = None if normalized_name == DistributionCollection.CONSTRAINTS_ENTRY \
             else utils.parse_requirement(normalized_name)
         for dist_name, dist in six.iteritems(self.dists):
-            for subreq in dist.metadata.reqs:
+            for subreq in dist.metadata.requires(extras=extras):
                 if normalize_project_name(subreq.name) == normalized_name:
                     req = merge_requirements(req, subreq)
                     break
@@ -80,7 +85,10 @@ class DistInfo(object):
         self.extras = extras
         self.meta = meta
 
+    @lru_cache(maxsize=500)
     def requires(self, extras=()):
+        pass
+        this_req = self.name
         return (req for req in self.reqs
                 if filter_req(req, extras))
 

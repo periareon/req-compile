@@ -26,37 +26,44 @@ def compile_roots(root, source, dists=None, round=1, index_url=None,
                   toplevel=None, session=None, wheeldir=None):
     logger = logging.getLogger('qer.compile')
 
-    print(' ' * round + str(root), end='')
+    # print(' ' * round + str(root), end='')
 
     recurse_reqs = False
+    download = True
+
     extras = root.extras
     if root.name in dists:
         normalized_name = normalize_project_name(root.name)
-        logger.info('Reusing dist %s %s', root.name, dists.dists[normalized_name].metadata.version)
-        dists.dists[normalized_name].sources.add(source)
-        metadata = dists.dists[normalized_name].metadata
-        if metadata.extras != root.extras:
-            recurse_reqs = True
-            extras = qer.utils.merge_extras(metadata.extras, root.extras)
-            metadata.extras = extras
-        print(' ... REUSE')
-        if metadata.meta:
-            recurse_reqs = True
-    else:
-        specifier = dists.build_constraints(root.name).specifier
+
+        if root.specifier.contains(dists.dists[normalized_name].metadata.version):
+            logger.info('Reusing dist %s %s', root.name, dists.dists[normalized_name].metadata.version)
+            dists.dists[normalized_name].sources.add(source)
+            metadata = dists.dists[normalized_name].metadata
+            if metadata.extras != root.extras:
+                recurse_reqs = True
+                extras = qer.utils.merge_extras(metadata.extras, root.extras)
+                metadata.extras = extras
+            # print(' ... REUSE')
+            if metadata.meta:
+                recurse_reqs = True
+            download = False
+
+    if download:
+        specifier = dists.build_constraints(root.name, extras=root.extras).specifier
+
         try:
             dist, cached = qer.pypi.download_candidate(root.name, specifier=specifier,
                                                        index_url=index_url, session=session,
                                                        wheeldir=wheeldir)
         except qer.pypi.NoCandidateException as ex:
-            logger.info('No candidate for %s. Contributions: %s',
-                        ex.project_name, dists.reverse_deps(ex.project_name))
+            # logger.info('No candidate for %s. Contributions: %s',
+            #             ex.project_name, dists.reverse_deps(ex.project_name))
             raise
 
-        if cached:
-            print(' ... CACHED')
-        else:
-            print(' ... DOWNLOAD')
+        # if cached:
+        #     print(' ... CACHED')
+        # else:
+        #     print(' ... DOWNLOAD')
 
         metadata = qer.metadata.extract_metadata(dist, extras=root.extras)
         dists.add_dist(metadata, source)
@@ -65,7 +72,7 @@ def compile_roots(root, source, dists=None, round=1, index_url=None,
         # See how the new constraints do with the already collected reqs
         for dist in dists.dists.values():
             if dist.metadata.name != DistributionCollection.CONSTRAINTS_ENTRY:
-                constraints = dists.build_constraints(dist.metadata.name)
+                constraints = dists.build_constraints(dist.metadata.name, extras=root.extras)
                 if not constraints.specifier.contains(dist.metadata.version):
                     logger.info('Already selected dist violated (%s %s)',
                                  dist.metadata.name, dist.metadata.version)
@@ -88,7 +95,7 @@ def compile_roots(root, source, dists=None, round=1, index_url=None,
 
 
 def _generate_constraints(dists):
-    for dist in dists.dists.itervalues():
+    for dist in dists:
         if dist.metadata.name in BLACKLIST:
             continue
         if dist.metadata.name.startswith(ROOT_REQ):
@@ -150,9 +157,15 @@ def perform_compile(input_reqs, wheeldir, constraint_reqs=None, index_url=None):
     else:
         results.add_dist(_build_root_metadata(input_reqs, ROOT_REQ), ROOT_REQ)
 
-    with closing(qer.pypi.start_session()) as session:
-        compile_roots(root_req, ROOT_REQ, dists=results,
-                      toplevel=root_req, index_url=index_url, session=session,
-                      wheeldir=wheeldir)
+    try:
+        with closing(qer.pypi.start_session()) as session:
+            compile_roots(root_req, ROOT_REQ, dists=results,
+                          toplevel=root_req, index_url=index_url, session=session,
+                          wheeldir=wheeldir)
 
-        return results, constraint_results, root_mapping
+            return results, constraint_results, root_mapping
+    except qer.pypi.NoCandidateException as ex:
+        ex.results = results
+        ex.constraint_results = constraint_results
+        ex.mapping = root_mapping
+        raise ex

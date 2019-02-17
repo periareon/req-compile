@@ -1,6 +1,7 @@
 import os
 
 import pkg_resources
+import pytest
 import six
 
 import qer.compile
@@ -8,9 +9,27 @@ import qer.pypi
 
 
 def test_mock_pypi(mock_metadata, mock_pypi):
-    mock_pypi('normal')
+    mock_pypi('normal',
+              pkg_resources.parse_requirements(
+                  ['test==1.0.0']))
 
     assert qer.pypi.download_candidate('test') == (os.path.join('normal', 'test.METADATA'), False)
+
+
+def test_mock_pypi_register_result(mock_metadata, mock_pypi):
+    mock_pypi('multi',
+              pkg_resources.parse_requirements(
+                  [
+                      'x==1.0.0',
+                      'x==0.9.0',
+                      'unrelated==1.0'
+                  ]))
+
+    assert qer.pypi.download_candidate('x') == (os.path.join('multi', 'x-1.0.0.METADATA'), False)
+    assert qer.pypi.download_candidate('x') == (os.path.join('multi', 'x-1.0.0.METADATA'), False)
+
+    assert qer.pypi.download_candidate('x', pkg_resources.Requirement.parse('x<1.0.0').specifier) == \
+           (os.path.join('multi', 'x-0.9.0.METADATA'), False)
 
 
 def _real_outputs(results):
@@ -107,11 +126,86 @@ def test_multiple_extras_in_root(mock_metadata, mock_pypi):
                                       'f==1.0.0']
 
 
-def test_multiple_extras_in_root(mock_metadata, mock_pypi):
-    mock_pypi('normal')
+def test_constrained_req(mock_metadata, mock_pypi):
+    mock_pypi('multi',
+              pkg_resources.parse_requirements(
+                  ['x==1.0.0',
+                   'x==0.9.0']))
 
     results, cresults, root_mapping = qer.compile.perform_compile(
-        pkg_resources.parse_requirements(['a[x1,x2,x3]']), '.')
+        pkg_resources.parse_requirements(['x<1']), '.')
 
-    assert _real_outputs(results) == ['a[x1,x2,x3]==0.1.0', 'b==1.1.0', 'c==1.0.0',
-                                      'f==1.0.0']
+    assert _real_outputs(results) == ['x==0.9.0']
+
+
+def test_top_level_pins(mock_metadata, mock_pypi):
+    mock_pypi('multi',
+              pkg_resources.parse_requirements(
+                  ['x==1.0.0',
+                   'x==0.9.0']))
+
+    results, cresults, root_mapping = qer.compile.perform_compile(
+        {'a.txt': pkg_resources.parse_requirements(['x']),
+         'b.txt': pkg_resources.parse_requirements(['x<1'])}, '.')
+
+    assert _real_outputs(results) == ['x==0.9.0']
+
+
+def test_transitive_pin_violation(mock_metadata, mock_pypi):
+    mock_pypi('multi',
+              pkg_resources.parse_requirements(
+                  ['x==1.0.0',
+                   'x==0.9.0',
+                   'y==5.0.0',
+                   'y==4.0.0']))
+
+    results, cresults, root_mapping = qer.compile.perform_compile(
+        {'a.txt': pkg_resources.parse_requirements(['x', 'y']),
+         'b.txt': pkg_resources.parse_requirements(['y<5'])}, '.')
+
+    assert _real_outputs(results) == ['x==0.9.0', 'y==4.0.0']
+
+
+def test_compile_with_constraint(mock_metadata, mock_pypi):
+    mock_pypi('multi',
+              pkg_resources.parse_requirements(
+                  ['x==1.0.0',
+                   'x==0.9.0']))
+
+    results, cresults, root_mapping = qer.compile.perform_compile(
+        pkg_resources.parse_requirements(['x']),
+        '.',
+        constraint_reqs=list(pkg_resources.parse_requirements(['x<1'])))
+
+    assert _real_outputs(results) == ['x==0.9.0']
+
+
+def test_compile_with_constraint_not_in_reqs(mock_metadata, mock_pypi):
+    mock_pypi('multi',
+              pkg_resources.parse_requirements(
+                  ['x==1.0.0',
+                   'x==0.9.0',
+                   'y==5.0.0',
+                   'y==4.0.0']))
+
+    results, cresults, root_mapping = qer.compile.perform_compile(
+        pkg_resources.parse_requirements(['x==1']),
+        '.',
+        constraint_reqs=list(pkg_resources.parse_requirements(['y==5'])))
+
+    assert _real_outputs(results) == ['x==1.0.0']
+
+
+def test_compile_with_constraint_not_possible(mock_metadata, mock_pypi):
+    mock_pypi('multi',
+              pkg_resources.parse_requirements(
+                  ['x==1.0.0',
+                   'x==0.9.0',
+                   'y==5.0.0',
+                   'y==4.0.0']))
+
+    with pytest.raises(qer.pypi.NoCandidateException):
+        qer.compile.perform_compile(
+            pkg_resources.parse_requirements(['x==1']),
+            '.',
+            constraint_reqs=list(pkg_resources.parse_requirements(['y<5'])))

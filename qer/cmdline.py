@@ -128,8 +128,7 @@ def run_compile(input_reqfiles, constraint_files, index_url, wheeldir, no_combin
         lines = sorted(_generate_lines(results, constraint_results, root_mapping), key=str.lower)
         print('\n'.join(lines))
     except qer.pypi.NoCandidateException as ex:
-        # _generate_no_candidate_display(ex, results, constraint_results, root_mapping)
-        pass
+         _generate_no_candidate_display(ex, ex.results, ex.constraint_results, ex.mapping)
 
     if delete_wheeldir:
         shutil.rmtree(wheeldir)
