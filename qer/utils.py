@@ -50,7 +50,7 @@ def reqs_from_files(requirements_files):
     return list(reqs.values())
 
 
-@lru_cache(maxsize=1500)
+@lru_cache(maxsize=None)
 def parse_requirement(req_text):
     return pkg_resources.Requirement.parse(req_text)
 
@@ -68,7 +68,7 @@ def merge_extras(extras1, extras2):
     return tuple(sorted(list(set(extras1) | set(extras2))))
 
 
-@lru_cache(maxsize=1000)
+@lru_cache(maxsize=None)
 def merge_requirements(req1, req2):
     if req1 is not None and req2 is None:
         return req1

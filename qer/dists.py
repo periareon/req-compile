@@ -84,13 +84,15 @@ class DistInfo(object):
         self.reqs = list(reqs)
         self.extras = extras
         self.meta = meta
+        self.hash = hash(self.name + str(self.version))
+
+    def __hash__(self):
+        return self.hash
 
     @lru_cache(maxsize=500)
     def requires(self, extras=()):
-        pass
-        this_req = self.name
-        return (req for req in self.reqs
-                if filter_req(req, extras))
+        return [req for req in self.reqs
+                if filter_req(req, extras)]
 
     def update_extras(self, extras):
         """
