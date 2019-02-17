@@ -33,21 +33,32 @@ def test_pylint_python(metadata_provider):
     expected_reqs = set()
     if six.PY2:
         if sys.platform == 'win32':
-            expected_reqs = set(pkg_resources.parse_requirements(
-                ['astroid (<2.0,>=1.6)',
-                 'six',
-                 'isort (>=4.2.5)',
-                 'mccabe',
-                 'singledispatch; python_version<"3.4"',
-                 'configparser; python_version=="2.7"',
-                 'backports.functools-lru-cache; python_version=="2.7"',
-                 'colorama; sys_platform=="win32"']))
+            expected_reqs = ['astroid (<2.0,>=1.6)',
+                             'six',
+                             'isort (>=4.2.5)',
+                             'mccabe',
+                             'singledispatch; python_version<"3.4"',
+                             'configparser; python_version=="2.7"',
+                             'backports.functools-lru-cache; python_version=="2.7"',
+                             'colorama; sys_platform=="win32"']
+        else:
+            expected_reqs = ['astroid (<2.0,>=1.6)',
+                             'six',
+                             'isort (>=4.2.5)',
+                             'mccabe',
+                             'singledispatch; python_version<"3.4"',
+                             'configparser; python_version=="2.7"',
+                             'backports.functools-lru-cache; python_version=="2.7"']
     else:
         if sys.platform == 'win32':
-            expected_reqs = set(pkg_resources.parse_requirements(
-                ['astroid (<2.0,>=1.6)',
-                 'six',
-                 'isort (>=4.2.5)',
-                 'mccabe',
-                 'colorama; sys_platform=="win32"']))
-    assert set(info.requires()) == expected_reqs
+            expected_reqs = ['astroid (<2.0,>=1.6)',
+                             'six',
+                             'isort (>=4.2.5)',
+                             'mccabe',
+                             'colorama; sys_platform=="win32"']
+        else:
+            expected_reqs = ['astroid (<2.0,>=1.6)',
+                             'six',
+                             'isort (>=4.2.5)',
+                             'mccabe']
+    assert set(info.requires()) == set(pkg_resources.parse_requirements(expected_reqs))
