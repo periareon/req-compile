@@ -1,0 +1,12 @@
+Metadata-Version: 2.0
+Name: a
+Version: 0.1.0
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3.6
+Provides-Extra: x1
+Provides-Extra: x2
+Provides-Extra: x3
+Requires-Dist: b (>1); extra == 'x1'
+Requires-Dist: f; extra == 'x2'
+Requires-Dist: c; extra == 'x3'

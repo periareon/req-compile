@@ -3,13 +3,16 @@ import logging
 import os
 import shutil
 import tempfile
-import urlparse
-from HTMLParser import HTMLParser
+from six.moves import urllib
+from six.moves import html_parser
 
 import pkg_resources
 import requests
 from hashlib import sha256
-import functools32
+try:
+    from functools32 import lru_cache
+except ModuleNotFoundError:
+    from functools import lru_cache
 
 Candidate = collections.namedtuple('Candidate', 'name filename version py_version link')
 
@@ -17,7 +20,7 @@ Candidate = collections.namedtuple('Candidate', 'name filename version py_versio
 logger = logging.getLogger('qer.pypi')
 
 
-@functools32.lru_cache()
+@lru_cache()
 def _scan_page_links(index_url, project_name, session):
     """
 
@@ -35,9 +38,9 @@ def _scan_page_links(index_url, project_name, session):
         session = requests
     response = session.get(url + '/')
 
-    class LinksHTMLParser(HTMLParser):
+    class LinksHTMLParser(html_parser.HTMLParser):
         def __init__(self, url):
-            HTMLParser.__init__(self)
+            super(LinksHTMLParser, self).__init__()
             self.url = url
             self.dists = []
             self.active_link = None
@@ -46,7 +49,7 @@ def _scan_page_links(index_url, project_name, session):
             if tag == 'a':
                 for attr in attrs:
                     if attr[0] == 'href':
-                        self.active_link = urlparse.urljoin(self.url, attr[1])
+                        self.active_link = urllib.parse.urljoin(self.url, attr[1])
                         break
 
         def handle_data(self, filename):
@@ -73,7 +76,7 @@ def _scan_page_links(index_url, project_name, session):
                 self.dists.insert(0, Candidate(name, filename, version, (), self.active_link))
 
     parser = LinksHTMLParser(response.url)
-    parser.feed(response.content)
+    parser.feed(response.content.decode('utf-8'))
 
     return sorted(parser.dists, key=lambda x: x.version, reverse=True)
 
@@ -96,7 +99,7 @@ def _do_download(index_url, filename, link, session, wheeldir):
             logger.info('Reusing %s', output_file)
             return output_file, True
 
-        print "File hash doesn't match"
+        print("File hash doesn't match")
 
     full_link = split_link[0]
     logging.getLogger('qer.net.pypi').info('Downloading %s -> %s', full_link, output_file)

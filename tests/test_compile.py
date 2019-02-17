@@ -1,67 +1,117 @@
-from pkg_resources import Requirement
+import os
 
-from qer.utils import merge_requirements
+import pkg_resources
+import six
 
-
-def test_combine_reqs_conditions_and_markers():
-    req1 = Requirement.parse('pylint<2;platform_system=="Windows"')
-    req2 = Requirement.parse('pylint>1;python_version<"3.0"')
-
-    assert merge_requirements(req1, req2) == \
-           Requirement.parse('pylint>1,<2;platform_system=="Windows" and python_version<"3.0"')
+import qer.compile
+import qer.pypi
 
 
-def test_combine_no_specs():
-    req1 = Requirement.parse('pylint')
-    req2 = Requirement.parse('pylint;python_version<"3.0"')
+def test_mock_pypi(mock_metadata, mock_pypi):
+    mock_pypi('normal')
 
-    assert merge_requirements(req1, req2) == \
-           Requirement.parse('pylint;python_version<"3.0"')
+    assert qer.pypi.download_candidate('test') == (os.path.join('normal', 'test.METADATA'), False)
 
 
-def test_combine_dup_specs():
-    req1 = Requirement.parse('pylint==1.0.1')
-    req2 = Requirement.parse('pylint==1.0.1;python_version<"3.0"')
-
-    assert merge_requirements(req1, req2) == \
-           Requirement.parse('pylint==1.0.1;python_version<"3.0"')
-
-
-def test_combine_multiple_specs():
-    req1 = Requirement.parse('pylint~=3.1')
-    req2 = Requirement.parse('pylint>2,>3')
-
-    assert merge_requirements(req1, req2) == \
-           Requirement.parse('pylint~=3.1,>2,>3')
+def _real_outputs(results):
+    outputs = []
+    for dist in results:
+        if dist.metadata.name in qer.compile.BLACKLIST:
+            continue
+        if dist.metadata.name.startswith(qer.compile.ROOT_REQ):
+            continue
+        outputs.append(str(dist.metadata))
+    return sorted(outputs)
 
 
-def test_combine_identical_reqs():
-    req1 = Requirement.parse('pylint>=3.1')
-    req2 = Requirement.parse('pylint>=3.1')
+def test_compile_c(mock_metadata, mock_pypi):
+    mock_pypi('normal')
 
-    assert merge_requirements(req1, req2) == \
-           Requirement.parse('pylint>=3.1')
+    results, cresults, root_mapping = qer.compile.perform_compile(
+        [pkg_resources.Requirement.parse('c')], '.')
 
-
-def test_combine_diff_specs_identical_markers():
-    req1 = Requirement.parse('pylint>=3.1; python_version>"3.0"')
-    req2 = Requirement.parse('pylint>=3.2; python_version>"3.0"')
-
-    assert merge_requirements(req1, req2) == \
-           Requirement.parse('pylint>=3.1,>=3.2; python_version>"3.0"')
+    assert list(_real_outputs(results)) == ['c==1.0.0']
 
 
-def test_combine_and_compare_identical_reqs():
-    req1 = Requirement.parse('pylint>=3.1')
-    req2 = Requirement.parse('pylint>=3.1')
+def test_compile_b(mock_metadata, mock_pypi):
+    mock_pypi('normal')
 
-    assert merge_requirements(req1, req2) == \
-           req1
+    results, cresults, root_mapping = qer.compile.perform_compile(
+        [pkg_resources.Requirement.parse('b')], '.')
+
+    assert _real_outputs(results) == ['b==1.1.0', 'c==1.0.0']
 
 
-def test_combine_with_extras_markers():
-    req1 = Requirement.parse('pylint; extra=="test"')
-    req2 = Requirement.parse('pylint; python_version>"3.0" and extra=="test"')
+def test_compile_a(mock_metadata, mock_pypi):
+    mock_pypi('normal')
 
-    result = merge_requirements(req1, req2)
-    assert result == Requirement.parse('pylint; python_version>"3.0" and extra=="test"')
+    results, cresults, root_mapping = qer.compile.perform_compile(
+        [pkg_resources.Requirement.parse('a')], '.')
+
+    assert _real_outputs(results) == ['a==0.1.0']
+
+
+def test_compile_a_extra(mock_metadata, mock_pypi):
+    mock_pypi('normal')
+
+    results, cresults, root_mapping = qer.compile.perform_compile(
+        [pkg_resources.Requirement.parse('a[x1]')], '.')
+
+    assert _real_outputs(results) == ['a[x1]==0.1.0', 'b==1.1.0', 'c==1.0.0']
+
+
+def test_compile_a_b_c(mock_metadata, mock_pypi):
+    mock_pypi('normal')
+
+    results, cresults, root_mapping = qer.compile.perform_compile(
+        pkg_resources.parse_requirements(['a', 'b', 'c']), '.')
+
+    assert _real_outputs(results) == ['a==0.1.0', 'b==1.1.0', 'c==1.0.0']
+
+
+def test_transitive_extra(mock_metadata, mock_pypi):
+    mock_pypi('normal')
+
+    results, cresults, root_mapping = qer.compile.perform_compile(
+        pkg_resources.parse_requirements(['d']), '.')
+
+    assert _real_outputs(results) == ['a[x1]==0.1.0', 'b==1.1.0', 'c==1.0.0', 'd==0.9.0']
+
+
+def test_transitive_extra_with_normal(mock_metadata, mock_pypi):
+    mock_pypi('normal')
+
+    results, cresults, root_mapping = qer.compile.perform_compile(
+        pkg_resources.parse_requirements(['a', 'd']), '.')
+
+    assert _real_outputs(results) == ['a[x1]==0.1.0', 'b==1.1.0', 'c==1.0.0', 'd==0.9.0']
+
+
+def test_combine_transitive_extras(mock_metadata, mock_pypi):
+    mock_pypi('normal')
+
+    results, cresults, root_mapping = qer.compile.perform_compile(
+        pkg_resources.parse_requirements(['e', 'd']), '.')
+
+    assert _real_outputs(results) == ['a[x1,x2]==0.1.0', 'b==1.1.0', 'c==1.0.0',
+                                      'd==0.9.0', 'e==0.9.0', 'f==1.0.0']
+
+
+def test_multiple_extras_in_root(mock_metadata, mock_pypi):
+    mock_pypi('normal')
+
+    results, cresults, root_mapping = qer.compile.perform_compile(
+        pkg_resources.parse_requirements(['a[x1,x2,x3]']), '.')
+
+    assert _real_outputs(results) == ['a[x1,x2,x3]==0.1.0', 'b==1.1.0', 'c==1.0.0',
+                                      'f==1.0.0']
+
+
+def test_multiple_extras_in_root(mock_metadata, mock_pypi):
+    mock_pypi('normal')
+
+    results, cresults, root_mapping = qer.compile.perform_compile(
+        pkg_resources.parse_requirements(['a[x1,x2,x3]']), '.')
+
+    assert _real_outputs(results) == ['a[x1,x2,x3]==0.1.0', 'b==1.1.0', 'c==1.0.0',
+                                      'f==1.0.0']

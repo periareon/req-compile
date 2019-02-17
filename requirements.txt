@@ -1,2 +1,2 @@
 requests
-functools32
+functools32 ; python_version < "3.0"

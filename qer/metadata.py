@@ -5,26 +5,7 @@ import zipfile
 import pkg_resources
 
 from qer import utils
-from qer.utils import filter_req
-
-
-class DistInfo(object):
-    def __init__(self):
-        self.reqs = []
-        self.name = None
-        self.version = None
-        self.meta = False
-        self.extras = ()
-
-    def __str__(self):
-        extras = ''
-        if self.extras:
-            extras = '[' + ','.join(self.extras) + ']'
-        return '{}{}=={}'.format(self.name, extras,
-                                 self.version)
-
-    def __repr__(self):
-        return self.name + ' ' + self.version + '\n' + '\n'.join([str(req) for req in self.reqs])
+from qer.dists import DistInfo
 
 
 def extract_metadata(dist, extras=()):
@@ -101,10 +82,12 @@ def _fetch_from_source(tar_gz, extras):
                                         extras)
 
         if pkg_info_file:
-            return _parse_flat_metadata(tar.extractfile(pkg_info_file).read(), extras)
+            return _parse_flat_metadata(
+                tar.extractfile(pkg_info_file).read().decode('utf-8'), extras)
 
         if metadata_file:
-            return _parse_flat_metadata(tar.extractfile(metadata_file).read(), extras)
+            return _parse_flat_metadata(
+                tar.extractfile(metadata_file).read().decode('utf-8'), extras)
     finally:
         tar.close()
 
@@ -119,30 +102,28 @@ def _fetch_from_wheel(wheel, extras):
                 metadata_file = info
 
         if metadata_file:
-            return _parse_flat_metadata(zfile.read(metadata_file), extras)
+            return _parse_flat_metadata(zfile.read(metadata_file).decode('utf-8'), extras)
     finally:
         zfile.close()
 
 
 def _parse_flat_metadata(contents, extras):
-    result = DistInfo()
+    name = None
+    version = None
     raw_reqs = []
+
     for line in contents.split('\n'):
         if line.lower().startswith('name:'):
-            result.name = line.split(':')[1].strip()
+            name = line.split(':')[1].strip()
         if line.lower().startswith('version:'):
-            result.version = pkg_resources.parse_version(line.split(':')[1].strip())
+            version = pkg_resources.parse_version(line.split(':')[1].strip())
         if line.lower().startswith('requires-dist:'):
             raw_reqs.append(line.split(':')[1].strip())
 
-    result.reqs = [req for req in utils.parse_requirements(raw_reqs)
-                   if filter_req(req, extras)]
-    result.extras = extras
-    return result
+    return DistInfo(name, version, list(utils.parse_requirements(raw_reqs)), extras=extras)
 
 
 def _parse_requires_file(contents, name, version, extras):
-    result = DistInfo()
     reqs = []
     sections  = list(pkg_resources.split_sections(contents))
     for section in sections:
@@ -151,7 +132,5 @@ def _parse_requires_file(contents, name, version, extras):
         elif section[0].startswith(':python_version'):
             for req in section[1]:
                 reqs.append(utils.parse_requirement(req + ' ' + section[0].replace(':', ';')))
-    result.reqs = reqs
-    result.name = name
-    result.version = version
-    return result
+
+    return DistInfo(name, version, reqs)

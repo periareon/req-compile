@@ -1,103 +1,44 @@
 """Logic for compiling requirements"""
 from __future__ import print_function
+
 import logging
+from contextlib import closing
 
 import pkg_resources
 
+import qer.dists
 import qer.metadata
 import qer.pypi
 import qer.utils
 from qer import utils
-from qer.utils import merge_requirements, normalize_project_name
+from qer.dists import DistributionCollection
+from qer.utils import normalize_project_name
 
 
-class MetadataSources(object):
-    def __init__(self, metadata, source):
-        self.metadata = metadata
-        self.sources = {source}
+ROOT_REQ = 'root__a'
+BLACKLIST = [
+    DistributionCollection.CONSTRAINTS_ENTRY,
+    'setuptools'
+]
 
 
-class DistributionCollection(object):
-    CONSTRAINTS_ENTRY = '#constraints#'
-
-    def __init__(self, constraints=None):
-        self.dists = {}
-        constraints_dist = qer.metadata.DistInfo()
-        constraints_dist.name = '#constraints#'
-        constraints_dist.reqs = constraints or []
-        constraints_dist.version = None
-        self.constraints_dist = constraints_dist
-        self.dists[DistributionCollection.CONSTRAINTS_ENTRY] = MetadataSources(
-            constraints_dist, DistributionCollection.CONSTRAINTS_ENTRY)
-        self.orig_roots = None
-
-    def add_dist(self, metadata, source):
-        if metadata.name in self.dists:
-            self.dists[normalize_project_name(metadata.name)].sources.add(source)
-        else:
-            self.dists[normalize_project_name(metadata.name)] = MetadataSources(metadata, source)
-
-    def remove_dist(self, name):
-        del self.dists[normalize_project_name(name)]
-
-    def remove_source(self, source):
-        dists_to_remove = []
-        for dist in self.dists.itervalues():
-            if source in dist.sources:
-                dist.sources.remove(source)
-                if not dist.sources:
-                    dists_to_remove.append(normalize_project_name(dist.metadata.name))
-
-        for dist in dists_to_remove:
-            del self.dists[dist]
-
-    def __contains__(self, item):
-        return normalize_project_name(item) in self.dists
-
-    def __iter__(self):
-        return iter(self.dists)
-
-    def add_global_constraint(self, constraint):
-        self.constraints_dist.reqs.append(constraint)
-
-    def build_constraints(self, project_name):
-        normalized_name = normalize_project_name(project_name)
-        req = None if normalized_name == DistributionCollection.CONSTRAINTS_ENTRY \
-            else utils.parse_requirement(normalized_name)
-        for dist_name, dist in self.dists.iteritems():
-            for subreq in dist.metadata.reqs:
-                if normalize_project_name(subreq.name) == normalized_name:
-                    req = merge_requirements(req, subreq)
-                    break
-        return req
-
-    def get_reverse_deps(self, project_name):
-        reverse_deps = {}
-        normalized_name = normalize_project_name(project_name)
-        for dist_name, dist in self.dists.iteritems():
-            for subreq in dist.metadata.reqs:
-                if normalize_project_name(subreq.name) == normalized_name:
-                    reverse_deps[dist_name] = subreq
-                    break
-        return reverse_deps
-
-
-def compile_roots(root, source, extras=(), dists=None, round=1, index_url=None,
+def compile_roots(root, source, dists=None, round=1, index_url=None,
                   toplevel=None, session=None, wheeldir=None):
     logger = logging.getLogger('qer.compile')
-
-    if not qer.utils.filter_req(root, extras):
-        return
 
     print(' ' * round + str(root), end='')
 
     recurse_reqs = False
-    extras = None
+    extras = root.extras
     if root.name in dists:
         normalized_name = normalize_project_name(root.name)
         logger.info('Reusing dist %s %s', root.name, dists.dists[normalized_name].metadata.version)
         dists.dists[normalized_name].sources.add(source)
         metadata = dists.dists[normalized_name].metadata
+        if metadata.extras != root.extras:
+            recurse_reqs = True
+            extras = qer.utils.merge_extras(metadata.extras, root.extras)
+            metadata.extras = extras
         print(' ... REUSE')
         if metadata.meta:
             recurse_reqs = True
@@ -109,7 +50,7 @@ def compile_roots(root, source, extras=(), dists=None, round=1, index_url=None,
                                                        wheeldir=wheeldir)
         except qer.pypi.NoCandidateException as ex:
             logger.info('No candidate for %s. Contributions: %s',
-                        ex.project_name, dists.get_reverse_deps(ex.project_name))
+                        ex.project_name, dists.reverse_deps(ex.project_name))
             raise
 
         if cached:
@@ -136,12 +77,82 @@ def compile_roots(root, source, extras=(), dists=None, round=1, index_url=None,
                     dists.add_global_constraint(utils.parse_requirement(
                         '{}!={}'.format(dist.metadata.name, dist.metadata.version)))
                     return compile_roots(toplevel, 'rerun',
-                                         extras=None, dists=dists, round=1,
+                                         dists=dists, round=1,
                                          toplevel=toplevel, index_url=index_url, session=session,
                                          wheeldir=wheeldir)
 
     if recurse_reqs:
-        for req in metadata.reqs:
+        for req in metadata.requires(extras):
             compile_roots(req, normalize_project_name(root.name), dists=dists, round=round + 1,
-                          extras=root.extras,
                           toplevel=toplevel, index_url=index_url, session=session, wheeldir=wheeldir)
+
+
+def _generate_constraints(dists):
+    for dist in dists.dists.itervalues():
+        if dist.metadata.name in BLACKLIST:
+            continue
+        if dist.metadata.name.startswith(ROOT_REQ):
+            continue
+
+        req = dists.build_constraints(dist.metadata.name)
+        if req.specifier:
+            yield req
+
+
+def _build_root_metadata(roots, name):
+    return qer.dists.DistInfo(name, '0', roots, meta=True)
+
+
+def perform_compile(input_reqs, wheeldir, constraint_reqs=None, index_url=None):
+    """
+    Perform a compilation using the given inputs and constraints
+    Args:
+        input_reqs (list[pkg_resources.Requirement] or
+                    dict[str, list[pkg_resources.Requirement]]):
+            List of mapping of input requirements. If provided a mapping,
+            requirements will be kept separate during compilation for better
+            insight into the resolved requirements
+        wheeldir (str): Location to download wheels to and to use as a cache
+        constraint_reqs (list[pkg_resources.Requirement] or None): Constraints to use
+            when compiling
+        index_url (str): Index URL to download package versions and contents from
+
+    Returns:
+        tuple[DistributionCollection, DistributionCollection, dict]
+    """
+    root_req = utils.parse_requirement(ROOT_REQ)
+    constraints = None
+    constraint_results = qer.dists.DistributionCollection()
+    if constraint_reqs:
+        constraint_results = qer.dists.DistributionCollection()
+        constraint_results.add_dist(_build_root_metadata(constraint_reqs, ROOT_REQ), ROOT_REQ)
+
+        with closing(qer.pypi.start_session()) as session:
+            compile_roots(root_req, ROOT_REQ, dists=constraint_results,
+                          toplevel=root_req, index_url=index_url, session=session,
+                          wheeldir=wheeldir)
+
+        constraints = list(_generate_constraints(constraint_results))
+
+    results = qer.dists.DistributionCollection(constraints)
+    root_mapping = {}
+    if isinstance(input_reqs, dict):
+        fake_reqs = []
+        for idx, req_source in enumerate(input_reqs):
+            roots = input_reqs[req_source]
+            name = '{}{}'.format(ROOT_REQ, idx)
+            root_mapping[name] = req_source
+            dist_info = _build_root_metadata(roots, name)
+            fake_reqs.append(pkg_resources.Requirement(name))
+            results.add_dist(dist_info,
+                             req_source)
+        results.add_dist(_build_root_metadata(fake_reqs, ROOT_REQ), ROOT_REQ)
+    else:
+        results.add_dist(_build_root_metadata(input_reqs, ROOT_REQ), ROOT_REQ)
+
+    with closing(qer.pypi.start_session()) as session:
+        compile_roots(root_req, ROOT_REQ, dists=results,
+                      toplevel=root_req, index_url=index_url, session=session,
+                      wheeldir=wheeldir)
+
+        return results, constraint_results, root_mapping

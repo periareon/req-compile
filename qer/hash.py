@@ -8,18 +8,18 @@ from qer.utils import merge_requirements
 import qer.utils
 
 
-def run_hash(requirements_files):
+def run_hash(reqs):
     """
     Args:
-        requirements_files (list[str]): Requirements files
+        reqs (list[pkg_resources.Requirement]): Requirements files
     """
     reqs = defaultdict(lambda: None)
-    for req in qer.utils.reqs_from_files(requirements_files):
+    for req in reqs:
         reqs[req.name] = merge_requirements(reqs[req.name], req)
 
     hasher = sha256()
     for req in reqs.values():
-        hasher.update(str(req))
+        hasher.update(str(req).encode('utf-8'))
     return hasher.hexdigest()
 
 
@@ -30,7 +30,8 @@ def hash_main():
     parser.add_argument('requirement_files', nargs='+', help='Input requirements files')
 
     args = parser.parse_args()
-    print run_hash(args.requirement_files)
+
+    print(run_hash(qer.utils.reqs_from_files(args.requirement_files)))
 
 
 if __name__ == '__main__':

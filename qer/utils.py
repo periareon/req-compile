@@ -3,7 +3,11 @@ import os
 from collections import defaultdict
 import logging
 
-import functools32
+try:
+    from functools32 import lru_cache
+except ModuleNotFoundError:
+    from functools import lru_cache
+
 import pkg_resources
 
 
@@ -46,7 +50,7 @@ def reqs_from_files(requirements_files):
     return list(reqs.values())
 
 
-@functools32.lru_cache(maxsize=1500)
+@lru_cache(maxsize=1500)
 def parse_requirement(req_text):
     return pkg_resources.Requirement.parse(req_text)
 
@@ -56,7 +60,15 @@ def parse_requirements(reqs):
         yield parse_requirement(req)
 
 
-@functools32.lru_cache(maxsize=1000)
+def merge_extras(extras1, extras2):
+    if extras1 is None:
+        return extras2
+    if extras2 is None:
+        return extras1
+    return tuple(sorted(list(set(extras1) | set(extras2))))
+
+
+@lru_cache(maxsize=1000)
 def merge_requirements(req1, req2):
     if req1 is not None and req2 is None:
         return req1
@@ -79,7 +91,7 @@ def merge_requirements(req1, req2):
     else:
         new_marker = ''
 
-    extras = tuple(sorted(list(set(req1.extras) | set(req2.extras))))
+    extras = merge_extras(req1.extras, req2.extras)
     extras_str = ''
     if extras:
         extras_str = '[' + ','.join(extras) + ']'
