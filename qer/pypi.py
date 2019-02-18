@@ -20,6 +20,44 @@ Candidate = collections.namedtuple('Candidate', 'name filename version py_versio
 logger = logging.getLogger('qer.pypi')
 
 
+class LinksHTMLParser(html_parser.HTMLParser):
+    def __init__(self, url):
+        html_parser.HTMLParser.__init__(self)
+        self.url = url
+        self.dists = []
+        self.active_link = None
+
+    def handle_starttag(self, tag, attrs):
+        if tag == 'a':
+            for attr in attrs:
+                if attr[0] == 'href':
+                    self.active_link = urllib.parse.urljoin(self.url, attr[1])
+                    break
+
+    def handle_data(self, filename):
+        extensions = ('.whl', '.tar.gz', '.tgz', '.zip')
+        if '.whl' in filename:
+            data_parts = filename.split('-')
+            name = data_parts[0]
+            version = pkg_resources.parse_version(data_parts[1])
+            abi = data_parts[3]
+            platform = data_parts[4].split('.')[0]
+            if platform == 'any' or platform == 'win_amd64':
+                self.dists.insert(0, Candidate(name,
+                                               filename,
+                                               version,
+                                               tuple(data_parts[2].split('.')),
+                                               self.active_link))
+        elif '.tar.gz' in filename or '.tgz' in filename or '.zip' in filename:
+            data_parts = filename.split('-')
+            name = data_parts[0]
+            version_text = data_parts[-1]
+            for ext in extensions:
+                version_text = version_text.replace(ext, '')
+            version = pkg_resources.parse_version(version_text)
+            self.dists.insert(0, Candidate(name, filename, version, (), self.active_link))
+
+
 @lru_cache()
 def _scan_page_links(index_url, project_name, session):
     """
@@ -37,43 +75,6 @@ def _scan_page_links(index_url, project_name, session):
     if session is None:
         session = requests
     response = session.get(url + '/')
-
-    class LinksHTMLParser(html_parser.HTMLParser):
-        def __init__(self, url):
-            super(LinksHTMLParser, self).__init__()
-            self.url = url
-            self.dists = []
-            self.active_link = None
-
-        def handle_starttag(self, tag, attrs):
-            if tag == 'a':
-                for attr in attrs:
-                    if attr[0] == 'href':
-                        self.active_link = urllib.parse.urljoin(self.url, attr[1])
-                        break
-
-        def handle_data(self, filename):
-            extensions = ('.whl', '.tar.gz', '.tgz', '.zip')
-            if '.whl' in filename:
-                data_parts = filename.split('-')
-                name = data_parts[0]
-                version = pkg_resources.parse_version(data_parts[1])
-                abi = data_parts[3]
-                platform = data_parts[4].split('.')[0]
-                if platform == 'any' or platform == 'win_amd64':
-                    self.dists.insert(0, Candidate(name,
-                                                   filename,
-                                                   version,
-                                                   tuple(data_parts[2].split('.')),
-                                                   self.active_link))
-            elif '.tar.gz' in filename or '.tgz' in filename or '.zip' in filename:
-                data_parts = filename.split('-')
-                name = data_parts[0]
-                version_text = data_parts[-1]
-                for ext in extensions:
-                    version_text = version_text.replace(ext, '')
-                version = pkg_resources.parse_version(version_text)
-                self.dists.insert(0, Candidate(name, filename, version, (), self.active_link))
 
     parser = LinksHTMLParser(response.url)
     parser.feed(response.content.decode('utf-8'))
