@@ -36,7 +36,7 @@ def _fetch_from_zip(zip_file, extras):
         if egg_info:
             filename = os.path.basename(zip_file)
             name = '-'.join(filename.split('-')[0:-1])
-            version = pkg_resources.parse_version(filename.split('-')[-1].replace('.tar.gz', ''))
+            version = utils.parse_version(filename.split('-')[-1].replace('.tar.gz', ''))
             return _parse_requires_file(zip_file.extractfile(egg_info + '/requires.txt').read(),
                                         name,
                                         version,
@@ -70,7 +70,7 @@ def _fetch_from_source(tar_gz, extras):
         if egg_info:
             filename = os.path.basename(tar_gz)
             name = '-'.join(filename.split('-')[0:-1])
-            version = pkg_resources.parse_version(filename.split('-')[-1].replace('.tar.gz', ''))
+            version = utils.parse_version(filename.split('-')[-1].replace('.tar.gz', ''))
             requires_contents = ''
             try:
                 requires_contents = tar.extractfile(egg_info + '/requires.txt').read().decode('utf-8')
@@ -116,7 +116,7 @@ def _parse_flat_metadata(contents, extras):
         if line.lower().startswith('name:'):
             name = line.split(':')[1].strip()
         if line.lower().startswith('version:'):
-            version = pkg_resources.parse_version(line.split(':')[1].strip())
+            version = utils.parse_version(line.split(':')[1].strip())
         if line.lower().startswith('requires-dist:'):
             raw_reqs.append(line.split(':')[1].strip())
 

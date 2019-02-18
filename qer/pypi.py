@@ -9,6 +9,9 @@ from six.moves import html_parser
 import pkg_resources
 import requests
 from hashlib import sha256
+
+from qer import utils
+
 try:
     from functools32 import lru_cache
 except ImportError:
@@ -31,7 +34,7 @@ class LinksHTMLParser(html_parser.HTMLParser):
         if tag == 'a':
             for attr in attrs:
                 if attr[0] == 'href':
-                    self.active_link = urllib.parse.urljoin(self.url, attr[1])
+                    self.active_link = self.url, attr[1]
                     break
 
     def handle_data(self, filename):
@@ -40,7 +43,6 @@ class LinksHTMLParser(html_parser.HTMLParser):
             data_parts = filename.split('-')
             name = data_parts[0]
             version = pkg_resources.parse_version(data_parts[1])
-            abi = data_parts[3]
             platform = data_parts[4].split('.')[0]
             if platform == 'any' or platform == 'win_amd64':
                 self.dists.insert(0, Candidate(name,
@@ -58,7 +60,7 @@ class LinksHTMLParser(html_parser.HTMLParser):
             self.dists.insert(0, Candidate(name, filename, version, (), self.active_link))
 
 
-@lru_cache()
+@lru_cache(maxsize=None)
 def _scan_page_links(index_url, project_name, session):
     """
 
@@ -83,6 +85,7 @@ def _scan_page_links(index_url, project_name, session):
 
 
 def _do_download(index_url, filename, link, session, wheeldir):
+    url, link = link
     split_link = link.split('#sha256=')
     sha = split_link[1]
 
@@ -92,7 +95,7 @@ def _do_download(index_url, filename, link, session, wheeldir):
         hasher = sha256()
         with open(output_file, 'rb') as handle:
             while True:
-                block = handle.read(1024)
+                block = handle.read(4096)
                 if not block:
                     break
                 hasher.update(block)
@@ -102,7 +105,7 @@ def _do_download(index_url, filename, link, session, wheeldir):
 
         print("File hash doesn't match")
 
-    full_link = split_link[0]
+    full_link = urllib.parse.urljoin(url, link)
     logging.getLogger('qer.net.pypi').info('Downloading %s -> %s', full_link, output_file)
     if session is None:
         session = requests
@@ -141,11 +144,6 @@ def download_candidate(project_name, py_ver='py2', specifier=None, allow_prerele
     if index_url is None:
         index_url = 'https://pypi.org/simple'
     candidates = _scan_page_links(index_url, project_name, session)
-
-    delete_wheeldir = False
-    if wheeldir is None:
-        wheeldir = tempfile.mkdtemp()
-        delete_wheeldir = True
 
     for candidate in candidates:
         if not ('py2' in candidate.py_version or 'cp27' in candidate.py_version) and skip_source:

@@ -55,6 +55,11 @@ def parse_requirement(req_text):
     return pkg_resources.Requirement.parse(req_text)
 
 
+@lru_cache(maxsize=None)
+def parse_version(version):
+    return pkg_resources.parse_version(version)
+
+
 def parse_requirements(reqs):
     for req in reqs:
         yield parse_requirement(req)

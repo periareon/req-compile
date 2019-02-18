@@ -1,3 +1,5 @@
+import collections
+
 import six
 
 try:
@@ -19,15 +21,33 @@ class DistributionCollection(object):
         self.dists[DistributionCollection.CONSTRAINTS_ENTRY] = MetadataSources(
             constraints_dist, DistributionCollection.CONSTRAINTS_ENTRY)
         self.orig_roots = None
+        self.constraint_cache = collections.defaultdict(dict)
 
     def add_dist(self, metadata, source):
+        """
+        Add a distribution
+
+        Args:
+            metadata (DistInfo): Distribution info to add
+            source (str): The source of the distribution, e.g. a filename
+        """
         if metadata.name in self.dists:
-            self.dists[normalize_project_name(metadata.name)].sources.add(source)
+            existing = self.dists[normalize_project_name(metadata.name)]
+            existing.sources.add(source)
+            existing.metadata.update_extras(metadata.extras)
         else:
             self.dists[normalize_project_name(metadata.name)] = MetadataSources(metadata, source)
 
+        for req in metadata.reqs:
+            self.constraint_cache.pop(normalize_project_name(req.name), None)
+
     def remove_dist(self, name):
-        del self.dists[normalize_project_name(name)]
+        normalized_name = normalize_project_name(name)
+        reqs = self.dists[normalized_name].metadata.reqs
+        del self.dists[normalized_name]
+
+        for req in reqs:
+            self.constraint_cache.pop(normalize_project_name(req.name), None)
 
     def remove_source(self, source):
         dists_to_remove = []
@@ -38,7 +58,7 @@ class DistributionCollection(object):
                     dists_to_remove.append(normalize_project_name(dist.metadata.name))
 
         for dist in dists_to_remove:
-            del self.dists[dist]
+            self.remove_dist(dist)
 
     def __contains__(self, item):
         return normalize_project_name(item) in self.dists
@@ -50,6 +70,17 @@ class DistributionCollection(object):
         self.constraints_dist.reqs.append(constraint)
 
     def build_constraints(self, project_name, extras=()):
+        project_name = normalize_project_name(project_name)
+        if project_name in self.constraint_cache:
+            all_constraints = self.constraint_cache[project_name]
+            if extras in all_constraints:
+                return all_constraints[extras]
+
+        result = self._calc_constraints(project_name, extras)
+        self.constraint_cache[project_name][extras] = result
+        return result
+
+    def _calc_constraints(self, project_name, extras):
         normalized_name = normalize_project_name(project_name)
         req = None if normalized_name == DistributionCollection.CONSTRAINTS_ENTRY \
             else utils.parse_requirement(normalized_name)
@@ -89,7 +120,7 @@ class DistInfo(object):
     def __hash__(self):
         return self.hash
 
-    @lru_cache(maxsize=500)
+    @lru_cache(maxsize=None)
     def requires(self, extras=()):
         return [req for req in self.reqs
                 if filter_req(req, extras)]
