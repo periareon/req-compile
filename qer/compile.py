@@ -26,7 +26,7 @@ def compile_roots(root, source, dists=None, round=1, index_url=None,
                   toplevel=None, session=None, wheeldir=None):
     logger = logging.getLogger('qer.compile')
 
-    print(' ' * round + str(root), end='')
+    # print(' ' * round + str(root), end='')
 
     recurse_reqs = False
     download = True
@@ -43,7 +43,7 @@ def compile_roots(root, source, dists=None, round=1, index_url=None,
                 recurse_reqs = True
                 extras = qer.utils.merge_extras(metadata.extras, root.extras)
                 metadata.extras = extras
-            print(' ... REUSE')
+            # print(' ... REUSE')
             if metadata.meta:
                 recurse_reqs = True
             download = False
@@ -55,10 +55,10 @@ def compile_roots(root, source, dists=None, round=1, index_url=None,
                                                    index_url=index_url, session=session,
                                                    wheeldir=wheeldir)
 
-        if cached:
-            print(' ... CACHED')
-        else:
-            print(' ... DOWNLOAD')
+        # if cached:
+        #     print(' ... CACHED')
+        # else:
+        #     print(' ... DOWNLOAD')
 
         metadata = qer.metadata.extract_metadata(dist, extras=root.extras)
         dists.add_dist(metadata, source)
@@ -71,7 +71,7 @@ def compile_roots(root, source, dists=None, round=1, index_url=None,
                 if not constraints.specifier.contains(dist.metadata.version):
                     logger.info('Already selected dist violated (%s %s)',
                                  dist.metadata.name, dist.metadata.version)
-                    print('------ VIOLATED {} {} -----'.format(dist.metadata.name, dist.metadata.version))
+                    # print('------ VIOLATED {} {} -----'.format(dist.metadata.name, dist.metadata.version))
                     # Remove all downstream reqs
                     dists.remove_source(dist.metadata.name)
                     dists.remove_dist(dist.metadata.name)

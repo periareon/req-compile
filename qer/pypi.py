@@ -2,7 +2,11 @@ import collections
 import logging
 import os
 import shutil
+import sys
 import tempfile
+import platform
+
+import six
 from six.moves import urllib
 from six.moves import html_parser
 
@@ -17,8 +21,19 @@ try:
 except ImportError:
     from functools import lru_cache
 
-Candidate = collections.namedtuple('Candidate', 'name filename version py_version link')
+EXTENSIONS = ('.whl', '.tar.gz', '.tgz', '.zip')
+Candidate = collections.namedtuple('Candidate', 'name filename version py_version platform link')
 
+
+INTERPRETER_TAGS = {
+    'CPython': 'cp',
+    'IronPython': 'ip',
+    'PyPy': 'pp',
+    'Jython': 'jy',
+}
+INTERPRETER_TAG = INTERPRETER_TAGS.get(platform.python_implementation(), 'cp')
+
+PY_VERSION_NUM = str(sys.version_info.major) + str(sys.version_info.minor)
 
 logger = logging.getLogger('qer.pypi')
 
@@ -38,26 +53,44 @@ class LinksHTMLParser(html_parser.HTMLParser):
                     break
 
     def handle_data(self, filename):
-        extensions = ('.whl', '.tar.gz', '.tgz', '.zip')
+        candidate = None
         if '.whl' in filename:
-            data_parts = filename.split('-')
-            name = data_parts[0]
-            version = pkg_resources.parse_version(data_parts[1])
-            platform = data_parts[4].split('.')[0]
-            if platform == 'any' or platform == 'win_amd64':
-                self.dists.insert(0, Candidate(name,
-                                               filename,
-                                               version,
-                                               tuple(data_parts[2].split('.')),
-                                               self.active_link))
+            candidate = _wheel_candidate(self.active_link, filename)
         elif '.tar.gz' in filename or '.tgz' in filename or '.zip' in filename:
-            data_parts = filename.split('-')
-            name = data_parts[0]
-            version_text = data_parts[-1]
-            for ext in extensions:
-                version_text = version_text.replace(ext, '')
-            version = pkg_resources.parse_version(version_text)
-            self.dists.insert(0, Candidate(name, filename, version, (), self.active_link))
+            candidate = _tar_gz_candidate(self.active_link, filename)
+
+        if candidate is not None:
+            self.dists.insert(0, candidate)
+
+
+def _wheel_candidate(active_link, filename):
+    data_parts = filename.split('-')
+    name = data_parts[0]
+    version = pkg_resources.parse_version(data_parts[1])
+    platform = data_parts[4].split('.')[0]
+    return Candidate(name,
+                     filename,
+                     version,
+                     tuple(data_parts[2].split('.')),
+                     platform,
+                     active_link)
+
+
+def _tar_gz_candidate(active_link, filename):
+    data_parts = filename.split('-')
+    version_idx = -1
+    for idx, part in enumerate(data_parts):
+        if part[0].isdigit() and '.' in part:
+            version_idx = idx
+            break
+
+    name = '-'.join(data_parts[:version_idx])
+    version_text = data_parts[version_idx]
+    for ext in EXTENSIONS:
+        version_text = version_text.replace(ext, '')
+
+    version = pkg_resources.parse_version(version_text)
+    return Candidate(name, filename, version, (), 'any', active_link)
 
 
 @lru_cache(maxsize=None)
@@ -137,19 +170,62 @@ def start_session():
     return requests.Session()
 
 
-def download_candidate(project_name, py_ver='py2', specifier=None, allow_prerelease=False,
+def _check_py_compatibility(py_version):
+    # https://www.python.org/dev/peps/pep-0425/
+    if py_version == ():
+        return True
+
+    compatible_versions = []
+    if six.PY2:
+        compatible_versions.append('py2')
+    else:
+        compatible_versions.append('py3')
+
+    compatible_versions.append(INTERPRETER_TAG + PY_VERSION_NUM)
+
+    if not any(version in compatible_versions for version in py_version):
+        return False
+
+    return True
+
+
+def _check_platform_compatibility(py_platform):
+    if py_platform == 'any':
+        return True
+
+    tag = None
+    if sys.platform == 'win32':
+        if platform.machine() == 'AMD64':
+            tag = 'win_amd64'
+        else:
+            tag = 'win32'
+    elif sys.platform == 'linux2':
+        if platform.machine() == 'x86_64':
+            tag = 'manylinux1_x86_64'
+        else:
+            tag = 'manylinux1_' + platform.machine()
+
+    return py_platform.lower() == tag
+
+
+def download_candidate(project_name, specifier=None, allow_prerelease=False,
                        index_url=None, skip_source=True, session=None, wheeldir=None):
     logger = logging.getLogger('qer.download')
     logger.info('Downloading %s, with constraints %s', project_name, specifier)
     if index_url is None:
         index_url = 'https://pypi.org/simple'
     candidates = _scan_page_links(index_url, project_name, session)
+    has_equality = any(spec.operator == '==' for spec in specifier)
 
     for candidate in candidates:
-        if not ('py2' in candidate.py_version or 'cp27' in candidate.py_version) and skip_source:
+        if skip_source and not candidate.filename.endswith('.whl'):
             continue
 
-        has_equality = any(spec.operator == '==' for spec in specifier)
+        if not _check_py_compatibility(candidate.py_version):
+            continue
+
+        if not _check_platform_compatibility(candidate.platform):
+            continue
 
         if not has_equality and not allow_prerelease and candidate.version.is_prerelease:
             continue
@@ -165,6 +241,6 @@ def download_candidate(project_name, py_ver='py2', specifier=None, allow_prerele
         ex.specifier = specifier
         raise ex
 
-    return download_candidate(project_name, py_ver=py_ver, specifier=specifier,
+    return download_candidate(project_name, specifier=specifier,
                               allow_prerelease=allow_prerelease, index_url=index_url,
                               skip_source=False, session=session, wheeldir=wheeldir)
