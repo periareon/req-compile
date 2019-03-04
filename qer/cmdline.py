@@ -12,9 +12,13 @@ import six
 import qer.compile
 import qer.dists
 import qer.metadata
-import qer.pypi
+import qer.pypi\
+
 from qer import utils
 from qer.compile import perform_compile
+from qer.findlinks import FindLinksRepository
+from qer.pypi import PyPIRepository
+from qer.repository import MultiRepository
 
 
 def _get_reason_constraint(dists, constraint_dists, project_name, root_mapping):
@@ -98,7 +102,7 @@ def _generate_no_candidate_display(ex, dists, constraint_dists, root_mapping):
     sys.exit(1)
 
 
-def run_compile(input_reqfiles, constraint_files, index_url, wheeldir, no_combine):
+def run_compile(input_reqfiles, constraint_files, index_url, find_links, wheeldir, no_combine, no_index):
 
     if wheeldir:
         if not os.path.exists(wheeldir):
@@ -121,9 +125,23 @@ def run_compile(input_reqfiles, constraint_files, index_url, wheeldir, no_combin
     else:
         constraint_reqs = None
 
+    repos = []
+
+    if find_links:
+        repos.append(FindLinksRepository(find_links))
+
+    if not no_index:
+        index_url = index_url or 'https://pypi.org/simple'
+        repos.append(PyPIRepository(index_url, wheeldir))
+
+    if not repos:
+        raise ValueError('At least one Python distributions source must be provided.')
+
+    repo = MultiRepository(*repos)
+
     try:
         results, constraint_results, root_mapping = perform_compile(
-            input_reqs, wheeldir, constraint_reqs=constraint_reqs, index_url=index_url)
+            input_reqs, wheeldir, repo, constraint_reqs=constraint_reqs)
 
         lines = sorted(_generate_lines(results, constraint_results, root_mapping), key=str.lower)
         print('\n'.join(lines))
@@ -140,16 +158,21 @@ def compile_main():
     parser = argparse.ArgumentParser()
     parser.add_argument('requirement_files', nargs='+', help='Input requirements files')
     parser.add_argument('-i', '--index-url', type=str, default=None)
+    parser.add_argument('-f', '--find-links', type=str, default=None)
     parser.add_argument('-c', '--constraints', action='append',
                         help='Contraints files. Not included in final compilation')
     parser.add_argument('-w', '--wheel-dir', type=str, default=None)
     parser.add_argument('-n', '--no-combine', default=False, action='store_true',
                         help='Keep input requirement file sources separate to '
                              'improve errors and output (slower)')
+    parser.add_argument('--no-index',
+                        action='store_true', default=False,
+                        help='Do not connect to the internet to compile. All wheels must be '
+                             'available in --find-links paths.')
 
     args = parser.parse_args()
     run_compile(args.requirement_files, args.constraints if args.constraints else None,
-                args.index_url, args.wheel_dir, args.no_combine)
+                args.index_url, args.find_links, args.wheel_dir, args.no_combine, args.no_index)
 
 
 if __name__ == '__main__':

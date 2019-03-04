@@ -52,6 +52,15 @@ def _fetch_from_zip(zip_file, extras):
 
 
 def _fetch_from_source(tar_gz, extras):
+    """
+
+    Args:
+        tar_gz (str): Source file
+        extras:
+
+    Returns:
+
+    """
     tar = tarfile.open(tar_gz, "r:gz")
     try:
         metadata_file = None

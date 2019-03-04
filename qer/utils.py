@@ -57,6 +57,10 @@ def parse_requirement(req_text):
 
 @lru_cache(maxsize=None)
 def parse_version(version):
+    """
+    Args:
+        version (str): Version to parse
+    """
     return pkg_resources.parse_version(version)
 
 
@@ -64,7 +68,7 @@ def parse_requirements(reqs):
     for req in reqs:
         yield parse_requirement(req)
 
-
+0
 def merge_extras(extras1, extras2):
     if extras1 is None:
         return extras2
@@ -124,3 +128,30 @@ def filter_req(req, extras):
         else:
             keep_req = req.marker.evaluate({'extra': None})
     return keep_req
+
+
+def is_pinned_requirement(ireq):
+    """
+    Returns whether an InstallRequirement is a "pinned" requirement.
+
+    An InstallRequirement is considered pinned if:
+    - Is not editable
+    - It has exactly one specifier
+    - That specifier is "=="
+    - The version does not contain a wildcard
+
+    Examples:
+        django==1.8   # pinned
+        django>1.8    # NOT pinned
+        django~=1.8   # NOT pinned
+        django==1.*   # NOT pinned
+    """
+
+    if ireq.editable:
+        return False
+
+    if len(ireq.specifier._specs) != 1:
+        return False
+
+    op, version = next(iter(ireq.specifier._specs))._spec
+    return (op == '==' or op == '===') and not version.endswith('.*')

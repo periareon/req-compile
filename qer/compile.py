@@ -22,11 +22,10 @@ BLACKLIST = [
 ]
 
 
-def compile_roots(root, source, dists=None, round=1, index_url=None,
-                  toplevel=None, session=None, wheeldir=None):
+def compile_roots(root, source, repo, dists=None, round=1, toplevel=None, wheeldir=None):
     logger = logging.getLogger('qer.compile')
 
-    # print(' ' * round + str(root), end='')
+    print(' ' * round + str(root), end='')
 
     recurse_reqs = False
     download = True
@@ -43,22 +42,22 @@ def compile_roots(root, source, dists=None, round=1, index_url=None,
                 recurse_reqs = True
                 extras = qer.utils.merge_extras(metadata.extras, root.extras)
                 metadata.extras = extras
-            # print(' ... REUSE')
+            print(' ... REUSE')
             if metadata.meta:
                 recurse_reqs = True
             download = False
 
     if download:
-        specifier = dists.build_constraints(root.name, extras=root.extras).specifier
+        spec_req = dists.build_constraints(root.name, extras=root.extras)
 
-        dist, cached = qer.pypi.download_candidate(root.name, specifier=specifier,
-                                                   index_url=index_url, session=session,
-                                                   wheeldir=wheeldir)
+        dist, cached = repo.get_candidate(spec_req)
 
-        # if cached:
-        #     print(' ... CACHED')
-        # else:
-        #     print(' ... DOWNLOAD')
+        source = repo.source_of(spec_req)
+
+        if cached:
+            print(' ... CACHED ({})'.format(source))
+        else:
+            print(' ... DOWNLOAD ({})'.format(source))
 
         metadata = qer.metadata.extract_metadata(dist, extras=root.extras)
         dists.add_dist(metadata, source)
@@ -78,15 +77,15 @@ def compile_roots(root, source, dists=None, round=1, index_url=None,
 
                     dists.add_global_constraint(utils.parse_requirement(
                         '{}!={}'.format(dist.metadata.name, dist.metadata.version)))
-                    return compile_roots(toplevel, 'rerun',
+                    return compile_roots(toplevel, 'rerun', repo,
                                          dists=dists, round=1,
-                                         toplevel=toplevel, index_url=index_url, session=session,
+                                         toplevel=toplevel,
                                          wheeldir=wheeldir)
 
     if recurse_reqs:
         for req in metadata.requires(extras):
-            compile_roots(req, normalize_project_name(root.name), dists=dists, round=round + 1,
-                          toplevel=toplevel, index_url=index_url, session=session, wheeldir=wheeldir)
+            compile_roots(req, normalize_project_name(root.name), repo, dists=dists, round=round + 1,
+                          toplevel=toplevel, wheeldir=wheeldir)
 
 
 def _generate_constraints(dists):
@@ -105,7 +104,7 @@ def _build_root_metadata(roots, name):
     return qer.dists.DistInfo(name, '0', roots, meta=True)
 
 
-def perform_compile(input_reqs, wheeldir, constraint_reqs=None, index_url=None):
+def perform_compile(input_reqs, wheeldir, repo, constraint_reqs=None, index_url=None, find_links=None):
     """
     Perform a compilation using the given inputs and constraints
     Args:
@@ -118,6 +117,7 @@ def perform_compile(input_reqs, wheeldir, constraint_reqs=None, index_url=None):
         constraint_reqs (list[pkg_resources.Requirement] or None): Constraints to use
             when compiling
         index_url (str): Index URL to download package versions and contents from
+        find_links (str): Index URL to download package versions and contents from
 
     Returns:
         tuple[DistributionCollection, DistributionCollection, dict]
@@ -129,10 +129,9 @@ def perform_compile(input_reqs, wheeldir, constraint_reqs=None, index_url=None):
         constraint_results = qer.dists.DistributionCollection()
         constraint_results.add_dist(_build_root_metadata(constraint_reqs, ROOT_REQ), ROOT_REQ)
 
-        with closing(qer.pypi.start_session()) as session:
-            compile_roots(root_req, ROOT_REQ, dists=constraint_results,
-                          toplevel=root_req, index_url=index_url, session=session,
-                          wheeldir=wheeldir)
+        compile_roots(root_req, ROOT_REQ, repo, dists=constraint_results,
+                      toplevel=root_req,
+                      wheeldir=wheeldir)
 
         constraints = list(_generate_constraints(constraint_results))
 
@@ -153,12 +152,11 @@ def perform_compile(input_reqs, wheeldir, constraint_reqs=None, index_url=None):
         results.add_dist(_build_root_metadata(input_reqs, ROOT_REQ), ROOT_REQ)
 
     try:
-        with closing(qer.pypi.start_session()) as session:
-            compile_roots(root_req, ROOT_REQ, dists=results,
-                          toplevel=root_req, index_url=index_url, session=session,
-                          wheeldir=wheeldir)
+        compile_roots(root_req, ROOT_REQ, repo, dists=results,
+                      toplevel=root_req,
+                      wheeldir=wheeldir)
 
-            return results, constraint_results, root_mapping
+        return results, constraint_results, root_mapping
     except qer.pypi.NoCandidateException as ex:
         ex.results = results
         ex.constraint_results = constraint_results
