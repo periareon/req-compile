@@ -6,6 +6,7 @@ import six
 
 import qer.compile
 import qer.pypi
+import qer.repository
 
 
 def test_mock_pypi(mock_metadata, mock_pypi):
@@ -191,7 +192,7 @@ def test_compile_with_constraint_not_possible(mock_metadata, mock_pypi):
                                  'y==5.0.0',
                                  'y==4.0.0']))
 
-    with pytest.raises(qer.pypi.NoCandidateException):
+    with pytest.raises(qer.repository.NoCandidateException):
         qer.compile.perform_compile(
             pkg_resources.parse_requirements(['x==1']),
             '.',

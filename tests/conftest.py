@@ -6,7 +6,7 @@ import pkg_resources
 import pytest
 
 import qer.metadata
-from qer.pypi import NoCandidateException
+from qer.repository import NoCandidateException
 from qer.repository import Repository, Candidate
 
 

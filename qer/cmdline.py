@@ -80,6 +80,7 @@ def _cantusereason_to_text(req, reason):
     elif reason == CantUseReason.IS_PRERELEASE:
         return 'prereleases not used'
 
+
 def _generate_no_candidate_display(ex, repos, dists, constraint_dists, root_mapping):
     project_name = utils.normalize_project_name(ex.req.name)
     components = dists.reverse_deps(project_name)
@@ -175,8 +176,6 @@ def run_compile(input_reqfiles, constraint_files, index_url, find_links, wheeldi
         print('\n'.join(lines))
     except qer.repository.NoCandidateException as ex:
          _generate_no_candidate_display(ex, repos, ex.results, ex.constraint_results, ex.mapping)
-
-    print(ParserElement.packrat_cache_stats)
 
     if delete_wheeldir:
         shutil.rmtree(wheeldir)

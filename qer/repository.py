@@ -84,6 +84,15 @@ class Candidate(object):
 
         return tag_score
 
+    def __eq__(self, other):
+        return (self.name == other.name and
+                self.filename == other.filename and
+                self.version == other.version and
+                self.py_version == other.py_version and
+                self.platform == other.platform and
+                self.link == other.link and
+                self.type == other.type)
+
     def __repr__(self):
         return 'Candidate(name={}, filename={}, version={}, py_version={}, platform={}, link={})'.format(
             self.name, self.filename, self.version, self.py_version, self.platform, self.link
@@ -236,7 +245,7 @@ class Repository(six.with_metaclass(abc.ABCMeta, object)):
                 continue
 
             check_level += 1
-            if not req.specifier.contains(candidate.version):
+            if not req.specifier.contains(candidate.version, prereleases=False):
                 continue
 
             check_level += 1

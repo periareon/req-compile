@@ -52,7 +52,6 @@ def reqs_from_files(requirements_files):
 
 @lru_cache(maxsize=None)
 def parse_requirement(req_text):
-    print(req_text)
     return pkg_resources.Requirement.parse(req_text)
 
 

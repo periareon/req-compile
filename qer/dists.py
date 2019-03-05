@@ -82,14 +82,13 @@ class DistributionCollection(object):
 
     def _calc_constraints(self, project_name, extras):
         normalized_name = normalize_project_name(project_name)
-        req = None if normalized_name == DistributionCollection.CONSTRAINTS_ENTRY \
-            else utils.parse_requirement(normalized_name)
+        req = None
         for dist_name, dist in six.iteritems(self.dists):
             for subreq in dist.metadata.requires(extras=extras):
                 if normalize_project_name(subreq.name) == normalized_name:
                     req = merge_requirements(req, subreq)
                     break
-        return req
+        return req if req is not None else utils.parse_requirement(normalized_name)
 
     def reverse_deps(self, project_name):
         reverse_deps = {}

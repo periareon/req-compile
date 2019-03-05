@@ -36,22 +36,20 @@ def compile_roots(root, source, repo, dists=None, round=1, toplevel=None, wheeld
     if root.name in dists:
         normalized_name = normalize_project_name(root.name)
 
-        if root.specifier.contains(dists.dists[normalized_name].metadata.version):
-            logger.info('Reusing dist %s %s', root.name, dists.dists[normalized_name].metadata.version)
-            dists.dists[normalized_name].sources.add(source)
-            metadata = dists.dists[normalized_name].metadata
-            if metadata.extras != root.extras:
-                recurse_reqs = True
-                extras = qer.utils.merge_extras(metadata.extras, root.extras)
-                metadata.extras = extras
-            # print(' ... REUSE')
-            if metadata.meta:
-                recurse_reqs = True
-            download = False
+        logger.info('Reusing dist %s %s', root.name, dists.dists[normalized_name].metadata.version)
+        dists.dists[normalized_name].sources.add(source)
+        metadata = dists.dists[normalized_name].metadata
+        if metadata.extras != root.extras:
+            recurse_reqs = True
+            extras = qer.utils.merge_extras(metadata.extras, root.extras)
+            metadata.extras = extras
+        # print(' ... REUSE')
+        if metadata.meta:
+            recurse_reqs = True
+        download = False
 
     if download:
         spec_req = dists.build_constraints(root.name, extras=root.extras)
-
         dist, cached = repo.get_candidate(spec_req)
 
         source = repo.source_of(spec_req)
@@ -66,19 +64,21 @@ def compile_roots(root, source, repo, dists=None, round=1, toplevel=None, wheeld
         recurse_reqs = True
 
         # See how the new constraints do with the already collected reqs
-        for dist in dists.dists.values():
-            if dist.metadata.name != DistributionCollection.CONSTRAINTS_ENTRY:
-                constraints = dists.build_constraints(dist.metadata.name, extras=root.extras)
-                if not constraints.specifier.contains(dist.metadata.version):
+        for req in metadata.requires(extras):
+            normalized_name = normalize_project_name(req.name)
+            if normalized_name in dists.dists:
+                current_dist = dists.dists[normalized_name]
+                constraints = dists.build_constraints(req.name, extras=root.extras)
+                if not constraints.specifier.contains(current_dist.metadata.version, prereleases=False):
                     logger.info('Already selected dist violated (%s %s)',
-                                 dist.metadata.name, dist.metadata.version)
+                                 current_dist.metadata.name, current_dist.metadata.version)
                     # print('------ VIOLATED {} {} -----'.format(dist.metadata.name, dist.metadata.version))
                     # Remove all downstream reqs
-                    dists.remove_source(dist.metadata.name)
-                    dists.remove_dist(dist.metadata.name)
+                    dists.remove_source(current_dist.metadata.name)
+                    dists.remove_dist(current_dist.metadata.name)
 
                     dists.add_global_constraint(utils.parse_requirement(
-                        '{}!={}'.format(dist.metadata.name, dist.metadata.version)))
+                        '{}!={}'.format(current_dist.metadata.name, current_dist.metadata.version)))
                     return compile_roots(toplevel, 'rerun', repo,
                                          dists=dists, round=1,
                                          toplevel=toplevel,
