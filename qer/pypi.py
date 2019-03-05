@@ -1,24 +1,18 @@
-import collections
 import logging
 import os
-import platform
-import sys
 from hashlib import sha256
 
-import pkg_resources
 import requests
-import six
 from six.moves import html_parser
 from six.moves import urllib
 
-from qer.repository import Repository, NoCandidateException, Candidate
+import qer.repository
 
 try:
     from functools32 import lru_cache
 except ImportError:
     from functools import lru_cache
 
-EXTENSIONS = ('.whl', '.tar.gz', '.tgz', '.zip')
 
 logger = logging.getLogger('qer.pypi')
 
@@ -38,44 +32,9 @@ class LinksHTMLParser(html_parser.HTMLParser):
                     break
 
     def handle_data(self, filename):
-        candidate = None
-        if '.whl' in filename:
-            candidate = _wheel_candidate(self.active_link, filename)
-        elif '.tar.gz' in filename or '.tgz' in filename or '.zip' in filename:
-            candidate = _tar_gz_candidate(self.active_link, filename)
-
+        candidate = qer.repository.process_distribution(self.active_link, filename)
         if candidate is not None:
-            self.dists.insert(0, candidate)
-
-
-def _wheel_candidate(active_link, filename):
-    data_parts = filename.split('-')
-    name = data_parts[0]
-    version = pkg_resources.parse_version(data_parts[1])
-    platform = data_parts[4].split('.')[0]
-    return Candidate(name,
-                     filename,
-                     version,
-                     tuple(data_parts[2].split('.')),
-                     platform,
-                     active_link)
-
-
-def _tar_gz_candidate(active_link, filename):
-    data_parts = filename.split('-')
-    version_idx = -1
-    for idx, part in enumerate(data_parts):
-        if part[0].isdigit() and '.' in part:
-            version_idx = idx
-            break
-
-    name = '-'.join(data_parts[:version_idx])
-    version_text = data_parts[version_idx]
-    for ext in EXTENSIONS:
-        version_text = version_text.replace(ext, '')
-
-    version = pkg_resources.parse_version(version_text)
-    return Candidate(name, filename, version, (), 'any', active_link)
+            self.dists.append(candidate)
 
 
 @lru_cache(maxsize=None)
@@ -99,7 +58,7 @@ def _scan_page_links(index_url, project_name, session):
     parser = LinksHTMLParser(response.url)
     parser.feed(response.content.decode('utf-8'))
 
-    return sorted(parser.dists, key=lambda x: x.version, reverse=True)
+    return parser.dists
 
 
 def _do_download(index_url, filename, link, session, wheeldir):
@@ -135,7 +94,7 @@ def _do_download(index_url, filename, link, session, wheeldir):
     return output_file, False
 
 
-class PyPIRepository(Repository):
+class PyPIRepository(qer.repository.Repository):
     def __init__(self, index_url, wheeldir, allow_prerelease=None):
         super(PyPIRepository, self).__init__(allow_prerelease)
 
@@ -147,7 +106,7 @@ class PyPIRepository(Repository):
         self.session = requests.Session()
 
     def __repr__(self):
-        return 'PyPIRepository({})'.format(self.index_url)
+        return '--index-url {}'.format(self.index_url)
 
     @property
     def logger(self):

@@ -8,6 +8,7 @@ import sys
 import tempfile
 
 import six
+from pkg_resources._vendor.pyparsing import ParserElement
 
 import qer.compile
 import qer.dists
@@ -18,7 +19,7 @@ from qer import utils
 from qer.compile import perform_compile
 from qer.findlinks import FindLinksRepository
 from qer.pypi import PyPIRepository
-from qer.repository import MultiRepository
+from qer.repository import MultiRepository, CantUseReason
 
 
 def _get_reason_constraint(dists, constraint_dists, project_name, root_mapping):
@@ -69,13 +70,23 @@ def _generate_lines(dists, constraint_dists, root_mapping):
         yield '{}# {}'.format(str(dist.metadata).ljust(43), constraints)
 
 
-def _generate_no_candidate_display(ex, dists, constraint_dists, root_mapping):
-    project_name = utils.normalize_project_name(ex.project_name)
+def _cantusereason_to_text(req, reason):
+    if reason == CantUseReason.VERSION_NO_SATISFY:
+        return 'version mismatch'
+    elif reason == CantUseReason.WRONG_PLATFORM:
+        return 'platform mismatch {}'.format(qer.repository.PLATFORM_TAG)
+    elif reason == CantUseReason.WRONG_PYTHON_VERSION:
+        return 'python version/interpreter mismatch ({})'.format(', '.join(qer.repository.IMPLEMENTATION_TAGS))
+    elif reason == CantUseReason.IS_PRERELEASE:
+        return 'prereleases not used'
+
+def _generate_no_candidate_display(ex, repos, dists, constraint_dists, root_mapping):
+    project_name = utils.normalize_project_name(ex.req.name)
     components = dists.reverse_deps(project_name)
     if not components:
         print('No package available for %s, latest is %s', file=sys.stderr)
     else:
-        print('No version of {} could satisfy the following requirements:'.format(ex.project_name), file=sys.stderr)
+        print('No version of {} could satisfy the following requirements:'.format(ex.req.name), file=sys.stderr)
         for component in components:
             for req in dists.dists[component].metadata.reqs:
                 if utils.normalize_project_name(req.name) == project_name:
@@ -96,9 +107,26 @@ def _generate_no_candidate_display(ex, dists, constraint_dists, root_mapping):
                             source = '{} {}{}'.format(component, dists.dists[component].metadata.version, constraints_reason)
 
                         print('   {} requires {}{}'.format(source,
-                                                           ex.project_name, specifics),
+                                                           ex.req.name, specifics),
                               file=sys.stderr)
                         break
+
+        all_candidates = {repo: repo.get_candidates(ex.req) for repo in repos}
+        if sum(len(candidates) for candidates in all_candidates.values()) == 0:
+            print('No candidates found in any of the input sources', file=sys.stderr)
+        else:
+            print('Found the following candidates, none of which will work:', file=sys.stderr)
+            for repo in repos:
+                candidates = repo.get_candidates(ex.req)
+                print('  {}:'.format(repo), file=sys.stderr)
+                if candidates:
+                    for candidate in repo._sort_candidates(candidates):
+                        print('  {}: {}'.format(candidate,
+                                                _cantusereason_to_text(ex.req, repo.why_cant_I_use(ex.req, candidate))),
+                              file=sys.stderr)
+                else:
+                    print('  No candidates found', file=sys.stderr)
+
     sys.exit(1)
 
 
@@ -145,8 +173,10 @@ def run_compile(input_reqfiles, constraint_files, index_url, find_links, wheeldi
 
         lines = sorted(_generate_lines(results, constraint_results, root_mapping), key=str.lower)
         print('\n'.join(lines))
-    except qer.pypi.NoCandidateException as ex:
-         _generate_no_candidate_display(ex, ex.results, ex.constraint_results, ex.mapping)
+    except qer.repository.NoCandidateException as ex:
+         _generate_no_candidate_display(ex, repos, ex.results, ex.constraint_results, ex.mapping)
+
+    print(ParserElement.packrat_cache_stats)
 
     if delete_wheeldir:
         shutil.rmtree(wheeldir)

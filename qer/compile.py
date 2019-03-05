@@ -10,6 +10,8 @@ import qer.dists
 import qer.metadata
 import qer.pypi
 import qer.utils
+import qer.repository
+
 from qer import utils
 from qer.dists import DistributionCollection
 from qer.utils import normalize_project_name
@@ -25,7 +27,7 @@ BLACKLIST = [
 def compile_roots(root, source, repo, dists=None, round=1, toplevel=None, wheeldir=None):
     logger = logging.getLogger('qer.compile')
 
-    print(' ' * round + str(root), end='')
+    # print(' ' * round + str(root), end='')
 
     recurse_reqs = False
     download = True
@@ -42,7 +44,7 @@ def compile_roots(root, source, repo, dists=None, round=1, toplevel=None, wheeld
                 recurse_reqs = True
                 extras = qer.utils.merge_extras(metadata.extras, root.extras)
                 metadata.extras = extras
-            print(' ... REUSE')
+            # print(' ... REUSE')
             if metadata.meta:
                 recurse_reqs = True
             download = False
@@ -54,10 +56,10 @@ def compile_roots(root, source, repo, dists=None, round=1, toplevel=None, wheeld
 
         source = repo.source_of(spec_req)
 
-        if cached:
-            print(' ... CACHED ({})'.format(source))
-        else:
-            print(' ... DOWNLOAD ({})'.format(source))
+        # if cached:
+        #     print(' ... CACHED ({})'.format(source))
+        # else:
+        #     print(' ... DOWNLOAD ({})'.format(source))
 
         metadata = qer.metadata.extract_metadata(dist, extras=root.extras)
         dists.add_dist(metadata, source)
@@ -157,7 +159,7 @@ def perform_compile(input_reqs, wheeldir, repo, constraint_reqs=None, index_url=
                       wheeldir=wheeldir)
 
         return results, constraint_results, root_mapping
-    except qer.pypi.NoCandidateException as ex:
+    except qer.repository.NoCandidateException as ex:
         ex.results = results
         ex.constraint_results = constraint_results
         ex.mapping = root_mapping

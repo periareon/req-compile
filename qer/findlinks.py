@@ -4,7 +4,8 @@ import os
 import pkg_resources
 
 from qer import utils
-from qer.repository import Repository, Candidate, NoCandidateException
+import qer.repository
+from qer.repository import Repository
 
 
 class FindLinksRepository(Repository):
@@ -16,24 +17,13 @@ class FindLinksRepository(Repository):
         self._find_all_links()
 
     def __repr__(self):
-        return 'FindLinksRepository({})'.format(self.path)
+        return '--find-links {}'.format(self.path)
 
     def _find_all_links(self):
         for filename in os.listdir(self.path):
-            if filename.lower().endswith('.whl'):
-                self.links.append(self._build_wheel_candidate(filename))
-
-    def _build_wheel_candidate(self, filename):
-        data_parts = filename.split('-')
-        name = utils.normalize_project_name(data_parts[0])
-        version = pkg_resources.parse_version(data_parts[1])
-        platform = data_parts[4].split('.')[0]
-        return Candidate(name,
-                         filename,
-                         version,
-                         tuple(data_parts[2].split('.')),
-                         platform,
-                         None)
+            candidate = qer.repository.process_distribution(None, filename.lower())
+            if candidate is not None:
+                self.links.append(candidate)
 
     @property
     def logger(self):
@@ -45,9 +35,6 @@ class FindLinksRepository(Repository):
         for candidate in self.links:
             if candidate.name == project_name:
                 results.append(candidate)
-
-        if not results:
-            raise NoCandidateException()
 
         return results
 
