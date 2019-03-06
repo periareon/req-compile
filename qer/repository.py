@@ -21,7 +21,7 @@ def _get_platform_tag():
             tag = 'win_amd64'
         else:
             tag = 'win32'
-    elif sys.platform == 'linux2':
+    elif sys.platform.startswith('linux'):
         if platform.machine() == 'x86_64':
             tag = 'manylinux1_x86_64'
         else:
@@ -245,7 +245,7 @@ class Repository(six.with_metaclass(abc.ABCMeta, object)):
                 continue
 
             check_level += 1
-            if not req.specifier.contains(candidate.version, prereleases=False):
+            if not req.specifier.contains(candidate.version, prereleases=has_equality):
                 continue
 
             check_level += 1
