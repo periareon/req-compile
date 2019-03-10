@@ -6,7 +6,7 @@ import pkg_resources
 import pytest
 
 import qer.metadata
-from qer.repository import NoCandidateException
+from qer.repository import NoCandidateException, RequiresPython
 from qer.repository import Repository, Candidate
 
 
@@ -54,7 +54,7 @@ class MockRepository(Repository):
         return Candidate(req.project_name,
                          _to_path(self.scenario, req),
                          pkg_resources.parse_version(version),
-                         (), 'any', None)
+                         RequiresPython(None), 'any', None)
 
     def get_candidates(self, req):
             if self.index_map is None:

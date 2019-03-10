@@ -23,16 +23,22 @@ class LinksHTMLParser(html_parser.HTMLParser):
         self.url = url
         self.dists = []
         self.active_link = None
+        self.active_requires_python = None
 
     def handle_starttag(self, tag, attrs):
+        self.active_link = None
         if tag == 'a':
+            self.active_requires_python = None
             for attr in attrs:
                 if attr[0] == 'href':
                     self.active_link = self.url, attr[1]
-                    break
+                elif attr[0] == 'data-requires-python':
+                    self.active_requires_python = attr[1]
 
     def handle_data(self, filename):
-        candidate = qer.repository.process_distribution(self.active_link, filename)
+        if self.active_link is None:
+            return
+        candidate = qer.repository.process_distribution(self.active_link, filename, self.active_requires_python)
         if candidate is not None:
             self.dists.append(candidate)
 

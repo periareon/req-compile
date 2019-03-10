@@ -22,9 +22,9 @@ from qer.pypi import PyPIRepository
 from qer.repository import MultiRepository, CantUseReason
 
 
-def _get_reason_constraint(dists, constraint_dists, project_name, root_mapping):
+def _get_reason_constraint(dists, constraint_dists, project_name, extras, root_mapping):
     project_name = utils.normalize_project_name(project_name)
-    components = dists.reverse_deps(project_name)
+    components = dists.reverse_deps(project_name, extras)
     if not components:
         constraints = ''
     else:
@@ -37,7 +37,7 @@ def _get_reason_constraint(dists, constraint_dists, project_name, root_mapping):
                 if utils.normalize_project_name(req.name) == project_name:
                     if component == qer.dists.DistributionCollection.CONSTRAINTS_ENTRY:
                         constraints_reason = _get_reason_constraint(constraint_dists, None,
-                                                                    project_name, root_mapping)
+                                                                    project_name, extras, root_mapping)
                         if constraints_reason:
                             constraints += ['(via constraints: ' + constraints_reason + ')']
                     else:
@@ -66,7 +66,7 @@ def _generate_lines(dists, constraint_dists, root_mapping):
         if dist.metadata.name.startswith(qer.compile.ROOT_REQ):
             continue
 
-        constraints = _get_reason_constraint(dists, constraint_dists, dist.metadata.name, root_mapping)
+        constraints = _get_reason_constraint(dists, constraint_dists, dist.metadata.name, dist.metadata.extras, root_mapping)
         yield '{}# {}'.format(str(dist.metadata).ljust(43), constraints)
 
 
@@ -93,7 +93,7 @@ def _generate_no_candidate_display(ex, repos, dists, constraint_dists, root_mapp
                 if utils.normalize_project_name(req.name) == project_name:
                     if component == qer.dists.DistributionCollection.CONSTRAINTS_ENTRY:
                         constraints_reason = _get_reason_constraint(constraint_dists, None,
-                                                                    project_name, root_mapping)
+                                                                    project_name, (), root_mapping)
                         if constraints_reason:
                             print('   ' + constraints_reason, file=sys.stderr)
                     else:
@@ -102,7 +102,7 @@ def _generate_no_candidate_display(ex, repos, dists, constraint_dists, root_mapp
                             source = root_mapping.get(component, 'input file')
                         else:
                             constraints_reason = _get_reason_constraint(dists, constraint_dists,
-                                                                        component, root_mapping)
+                                                                        component, (), root_mapping)
                             if constraints_reason:
                                 constraints_reason = ' (via ' + constraints_reason + ')'
                             source = '{} {}{}'.format(component, dists.dists[component].metadata.version, constraints_reason)

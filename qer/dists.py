@@ -16,7 +16,7 @@ class DistributionCollection(object):
 
     def __init__(self, constraints=None):
         self.dists = {}
-        constraints_dist = DistInfo('#constraints#', None, constraints or [])
+        constraints_dist = DistInfo('#constraints#', 1, constraints or [])
         self.constraints_dist = constraints_dist
         self.dists[DistributionCollection.CONSTRAINTS_ENTRY] = MetadataSources(
             constraints_dist, DistributionCollection.CONSTRAINTS_ENTRY)
@@ -67,7 +67,18 @@ class DistributionCollection(object):
         return iter(self.dists.values())
 
     def add_global_constraint(self, constraint):
-        self.constraints_dist.reqs.append(constraint)
+        result = constraint
+        to_remove = None
+        for req in self.constraints_dist.reqs:
+            if constraint.name == req.name:
+                to_remove = req
+                result = merge_requirements(req, result)
+                break
+
+        if to_remove is not None:
+            self.constraints_dist.reqs.remove(to_remove)
+        self.constraints_dist.reqs.append(result)
+        self.constraints_dist.version += 1
 
     def build_constraints(self, project_name, extras=()):
         project_name = normalize_project_name(project_name)
@@ -90,11 +101,11 @@ class DistributionCollection(object):
                     break
         return req if req is not None else utils.parse_requirement(normalized_name)
 
-    def reverse_deps(self, project_name):
+    def reverse_deps(self, project_name, extras):
         reverse_deps = {}
         normalized_name = normalize_project_name(project_name)
         for dist_name, dist in six.iteritems(self.dists):
-            for subreq in dist.metadata.reqs:
+            for subreq in dist.metadata.requires(extras=extras):
                 if normalize_project_name(subreq.name) == normalized_name:
                     reverse_deps[dist_name] = subreq
                     break
@@ -110,14 +121,26 @@ class MetadataSources(object):
 class DistInfo(object):
     def __init__(self, name, version, reqs, extras=(), meta=False):
         self.name = name
-        self.version = version
         self.reqs = list(reqs)
         self.extras = extras
         self.meta = meta
-        self.hash = hash(self.name + str(self.version))
+        self._version = version
+        self._recalc_hash()
 
     def __hash__(self):
         return self.hash
+
+    def _recalc_hash(self):
+        self.hash = hash(self.name + str(self.version))
+
+    @property
+    def version(self):
+        return self._version
+
+    @version.setter
+    def version(self, value):
+        self._version = value
+        self._recalc_hash()
 
     @lru_cache(maxsize=None)
     def requires(self, extras=()):

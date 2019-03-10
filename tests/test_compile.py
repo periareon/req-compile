@@ -198,3 +198,37 @@ def test_compile_with_constraint_not_possible(mock_metadata, mock_pypi):
             '.',
             mock_pypi,
             constraint_reqs=list(pkg_resources.parse_requirements(['y<5'])))
+
+
+def test_compile_early_violated(mock_metadata, mock_pypi):
+    mock_pypi.load_scenario('early-violated',
+                            pkg_resources.parse_requirements(
+                                ['a==5.0.0',
+                                 'x==0.9.0',
+                                 'x==1.1.0',
+                                 'y==4.0.0',
+                                 'z==1.0.0']))
+
+    results, cresults, root_mapping = qer.compile.perform_compile(
+        pkg_resources.parse_requirements(['a', 'y']),
+        '.',
+        mock_pypi)
+
+    assert _real_outputs(results) == ['a==5.0.0', 'x==0.9.0', 'y==4.0.0', 'z==1.0.0']
+
+
+def test_compile_repeat_violated(mock_metadata, mock_pypi):
+    mock_pypi.load_scenario('repeat-violated',
+                            pkg_resources.parse_requirements(
+                                ['a==5.0.0',
+                                 'x==1.2.0',
+                                 'x==1.1.0',
+                                 'x==0.9.0',
+                                 'y==4.0.0']))
+
+    results, cresults, root_mapping = qer.compile.perform_compile(
+        pkg_resources.parse_requirements(['a', 'x', 'y']),
+        '.',
+        mock_pypi)
+
+    assert _real_outputs(results) == ['a==5.0.0', 'x==0.9.0', 'y==4.0.0']

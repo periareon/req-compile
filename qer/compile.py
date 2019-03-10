@@ -27,7 +27,7 @@ BLACKLIST = [
 def compile_roots(root, source, repo, dists=None, round=1, toplevel=None, wheeldir=None):
     logger = logging.getLogger('qer.compile')
 
-    # print(' ' * round + str(root), end='')
+    print(' ' * round + str(root), end='')
 
     recurse_reqs = False
     download = True
@@ -43,7 +43,7 @@ def compile_roots(root, source, repo, dists=None, round=1, toplevel=None, wheeld
             recurse_reqs = True
             extras = qer.utils.merge_extras(metadata.extras, root.extras)
             metadata.extras = extras
-        # print(' ... REUSE')
+        print(' ... REUSE')
         if metadata.meta:
             recurse_reqs = True
         download = False
@@ -54,16 +54,17 @@ def compile_roots(root, source, repo, dists=None, round=1, toplevel=None, wheeld
 
         source = repo.source_of(spec_req)
 
-        # if cached:
-        #     print(' ... CACHED ({})'.format(source))
-        # else:
-        #     print(' ... DOWNLOAD ({})'.format(source))
+        if cached:
+            print(' ... CACHED ({})'.format(source))
+        else:
+            print(' ... DOWNLOAD ({})'.format(source))
 
         metadata = qer.metadata.extract_metadata(dist, extras=root.extras)
         dists.add_dist(metadata, source)
         recurse_reqs = True
 
         # See how the new constraints do with the already collected reqs
+        has_violations = False
         for req in metadata.requires(extras):
             normalized_name = normalize_project_name(req.name)
             if normalized_name in dists.dists:
@@ -72,17 +73,24 @@ def compile_roots(root, source, repo, dists=None, round=1, toplevel=None, wheeld
                 if not constraints.specifier.contains(current_dist.metadata.version, prereleases=False):
                     logger.info('Already selected dist violated (%s %s)',
                                  current_dist.metadata.name, current_dist.metadata.version)
-                    # print('------ VIOLATED {} {} -----'.format(dist.metadata.name, dist.metadata.version))
+                    print('------ VIOLATED {} {} -----'.format(current_dist.metadata.name, current_dist.metadata.version))
                     # Remove all downstream reqs
                     dists.remove_source(current_dist.metadata.name)
                     dists.remove_dist(current_dist.metadata.name)
 
                     dists.add_global_constraint(utils.parse_requirement(
                         '{}!={}'.format(current_dist.metadata.name, current_dist.metadata.version)))
-                    return compile_roots(toplevel, 'rerun', repo,
-                                         dists=dists, round=1,
-                                         toplevel=toplevel,
-                                         wheeldir=wheeldir)
+                    has_violations = True
+
+        if has_violations:
+            # Remove the dist responsible for this violation
+            dists.remove_source(metadata.name)
+            dists.remove_dist(metadata.name)
+
+            return compile_roots(toplevel, 'rerun', repo,
+                                 dists=dists, round=1,
+                                 toplevel=toplevel,
+                                 wheeldir=wheeldir)
 
     if recurse_reqs:
         for req in metadata.requires(extras):

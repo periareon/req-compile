@@ -1,7 +1,10 @@
+from __future__ import print_function
+
 import abc
-import collections
+import struct
 import enum
 import platform
+import re
 import sys
 
 import pkg_resources
@@ -16,16 +19,17 @@ INTERPRETER_TAGS = {
 
 
 def _get_platform_tag():
+    is_32 = struct.calcsize("P") == 4
     if sys.platform == 'win32':
-        if platform.machine() == 'AMD64':
-            tag = 'win_amd64'
-        else:
+        if is_32:
             tag = 'win32'
-    elif sys.platform.startswith('linux'):
-        if platform.machine() == 'x86_64':
-            tag = 'manylinux1_x86_64'
         else:
+            tag = 'win_amd64'
+    elif sys.platform.startswith('linux'):
+        if is_32:
             tag = 'manylinux1_' + platform.machine()
+        else:
+            tag = 'manylinux1_x86_64'
     else:
         raise ValueError('Unsupported platform: {}'.format(sys.platform))
     return tag
@@ -33,7 +37,9 @@ def _get_platform_tag():
 
 INTERPRETER_TAG = INTERPRETER_TAGS.get(platform.python_implementation(), 'cp')
 PY_VERSION_NUM = str(sys.version_info.major) + str(sys.version_info.minor)
-IMPLEMENTATION_TAGS = ('py2' if six.PY2 else 'py3', INTERPRETER_TAG + PY_VERSION_NUM)
+IMPLEMENTATION_TAGS = ('py2' if six.PY2 else 'py3',
+                       INTERPRETER_TAG + PY_VERSION_NUM,
+                       'py' + PY_VERSION_NUM)
 
 PLATFORM_TAG = _get_platform_tag()
 EXTENSIONS = ('.whl', '.tar.gz', '.tgz', '.zip')
@@ -44,45 +50,119 @@ class DistributionType(enum.Enum):
     SDIST = 0
 
 
+class RequiresPython(object):
+    def __init__(self, py_version):
+        self.py_version = py_version
+
+    def check_compatibility(self):
+        if self.py_version is None:
+            return True
+        if isinstance(self.py_version, tuple):
+            return self.py_version == () or any(version in IMPLEMENTATION_TAGS for version in self.py_version)
+        else:
+            parts = self.py_version.split(',')
+            system_py_version = pkg_resources.parse_version(sys.version.split(' ')[0])
+
+            ops = {
+                '<': lambda x, y: x < y,
+                '>': lambda x, y: x > y,
+                '==': lambda x, y: x == y,
+                '!=': lambda x, y: x != y,
+                '>=': lambda x, y: x >= y,
+                '<=': lambda  x, y: x <= y
+            }
+
+            results = []
+            for part in parts:
+                ref_version = system_py_version
+                part = part.strip()
+                version_part = re.split('[!=<>~]', part)[-1].strip()
+                operator = part.replace(version_part, '').strip()
+                if version_part.endswith('.*'):
+                    version_part = version_part.replace('.*', '')
+                    dotted_parts = len(version_part.split('.'))
+                    if dotted_parts == 2:
+                        ref_version = pkg_resources.parse_version('{}.{}'.format(sys.version_info.major,
+                                                                                 sys.version_info.minor))
+                    if dotted_parts == 1:
+                        ref_version = pkg_resources.parse_version('{}'.format(sys.version_info.major))
+
+                version = pkg_resources.parse_version(version_part)
+                results.append(ops[operator](ref_version, version))
+
+            return all(results)
+
+    @property
+    def tag_score(self):
+        result = 100
+        version_val = None
+        if not isinstance(self.py_version, tuple):
+            version_val = self.py_version
+        elif len(self.py_version) == 1:
+            version_val = self.py_version[0]
+
+        if version_val is not None:
+            for tag_type in tuple(INTERPRETER_TAGS.values()) + ('py',):
+                version_val = version_val.replace(tag_type, '')
+            try:
+                result += int(version_val)
+            except ValueError:
+                pass
+
+        return result
+
+    def __eq__(self, other):
+        return self.py_version == other.py_version
+
+    def __str__(self):
+        if self.py_version is None:
+            return 'any'
+
+        if isinstance(self.py_version, tuple):
+            return ','.join(self.py_version)
+        else:
+            return ''
+
+
 class Candidate(object):
     def __init__(self, name, filename, version, py_version, platform, link, type=DistributionType.SDIST):
+        """
+
+        Args:
+            name:
+            filename:
+            version:
+            py_version (RequiresPython): Python version
+            platform:
+            link:
+            type:
+        """
         self.name = name
         self.filename = filename
         self.version = version
-        self.py_version = py_version
+        self.py_version = py_version   # type: RequiresPython
         self.platform = platform
         self.link = link
         self.type = type
 
         # Sort based on tags to make sure the most specific distributions
         # are matched first
-        tag_score = self._calculate_tag_score(py_version, platform)
-        self.sortkey = (type.value, version, tag_score)
+        self.sortkey = (type.value, version, self.tag_score)
 
-    @staticmethod
-    def _calculate_tag_score(py_version, platform):
-        tag_score = 0
-        if py_version != ():
-            tag_score += 100
-
-            version_val = None
-            if not isinstance(py_version, tuple):
-                version_val = py_version
-            elif len(py_version) == 1:
-                version_val = py_version[0]
-
-            if version_val is not None:
-                for tag_type in tuple(INTERPRETER_TAGS.values()) + ('py',):
-                    version_val = version_val.replace(tag_type, '')
-                try:
-                    tag_score += int(version_val)
-                except ValueError:
-                    pass
-
+    def _calculate_tag_score(self):
+        tag_score = self.py_version.tag_score
         if platform != 'any':
             tag_score += 1000
 
         return tag_score
+
+    @property
+    def tag_score(self):
+        result = self.py_version.tag_score
+        if platform != 'any':
+            result += 1000
+
+        return result
 
     def __eq__(self, other):
         return (self.name == other.name and
@@ -99,10 +179,8 @@ class Candidate(object):
         )
 
     def __str__(self):
-        py_version_str = 'any'
-        if self.py_version:
-            py_version_str = ','.join(self.py_version)
-        return '{} {}-{}-{}-{}'.format(
+        py_version_str = str(self.py_version) + '-'
+        return '{} {}-{}-{}{}'.format(
             self.type.name,
             self.name, self.version, py_version_str, self.platform)
 
@@ -123,12 +201,12 @@ class NoCandidateException(Exception):
         )
 
 
-def process_distribution(source, filename):
+def process_distribution(source, filename, py_version=None):
     candidate = None
     if '.whl' in filename:
         candidate = _wheel_candidate(source, filename)
     elif '.tar.gz' in filename or '.tgz' in filename or '.zip' in filename:
-        candidate = _tar_gz_candidate(source, filename)
+        candidate = _tar_gz_candidate(source, filename, py_version=py_version)
     return candidate
 
 
@@ -140,13 +218,13 @@ def _wheel_candidate(source, filename):
     return Candidate(name,
                      filename,
                      version,
-                     tuple(data_parts[2].split('.')),
+                     RequiresPython(tuple(data_parts[2].split('.'))),
                      platform,
                      source,
                      type=DistributionType.WHEEL)
 
 
-def _tar_gz_candidate(source, filename):
+def _tar_gz_candidate(source, filename, py_version=None):
     data_parts = filename.split('-')
     version_idx = -1
     for idx, part in enumerate(data_parts):
@@ -160,12 +238,7 @@ def _tar_gz_candidate(source, filename):
         version_text = version_text.replace(ext, '')
 
     version = pkg_resources.parse_version(version_text)
-    return Candidate(name, filename, version, (), 'any', source, type=DistributionType.SDIST)
-
-
-def _check_py_compatibility(py_version):
-    # https://www.python.org/dev/peps/pep-0425/
-    return py_version == () or any(version in IMPLEMENTATION_TAGS for version in py_version)
+    return Candidate(name, filename, version, RequiresPython(py_version), 'any', source, type=DistributionType.SDIST)
 
 
 def _check_platform_compatibility(py_platform):
@@ -228,12 +301,12 @@ class Repository(six.with_metaclass(abc.ABCMeta, object)):
     def _do_get_candidate(self, req, candidates):
         self.logger.info('Getting candidate for %s', req)
         candidates = self._sort_candidates(candidates)
-        has_equality = any(spec.operator == '==' for spec in req.specifier)
+        has_equality = any(spec.operator == '==' or spec.operator == '===' for spec in req.specifier)
 
         check_level = 1
         for candidate in candidates:
             check_level += 1
-            if not _check_py_compatibility(candidate.py_version):
+            if not candidate.py_version.check_compatibility():
                 continue
 
             check_level += 1
@@ -249,6 +322,8 @@ class Repository(six.with_metaclass(abc.ABCMeta, object)):
                 continue
 
             check_level += 1
+            if candidate.type == DistributionType.SDIST:
+                print('Using source distribution for {}'.format(candidate.name), file=sys.stderr)
             return self.resolve_candidate(candidate)
 
         ex = NoCandidateException()
@@ -264,6 +339,14 @@ class Repository(six.with_metaclass(abc.ABCMeta, object)):
             return CantUseReason(ex.check_level)
 
     def _sort_candidates(self, candidates):
+        """
+
+        Args:
+            candidates:
+
+        Returns:
+            (list[Candidate])
+        """
         return sorted(candidates, key=lambda x: x.sortkey, reverse=True)
 
 

@@ -115,7 +115,7 @@ def normalize_project_name(project_name):
     if project_name in name_cache:
         return name_cache[project_name]
     else:
-        value = project_name.lower().replace('-', '_').replace('.', '_')
+        value = project_name.lower().replace('-', '_') #.replace('.', '_')
         name_cache[project_name] = value
         return value
 
@@ -128,30 +128,3 @@ def filter_req(req, extras):
         else:
             keep_req = req.marker.evaluate({'extra': None})
     return keep_req
-
-
-def is_pinned_requirement(ireq):
-    """
-    Returns whether an InstallRequirement is a "pinned" requirement.
-
-    An InstallRequirement is considered pinned if:
-    - Is not editable
-    - It has exactly one specifier
-    - That specifier is "=="
-    - The version does not contain a wildcard
-
-    Examples:
-        django==1.8   # pinned
-        django>1.8    # NOT pinned
-        django~=1.8   # NOT pinned
-        django==1.*   # NOT pinned
-    """
-
-    if ireq.editable:
-        return False
-
-    if len(ireq.specifier._specs) != 1:
-        return False
-
-    op, version = next(iter(ireq.specifier._specs))._spec
-    return (op == '==' or op == '===') and not version.endswith('.*')
