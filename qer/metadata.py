@@ -205,10 +205,14 @@ class FakeModule(types.ModuleType):
 
 
 def fake_import(name, orig_import, modname, *args, **kwargs):
-    if name.lower() == modname.lower():
-        print('Its trying to import itself {}'.format(modname))
+    try:
+        if name.lower() == modname.lower():
+            print('Its trying to import itself {}'.format(modname))
+            sys.modules[modname] = FakeModule(modname)
+        return orig_import(modname, *args, **kwargs)
+    except ImportError:
         sys.modules[modname] = FakeModule(modname)
-    return orig_import(modname, *args, **kwargs)
+        return orig_import(modname, *args, **kwargs)
 
 def _parse_setup_py(name, opener, extras):
     import setuptools
@@ -218,14 +222,21 @@ def _parse_setup_py(name, opener, extras):
 
     results = []
     setup_with_results = functools.partial(setup, results)
+    if six.PY2:
+        import __builtin__
+        old_import = __builtin__.__import__
+        __builtin__.__import__ = functools.partial(fake_import, name, __import__)
+    else:
+        import builtins
+        old_import = builtins.__import__
+        builtins.__import__ = functools.partial(fake_import, name, __import__)
 
     old_open = io.open
     io.open = opener
     spy_globals = {'__file__': '',
                    '__name__': '__main__',
                    'open': opener,
-                   'setup': setup_with_results,
-                   'fake_import': functools.partial(fake_import, name, __import__)}
+                   'setup': setup_with_results}
 
     setuptools.setup = setup_with_results
     distutils.core.setup = setup_with_results
@@ -241,16 +252,16 @@ def _parse_setup_py(name, opener, extras):
         while not line or line.startswith('#') or '__future__' in line:
             idx += 1
             line = lines[idx].strip()
-        if six.PY2:
-            lines.insert(idx, 'import __builtin__; __builtin__.__import__ = fake_import\n')
-        else:
-            lines.insert(idx, 'import builtins; builtins.__import__ = fake_import\n')
         contents = '\n'.join(lines)
         exec(contents, spy_globals, spy_globals)
     except:
         raise
     finally:
         io.open = old_open
+        if six.PY2:
+            __builtin__.__import__ = old_import
+        else:
+            builtins.__import__ = old_import
     if not results:
         pass
     return results[0]
