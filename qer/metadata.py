@@ -241,6 +241,10 @@ def _parse_setup_py(name, opener, extras):
         old_import = builtins.__import__
         builtins.__import__ = functools.partial(fake_import, name, __import__)
 
+    import imp
+    old_load_source = imp.load_source
+    imp.load_source = lambda *args, **kwargs: FakeModule('load_source')
+
     old_open = io.open
     io.open = opener
     spy_globals = {'__file__': '',
@@ -272,6 +276,7 @@ def _parse_setup_py(name, opener, extras):
             __builtin__.__import__ = old_import
         else:
             builtins.__import__ = old_import
+        imp.load_source = old_load_source
     if not results:
         pass
     return results[0]
