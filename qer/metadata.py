@@ -201,7 +201,11 @@ class FakeModule(types.ModuleType):
         return None
 
     def __getattr__(self, item):
-        return None
+        if isinstance(item, str):
+            return FakeModule(item)
+        else:
+            return None
+
 
 
 def fake_import(name, orig_import, modname, *args, **kwargs):
@@ -211,7 +215,9 @@ def fake_import(name, orig_import, modname, *args, **kwargs):
             sys.modules[modname] = FakeModule(modname)
         return orig_import(modname, *args, **kwargs)
     except ImportError:
-        sys.modules[modname] = FakeModule(modname)
+        modparts = modname.split('.')
+        for idx, mod in enumerate(modparts):
+            sys.modules['.'.join(modparts[:idx + 1])] = FakeModule(modname)
         return orig_import(modname, *args, **kwargs)
 
 def _parse_setup_py(name, opener, extras):
