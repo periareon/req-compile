@@ -245,6 +245,8 @@ def _parse_setup_py(name, opener, extras):
     old_load_source = imp.load_source
     imp.load_source = lambda *args, **kwargs: FakeModule('load_source')
 
+    curr_dir = os.getcwd()
+
     old_open = io.open
     io.open = opener
     spy_globals = {'__file__': '',
@@ -271,6 +273,7 @@ def _parse_setup_py(name, opener, extras):
     except:
         raise
     finally:
+        os.chdir(curr_dir)
         io.open = old_open
         if six.PY2:
             __builtin__.__import__ = old_import
