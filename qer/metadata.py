@@ -156,7 +156,7 @@ def _parse_flat_metadata(contents, extras):
 
 
 def _opener(tar, directory, direct, filename, mode='r', encoding=None):
-    filename = filename.replace('\\', '/')
+    filename = filename.replace('\\', '/').replace('./', '')
     if not os.path.isabs(filename):
         try:
             return with_decoding(tar.extractfile(directory + '/' + filename), encoding=encoding)
@@ -215,9 +215,13 @@ def fake_import(name, orig_import, modname, *args, **kwargs):
             sys.modules[modname] = FakeModule(modname)
         return orig_import(modname, *args, **kwargs)
     except ImportError:
+        # Skip any cython importing to improve setup.py compatibility (e.g. subprocess32)
+        if 'Cython' in modname:
+            raise
+
         modparts = modname.split('.')
         for idx, mod in enumerate(modparts):
-            sys.modules['.'.join(modparts[:idx + 1])] = FakeModule(modname)
+            sys.modules['.'.join(modparts[:idx + 1])] = FakeModule(mod)
         return orig_import(modname, *args, **kwargs)
 
 def _parse_setup_py(name, opener, extras):
