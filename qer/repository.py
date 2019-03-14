@@ -147,7 +147,8 @@ class Candidate(object):
 
         # Sort based on tags to make sure the most specific distributions
         # are matched first
-        self.sortkey = (type.value, version, self.tag_score)
+        # self.sortkey = (type.value, version, self.tag_score)
+        self.sortkey = (version, self.tag_score)
 
     def _calculate_tag_score(self):
         tag_score = self.py_version.tag_score
@@ -323,7 +324,7 @@ class Repository(six.with_metaclass(abc.ABCMeta, object)):
 
             check_level += 1
             if candidate.type == DistributionType.SDIST:
-                print('Using source distribution for {}'.format(candidate.name), file=sys.stderr)
+                self.logger.warn('Considering source distribution for %s', candidate.name)
             return self.resolve_candidate(candidate)
 
         ex = NoCandidateException()

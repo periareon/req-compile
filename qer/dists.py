@@ -120,6 +120,14 @@ class MetadataSources(object):
 
 class DistInfo(object):
     def __init__(self, name, version, reqs, extras=(), meta=False):
+        """
+        Args:
+            name:
+            version:
+            reqs:
+            extras (tuple[str]): Extras that are active in this metadata by default
+            meta:
+        """
         self.name = name
         self.reqs = list(reqs)
         self.extras = extras

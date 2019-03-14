@@ -1,9 +1,14 @@
 import collections
 import logging
 import os
+import shutil
+from zipfile import ZipFile
 
 import pkg_resources
 import pytest
+
+import tarfile
+import tempfile
 
 import qer.metadata
 from qer.repository import NoCandidateException, RequiresPython
@@ -81,3 +86,41 @@ def mock_pypi(mocker):
 @pytest.fixture
 def mock_metadata(mocker, metadata_provider):
     mocker.patch('qer.metadata.extract_metadata', side_effect=metadata_provider)
+
+
+@pytest.fixture
+def mock_targz():
+    def build_targz(directory):
+        directory = os.path.join(os.path.dirname(__file__), 'source-packages', directory)
+        build_dir = tempfile.mkdtemp()
+
+        archive_name = os.path.basename(directory) + '.tar.gz'
+        tar_archive = os.path.join(build_dir, archive_name)
+        with tarfile.open(tar_archive, 'w:gz') as tarf:
+            tarf.add(directory, arcname=os.path.basename(directory))
+
+        return tar_archive
+
+    return build_targz
+
+
+@pytest.fixture
+def mock_zip():
+    def build_zip(directory):
+        directory = os.path.join(os.path.dirname(__file__), 'source-packages', directory)
+        build_dir = tempfile.mkdtemp()
+
+        archive_name = os.path.basename(directory) + '.zip'
+        zip_archive = os.path.join(build_dir, archive_name)
+
+        with ZipFile(zip_archive, 'w') as handle:
+            handle.write(directory, arcname=os.path.basename(directory))
+            for root, dirs, files in os.walk(directory):
+                for file in files:
+                    full_path = os.path.join(root, file)
+
+                    handle.write(full_path, arcname=os.path.join(os.path.basename(directory), os.path.relpath(full_path, directory)))
+
+        return zip_archive
+
+    return build_zip

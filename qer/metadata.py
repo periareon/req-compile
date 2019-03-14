@@ -2,23 +2,105 @@ from __future__ import print_function
 
 import functools
 import io
+import logging
 import os
 import sys
 import tarfile
+import tempfile
 import types
 import zipfile
-import tempfile
-import copy
-from contextlib import contextmanager, closing
-from types import ModuleType
-
-import setuptools
+import abc
 
 import pkg_resources
 import six
+from six.moves import StringIO
 
 from qer import utils
 from qer.dists import DistInfo
+
+
+class Extractor(six.with_metaclass(abc.ABCMeta, object)):
+    @abc.abstractmethod
+    def names(self):
+        pass
+
+    @abc.abstractmethod
+    def open(self, filename, mode='r', encoding=None):
+        pass
+
+    @abc.abstractmethod
+    def version(self):
+        pass
+
+    @abc.abstractmethod
+    def close(self):
+        pass
+
+    def relative_opener(self, fake_root, directory, *args):
+        def inner_opener(filename, *args, **kwargs):
+            archive_path = filename
+            if os.path.abspath(filename):
+                if filename.startswith(fake_root):
+                    archive_path = os.path.relpath(filename, fake_root)
+            return self.open(directory + '/' + archive_path, *args, **kwargs)
+        return inner_opener
+
+    def contents(self, name):
+        return self.open(name, encoding='utf-8').read()
+
+
+class TarExtractor(Extractor):
+    def __init__(self, filename):
+        self.tar = tarfile.open(filename, 'r:gz')
+        self.io_open = io.open
+        self._version = utils.parse_version(filename.split('-')[-1].replace('.tar.gz', ''))
+
+    def names(self):
+        return (info.name for info in self.tar.getmembers())
+
+    def version(self):
+        return self._version
+
+    def open(self, filename, mode='r', encoding='utf-8'):
+        filename = filename.replace('\\', '/').replace('./', '')
+        if not os.path.isabs(filename):
+            try:
+                handle = self.tar.extractfile(filename)
+                return with_decoding(handle, encoding=encoding if mode != 'rb' else None)
+            except KeyError:
+                raise IOError('Not found in archive: {}'.format(filename))
+        else:
+            return self.io_open(filename, mode=mode, encoding=encoding)
+
+    def close(self):
+        self.tar.close()
+
+
+class ZipExtractor(Extractor):
+    def __init__(self, filename):
+        self.zfile = zipfile.ZipFile(filename, 'r')
+        self.io_open = io.open
+        self._version = utils.parse_version(filename.split('-')[-1].replace('.zip', ''))
+
+    def names(self):
+        return self.zfile.namelist()
+
+    def version(self):
+        return self._version
+
+    def open(self, filename, mode='r', encoding='utf-8'):
+        filename = filename.replace('\\', '/').replace('./', '')
+        if not os.path.isabs(filename):
+            try:
+                output = with_decoding(StringIO(self.zfile.read(filename).decode(encoding)), None)
+                return output
+            except KeyError:
+                raise IOError('Not found in archive: {}'.format(filename))
+        else:
+            return self.io_open(filename, mode=mode, encoding=encoding)
+
+    def close(self):
+        self.zfile.close()
 
 
 def extract_metadata(dist, extras=()):
@@ -26,80 +108,47 @@ def extract_metadata(dist, extras=()):
     if dist.lower().endswith('.whl'):
         return _fetch_from_wheel(dist, extras=extras)
     if dist.lower().endswith('.zip'):
-        return _fetch_from_zip(dist, extras=extras)
+        return _fetch_from_source(dist, ZipExtractor, extras=extras)
     elif dist.lower().endswith('.tar.gz'):
-        return _fetch_from_source(dist, extras=extras)
+        return _fetch_from_source(dist, TarExtractor, extras=extras)
 
 
-def _fetch_from_zip(zip_file, extras):
-    zfile = zipfile.ZipFile(zip_file, 'r')
-    try:
-        metadata_file = None
-        pkg_info_file = None
-        egg_info = None
-
-        for name in zfile.namelist():
-            if name.lower().endswith('pkg-info'):
-                pkg_info_file = name
-            elif name.lower().endswith('.egg-info'):
-                egg_info = name
-            elif name.lower().endswith('metadata'):
-                metadata_file = name
-
-        if egg_info:
-            filename = os.path.basename(zip_file)
-            name = '-'.join(filename.split('-')[0:-1])
-            version = utils.parse_version(filename.split('-')[-1].replace('.tar.gz', ''))
-            return _parse_requires_file(zip_file.extractfile(egg_info + '/requires.txt').read(),
-                                        name,
-                                        version,
-                                        extras)
-
-        if pkg_info_file:
-            return _parse_flat_metadata(zfile.read(pkg_info_file).decode('utf-8'), extras)
-
-        if metadata_file:
-            return _parse_flat_metadata(zfile.read(metadata_file).decode('utf-8'), extras)
-    finally:
-        zfile.close()
-
-
-def _fetch_from_source(tar_gz, extras):
+def _fetch_from_source(source_file, extractor_type, extras):
     """
 
     Args:
-        tar_gz (str): Source file
+        source_file (str): Source file
+        extractor_type (type[Extractor]): Type of extractor to use
         extras:
 
     Returns:
 
     """
-    tar = tarfile.open(tar_gz, "r:gz")
-    filename = os.path.basename(tar_gz)
+    extractor = extractor_type(source_file)  # type: Extractor
+    filename = os.path.basename(source_file)
     name = '-'.join(filename.split('-')[0:-1])
     try:
         metadata_file = None
         pkg_info_file = None
         egg_info = None
 
-        for info in tar.getmembers():
-            info_name = info.name.lower()
+        for info_name in extractor.names():
             if info_name.endswith('pkg-info'):
-                pkg_info_file = info.name
+                pkg_info_file = info_name
             elif info_name.endswith('.egg-info/requires.txt'):
-                egg_info = info.name
+                egg_info = info_name
             elif info_name.endswith('metadata'):
-                metadata_file = info.name
+                metadata_file = info_name
 
             if info_name.endswith('setup.py'):
-                setup_file = info.name
+                setup_file = info_name
 
         results = None
         if egg_info:
-            version = utils.parse_version(filename.split('-')[-1].replace('.tar.gz', ''))
+            version = extractor.version()
             requires_contents = ''
             try:
-                requires_contents = tar.extractfile(egg_info).read().decode('utf-8')
+                requires_contents = extractor.open(egg_info, encoding='utf-8').read()
             except KeyError:
                 pass
             return _parse_requires_file(requires_contents,
@@ -108,20 +157,22 @@ def _fetch_from_source(tar_gz, extras):
                                         extras)
 
         if pkg_info_file:
-            results = _parse_flat_metadata(
-                tar.extractfile(pkg_info_file).read().decode('utf-8'), extras)
+            results = _parse_flat_metadata(extractor.open(pkg_info_file, encoding='utf-8').read(), extras)
 
-        if not results.reqs and setup_file:
-            setup_results = _parse_setup_py(name, functools.partial(_opener, tar, os.path.dirname(setup_file), io.open), extras)
+        if (results is None or not results.reqs) and setup_file:
+            fake_setupdir = tempfile.mkdtemp()
+            setup_results = _parse_setup_py(name, fake_setupdir,
+                                            extractor.relative_opener(fake_setupdir,
+                                                                      os.path.dirname(setup_file)), extras)
+            setup_results.version = extractor.version()
             if results:
                 setup_results.version = results.version
             return setup_results
 
         if metadata_file:
-            return _parse_flat_metadata(
-                tar.extractfile(metadata_file).read().decode('utf-8'), extras)
+            return _parse_flat_metadata(extractor.open(metadata_file, encoding='utf-8').read(), extras)
     finally:
-        tar.close()
+        extractor.close()
 
 
 def _fetch_from_wheel(wheel, extras):
@@ -155,17 +206,6 @@ def _parse_flat_metadata(contents, extras):
     return DistInfo(name, version, list(utils.parse_requirements(raw_reqs)), extras=extras)
 
 
-def _opener(tar, directory, direct, filename, mode='r', encoding=None):
-    filename = filename.replace('\\', '/').replace('./', '')
-    if not os.path.isabs(filename):
-        try:
-            return with_decoding(tar.extractfile(directory + '/' + filename), encoding=encoding)
-        except KeyError:
-            raise IOError('Not found')
-    else:
-        return direct(filename, mode=mode, encoding=encoding)
-
-
 class with_decoding(object):
     def __init__(self, wrap, encoding):
         self.file = wrap
@@ -175,7 +215,23 @@ class with_decoding(object):
         results = self.file.read()
         if self.encoding:
             results = results.decode(self.encoding)
+        elif six.PY2:
+            results = str(''.join([i if ord(i) < 128 else ' ' for i in results]))
         return results
+
+    def readlines(self):
+        results = self.file.readlines()
+        if self.encoding:
+            results = [result.decode(self.encoding) for result in results]
+        return results
+
+    def write(self, *args, **kwargs):
+        pass
+
+    def __iter__(self):
+        if self.encoding:
+            return (line.decode(self.encoding) for line in self.file)
+        return iter(self.file)
 
     def __enter__(self):
         return self
@@ -192,26 +248,42 @@ def setup(results, *args, **kwargs):
     version = kwargs.get('version', None)
     reqs = kwargs.get('install_requires', [])
 
+    if isinstance(version, FakeModule):
+        version = None
+
+    if version is not None:
+        version = pkg_resources.parse_version(version)
+
     results.append(DistInfo(name, version,
                             list(utils.parse_requirements(reqs))))
 
 
 class FakeModule(types.ModuleType):
+    call_count = 0
+    def __init__(self, name):
+        super(FakeModule, self).__init__(name)
+
     def __getitem__(self, item):
+        self.call_count += 1
+        if self.call_count > 30:
+            raise ValueError('Too many')
         return None
+
+    def __contains__(self, item):
+        return True
 
     def __getattr__(self, item):
         if isinstance(item, str):
+            if item == '__path__':
+                return ''
             return FakeModule(item)
         else:
             return None
 
 
-
 def fake_import(name, orig_import, modname, *args, **kwargs):
     try:
         if name.lower() == modname.lower():
-            print('Its trying to import itself {}'.format(modname))
             sys.modules[modname] = FakeModule(modname)
         return orig_import(modname, *args, **kwargs)
     except ImportError:
@@ -224,10 +296,15 @@ def fake_import(name, orig_import, modname, *args, **kwargs):
             sys.modules['.'.join(modparts[:idx + 1])] = FakeModule(mod)
         return orig_import(modname, *args, **kwargs)
 
-def _parse_setup_py(name, opener, extras):
+
+def _parse_setup_py(name, fake_setupdir, opener, extras):
     import setuptools
     import distutils.core
     import sys
+
+    # Capture warnings.warn, which is sometimes used in setup.py files
+    logging.captureWarnings(True)
+
     sys.exit = lambda code: None
 
     results = []
@@ -245,11 +322,21 @@ def _parse_setup_py(name, opener, extras):
     old_load_source = imp.load_source
     imp.load_source = lambda *args, **kwargs: FakeModule('load_source')
 
+    import codecs
+    old_codecs_open = codecs.open
+    codecs.open = opener
+
+    old_stdout = sys.stdout
+    old_stderr = sys.stderr
+
+    sys.stderr = StringIO()
+    sys.stdout = StringIO()
+
     curr_dir = os.getcwd()
 
     old_open = io.open
     io.open = opener
-    spy_globals = {'__file__': '',
+    spy_globals = {'__file__': os.path.join(fake_setupdir, 'setup.py'),
                    '__name__': '__main__',
                    'open': opener,
                    'setup': setup_with_results}
@@ -258,17 +345,12 @@ def _parse_setup_py(name, opener, extras):
     distutils.core.setup = setup_with_results
     contents = opener('setup.py', encoding='utf-8').read()
     try:
-        lines = contents.split('\n')
         if six.PY2:
+            lines = contents.split('\n')
             lines = [line for line in lines if not (line.startswith('#') and
                                                     ('-*- coding' in line or '-*- encoding' in line))]
-
-        idx = 0
-        line = lines[0].strip()
-        while not line or line.startswith('#') or '__future__' in line:
-            idx += 1
-            line = lines[idx].strip()
-        contents = '\n'.join(lines)
+            contents = '\n'.join(lines)
+        contents = contents.replace('print ', '')
         exec(contents, spy_globals, spy_globals)
     except:
         raise
@@ -280,6 +362,10 @@ def _parse_setup_py(name, opener, extras):
         else:
             builtins.__import__ = old_import
         imp.load_source = old_load_source
+        codecs.open = old_codecs_open
+
+        sys.stderr = old_stderr
+        sys.stdout = old_stdout
     if not results:
         pass
     return results[0]
