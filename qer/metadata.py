@@ -29,10 +29,6 @@ class Extractor(six.with_metaclass(abc.ABCMeta, object)):
         pass
 
     @abc.abstractmethod
-    def version(self):
-        pass
-
-    @abc.abstractmethod
     def close(self):
         pass
 
@@ -49,17 +45,35 @@ class Extractor(six.with_metaclass(abc.ABCMeta, object)):
         return self.open(name, encoding='utf-8').read()
 
 
+def parse_source_filename(full_filename):
+    filename = full_filename
+    filename = filename.replace('.tar.gz', '')
+    filename = filename.replace('.zip', '')
+    filename = filename.replace('.tgz', '')
+
+    dash_parts = filename.split('-')
+    version_start = None
+    for idx, part in enumerate(dash_parts):
+        if part[0].isdigit():
+            version_start = idx
+            break
+
+    if version_start == 0:
+        raise ValueError('Package name missing: {}'.format(full_filename))
+
+    pkg_name = '-'.join(dash_parts[:version_start])
+    version = utils.parse_version('-'.join(dash_parts[version_start:]))
+
+    return pkg_name, version
+
+
 class TarExtractor(Extractor):
     def __init__(self, filename):
         self.tar = tarfile.open(filename, 'r:gz')
         self.io_open = io.open
-        self._version = utils.parse_version(filename.split('-')[-1].replace('.tar.gz', ''))
 
     def names(self):
         return (info.name for info in self.tar.getmembers())
-
-    def version(self):
-        return self._version
 
     def open(self, filename, mode='r', encoding='utf-8'):
         filename = filename.replace('\\', '/').replace('./', '')
@@ -80,13 +94,9 @@ class ZipExtractor(Extractor):
     def __init__(self, filename):
         self.zfile = zipfile.ZipFile(filename, 'r')
         self.io_open = io.open
-        self._version = utils.parse_version(filename.split('-')[-1].replace('.zip', ''))
 
     def names(self):
         return self.zfile.namelist()
-
-    def version(self):
-        return self._version
 
     def open(self, filename, mode='r', encoding='utf-8'):
         filename = filename.replace('\\', '/').replace('./', '')
@@ -126,26 +136,25 @@ def _fetch_from_source(source_file, extractor_type, extras):
     """
     extractor = extractor_type(source_file)  # type: Extractor
     filename = os.path.basename(source_file)
-    name = '-'.join(filename.split('-')[0:-1])
+    name, version = parse_source_filename(filename)
     try:
         metadata_file = None
         pkg_info_file = None
         egg_info = None
 
         for info_name in extractor.names():
-            if info_name.endswith('pkg-info'):
+            if info_name.lower().endswith('pkg-info'):
                 pkg_info_file = info_name
             elif info_name.endswith('.egg-info/requires.txt'):
                 egg_info = info_name
             elif info_name.endswith('metadata'):
                 metadata_file = info_name
 
-            if info_name.endswith('setup.py'):
+            if info_name.endswith('setup.py') and info_name.count('/') <= 1:
                 setup_file = info_name
 
         results = None
         if egg_info:
-            version = extractor.version()
             requires_contents = ''
             try:
                 requires_contents = extractor.open(egg_info, encoding='utf-8').read()
@@ -164,10 +173,15 @@ def _fetch_from_source(source_file, extractor_type, extras):
             setup_results = _parse_setup_py(name, fake_setupdir,
                                             extractor.relative_opener(fake_setupdir,
                                                                       os.path.dirname(setup_file)), extras)
-            setup_results.version = extractor.version()
-            if results:
-                setup_results.version = results.version
-            return setup_results
+            if setup_results is not None:
+                setup_results.version = version
+                if results:
+                    setup_results.version = results.version
+                return setup_results
+            elif results is not None:
+                return results
+            else:
+                return None
 
         if metadata_file:
             return _parse_flat_metadata(extractor.open(metadata_file, encoding='utf-8').read(), extras)
@@ -251,11 +265,12 @@ def setup(results, *args, **kwargs):
     if isinstance(version, FakeModule):
         version = None
 
-    if version is not None:
-        version = pkg_resources.parse_version(version)
+    if version is not None and version != '':
+        version = pkg_resources.parse_version(str(version))
 
     results.append(DistInfo(name, version,
                             list(utils.parse_requirements(reqs))))
+    return FakeModule('dist')
 
 
 class FakeModule(types.ModuleType):
@@ -336,6 +351,7 @@ def _parse_setup_py(name, fake_setupdir, opener, extras):
 
     old_open = io.open
     io.open = opener
+
     spy_globals = {'__file__': os.path.join(fake_setupdir, 'setup.py'),
                    '__name__': '__main__',
                    'open': opener,

@@ -23,8 +23,11 @@ from qer.repository import MultiRepository, CantUseReason
 
 
 def _get_reason_constraint(dists, constraint_dists, project_name, extras, root_mapping):
+    if dists is None:
+        return ''
+
     project_name = utils.normalize_project_name(project_name)
-    components = dists.reverse_deps(project_name, extras)
+    components = dists.reverse_deps(project_name)
     if not components:
         constraints = ''
     else:

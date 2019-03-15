@@ -8,7 +8,7 @@ def test_combine_reqs_conditions_and_markers():
     req2 = Requirement.parse('pylint>1;python_version<"3.0"')
 
     assert merge_requirements(req1, req2) == \
-           Requirement.parse('pylint>1,<2;platform_system=="Windows" and python_version<"3.0"')
+           Requirement.parse('pylint>1,<2')
 
 
 def test_combine_no_specs():
@@ -16,7 +16,7 @@ def test_combine_no_specs():
     req2 = Requirement.parse('pylint;python_version<"3.0"')
 
     assert merge_requirements(req1, req2) == \
-           Requirement.parse('pylint;python_version<"3.0"')
+           Requirement.parse('pylint')
 
 
 def test_combine_dup_specs():
@@ -24,7 +24,7 @@ def test_combine_dup_specs():
     req2 = Requirement.parse('pylint==1.0.1;python_version<"3.0"')
 
     assert merge_requirements(req1, req2) == \
-           Requirement.parse('pylint==1.0.1;python_version<"3.0"')
+           Requirement.parse('pylint==1.0.1')
 
 
 def test_combine_multiple_specs():
@@ -90,4 +90,4 @@ def test_combine_with_extras_markers():
     req2 = Requirement.parse('pylint; python_version>"3.0" and extra=="test"')
 
     result = merge_requirements(req1, req2)
-    assert result == Requirement.parse('pylint; python_version>"3.0" and extra=="test"')
+    assert result == Requirement.parse('pylint; extra=="test"')

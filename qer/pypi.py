@@ -33,7 +33,7 @@ class LinksHTMLParser(html_parser.HTMLParser):
                 if attr[0] == 'href':
                     self.active_link = self.url, attr[1]
                 elif attr[0] == 'data-requires-python':
-                    self.active_requires_python = attr[1]
+                    self.active_requires_python = attr[1] or None
 
     def handle_data(self, filename):
         if self.active_link is None:

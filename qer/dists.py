@@ -101,11 +101,11 @@ class DistributionCollection(object):
                     break
         return req if req is not None else utils.parse_requirement(normalized_name)
 
-    def reverse_deps(self, project_name, extras):
+    def reverse_deps(self, project_name):
         reverse_deps = {}
         normalized_name = normalize_project_name(project_name)
         for dist_name, dist in six.iteritems(self.dists):
-            for subreq in dist.metadata.requires(extras=extras):
+            for subreq in dist.metadata.requires():
                 if normalize_project_name(subreq.name) == normalized_name:
                     reverse_deps[dist_name] = subreq
                     break

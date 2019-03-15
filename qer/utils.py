@@ -86,17 +86,18 @@ def merge_requirements(req1, req2):
 
     assert normalize_project_name(req1.name) == normalize_project_name(req2.name)
     all_specs = set(req1.specs or []) | set(req2.specs or [])
-    if req1.marker and req2.marker and str(req1.marker) != str(req2.marker):
-        if str(req1.marker) in str(req2.marker):
-            new_marker = ';' + str(req2.marker)
-        elif str(req2.marker) in str(req1.marker):
-            new_marker = ';' + str(req1.marker)
+
+    # Handle markers
+    if req1.marker and req2.marker:
+        if str(req1.marker) != str(req2.marker):
+            if str(req1.marker) in str(req2.marker):
+                new_marker = ';' + str(req1.marker)
+            elif str(req2.marker) in str(req1.marker):
+                new_marker = ';' + str(req2.marker)
+            else:
+                new_marker = ''
         else:
-            new_marker = ';' + str(req1.marker) + ' and ' + str(req2.marker)
-    elif req1.marker:
-        new_marker = ';' + str(req1.marker)
-    elif req2.marker:
-        new_marker = ';' + str(req2.marker)
+            new_marker = ';' + str(req1.marker)
     else:
         new_marker = ''
 
@@ -128,3 +129,25 @@ def filter_req(req, extras):
         else:
             keep_req = req.marker.evaluate({'extra': None})
     return keep_req
+
+
+def is_pinned_requirement(req):
+    """
+    Returns whether an InstallRequirement is a "pinned" requirement.
+
+    An InstallRequirement is considered pinned if:
+    - Is not editable
+    - It has exactly one specifier
+    - That specifier is "=="
+    - The version does not contain a wildcard
+
+    Examples:
+        django==1.8   # pinned
+        django>1.8    # NOT pinned
+        django~=1.8   # NOT pinned
+        django==1.*   # NOT pinned
+    """
+
+    return any((spec.operator == '==' or spec.operator == '===') and not spec.version.endswith('.*')
+               for spec in req.specifier)
+

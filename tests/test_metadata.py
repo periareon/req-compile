@@ -65,6 +65,21 @@ def test_pylint_python(metadata_provider):
     assert set(info.requires()) == set(pkg_resources.parse_requirements(expected_reqs))
 
 
+def test_parse_source_post_version():
+    result = qer.metadata.parse_source_filename('post-2.3.1-2.tar.gz')
+    assert result == ('post', pkg_resources.parse_version('2.3.1-2'))
+
+
+def test_parse_source_dash_package_name():
+    result = qer.metadata.parse_source_filename('backports-thing-1.0.1.tar.gz')
+    assert result == ('backports-thing', pkg_resources.parse_version('1.0.1'))
+
+
+def test_parse_source_dot_package_name():
+    result = qer.metadata.parse_source_filename('backports.thing-1.0.1')
+    assert result == ('backports.thing', pkg_resources.parse_version('1.0.1'))
+
+
 def test_extract_tar(mock_targz):
     tar_archive = mock_targz('tar-1.0.0')
 
@@ -135,3 +150,11 @@ def test_post(mock_targz):
     metadata = qer.metadata.extract_metadata(archive)
     assert metadata.name == 'post'
     assert metadata.version == pkg_resources.parse_version('3.2.1-1')
+
+
+def test_comtypes(mock_zip):
+    archive = mock_zip('comtypes-1.1.7')
+
+    metadata = qer.metadata.extract_metadata(archive)
+    assert metadata.name == 'comtypes'
+    assert metadata.version == pkg_resources.parse_version('1.1.7')

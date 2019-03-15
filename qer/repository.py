@@ -10,6 +10,9 @@ import sys
 import pkg_resources
 import six
 
+import qer.metadata
+import qer.utils
+
 INTERPRETER_TAGS = {
     'CPython': 'cp',
     'IronPython': 'ip',
@@ -69,7 +72,7 @@ class RequiresPython(object):
                 '==': lambda x, y: x == y,
                 '!=': lambda x, y: x != y,
                 '>=': lambda x, y: x >= y,
-                '<=': lambda  x, y: x <= y
+                '<=': lambda x, y: x <= y
             }
 
             results = []
@@ -125,7 +128,8 @@ class RequiresPython(object):
 
 
 class Candidate(object):
-    def __init__(self, name, filename, version, py_version, platform, link, type=DistributionType.SDIST):
+    def __init__(self, name, filename, version, py_version, platform, link,
+                 candidate_type=DistributionType.SDIST):
         """
 
         Args:
@@ -143,12 +147,13 @@ class Candidate(object):
         self.py_version = py_version   # type: RequiresPython
         self.platform = platform
         self.link = link
-        self.type = type
+        self.type = candidate_type
 
         # Sort based on tags to make sure the most specific distributions
         # are matched first
-        # self.sortkey = (type.value, version, self.tag_score)
-        self.sortkey = (version, self.tag_score)
+        # self.sortkey = (candidate_type.value, version, self.tag_score)
+        # self.sortkey = (version, self.tag_score)
+        self.sortkey = (version, candidate_type.value, self.tag_score)
 
     def _calculate_tag_score(self):
         tag_score = self.py_version.tag_score
@@ -222,24 +227,13 @@ def _wheel_candidate(source, filename):
                      RequiresPython(tuple(data_parts[2].split('.'))),
                      platform,
                      source,
-                     type=DistributionType.WHEEL)
+                     candidate_type=DistributionType.WHEEL)
 
 
 def _tar_gz_candidate(source, filename, py_version=None):
-    data_parts = filename.split('-')
-    version_idx = -1
-    for idx, part in enumerate(data_parts):
-        if part[0].isdigit() and '.' in part:
-            version_idx = idx
-            break
-
-    name = '_'.join(data_parts[:version_idx])
-    version_text = data_parts[version_idx]
-    for ext in EXTENSIONS:
-        version_text = version_text.replace(ext, '')
-
-    version = pkg_resources.parse_version(version_text)
-    return Candidate(name, filename, version, RequiresPython(py_version), 'any', source, type=DistributionType.SDIST)
+    name, version = qer.metadata.parse_source_filename(filename)
+    return Candidate(name, filename, version, RequiresPython(py_version), 'any',
+                     source, candidate_type=DistributionType.SDIST)
 
 
 def _check_platform_compatibility(py_platform):
@@ -302,7 +296,7 @@ class Repository(six.with_metaclass(abc.ABCMeta, object)):
     def _do_get_candidate(self, req, candidates):
         self.logger.info('Getting candidate for %s', req)
         candidates = self._sort_candidates(candidates)
-        has_equality = any(spec.operator == '==' or spec.operator == '===' for spec in req.specifier)
+        has_equality = qer.utils.is_pinned_requirement(req)
 
         check_level = 1
         for candidate in candidates:

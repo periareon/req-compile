@@ -70,7 +70,9 @@ def compile_roots(root, source, repo, dists=None, round=1, toplevel=None, wheeld
             if normalized_name in dists.dists:
                 current_dist = dists.dists[normalized_name]
                 constraints = dists.build_constraints(req.name, extras=root.extras)
-                if not constraints.specifier.contains(current_dist.metadata.version, prereleases=False):
+                has_equality = any(
+                    spec.operator == '==' or spec.operator == '===' for spec in constraints.specifier)
+                if not constraints.specifier.contains(current_dist.metadata.version, prereleases=has_equality):
                     logger.info('Already selected dist violated (%s %s)',
                                  current_dist.metadata.name, current_dist.metadata.version)
                     # print('------ VIOLATED {} {} -----'.format(current_dist.metadata.name, current_dist.metadata.version))
@@ -133,17 +135,22 @@ def perform_compile(input_reqs, wheeldir, repo, constraint_reqs=None, index_url=
         tuple[DistributionCollection, DistributionCollection, dict]
     """
     root_req = utils.parse_requirement(ROOT_REQ)
-    constraints = None
-    constraint_results = qer.dists.DistributionCollection()
     if constraint_reqs:
+        if all(qer.utils.is_pinned_requirement(req) for req in constraint_reqs):
+            constraint_results = qer.dists.DistributionCollection(constraint_reqs)
+            constraints = constraint_reqs
+        else:
+            constraint_results = qer.dists.DistributionCollection()
+            constraint_results.add_dist(_build_root_metadata(constraint_reqs, ROOT_REQ), ROOT_REQ)
+
+            compile_roots(root_req, ROOT_REQ, repo, dists=constraint_results,
+                          toplevel=root_req,
+                          wheeldir=wheeldir)
+
+            constraints = list(_generate_constraints(constraint_results))
+    else:
         constraint_results = qer.dists.DistributionCollection()
-        constraint_results.add_dist(_build_root_metadata(constraint_reqs, ROOT_REQ), ROOT_REQ)
-
-        compile_roots(root_req, ROOT_REQ, repo, dists=constraint_results,
-                      toplevel=root_req,
-                      wheeldir=wheeldir)
-
-        constraints = list(_generate_constraints(constraint_results))
+        constraints = None
 
     results = qer.dists.DistributionCollection(constraints)
     root_mapping = {}

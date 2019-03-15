@@ -21,7 +21,7 @@ class FindLinksRepository(Repository):
 
     def _find_all_links(self):
         for filename in os.listdir(self.path):
-            candidate = qer.repository.process_distribution(None, filename.lower())
+            candidate = qer.repository.process_distribution(None, filename)
             if candidate is not None:
                 self.links.append(candidate)
 
@@ -33,7 +33,7 @@ class FindLinksRepository(Repository):
         project_name = utils.normalize_project_name(req.name)
         results = []
         for candidate in self.links:
-            if candidate.name == project_name:
+            if utils.normalize_project_name(candidate.name) == project_name:
                 results.append(candidate)
 
         return results
