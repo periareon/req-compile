@@ -8,18 +8,17 @@ import sys
 import tempfile
 
 import six
-from pkg_resources._vendor.pyparsing import ParserElement
 
 import qer.compile
 import qer.dists
 import qer.metadata
-import qer.pypi\
-
+import qer.repos.pypi
 from qer import utils
 from qer.compile import perform_compile
-from qer.findlinks import FindLinksRepository
-from qer.pypi import PyPIRepository
-from qer.repository import MultiRepository, CantUseReason
+from qer.repos.findlinks import FindLinksRepository
+from qer.repos.pypi import PyPIRepository
+from qer.repos.repository import CantUseReason
+from qer.repos.multi import MultiRepository
 
 
 def _get_reason_constraint(dists, constraint_dists, project_name, extras, root_mapping):
@@ -69,19 +68,22 @@ def _generate_lines(dists, constraint_dists, root_mapping):
         if dist.metadata.name.startswith(qer.compile.ROOT_REQ):
             continue
 
-        constraints = _get_reason_constraint(dists, constraint_dists, dist.metadata.name, dist.metadata.extras, root_mapping)
+        constraints = _get_reason_constraint(dists, constraint_dists,
+                                             dist.metadata.name, dist.metadata.extras, root_mapping)
         yield '{}# {}'.format(str(dist.metadata).ljust(43), constraints)
 
 
-def _cantusereason_to_text(req, reason):
+def _cantusereason_to_text(reason):
     if reason == CantUseReason.VERSION_NO_SATISFY:
         return 'version mismatch'
     elif reason == CantUseReason.WRONG_PLATFORM:
-        return 'platform mismatch {}'.format(qer.repository.PLATFORM_TAG)
+        return 'platform mismatch {}'.format(qer.repos.repository.PLATFORM_TAG)
     elif reason == CantUseReason.WRONG_PYTHON_VERSION:
-        return 'python version/interpreter mismatch ({})'.format(', '.join(qer.repository.IMPLEMENTATION_TAGS))
+        return 'python version/interpreter mismatch ({})'.format(', '.join(qer.repos.repository.IMPLEMENTATION_TAGS))
     elif reason == CantUseReason.IS_PRERELEASE:
         return 'prereleases not used'
+
+    return 'unknown'
 
 
 def _generate_no_candidate_display(ex, repos, dists, constraint_dists, root_mapping):
@@ -108,7 +110,8 @@ def _generate_no_candidate_display(ex, repos, dists, constraint_dists, root_mapp
                                                                         component, (), root_mapping)
                             if constraints_reason:
                                 constraints_reason = ' (via ' + constraints_reason + ')'
-                            source = '{} {}{}'.format(component, dists.dists[component].metadata.version, constraints_reason)
+                            source = '{} {}{}'.format(component, dists.dists[component].metadata.version,
+                                                      constraints_reason)
 
                         print('   {} requires {}{}'.format(source,
                                                            ex.req.name, specifics),
@@ -126,7 +129,7 @@ def _generate_no_candidate_display(ex, repos, dists, constraint_dists, root_mapp
                 if candidates:
                     for candidate in repo._sort_candidates(candidates):
                         print('  {}: {}'.format(candidate,
-                                                _cantusereason_to_text(ex.req, repo.why_cant_I_use(ex.req, candidate))),
+                                                _cantusereason_to_text(repo.why_cant_I_use(ex.req, candidate))),
                               file=sys.stderr)
                 else:
                     print('  No candidates found', file=sys.stderr)
@@ -177,8 +180,8 @@ def run_compile(input_reqfiles, constraint_files, index_url, find_links, wheeldi
 
         lines = sorted(_generate_lines(results, constraint_results, root_mapping), key=str.lower)
         print('\n'.join(lines))
-    except qer.repository.NoCandidateException as ex:
-         _generate_no_candidate_display(ex, repos, ex.results, ex.constraint_results, ex.mapping)
+    except qer.repos.repository.NoCandidateException as ex:
+        _generate_no_candidate_display(ex, repos, ex.results, ex.constraint_results, ex.mapping)
 
     if delete_wheeldir:
         shutil.rmtree(wheeldir)

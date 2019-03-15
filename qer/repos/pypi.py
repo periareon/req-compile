@@ -1,3 +1,4 @@
+"""Repository to handle pulling packages from online package indexes"""
 import logging
 import os
 from hashlib import sha256
@@ -6,7 +7,7 @@ import requests
 from six.moves import html_parser
 from six.moves import urllib
 
-import qer.repository
+import qer.repos.repository
 
 try:
     from functools32 import lru_cache
@@ -35,12 +36,15 @@ class LinksHTMLParser(html_parser.HTMLParser):
                 elif attr[0] == 'data-requires-python':
                     self.active_requires_python = attr[1] or None
 
-    def handle_data(self, filename):
+    def handle_data(self, data):
         if self.active_link is None:
             return
-        candidate = qer.repository.process_distribution(self.active_link, filename, self.active_requires_python)
+        candidate = qer.repos.repository.process_distribution(self.active_link, data, self.active_requires_python)
         if candidate is not None:
             self.dists.append(candidate)
+
+    def error(self, message):
+        raise RuntimeError(message)
 
 
 @lru_cache(maxsize=None)
@@ -67,7 +71,7 @@ def _scan_page_links(index_url, project_name, session):
     return parser.dists
 
 
-def _do_download(index_url, filename, link, session, wheeldir):
+def _do_download(filename, link, session, wheeldir):
     url, link = link
     split_link = link.split('#sha256=')
     sha = split_link[1]
@@ -100,7 +104,7 @@ def _do_download(index_url, filename, link, session, wheeldir):
     return output_file, False
 
 
-class PyPIRepository(qer.repository.Repository):
+class PyPIRepository(qer.repos.repository.Repository):
     def __init__(self, index_url, wheeldir, allow_prerelease=None):
         super(PyPIRepository, self).__init__(allow_prerelease)
 
@@ -122,8 +126,7 @@ class PyPIRepository(qer.repository.Repository):
         return _scan_page_links(self.index_url, req.name, self.session)
 
     def resolve_candidate(self, candidate):
-        return _do_download(self.index_url, candidate.filename,
-                            candidate.link, self.session, self.wheeldir)
+        return _do_download(candidate.filename, candidate.link, self.session, self.wheeldir)
 
     def close(self):
         self.session.close()

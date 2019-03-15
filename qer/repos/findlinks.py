@@ -4,8 +4,8 @@ import os
 import pkg_resources
 
 from qer import utils
-import qer.repository
-from qer.repository import Repository
+import qer.repos.repository
+from qer.repos.repository import Repository
 
 
 class FindLinksRepository(Repository):
@@ -21,7 +21,7 @@ class FindLinksRepository(Repository):
 
     def _find_all_links(self):
         for filename in os.listdir(self.path):
-            candidate = qer.repository.process_distribution(None, filename)
+            candidate = qer.repos.repository.process_distribution(None, filename)
             if candidate is not None:
                 self.links.append(candidate)
 

@@ -11,7 +11,7 @@ def main():
 
     setup(
       name='post',
-      version='3.2.3-2',
+      version='3.2.1-1',
       description='',
       long_description="""""",
       license='PSF license',

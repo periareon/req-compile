@@ -32,7 +32,7 @@ class Extractor(six.with_metaclass(abc.ABCMeta, object)):
     def close(self):
         pass
 
-    def relative_opener(self, fake_root, directory, *args):
+    def relative_opener(self, fake_root, directory):
         def inner_opener(filename, *args, **kwargs):
             archive_path = filename
             if os.path.abspath(filename):
@@ -121,6 +121,8 @@ def extract_metadata(dist, extras=()):
         return _fetch_from_source(dist, ZipExtractor, extras=extras)
     elif dist.lower().endswith('.tar.gz'):
         return _fetch_from_source(dist, TarExtractor, extras=extras)
+    else:
+        raise ValueError('Unknown distribution: {}'.format(dist))
 
 
 def _fetch_from_source(source_file, extractor_type, extras):
@@ -275,8 +277,6 @@ def setup(results, *args, **kwargs):
 
 class FakeModule(types.ModuleType):
     call_count = 0
-    def __init__(self, name):
-        super(FakeModule, self).__init__(name)
 
     def __getitem__(self, item):
         self.call_count += 1

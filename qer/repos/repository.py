@@ -62,38 +62,38 @@ class RequiresPython(object):
             return True
         if isinstance(self.py_version, tuple):
             return self.py_version == () or any(version in IMPLEMENTATION_TAGS for version in self.py_version)
-        else:
-            parts = self.py_version.split(',')
-            system_py_version = pkg_resources.parse_version(sys.version.split(' ')[0])
 
-            ops = {
-                '<': lambda x, y: x < y,
-                '>': lambda x, y: x > y,
-                '==': lambda x, y: x == y,
-                '!=': lambda x, y: x != y,
-                '>=': lambda x, y: x >= y,
-                '<=': lambda x, y: x <= y
-            }
+        parts = self.py_version.split(',')
+        system_py_version = pkg_resources.parse_version(sys.version.split(' ')[0])
 
-            results = []
-            for part in parts:
-                ref_version = system_py_version
-                part = part.strip()
-                version_part = re.split('[!=<>~]', part)[-1].strip()
-                operator = part.replace(version_part, '').strip()
-                if version_part.endswith('.*'):
-                    version_part = version_part.replace('.*', '')
-                    dotted_parts = len(version_part.split('.'))
-                    if dotted_parts == 2:
-                        ref_version = pkg_resources.parse_version('{}.{}'.format(sys.version_info.major,
-                                                                                 sys.version_info.minor))
-                    if dotted_parts == 1:
-                        ref_version = pkg_resources.parse_version('{}'.format(sys.version_info.major))
+        ops = {
+            '<': lambda x, y: x < y,
+            '>': lambda x, y: x > y,
+            '==': lambda x, y: x == y,
+            '!=': lambda x, y: x != y,
+            '>=': lambda x, y: x >= y,
+            '<=': lambda x, y: x <= y
+        }
 
-                version = pkg_resources.parse_version(version_part)
-                results.append(ops[operator](ref_version, version))
+        results = []
+        for part in parts:
+            ref_version = system_py_version
+            part = part.strip()
+            version_part = re.split('[!=<>~]', part)[-1].strip()
+            operator = part.replace(version_part, '').strip()
+            if version_part.endswith('.*'):
+                version_part = version_part.replace('.*', '')
+                dotted_parts = len(version_part.split('.'))
+                if dotted_parts == 2:
+                    ref_version = pkg_resources.parse_version('{}.{}'.format(sys.version_info.major,
+                                                                             sys.version_info.minor))
+                if dotted_parts == 1:
+                    ref_version = pkg_resources.parse_version('{}'.format(sys.version_info.major))
 
-            return all(results)
+            version = pkg_resources.parse_version(version_part)
+            results.append(ops[operator](ref_version, version))
+
+        return all(results)
 
     @property
     def tag_score(self):
@@ -123,8 +123,7 @@ class RequiresPython(object):
 
         if isinstance(self.py_version, tuple):
             return ','.join(self.py_version)
-        else:
-            return ''
+        return ''
 
 
 class Candidate(object):
@@ -220,12 +219,12 @@ def _wheel_candidate(source, filename):
     data_parts = filename.split('-')
     name = data_parts[0]
     version = pkg_resources.parse_version(data_parts[1])
-    platform = data_parts[4].split('.')[0]
+    plat = data_parts[4].split('.')[0]
     return Candidate(name,
                      filename,
                      version,
                      RequiresPython(tuple(data_parts[2].split('.'))),
-                     platform,
+                     plat,
                      source,
                      candidate_type=DistributionType.WHEEL)
 
@@ -318,7 +317,7 @@ class Repository(six.with_metaclass(abc.ABCMeta, object)):
 
             check_level += 1
             if candidate.type == DistributionType.SDIST:
-                self.logger.warn('Considering source distribution for %s', candidate.name)
+                self.logger.warning('Considering source distribution for %s', candidate.name)
             return self.resolve_candidate(candidate)
 
         ex = NoCandidateException()
@@ -343,25 +342,3 @@ class Repository(six.with_metaclass(abc.ABCMeta, object)):
             (list[Candidate])
         """
         return sorted(candidates, key=lambda x: x.sortkey, reverse=True)
-
-
-class MultiRepository(BaseRepository):
-    def __init__(self, *repositories):
-        super(MultiRepository, self).__init__()
-        self.repositories = list(repositories)  # type: list[Repository]
-        self.source = {}
-
-    def get_candidate(self, req):
-        last_ex = None
-        for repo in self.repositories:
-            try:
-                candidates = repo.get_candidates(req)
-                result = repo._do_get_candidate(req, candidates)
-                self.source[req.name] = repo
-                return result
-            except NoCandidateException as ex:
-                last_ex = ex
-        raise last_ex
-
-    def source_of(self, req):
-        return self.source[req.name]

@@ -1,7 +1,6 @@
 import collections
 import logging
 import os
-import shutil
 from zipfile import ZipFile
 
 import pkg_resources
@@ -11,8 +10,8 @@ import tarfile
 import tempfile
 
 import qer.metadata
-from qer.repository import NoCandidateException, RequiresPython
-from qer.repository import Repository, Candidate
+from qer.repos.repository import RequiresPython
+from qer.repos.repository import Repository, Candidate
 
 
 @pytest.fixture

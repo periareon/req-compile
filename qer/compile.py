@@ -2,17 +2,15 @@
 from __future__ import print_function
 
 import logging
-from contextlib import closing
 
 import pkg_resources
 
 import qer.dists
 import qer.metadata
-import qer.pypi
+import qer.repos.pypi
 import qer.utils
-import qer.repository
+import qer.repos.repository
 
-from qer import utils
 from qer.dists import DistributionCollection
 from qer.utils import normalize_project_name
 
@@ -24,10 +22,10 @@ BLACKLIST = [
 ]
 
 
-def compile_roots(root, source, repo, dists=None, round=1, toplevel=None, wheeldir=None):
+def compile_roots(root, source, repo, dists=None, depth=1, toplevel=None, wheeldir=None):
     logger = logging.getLogger('qer.compile')
 
-    # print(' ' * round + str(root), end='')
+    # print(' ' * depth + str(root), end='')
 
     recurse_reqs = False
     download = True
@@ -74,13 +72,14 @@ def compile_roots(root, source, repo, dists=None, round=1, toplevel=None, wheeld
                     spec.operator == '==' or spec.operator == '===' for spec in constraints.specifier)
                 if not constraints.specifier.contains(current_dist.metadata.version, prereleases=has_equality):
                     logger.info('Already selected dist violated (%s %s)',
-                                 current_dist.metadata.name, current_dist.metadata.version)
-                    # print('------ VIOLATED {} {} -----'.format(current_dist.metadata.name, current_dist.metadata.version))
+                                current_dist.metadata.name, current_dist.metadata.version)
+                    # print('------ VIOLATED {} {} -----'.format(current_dist.metadata.name,
+                    #                                            current_dist.metadata.version))
                     # Remove all downstream reqs
                     dists.remove_source(current_dist.metadata.name)
                     dists.remove_dist(current_dist.metadata.name)
 
-                    dists.add_global_constraint(utils.parse_requirement(
+                    dists.add_global_constraint(qer.utils.parse_requirement(
                         '{}!={}'.format(current_dist.metadata.name, current_dist.metadata.version)))
                     has_violations = True
 
@@ -89,14 +88,15 @@ def compile_roots(root, source, repo, dists=None, round=1, toplevel=None, wheeld
             dists.remove_source(metadata.name)
             dists.remove_dist(metadata.name)
 
-            return compile_roots(toplevel, 'rerun', repo,
-                                 dists=dists, round=1,
-                                 toplevel=toplevel,
-                                 wheeldir=wheeldir)
+            compile_roots(toplevel, 'rerun', repo,
+                          dists=dists, depth=1,
+                          toplevel=toplevel,
+                          wheeldir=wheeldir)
+            return
 
     if recurse_reqs:
         for req in metadata.requires(extras):
-            compile_roots(req, normalize_project_name(root.name), repo, dists=dists, round=round + 1,
+            compile_roots(req, normalize_project_name(root.name), repo, dists=dists, depth=depth + 1,
                           toplevel=toplevel, wheeldir=wheeldir)
 
 
@@ -116,7 +116,7 @@ def _build_root_metadata(roots, name):
     return qer.dists.DistInfo(name, '0', roots, meta=True)
 
 
-def perform_compile(input_reqs, wheeldir, repo, constraint_reqs=None, index_url=None, find_links=None):
+def perform_compile(input_reqs, wheeldir, repo, constraint_reqs=None):
     """
     Perform a compilation using the given inputs and constraints
     Args:
@@ -128,13 +128,11 @@ def perform_compile(input_reqs, wheeldir, repo, constraint_reqs=None, index_url=
         wheeldir (str): Location to download wheels to and to use as a cache
         constraint_reqs (list[pkg_resources.Requirement] or None): Constraints to use
             when compiling
-        index_url (str): Index URL to download package versions and contents from
-        find_links (str): Index URL to download package versions and contents from
 
     Returns:
         tuple[DistributionCollection, DistributionCollection, dict]
     """
-    root_req = utils.parse_requirement(ROOT_REQ)
+    root_req = qer.utils.parse_requirement(ROOT_REQ)
     if constraint_reqs:
         if all(qer.utils.is_pinned_requirement(req) for req in constraint_reqs):
             constraint_results = qer.dists.DistributionCollection(constraint_reqs)
@@ -174,7 +172,7 @@ def perform_compile(input_reqs, wheeldir, repo, constraint_reqs=None, index_url=
                       wheeldir=wheeldir)
 
         return results, constraint_results, root_mapping
-    except qer.repository.NoCandidateException as ex:
+    except qer.repos.repository.NoCandidateException as ex:
         ex.results = results
         ex.constraint_results = constraint_results
         ex.mapping = root_mapping

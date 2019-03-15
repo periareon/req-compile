@@ -94,7 +94,7 @@ class DistributionCollection(object):
     def _calc_constraints(self, project_name, extras):
         normalized_name = normalize_project_name(project_name)
         req = None
-        for dist_name, dist in six.iteritems(self.dists):
+        for dist in six.itervalues(self.dists):
             for subreq in dist.metadata.requires(extras=extras):
                 if normalize_project_name(subreq.name) == normalized_name:
                     req = merge_requirements(req, subreq)
