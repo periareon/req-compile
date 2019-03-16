@@ -256,7 +256,7 @@ class CantUseReason(enum.Enum):
     VERSION_NO_SATISFY = 5
 
 
-class Repository(six.with_metaclass(abc.ABCMeta, object)):
+class Repository(six.with_metaclass(abc.ABCMeta, BaseRepository)):
     def __init__(self, allow_prerelease=None):
         if allow_prerelease is None:
             allow_prerelease = False

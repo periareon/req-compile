@@ -58,6 +58,9 @@ def parse_source_filename(full_filename):
             version_start = idx
             break
 
+    if version_start is None:
+        return os.path.basename(full_filename), None
+
     if version_start == 0:
         raise ValueError('Package name missing: {}'.format(full_filename))
 
@@ -65,6 +68,26 @@ def parse_source_filename(full_filename):
     version = utils.parse_version('-'.join(dash_parts[version_start:]))
 
     return pkg_name, version
+
+
+class NonExtractor(Extractor):
+    def __init__(self, path):
+        self.path = path
+        self.io_open = io.open
+
+    def names(self):
+        parent_dir = os.path.abspath(os.path.join(self.path, '..'))
+        for root, dirs, files in os.walk(self.path):
+            rel_root = os.path.relpath(root, parent_dir).replace('\\', '/')
+            for file in files:
+                yield rel_root + '/' + file
+
+    def open(self, filename, mode='r', encoding='utf-8'):
+        parent_dir = os.path.abspath(os.path.join(self.path, '..'))
+        return self.io_open(os.path.join(parent_dir, filename), mode=mode, encoding=encoding)
+
+    def close(self):
+        pass
 
 
 class TarExtractor(Extractor):
@@ -122,7 +145,7 @@ def extract_metadata(dist, extras=()):
     elif dist.lower().endswith('.tar.gz'):
         return _fetch_from_source(dist, TarExtractor, extras=extras)
     else:
-        raise ValueError('Unknown distribution: {}'.format(dist))
+        return _fetch_from_source(dist, NonExtractor, extras=extras)
 
 
 def _fetch_from_source(source_file, extractor_type, extras):
@@ -143,17 +166,19 @@ def _fetch_from_source(source_file, extractor_type, extras):
         metadata_file = None
         pkg_info_file = None
         egg_info = None
+        setup_file = None
 
         for info_name in extractor.names():
-            if info_name.lower().endswith('pkg-info'):
+            if info_name.lower().endswith('pkg-info') and info_name.count('/') <= 1:
                 pkg_info_file = info_name
             elif info_name.endswith('.egg-info/requires.txt'):
                 egg_info = info_name
-            elif info_name.endswith('metadata'):
+            elif info_name.endswith('metadata') and info_name.count('/') <= 1:
                 metadata_file = info_name
 
             if info_name.endswith('setup.py') and info_name.count('/') <= 1:
                 setup_file = info_name
+                break
 
         results = None
         if egg_info:
@@ -176,7 +201,8 @@ def _fetch_from_source(source_file, extractor_type, extras):
                                             extractor.relative_opener(fake_setupdir,
                                                                       os.path.dirname(setup_file)), extras)
             if setup_results is not None:
-                setup_results.version = version
+                if version is not None:
+                    setup_results.version = version
                 if results:
                     setup_results.version = results.version
                 return setup_results
@@ -291,6 +317,8 @@ class FakeModule(types.ModuleType):
         if isinstance(item, str):
             if item == '__path__':
                 return ''
+            elif item == '__file__':
+                return os.path.join(self.__getattribute__('__name__'), '__init__.py')
             return FakeModule(item)
         else:
             return None

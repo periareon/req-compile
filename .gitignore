@@ -1,3 +1,7 @@
 *.whl
 *.tar.gz
 .pytest_cache
+/venv
+/venv3
+/wheeldir
+.idea

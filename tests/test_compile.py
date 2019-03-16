@@ -2,10 +2,13 @@ import os
 
 import pkg_resources
 import pytest
+from pytest import fixture
 
 import qer.compile
 import qer.repos.pypi
 import qer.repos.repository
+from qer.repos.multi import MultiRepository
+from qer.repos.source import SourceRepository
 
 
 def test_mock_pypi(mock_metadata, mock_pypi):
@@ -231,3 +234,34 @@ def test_compile_repeat_violated(mock_metadata, mock_pypi):
         mock_pypi)
 
     assert _real_outputs(results) == ['a==5.0.0', 'x==0.9.0', 'y==4.0.0']
+
+
+@fixture
+def local_tree():
+    base_dir = os.path.join(os.path.dirname(__file__), 'local-tree')
+    source_repos = [
+        SourceRepository(os.path.join(base_dir, 'framework')),
+        SourceRepository(os.path.join(base_dir, 'user1')),
+        SourceRepository(os.path.join(base_dir, 'user2')),
+        SourceRepository(os.path.join(base_dir, 'util')),
+    ]
+
+    multi_repo = MultiRepository(*source_repos)
+    return multi_repo
+
+
+def test_compile_source_user1(local_tree):
+    results, cresults, root_mapping = qer.compile.perform_compile([pkg_resources.Requirement.parse('user1')], '.', local_tree)
+    assert _real_outputs(results) == ['framework==1.0.1', 'user1==2.0.0']
+
+
+def test_compile_source_user2(local_tree):
+    results, cresults, root_mapping = qer.compile.perform_compile([pkg_resources.Requirement.parse('user-2')], '.', local_tree)
+    assert _real_outputs(results) == ['framework==1.0.1', 'user-2==1.1.0', 'util==8.0.0']
+
+
+def test_compile_source_user2_recursive_root():
+    base_dir = os.path.join(os.path.dirname(__file__), 'local-tree')
+    repo = SourceRepository(base_dir)
+    results, cresults, root_mapping = qer.compile.perform_compile([pkg_resources.Requirement.parse('user-2')], '.', repo)
+    assert _real_outputs(results) == ['framework==1.0.1', 'user-2==1.1.0', 'util==8.0.0']

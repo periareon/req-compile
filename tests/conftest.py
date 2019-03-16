@@ -123,3 +123,11 @@ def mock_zip():
         return zip_archive
 
     return build_zip
+
+
+@pytest.fixture
+def mock_source():
+    def build_source(directory):
+        directory = os.path.join(os.path.dirname(__file__), 'source-packages', directory)
+        return directory
+    return build_source

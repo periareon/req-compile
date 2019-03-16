@@ -19,6 +19,7 @@ from qer.repos.findlinks import FindLinksRepository
 from qer.repos.pypi import PyPIRepository
 from qer.repos.repository import CantUseReason
 from qer.repos.multi import MultiRepository
+from qer.repos.source import SourceRepository
 
 
 def _get_reason_constraint(dists, constraint_dists, project_name, extras, root_mapping):
@@ -137,7 +138,7 @@ def _generate_no_candidate_display(ex, repos, dists, constraint_dists, root_mapp
     sys.exit(1)
 
 
-def run_compile(input_reqfiles, constraint_files, index_url, find_links, wheeldir, no_combine, no_index):
+def run_compile(input_reqfiles, constraint_files, source, find_links, index_url, wheeldir, no_combine, no_index):
 
     if wheeldir:
         if not os.path.exists(wheeldir):
@@ -161,6 +162,9 @@ def run_compile(input_reqfiles, constraint_files, index_url, find_links, wheeldi
         constraint_reqs = None
 
     repos = []
+
+    if source:
+        repos.append(SourceRepository(source))
 
     if find_links:
         repos.append(FindLinksRepository(find_links))
@@ -194,6 +198,7 @@ def compile_main():
     parser.add_argument('requirement_files', nargs='+', help='Input requirements files')
     parser.add_argument('-i', '--index-url', type=str, default=None)
     parser.add_argument('-f', '--find-links', type=str, default=None)
+    parser.add_argument('-s', '--source', type=str, default=None)
     parser.add_argument('-c', '--constraints', action='append',
                         help='Contraints files. Not included in final compilation')
     parser.add_argument('-w', '--wheel-dir', type=str, default=None)
@@ -206,8 +211,8 @@ def compile_main():
                              'available in --find-links paths.')
 
     args = parser.parse_args()
-    run_compile(args.requirement_files, args.constraints if args.constraints else None,
-                args.index_url, args.find_links, args.wheel_dir, args.no_combine, args.no_index)
+    run_compile(args.requirement_files, args.constraints if args.constraints else None, args.source, args.find_links, args.index_url,
+                args.wheel_dir, args.no_combine, args.no_index)
 
 
 if __name__ == '__main__':

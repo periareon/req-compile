@@ -158,3 +158,51 @@ def test_comtypes(mock_zip):
     metadata = qer.metadata.extract_metadata(archive)
     assert metadata.name == 'comtypes'
     assert metadata.version == pkg_resources.parse_version('1.1.7')
+
+
+def test_non_extractor():
+    this_path = os.path.dirname(__file__)
+    source_path = os.path.join(this_path, 'source-packages', 'comtypes-1.1.7')
+
+    extractor = qer.metadata.NonExtractor(source_path)
+    all_names = set(extractor.names())
+    assert all_names == {
+        'comtypes-1.1.7/README',
+        'comtypes-1.1.7/setup.py',
+        'comtypes-1.1.7/comtypes/__init__.py',
+        'comtypes-1.1.7/test/setup.py'
+    }
+
+
+def test_comtypes_as_source(mock_source):
+    path = mock_source('comtypes-1.1.7')
+
+    metadata = qer.metadata.extract_metadata(path)
+    assert metadata.name == 'comtypes'
+    assert metadata.version == pkg_resources.parse_version('1.1.7')
+
+
+def test_self_source():
+    path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+    metadata = qer.metadata.extract_metadata(path)
+    assert metadata.name == 'qer'
+
+
+def test_post_as_source(mock_source):
+    archive = mock_source('post-3.2.1-1')
+
+    metadata = qer.metadata.extract_metadata(archive)
+    assert metadata.name == 'post'
+    assert metadata.version == pkg_resources.parse_version('3.2.1-1')
+
+
+def test_svn(mock_targz):
+    archive = mock_targz('svn-0.3.46')
+
+    metadata = qer.metadata.extract_metadata(archive)
+    assert metadata.name == 'svn'
+    assert metadata.version == pkg_resources.parse_version('0.3.46')
+    assert metadata.reqs == list(pkg_resources.parse_requirements([
+        'python-dateutil>=2.2',
+        'nose']))
