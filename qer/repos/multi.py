@@ -19,5 +19,15 @@ class MultiRepository(BaseRepository):
                 last_ex = ex
         raise last_ex
 
+    def get_candidates(self, req):
+        candidates = []
+        for repo in self.repositories:
+            try:
+                repo_candidates = repo.get_candidates(req)
+                candidates.extend(repo_candidates)
+            except NoCandidateException as ex:
+                pass
+        return candidates
+
     def source_of(self, req):
         return self.source[req.name]

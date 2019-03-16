@@ -49,6 +49,7 @@ EXTENSIONS = ('.whl', '.tar.gz', '.tgz', '.zip')
 
 
 class DistributionType(enum.Enum):
+    SOURCE = 2
     WHEEL = 1
     SDIST = 0
 

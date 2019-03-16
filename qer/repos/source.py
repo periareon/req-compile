@@ -1,3 +1,4 @@
+from __future__ import print_function
 import collections
 import logging
 import os
@@ -11,7 +12,7 @@ import qer.repos.repository
 from qer.repos.repository import Repository
 
 
-SPECIAL_DIRS = ('site-packages', 'dist-packages')
+SPECIAL_DIRS = ('site-packages', 'dist-packages', '.git', '.svn', '.idea')
 SPECIAL_FILES  = ('__init__.py',)
 
 
@@ -34,7 +35,7 @@ class SourceRepository(Repository):
                     for dir_ in dirs:
                         dirs.remove(dir_)
                 elif file == 'setup.py':
-                    for dir_ in dirs:
+                    for dir_ in list(dirs):
                         dirs.remove(dir_)
 
                     result = qer.metadata.extract_metadata(root)
@@ -45,7 +46,7 @@ class SourceRepository(Repository):
                         qer.repos.repository.RequiresPython(None),
                         'any',
                         None,
-                        qer.repos.repository.DistributionType.SDIST)
+                        qer.repos.repository.DistributionType.SOURCE)
 
                     self.distributions[utils.normalize_project_name(result.name)].append(candidate)
                     break

@@ -161,22 +161,7 @@ def run_compile(input_reqfiles, constraint_files, source, find_links, index_url,
     else:
         constraint_reqs = None
 
-    repos = []
-
-    if source:
-        repos.append(SourceRepository(source))
-
-    if find_links:
-        repos.append(FindLinksRepository(find_links))
-
-    if not no_index:
-        index_url = index_url or 'https://pypi.org/simple'
-        repos.append(PyPIRepository(index_url, wheeldir))
-
-    if not repos:
-        raise ValueError('At least one Python distributions source must be provided.')
-
-    repo = MultiRepository(*repos)
+    repo = build_repo(source, find_links, index_url, no_index, wheeldir)
 
     try:
         results, constraint_results, root_mapping = perform_compile(
@@ -185,10 +170,25 @@ def run_compile(input_reqfiles, constraint_files, source, find_links, index_url,
         lines = sorted(_generate_lines(results, constraint_results, root_mapping), key=str.lower)
         print('\n'.join(lines))
     except qer.repos.repository.NoCandidateException as ex:
-        _generate_no_candidate_display(ex, repos, ex.results, ex.constraint_results, ex.mapping)
+        _generate_no_candidate_display(ex, repo.repositories, ex.results, ex.constraint_results, ex.mapping)
 
     if delete_wheeldir:
         shutil.rmtree(wheeldir)
+
+
+def build_repo(source, find_links, index_url, no_index, wheeldir):
+    repos = []
+    if source:
+        repos.append(SourceRepository(source))
+    if find_links:
+        repos.append(FindLinksRepository(find_links))
+    if not no_index:
+        index_url = index_url or 'https://pypi.org/simple'
+        repos.append(PyPIRepository(index_url, wheeldir))
+    if not repos:
+        raise ValueError('At least one Python distributions source must be provided.')
+    repo = MultiRepository(*repos)
+    return repo
 
 
 def compile_main():
@@ -196,23 +196,27 @@ def compile_main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('requirement_files', nargs='+', help='Input requirements files')
-    parser.add_argument('-i', '--index-url', type=str, default=None)
-    parser.add_argument('-f', '--find-links', type=str, default=None)
-    parser.add_argument('-s', '--source', type=str, default=None)
     parser.add_argument('-c', '--constraints', action='append',
                         help='Contraints files. Not included in final compilation')
-    parser.add_argument('-w', '--wheel-dir', type=str, default=None)
     parser.add_argument('-n', '--no-combine', default=False, action='store_true',
                         help='Keep input requirement file sources separate to '
                              'improve errors and output (slower)')
-    parser.add_argument('--no-index',
-                        action='store_true', default=False,
-                        help='Do not connect to the internet to compile. All wheels must be '
-                             'available in --find-links paths.')
+    add_repo_args(parser)
 
     args = parser.parse_args()
     run_compile(args.requirement_files, args.constraints if args.constraints else None, args.source, args.find_links, args.index_url,
                 args.wheel_dir, args.no_combine, args.no_index)
+
+
+def add_repo_args(parser):
+    parser.add_argument('-i', '--index-url', type=str, default=None)
+    parser.add_argument('-f', '--find-links', type=str, default=None)
+    parser.add_argument('-s', '--source', type=str, default=None)
+    parser.add_argument('-w', '--wheel-dir', type=str, default=None)
+    parser.add_argument('--no-index',
+                        action='store_true', default=False,
+                        help='Do not connect to the internet to compile. All wheels must be '
+                             'available in --find-links paths.')
 
 
 if __name__ == '__main__':

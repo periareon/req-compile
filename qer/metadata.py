@@ -35,9 +35,11 @@ class Extractor(six.with_metaclass(abc.ABCMeta, object)):
     def relative_opener(self, fake_root, directory):
         def inner_opener(filename, *args, **kwargs):
             archive_path = filename
-            if os.path.abspath(filename):
+            if os.path.isabs(filename):
                 if filename.startswith(fake_root):
                     archive_path = os.path.relpath(filename, fake_root)
+                else:
+                    return self.open(filename, *args, **kwargs)
             return self.open(directory + '/' + archive_path, *args, **kwargs)
         return inner_opener
 
@@ -82,9 +84,12 @@ class NonExtractor(Extractor):
             for file in files:
                 yield rel_root + '/' + file
 
-    def open(self, filename, mode='r', encoding='utf-8'):
-        parent_dir = os.path.abspath(os.path.join(self.path, '..'))
-        return self.io_open(os.path.join(parent_dir, filename), mode=mode, encoding=encoding)
+    def open(self, filename, mode='r', encoding='utf-8', errors=None):
+        if not os.path.isabs(filename):
+            parent_dir = os.path.abspath(os.path.join(self.path, '..'))
+            return self.io_open(os.path.join(parent_dir, filename), mode=mode, encoding=encoding)
+        else:
+            return self.io_open(filename, mode=mode, encoding=encoding)
 
     def close(self):
         pass
@@ -98,7 +103,7 @@ class TarExtractor(Extractor):
     def names(self):
         return (info.name for info in self.tar.getmembers())
 
-    def open(self, filename, mode='r', encoding='utf-8'):
+    def open(self, filename, mode='r', encoding='utf-8', errors=None):
         filename = filename.replace('\\', '/').replace('./', '')
         if not os.path.isabs(filename):
             try:
@@ -121,7 +126,7 @@ class ZipExtractor(Extractor):
     def names(self):
         return self.zfile.namelist()
 
-    def open(self, filename, mode='r', encoding='utf-8'):
+    def open(self, filename, mode='r', encoding='utf-8', errors=None):
         filename = filename.replace('\\', '/').replace('./', '')
         if not os.path.isabs(filename):
             try:
@@ -145,7 +150,7 @@ def extract_metadata(dist, extras=()):
     elif dist.lower().endswith('.tar.gz'):
         return _fetch_from_source(dist, TarExtractor, extras=extras)
     else:
-        return _fetch_from_source(dist, NonExtractor, extras=extras)
+        return _fetch_from_source(os.path.abspath(dist), NonExtractor, extras=extras)
 
 
 def _fetch_from_source(source_file, extractor_type, extras):
@@ -196,13 +201,18 @@ def _fetch_from_source(source_file, extractor_type, extras):
             results = _parse_flat_metadata(extractor.open(pkg_info_file, encoding='utf-8').read(), extras)
 
         if (results is None or not results.reqs) and setup_file:
-            fake_setupdir = tempfile.mkdtemp()
+            if isinstance(extractor, NonExtractor):
+                fake_setupdir = source_file
+            else:
+                fake_setupdir = tempfile.mkdtemp()
             setup_results = _parse_setup_py(name, fake_setupdir,
                                             extractor.relative_opener(fake_setupdir,
                                                                       os.path.dirname(setup_file)), extras)
             if setup_results is not None:
                 if version is not None:
                     setup_results.version = version
+                if setup_results.name is None:
+                    setup_results.name = name
                 if results:
                     setup_results.version = results.version
                 return setup_results
@@ -287,11 +297,11 @@ class with_decoding(object):
 
 def setup(results, *args, **kwargs):
     name = kwargs.get('name', None)
-    version = kwargs.get('version', None)
+    version = kwargs.get('version', '0.0.0')
     reqs = kwargs.get('install_requires', [])
 
-    if isinstance(version, FakeModule):
-        version = None
+    if version is None or isinstance(version, FakeModule):
+        version = '0.0.0'
 
     if version is not None and version != '':
         version = pkg_resources.parse_version(str(version))
@@ -313,6 +323,9 @@ class FakeModule(types.ModuleType):
     def __contains__(self, item):
         return True
 
+    def __call__(self, *args, **kwargs):
+        return FakeModule(self.__name__)
+
     def __getattr__(self, item):
         if isinstance(item, str):
             if item == '__path__':
@@ -326,18 +339,40 @@ class FakeModule(types.ModuleType):
 
 def fake_import(name, orig_import, modname, *args, **kwargs):
     try:
-        if name.lower() == modname.lower():
+        lower_modname = modname.lower()
+        if 'build_ext' in modname:
+            raise ImportError()
+
+        if 'Cython' in modname or (
+                name == lower_modname or (name + '_') in lower_modname or
+                ('_' + name) in lower_modname):
+            # print('Module is fake: {}'.format(modname))
             sys.modules[modname] = FakeModule(modname)
         return orig_import(modname, *args, **kwargs)
     except ImportError:
+        # print('Failed on {}'.format(modname))
         # Skip any cython importing to improve setup.py compatibility (e.g. subprocess32)
         if 'Cython' in modname:
             raise
-
-        modparts = modname.split('.')
-        for idx, mod in enumerate(modparts):
-            sys.modules['.'.join(modparts[:idx + 1])] = FakeModule(mod)
+        # if six.PY2:
+        #     if 'asyncio' in modname:
+        #         raise
+        #
+        #     if 'typing' in modname:
+        #         raise
+        #
+        if name in modname.lower() or '_version' in modname or 'version' in modname:
+            modparts = modname.split('.')
+            for idx, mod in enumerate(modparts):
+                sys.modules['.'.join(modparts[:idx + 1])] = FakeModule(mod)
+        # print('Failed, original import')
+        # try:
+        #     return orig_import(modname, *args, **kwargs)
+        # except TypeError:
+        #     pass
         return orig_import(modname, *args, **kwargs)
+    finally:
+        sys.stdout.flush()
 
 
 def _parse_setup_py(name, fake_setupdir, opener, extras):
@@ -355,11 +390,11 @@ def _parse_setup_py(name, fake_setupdir, opener, extras):
     if six.PY2:
         import __builtin__
         old_import = __builtin__.__import__
-        __builtin__.__import__ = functools.partial(fake_import, name, __import__)
+        __builtin__.__import__ = functools.partial(fake_import, name.lower(), __import__)
     else:
         import builtins
         old_import = builtins.__import__
-        builtins.__import__ = functools.partial(fake_import, name, __import__)
+        builtins.__import__ = functools.partial(fake_import, name.lower(), __import__)
 
     import imp
     old_load_source = imp.load_source
@@ -373,7 +408,7 @@ def _parse_setup_py(name, fake_setupdir, opener, extras):
     old_stderr = sys.stderr
 
     sys.stderr = StringIO()
-    sys.stdout = StringIO()
+    # sys.stdout = StringIO()
 
     curr_dir = os.getcwd()
 
@@ -392,7 +427,7 @@ def _parse_setup_py(name, fake_setupdir, opener, extras):
         if six.PY2:
             lines = contents.split('\n')
             lines = [line for line in lines if not (line.startswith('#') and
-                                                    ('-*- coding' in line or '-*- encoding' in line))]
+                                                    ('-*- coding' in line or '-*- encoding' in line or 'encoding:' in line))]
             contents = '\n'.join(lines)
         contents = contents.replace('print ', '')
         exec(contents, spy_globals, spy_globals)

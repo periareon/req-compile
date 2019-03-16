@@ -52,6 +52,8 @@ def reqs_from_files(requirements_files):
 
 @lru_cache(maxsize=None)
 def parse_requirement(req_text):
+    if req_text[0] == '#':
+        return None
     return pkg_resources.Requirement.parse(req_text)
 
 
@@ -66,7 +68,9 @@ def parse_version(version):
 
 def parse_requirements(reqs):
     for req in reqs:
-        yield parse_requirement(req)
+        result = parse_requirement(req)
+        if result is not None:
+            yield result
 
 
 def merge_extras(extras1, extras2):

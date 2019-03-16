@@ -128,7 +128,7 @@ class DistInfo(object):
             extras (tuple[str]): Extras that are active in this metadata by default
             meta:
         """
-        self.name = name
+        self._name = name
         self.reqs = list(reqs)
         self.extras = extras
         self.meta = meta
@@ -139,7 +139,17 @@ class DistInfo(object):
         return self.hash
 
     def _recalc_hash(self):
-        self.hash = hash(self.name + str(self.version))
+        name = self._name or ''
+        self.hash = hash(name + str(self.version))
+
+    @property
+    def name(self):
+        return self._name
+
+    @name.setter
+    def name(self, value):
+        self._name = value
+        self._recalc_hash()
 
     @property
     def version(self):
