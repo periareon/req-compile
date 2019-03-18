@@ -45,24 +45,27 @@ def _get_reason_constraint(dists, constraint_dists, project_name, extras, root_m
                             constraints += ['(via constraints: ' + constraints_reason + ')']
                     else:
                         specifics = ' (' + str(req.specifier) + ')' if req.specifier else ''
+                        source = None
                         if component.startswith(qer.compile.ROOT_REQ):
                             source = root_mapping[component]
                         else:
-                            all_matched = True
-                            for extra in metadata.extras:
-                                result = utils.filter_req(req, (extra,))
-                                all_matched &= result
-                                if result:
-                                    source = metadata.name + '[' + extra + ']'
-                            if not metadata.extras or (all_matched and len(metadata.extras) > 1):
+                            if not metadata.extras or utils.filter_req(req, ('__GARBAGE__',)):
                                 source = metadata.name
+                            else:
+                                for extra in metadata.extras:
+                                    result = utils.filter_req(req, (extra,))
+                                    if result:
+                                        source = metadata.name + '[' + extra + ']'
+                                        break
+                                if source is None:
+                                    source = 'could not determine'
                         constraints += [source + specifics]
                         break
         constraints = ', '.join(constraints)
     return constraints
 
 
-def _generate_lines(dists, constraint_dists, root_mapping):
+def _generate_lines(dists, constraint_dists, root_mapping, filter):
     for dist in six.itervalues(dists.dists):
         if dist.metadata.name in qer.compile.BLACKLIST:
             continue
@@ -71,7 +74,8 @@ def _generate_lines(dists, constraint_dists, root_mapping):
 
         constraints = _get_reason_constraint(dists, constraint_dists,
                                              dist.metadata.name, dist.metadata.extras, root_mapping)
-        yield '{}# {}'.format(str(dist.metadata).ljust(43), constraints)
+        if filter(dist):
+            yield '{}# {}'.format(str(dist.metadata).ljust(43), constraints)
 
 
 def _cantusereason_to_text(reason):
@@ -91,7 +95,7 @@ def _generate_no_candidate_display(ex, repos, dists, constraint_dists, root_mapp
     project_name = utils.normalize_project_name(ex.req.name)
     components = dists.reverse_deps(project_name)
     if not components:
-        print('No package available for %s, latest is %s', file=sys.stderr)
+        print('No package available for {}, latest is {}'.format(ex.req.name, 'unknown'), file=sys.stderr)
     else:
         print('No version of {} could satisfy the following requirements:'.format(ex.req.name), file=sys.stderr)
         for component in components:
@@ -138,7 +142,7 @@ def _generate_no_candidate_display(ex, repos, dists, constraint_dists, root_mapp
     sys.exit(1)
 
 
-def run_compile(input_reqfiles, constraint_files, source, find_links, index_url, wheeldir, no_combine, no_index):
+def run_compile(input_reqfiles, constraint_files, source, force_extras, find_links, index_url, wheeldir, no_combine, no_index, remove_source):
 
     if wheeldir:
         if not os.path.exists(wheeldir):
@@ -148,26 +152,43 @@ def run_compile(input_reqfiles, constraint_files, source, find_links, index_url,
         wheeldir = tempfile.mkdtemp()
         delete_wheeldir = True
 
-    if no_combine:
-        input_reqs = {
-            req_file: utils.reqs_from_files([req_file])
-            for req_file in input_reqfiles
-        }
+    if len(input_reqfiles) == 1 and os.path.isdir(input_reqfiles[0]):
+        dist = qer.metadata.extract_metadata(input_reqfiles[0])
+        input_reqs = [utils.parse_requirement(dist.name)]
     else:
-        input_reqs = utils.reqs_from_files(input_reqfiles)
+        if no_combine:
+            input_reqs = {
+                req_file: utils.reqs_from_files([req_file])
+                for req_file in input_reqfiles
+            }
+        else:
+            input_reqs = utils.reqs_from_files(input_reqfiles)
 
     if constraint_files:
         constraint_reqs = utils.reqs_from_files(constraint_files)
     else:
         constraint_reqs = None
 
-    repo = build_repo(source, find_links, index_url, no_index, wheeldir)
+    repo = build_repo(source, force_extras, find_links, index_url, no_index, wheeldir)
 
     try:
         results, constraint_results, root_mapping = perform_compile(
             input_reqs, wheeldir, repo, constraint_reqs=constraint_reqs)
 
-        lines = sorted(_generate_lines(results, constraint_results, root_mapping), key=str.lower)
+        filter = lambda _: True
+
+        if remove_source:
+            source_repo = None
+            for repo in repo.repositories:
+                if isinstance(repo, SourceRepository):
+                    source_repo = repo
+
+            if source_repo is None:
+                raise ValueError('Cannot remove results from source, no source provided')
+
+            filter = lambda dist: dist.metadata.origin is not source_repo
+
+        lines = sorted(_generate_lines(results, constraint_results, root_mapping, filter), key=str.lower)
         print('\n'.join(lines))
     except qer.repos.repository.NoCandidateException as ex:
         _generate_no_candidate_display(ex, repo.repositories, ex.results, ex.constraint_results, ex.mapping)
@@ -176,10 +197,10 @@ def run_compile(input_reqfiles, constraint_files, source, find_links, index_url,
         shutil.rmtree(wheeldir)
 
 
-def build_repo(source, find_links, index_url, no_index, wheeldir):
+def build_repo(source, force_extras, find_links, index_url, no_index, wheeldir):
     repos = []
     if source:
-        repos.append(SourceRepository(source))
+        repos.append(SourceRepository(source, force_extras=force_extras))
     if find_links:
         repos.append(FindLinksRepository(find_links))
     if not no_index:
@@ -201,11 +222,17 @@ def compile_main():
     parser.add_argument('-n', '--no-combine', default=False, action='store_true',
                         help='Keep input requirement file sources separate to '
                              'improve errors and output (slower)')
+    parser.add_argument('--remove-source', default=False, action='store_true',
+                        help='Remove distributions satisfied via --source from the output')
+    parser.add_argument('-e', '--extra', nargs='+', default=[],
+                        help='Extras to include for every discovered distribution '
+                             'provided via --source')
+
     add_repo_args(parser)
 
     args = parser.parse_args()
-    run_compile(args.requirement_files, args.constraints if args.constraints else None, args.source, args.find_links, args.index_url,
-                args.wheel_dir, args.no_combine, args.no_index)
+    run_compile(args.requirement_files, args.constraints if args.constraints else None, args.source, tuple(args.extra), args.find_links, args.index_url,
+                args.wheel_dir, args.no_combine, args.no_index, args.remove_source)
 
 
 def add_repo_args(parser):

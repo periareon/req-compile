@@ -155,6 +155,8 @@ class Candidate(object):
         # self.sortkey = (version, self.tag_score)
         self.sortkey = (version, candidate_type.value, self.tag_score)
 
+        self.preparsed = None
+
     def _calculate_tag_score(self):
         tag_score = self.py_version.tag_score
         if platform != 'any':
@@ -247,6 +249,9 @@ class BaseRepository(six.with_metaclass(abc.ABCMeta, object)):
 
     def source_of(self, req):
         return self
+
+    def force_extras(self):
+        return ()
 
 
 class CantUseReason(enum.Enum):

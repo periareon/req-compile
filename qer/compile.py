@@ -23,7 +23,7 @@ BLACKLIST = [
 
 
 def compile_roots(root, source, repo, dists=None, depth=1,
-                  toplevel=None, wheeldir=None, verbose=False):
+                  toplevel=None, wheeldir=None, verbose=True):
     logger = logging.getLogger('qer.compile')
 
     if verbose:
@@ -52,16 +52,17 @@ def compile_roots(root, source, repo, dists=None, depth=1,
     if download:
         spec_req = dists.build_constraints(root.name, extras=root.extras)
         dist, cached = repo.get_candidate(spec_req)
-
-        source = repo.source_of(spec_req)
+        source_repo = repo.source_of(spec_req)
 
         if verbose:
             if cached:
-                print(' ... CACHED ({})'.format(source))
+                print(' ... CACHED ({})'.format(source_repo))
             else:
-                print(' ... DOWNLOAD ({})'.format(source))
+                print(' ... DOWNLOAD ({})'.format(source_repo))
 
-        metadata = qer.metadata.extract_metadata(dist, extras=root.extras)
+        extras = qer.utils.merge_extras(root.extras, source_repo.force_extras())
+
+        metadata = qer.metadata.extract_metadata(dist, origin=source_repo, extras=extras)
         dists.add_dist(metadata, source)
         recurse_reqs = True
 

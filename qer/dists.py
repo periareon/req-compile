@@ -105,7 +105,7 @@ class DistributionCollection(object):
         reverse_deps = {}
         normalized_name = normalize_project_name(project_name)
         for dist_name, dist in six.iteritems(self.dists):
-            for subreq in dist.metadata.requires():
+            for subreq in dist.metadata.requires(dist.metadata.extras):
                 if normalize_project_name(subreq.name) == normalized_name:
                     reverse_deps[dist_name] = subreq
                     break
@@ -134,6 +134,7 @@ class DistInfo(object):
         self.meta = meta
         self._version = version
         self._recalc_hash()
+        self.source = None
 
     def __hash__(self):
         return self.hash

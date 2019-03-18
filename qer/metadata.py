@@ -141,16 +141,19 @@ class ZipExtractor(Extractor):
         self.zfile.close()
 
 
-def extract_metadata(dist, extras=()):
+def extract_metadata(dist, origin=None, extras=()):
     """"""
     if dist.lower().endswith('.whl'):
-        return _fetch_from_wheel(dist, extras=extras)
-    if dist.lower().endswith('.zip'):
-        return _fetch_from_source(dist, ZipExtractor, extras=extras)
+        result = _fetch_from_wheel(dist, extras=extras)
+    elif dist.lower().endswith('.zip'):
+        result = _fetch_from_source(dist, ZipExtractor, extras=extras)
     elif dist.lower().endswith('.tar.gz'):
-        return _fetch_from_source(dist, TarExtractor, extras=extras)
+        result = _fetch_from_source(dist, TarExtractor, extras=extras)
     else:
-        return _fetch_from_source(os.path.abspath(dist), NonExtractor, extras=extras)
+        result = _fetch_from_source(os.path.abspath(dist), NonExtractor, extras=extras)
+    if result is not None:
+        result.origin = origin
+    return result
 
 
 def _fetch_from_source(source_file, extractor_type, extras):
@@ -299,6 +302,7 @@ def setup(results, *args, **kwargs):
     name = kwargs.get('name', None)
     version = kwargs.get('version', '0.0.0')
     reqs = kwargs.get('install_requires', [])
+    extra_reqs = kwargs.get('extra_requires', {})
 
     if version is None or isinstance(version, FakeModule):
         version = '0.0.0'
@@ -306,8 +310,13 @@ def setup(results, *args, **kwargs):
     if version is not None and version != '':
         version = pkg_resources.parse_version(str(version))
 
-    results.append(DistInfo(name, version,
-                            list(utils.parse_requirements(reqs))))
+    all_reqs = list(utils.parse_requirements(reqs))
+    for extra, extra_req_strs in extra_reqs.items():
+        cur_reqs = [utils.parse_requirement('{} ; extra=="{}"'.format(reqstr, extra))
+                    for reqstr in extra_req_strs]
+        all_reqs.extend(cur_reqs)
+
+    results.append(DistInfo(name, version, all_reqs))
     return FakeModule('dist')
 
 
@@ -354,10 +363,10 @@ def fake_import(name, orig_import, modname, *args, **kwargs):
         # Skip any cython importing to improve setup.py compatibility (e.g. subprocess32)
         if 'Cython' in modname:
             raise
-        # if six.PY2:
-        #     if 'asyncio' in modname:
-        #         raise
-        #
+        if six.PY2:
+            if 'asyncio' in modname:
+                raise
+
         #     if 'typing' in modname:
         #         raise
         #
@@ -447,6 +456,7 @@ def _parse_setup_py(name, fake_setupdir, opener, extras):
         sys.stdout = old_stdout
     if not results:
         pass
+    results[0].update_extras(extras)
     return results[0]
 
 
