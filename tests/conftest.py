@@ -16,7 +16,7 @@ from qer.repos.repository import Repository, Candidate
 
 @pytest.fixture
 def metadata_provider():
-    def _parse_metadata(filename, extras=()):
+    def _parse_metadata(filename, origin=None, extras=()):
         full_name = filename if os.path.isabs(filename) else os.path.join(os.path.dirname(__file__), filename)
         with open(full_name, 'r') as handle:
             return qer.metadata._parse_flat_metadata(handle.read(), extras=extras)
@@ -78,7 +78,7 @@ class MockRepository(Repository):
 
 
 @pytest.fixture
-def mock_pypi(mocker):
+def mock_pypi():
     return MockRepository()
 
 
@@ -87,8 +87,10 @@ def mock_metadata(mocker, metadata_provider):
     mocker.patch('qer.metadata.extract_metadata', side_effect=metadata_provider)
 
 
-@pytest.fixture
+@pytest.yield_fixture
 def mock_targz():
+    files_to_delete = []
+
     def build_targz(directory):
         directory = os.path.join(os.path.dirname(__file__), 'source-packages', directory)
         build_dir = tempfile.mkdtemp()
@@ -98,13 +100,19 @@ def mock_targz():
         with tarfile.open(tar_archive, 'w:gz') as tarf:
             tarf.add(directory, arcname=os.path.basename(directory))
 
+        files_to_delete.append(tar_archive)
         return tar_archive
 
-    return build_targz
+    yield build_targz
+
+    for archive in files_to_delete:
+        os.remove(archive)
 
 
-@pytest.fixture
+@pytest.yield_fixture
 def mock_zip():
+    files_to_delete = []
+
     def build_zip(directory):
         directory = os.path.join(os.path.dirname(__file__), 'source-packages', directory)
         build_dir = tempfile.mkdtemp()
@@ -120,9 +128,13 @@ def mock_zip():
 
                     handle.write(full_path, arcname=os.path.join(os.path.basename(directory), os.path.relpath(full_path, directory)))
 
+        files_to_delete.append(zip_archive)
         return zip_archive
 
-    return build_zip
+    yield build_zip
+
+    for archive in files_to_delete:
+        os.remove(archive)
 
 
 @pytest.fixture

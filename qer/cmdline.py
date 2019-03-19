@@ -23,6 +23,18 @@ from qer.repos.source import SourceRepository
 
 
 def _get_reason_constraint(dists, constraint_dists, project_name, extras, root_mapping):
+    """
+
+    Args:
+        dists (DistributionCollection): Results of a compilation
+        constraint_dists:
+        project_name:
+        extras:
+        root_mapping:
+
+    Returns:
+
+    """
     if dists is None:
         return ''
 

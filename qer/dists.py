@@ -33,8 +33,7 @@ class DistributionCollection(object):
         """
         if metadata.name in self.dists:
             existing = self.dists[normalize_project_name(metadata.name)]
-            existing.sources.add(source)
-            existing.metadata.update_extras(metadata.extras)
+            existing.add(source, metadata)
         else:
             self.dists[normalize_project_name(metadata.name)] = MetadataSources(metadata, source)
 
@@ -53,12 +52,13 @@ class DistributionCollection(object):
         dists_to_remove = []
         for dist in six.itervalues(self.dists):
             if source in dist.sources:
-                dist.sources.remove(source)
+                dist.remove(source)
                 if not dist.sources:
                     dists_to_remove.append(normalize_project_name(dist.metadata.name))
 
-        for dist in dists_to_remove:
-            self.remove_dist(dist)
+        if dists_to_remove:
+            for dist in dists_to_remove:
+                self.remove_dist(dist)
 
     def __contains__(self, item):
         return normalize_project_name(item) in self.dists
@@ -115,7 +115,17 @@ class DistributionCollection(object):
 class MetadataSources(object):
     def __init__(self, metadata, source):
         self.metadata = metadata
-        self.sources = {source}
+        self.sources = {source: metadata.extras}
+
+    def add(self, source, metadata):
+        self.metadata.update_extras(metadata.extras)
+        self.sources[source] = metadata.extras
+
+    def remove(self, source):
+        del self.sources[source]
+        self.metadata.extras = ()
+        for extras in self.sources.values():
+            self.metadata.update_extras(extras)
 
 
 class DistInfo(object):

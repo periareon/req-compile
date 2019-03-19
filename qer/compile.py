@@ -30,26 +30,20 @@ def compile_roots(root, source, repo, dists=None, depth=1,
         print(' ' * depth + str(root), end='')
 
     recurse_reqs = False
-    download = True
-
     extras = root.extras
     if root.name in dists:
         normalized_name = normalize_project_name(root.name)
 
         logger.info('Reusing dist %s %s', root.name, dists.dists[normalized_name].metadata.version)
-        dists.dists[normalized_name].sources.add(source)
-        metadata = dists.dists[normalized_name].metadata
-        if metadata.extras != root.extras:
+        reused_dist = dists.dists[normalized_name]
+        old_extras = reused_dist.metadata.extras
+        reused_dist.add(source, root)
+        if old_extras != root.extras or reused_dist.metadata.meta:
+            metadata = reused_dist.metadata
             recurse_reqs = True
-            extras = qer.utils.merge_extras(metadata.extras, root.extras)
-            metadata.extras = extras
         if verbose:
             print(' ... REUSE')
-        if metadata.meta:
-            recurse_reqs = True
-        download = False
-
-    if download:
+    else:
         spec_req = dists.build_constraints(root.name, extras=root.extras)
         dist, cached = repo.get_candidate(spec_req)
         source_repo = repo.source_of(spec_req)

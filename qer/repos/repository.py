@@ -40,9 +40,6 @@ def _get_platform_tag():
 
 INTERPRETER_TAG = INTERPRETER_TAGS.get(platform.python_implementation(), 'cp')
 PY_VERSION_NUM = str(sys.version_info.major) + str(sys.version_info.minor)
-IMPLEMENTATION_TAGS = ('py2' if six.PY2 else 'py3',
-                       INTERPRETER_TAG + PY_VERSION_NUM,
-                       'py' + PY_VERSION_NUM)
 
 PLATFORM_TAG = _get_platform_tag()
 EXTENSIONS = ('.whl', '.tar.gz', '.tgz', '.zip')
@@ -55,46 +52,48 @@ class DistributionType(enum.Enum):
 
 
 class RequiresPython(object):
+    OPS = {
+        '<': lambda x, y: x < y,
+        '>': lambda x, y: x > y,
+        '==': lambda x, y: x == y,
+        '!=': lambda x, y: x != y,
+        '>=': lambda x, y: x >= y,
+        '<=': lambda x, y: x <= y
+    }
+    SYS_PY_VERSION = pkg_resources.parse_version(sys.version.split(' ')[0])
+    SYS_PY_MAJOR = pkg_resources.parse_version('{}'.format(sys.version_info.major))
+    SYS_PY_MAJOR_MINOR = pkg_resources.parse_version('{}.{}'.format(sys.version_info.major,
+                                                                    sys.version_info.minor))
+    WHEEL_VERSION_TAGS = ('py2' if six.PY2 else 'py3',
+                          INTERPRETER_TAG + PY_VERSION_NUM,
+                          'py' + PY_VERSION_NUM)
+
     def __init__(self, py_version):
         self.py_version = py_version
 
     def check_compatibility(self):
-        if self.py_version is None:
+        if self.py_version is None or self.py_version == ():
             return True
         if isinstance(self.py_version, tuple):
-            return self.py_version == () or any(version in IMPLEMENTATION_TAGS for version in self.py_version)
+            return any(version in RequiresPython.WHEEL_VERSION_TAGS
+                       for version in self.py_version)
 
-        parts = self.py_version.split(',')
-        system_py_version = pkg_resources.parse_version(sys.version.split(' ')[0])
+        return all(self._check_py_constraint(part) for part in self.py_version.split(','))
 
-        ops = {
-            '<': lambda x, y: x < y,
-            '>': lambda x, y: x > y,
-            '==': lambda x, y: x == y,
-            '!=': lambda x, y: x != y,
-            '>=': lambda x, y: x >= y,
-            '<=': lambda x, y: x <= y
-        }
-
-        results = []
-        for part in parts:
-            ref_version = system_py_version
-            part = part.strip()
-            version_part = re.split('[!=<>~]', part)[-1].strip()
-            operator = part.replace(version_part, '').strip()
-            if version_part.endswith('.*'):
-                version_part = version_part.replace('.*', '')
-                dotted_parts = len(version_part.split('.'))
-                if dotted_parts == 2:
-                    ref_version = pkg_resources.parse_version('{}.{}'.format(sys.version_info.major,
-                                                                             sys.version_info.minor))
-                if dotted_parts == 1:
-                    ref_version = pkg_resources.parse_version('{}'.format(sys.version_info.major))
-
-            version = pkg_resources.parse_version(version_part)
-            results.append(ops[operator](ref_version, version))
-
-        return all(results)
+    @classmethod
+    def _check_py_constraint(cls, version_constraint):
+        ref_version = cls.SYS_PY_VERSION
+        version_part = re.split('[!=<>~]', version_constraint)[-1].strip()
+        operator = version_constraint.replace(version_part, '').strip()
+        if version_part.endswith('.*'):
+            version_part = version_part.replace('.*', '')
+            dotted_parts = len(version_part.split('.'))
+            if dotted_parts == 2:
+                ref_version = cls.SYS_PY_MAJOR_MINOR
+            if dotted_parts == 1:
+                ref_version = cls.SYS_PY_MAJOR
+        version = pkg_resources.parse_version(version_part)
+        return cls.OPS[operator](ref_version, version)
 
     @property
     def tag_score(self):
@@ -119,11 +118,11 @@ class RequiresPython(object):
         return self.py_version == other.py_version
 
     def __str__(self):
-        if self.py_version is None:
+        if self.py_version is None or self.py_version == ():
             return 'any'
 
         if isinstance(self.py_version, tuple):
-            return ','.join(self.py_version)
+            return ','.join(sorted(self.py_version))
         return ''
 
 

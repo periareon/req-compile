@@ -160,6 +160,14 @@ def test_comtypes(mock_zip):
     assert metadata.version == pkg_resources.parse_version('1.1.7')
 
 
+def test_noname(mock_targz):
+    archive = mock_targz('noname-1.0')
+
+    metadata = qer.metadata.extract_metadata(archive)
+    assert metadata.name == 'noname'
+    assert metadata.version == pkg_resources.parse_version('1.0')
+
+
 def test_non_extractor():
     this_path = os.path.dirname(__file__)
     source_path = os.path.join(this_path, 'source-packages', 'comtypes-1.1.7')

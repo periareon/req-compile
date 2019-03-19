@@ -1,0 +1,8 @@
+Metadata-Version: 2.0
+Name: a
+Version: 5.0.0
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3.6
+Requires-Dist: x[test]
+Requires-Dist: b

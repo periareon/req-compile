@@ -219,6 +219,46 @@ def test_compile_early_violated(mock_metadata, mock_pypi):
     assert _real_outputs(results) == ['a==5.0.0', 'x==0.9.0', 'y==4.0.0', 'z==1.0.0']
 
 
+def test_extra_violated(mock_metadata, mock_pypi):
+    """When a violated requirement is required with an extra and transitively requires another
+    dist, make sure that dist is not removed when required by another dist"""
+    mock_pypi.load_scenario('extra-violated',
+                            pkg_resources.parse_requirements(
+                                ['a==5.0.0',
+                                 'b==4.0.0',
+                                 'x==0.9.0',
+                                 'x==1.1.0',
+                                 'y==4.0.0',
+                                 'z==1.0.0']))
+
+    results, cresults, root_mapping = qer.compile.perform_compile(
+        pkg_resources.parse_requirements(['a', 'y']),
+        '.',
+        mock_pypi)
+
+    assert _real_outputs(results) == ['a==5.0.0', 'b==4.0.0', 'x[test]==0.9.0', 'y==4.0.0', 'z==1.0.0']
+
+
+def test_extra_violated_transitive_removed(mock_metadata, mock_pypi):
+    """When a violated requirement is required with an extra and used to transitively require another
+    package but no longer does, verify it does not appear in the output"""
+    mock_pypi.load_scenario('extra-violated',
+                            pkg_resources.parse_requirements(
+                                ['a==5.0.0',
+                                 'b==4.0.0',
+                                 'x==0.9.0',
+                                 'x==1.1.0',
+                                 'y==4.0.0',
+                                 'z==1.0.0']))
+
+    results, cresults, root_mapping = qer.compile.perform_compile(
+        pkg_resources.parse_requirements(['z', 'y']),
+        '.',
+        mock_pypi)
+
+    assert _real_outputs(results) == ['x[test]==0.9.0', 'y==4.0.0', 'z==1.0.0']
+
+
 def test_compile_repeat_violated(mock_metadata, mock_pypi):
     mock_pypi.load_scenario('repeat-violated',
                             pkg_resources.parse_requirements(

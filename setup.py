@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='qer',
-    version='0.5.0',
+    version='0.5.1',
     author='Spencer Putt',
     author_email='sputt@alumni.iu.edu',
     description='Python requirements compiler',
