@@ -8,7 +8,7 @@ import pkg_resources
 from qer.cmdline import add_repo_args, build_repo
 
 
-def main():
+def candidates_main():
     parser = argparse.ArgumentParser()
     parser.add_argument('project_name', help='Print candidates found for the project')
     add_repo_args(parser)
@@ -16,7 +16,7 @@ def main():
     args = parser.parse_args()
 
     wheeldir = tempfile.mkdtemp()
-    repo = build_repo(args.source, args.find_links, args.index_url,
+    repo = build_repo(args.source, None, args.find_links, args.index_url,
                       args.no_index, wheeldir)
 
     try:
@@ -28,4 +28,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    candidates_main()

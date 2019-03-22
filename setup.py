@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='qer',
-    version='0.5.1',
+    version='0.5.2',
     author='Spencer Putt',
     author_email='sputt@alumni.iu.edu',
     description='Python requirements compiler',
@@ -15,6 +15,7 @@ setup(
         'console_scripts': [
             'req-compile = qer.cmdline:compile_main',
             'req-hash = qer.hash:hash_main',
+            'req-candidates = qer.hash:candidates_main',
         ],
     },
     classifiers=[

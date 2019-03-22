@@ -32,21 +32,29 @@ class DistributionCollection(object):
             source (str): The source of the distribution, e.g. a filename
         """
         if metadata.name in self.dists:
-            existing = self.dists[normalize_project_name(metadata.name)]
-            existing.add(source, metadata)
+            result = self.dists[normalize_project_name(metadata.name)]
+            result.add(source, metadata)
         else:
-            self.dists[normalize_project_name(metadata.name)] = MetadataSources(metadata, source)
+            result = MetadataSources(metadata, source)
+            self.dists[normalize_project_name(metadata.name)] = result
 
         for req in metadata.reqs:
             self.constraint_cache.pop(normalize_project_name(req.name), None)
+        return result
 
     def remove_dist(self, name):
         normalized_name = normalize_project_name(name)
+        if normalized_name not in self.dists:
+            return False
+
+        real_name = self.dists[normalized_name].metadata.name
         reqs = self.dists[normalized_name].metadata.reqs
         del self.dists[normalized_name]
+        self.remove_source(real_name)
 
         for req in reqs:
             self.constraint_cache.pop(normalize_project_name(req.name), None)
+        return True
 
     def remove_source(self, source):
         dists_to_remove = []
@@ -115,11 +123,18 @@ class DistributionCollection(object):
 class MetadataSources(object):
     def __init__(self, metadata, source):
         self.metadata = metadata
-        self.sources = {source: metadata.extras}
+        self.sources = dict()
+        if source is not None:
+            self.add(source, metadata)
+
+    def __repr__(self):
+        return '{}  # {}'.format(self.metadata, ', '.join(self.sources))
 
     def add(self, source, metadata):
-        self.metadata.update_extras(metadata.extras)
         self.sources[source] = metadata.extras
+        self.metadata.extras = ()
+        for extras in self.sources.values():
+            self.metadata.update_extras(extras)
 
     def remove(self, source):
         del self.sources[source]

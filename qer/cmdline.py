@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import argparse
+import itertools
 import logging
 import os
 import shutil
@@ -13,6 +14,8 @@ import qer.compile
 import qer.dists
 import qer.metadata
 import qer.repos.pypi
+import qer.solution
+
 from qer import utils
 from qer.compile import perform_compile
 from qer.repos.findlinks import FindLinksRepository
@@ -96,7 +99,8 @@ def _cantusereason_to_text(reason):
     elif reason == CantUseReason.WRONG_PLATFORM:
         return 'platform mismatch {}'.format(qer.repos.repository.PLATFORM_TAG)
     elif reason == CantUseReason.WRONG_PYTHON_VERSION:
-        return 'python version/interpreter mismatch ({})'.format(', '.join(qer.repos.repository.IMPLEMENTATION_TAGS))
+        return 'python version/interpreter mismatch ({})'.format(', '.join(
+            qer.repos.repository.RequiresPython.WHEEL_VERSION_TAGS))
     elif reason == CantUseReason.IS_PRERELEASE:
         return 'prereleases not used'
 
@@ -154,7 +158,8 @@ def _generate_no_candidate_display(ex, repos, dists, constraint_dists, root_mapp
     sys.exit(1)
 
 
-def run_compile(input_reqfiles, constraint_files, source, force_extras, find_links, index_url, wheeldir, no_combine, no_index, remove_source):
+def run_compile(input_reqfiles, constraint_files, source, force_extras, find_links,
+                index_url, wheeldir, no_combine, no_index, remove_source, solution):
 
     if wheeldir:
         if not os.path.exists(wheeldir):
@@ -183,9 +188,13 @@ def run_compile(input_reqfiles, constraint_files, source, force_extras, find_lin
 
     repo = build_repo(source, force_extras, find_links, index_url, no_index, wheeldir)
 
+    solution_dists = None
+    if solution is not None:
+        solution_dists = qer.solution.load_from_file(solution)
+
     try:
         results, constraint_results, root_mapping = perform_compile(
-            input_reqs, wheeldir, repo, constraint_reqs=constraint_reqs)
+            input_reqs, wheeldir, repo, constraint_reqs=constraint_reqs, solution=solution_dists)
 
         filter = lambda _: True
 
@@ -239,12 +248,14 @@ def compile_main():
     parser.add_argument('-e', '--extra', nargs='+', default=[],
                         help='Extras to include for every discovered distribution '
                              'provided via --source')
+    parser.add_argument('-u', '--solution', type=str, default=None,
+                        help='Existing fully-pinned constraints file to use as a baseline when compiling')
 
     add_repo_args(parser)
 
     args = parser.parse_args()
     run_compile(args.requirement_files, args.constraints if args.constraints else None, args.source, tuple(args.extra), args.find_links, args.index_url,
-                args.wheel_dir, args.no_combine, args.no_index, args.remove_source)
+                args.wheel_dir, args.no_combine, args.no_index, args.remove_source, args.solution)
 
 
 def add_repo_args(parser):

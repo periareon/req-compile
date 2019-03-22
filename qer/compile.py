@@ -42,7 +42,7 @@ def compile_roots(root, source, repo, dists=None, depth=1,
             metadata = reused_dist.metadata
             recurse_reqs = True
         if verbose:
-            print(' ... REUSE')
+            print(' ... REUSE ({})'.format(', '.join(reused_dist.sources.keys())))
     else:
         spec_req = dists.build_constraints(root.name, extras=root.extras)
         dist, cached = repo.get_candidate(spec_req)
@@ -76,7 +76,6 @@ def compile_roots(root, source, repo, dists=None, depth=1,
                         print('------ VIOLATED {} {} -----'.format(current_dist.metadata.name,
                                                                    current_dist.metadata.version))
                     # Remove all downstream reqs
-                    dists.remove_source(current_dist.metadata.name)
                     dists.remove_dist(current_dist.metadata.name)
 
                     dists.add_global_constraint(qer.utils.parse_requirement(
@@ -85,7 +84,6 @@ def compile_roots(root, source, repo, dists=None, depth=1,
 
         if has_violations:
             # Remove the dist responsible for this violation
-            dists.remove_source(metadata.name)
             dists.remove_dist(metadata.name)
 
             compile_roots(toplevel, 'rerun', repo,
@@ -116,7 +114,7 @@ def _build_root_metadata(roots, name):
     return qer.dists.DistInfo(name, '0', roots, meta=True)
 
 
-def perform_compile(input_reqs, wheeldir, repo, constraint_reqs=None):
+def perform_compile(input_reqs, wheeldir, repo, constraint_reqs=None, solution=None):
     """
     Perform a compilation using the given inputs and constraints
     Args:
@@ -128,7 +126,9 @@ def perform_compile(input_reqs, wheeldir, repo, constraint_reqs=None):
         wheeldir (str): Location to download wheels to and to use as a cache
         constraint_reqs (list[pkg_resources.Requirement] or None): Constraints to use
             when compiling
-
+        solution (DistributionCollection): Optionally, provide a possible solution
+            to consider when compiling. Existing distributions will be modified as
+            necessary to solve the solution
     Returns:
         tuple[DistributionCollection, DistributionCollection, dict]
     """
@@ -151,6 +151,11 @@ def perform_compile(input_reqs, wheeldir, repo, constraint_reqs=None):
         constraints = None
 
     results = qer.dists.DistributionCollection(constraints)
+
+    if solution is not None:
+        for dist in solution:
+            results.dists[qer.utils.normalize_project_name(dist.metadata.name)] = dist
+
     root_mapping = {}
     if isinstance(input_reqs, dict):
         fake_reqs = []
@@ -170,6 +175,15 @@ def perform_compile(input_reqs, wheeldir, repo, constraint_reqs=None):
         compile_roots(root_req, ROOT_REQ, repo, dists=results,
                       toplevel=root_req,
                       wheeldir=wheeldir)
+
+        if solution is not None:
+            removed_one = True
+            while removed_one:
+                removed_one = False
+                for dist in list(results.dists.values()):
+                    if not dist.sources:
+                        if results.remove_dist(dist.metadata.name):
+                            removed_one = True
 
         return results, constraint_results, root_mapping
     except qer.repos.repository.NoCandidateException as ex:
