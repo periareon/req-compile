@@ -15,9 +15,9 @@ def load_solution():
 def test_load_solution(load_solution):
     result = load_solution('solutionfile.txt')
 
-    assert list(result.dists['six'].sources.keys()) == ['astroid', 'pylint']
-    assert list(result.dists['astroid'].sources.keys()) == ['pylint']
-    assert list(result.dists['pylint'].sources.keys()) == []
+    assert set(result.dists['six'].sources.keys()) == {'astroid', 'pylint'}
+    assert set(result.dists['astroid'].sources.keys()) == {'pylint'}
+    assert set(result.dists['pylint'].sources.keys()) == set()
 
 
 def test_load_remove_root_removes_all(load_solution):
