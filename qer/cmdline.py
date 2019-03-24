@@ -25,7 +25,7 @@ from qer.repos.multi import MultiRepository
 from qer.repos.source import SourceRepository
 
 
-def _get_reason_constraint(dists, constraint_dists, project_name, extras, root_mapping):
+def _get_reason_constraint(root_node, constraint_dists, project_name, extras, root_mapping):
     """
 
     Args:
@@ -38,59 +38,25 @@ def _get_reason_constraint(dists, constraint_dists, project_name, extras, root_m
     Returns:
 
     """
-    if dists is None:
-        return ''
-
-    project_name = utils.normalize_project_name(project_name)
-    components = dists.reverse_deps(project_name)
-    if not components:
-        constraints = ''
-    else:
-        constraints = []
-        for component in components:
-            if component == qer.compile.ROOT_REQ:
-                continue
-            metadata = dists.dists[component].metadata
-            for req in metadata.reqs:
-                if utils.normalize_project_name(req.name) == project_name:
-                    if component == qer.dists.DistributionCollection.CONSTRAINTS_ENTRY:
-                        constraints_reason = _get_reason_constraint(constraint_dists, None,
-                                                                    project_name, extras, root_mapping)
-                        if constraints_reason:
-                            constraints += ['(via constraints: ' + constraints_reason + ')']
-                    else:
-                        specifics = ' (' + str(req.specifier) + ')' if req.specifier else ''
-                        source = None
-                        if component.startswith(qer.compile.ROOT_REQ):
-                            source = root_mapping[component]
-                        else:
-                            if not metadata.extras or utils.filter_req(req, ('__GARBAGE__',)):
-                                source = metadata.name
-                            else:
-                                for extra in metadata.extras:
-                                    result = utils.filter_req(req, (extra,))
-                                    if result:
-                                        source = metadata.name + '[' + extra + ']'
-                                        break
-                                if source is None:
-                                    source = 'could not determine'
-                        constraints += [source + specifics]
-                        break
-        constraints = ', '.join(constraints)
+    constraints = []
+    for node in root_node.reverse_deps:
+        req = node.dependencies[root_node]
+        specifics = ' (' + str(req.specifier) + ')' if req.specifier else ''
+        if node.metadata.name.startswith(qer.compile.ROOT_REQ):
+            source = root_mapping[node.metadata.name]
+        else:
+            source = node.metadata.name
+        constraints += [source + specifics]
+    constraints = ', '.join(constraints)
     return constraints
 
 
 def _generate_lines(dists, constraint_dists, root_mapping, filter):
-    for dist in six.itervalues(dists.dists):
-        if dist.metadata.name in qer.compile.BLACKLIST:
-            continue
-        if dist.metadata.name.startswith(qer.compile.ROOT_REQ):
-            continue
-
-        constraints = _get_reason_constraint(dists, constraint_dists,
-                                             dist.metadata.name, dist.metadata.extras, root_mapping)
-        if filter(dist):
-            yield '{}# {}'.format(str(dist.metadata).ljust(43), constraints)
+    for node in dists:
+        constraints = _get_reason_constraint(node, constraint_dists,
+                                             node.metadata.name, (), root_mapping)
+        if filter(node):
+            yield '{}# {}'.format(str(node.metadata).ljust(43), constraints)
 
 
 def _cantusereason_to_text(reason):

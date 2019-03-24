@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, unicode_literals, absolute_import
-"""Release data for the pyreadline project.
+"""Release metadata for the pyreadline project.
 
 $Id$"""
 name = 'pyreadline'

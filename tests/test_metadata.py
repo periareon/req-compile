@@ -13,10 +13,10 @@ def test_a_with_no_extra(metadata_provider):
 
 
 def test_a_with_extra(metadata_provider):
-    info = metadata_provider('normal/a.METADATA', extras=('x1',))
+    info = metadata_provider('normal/a.METADATA')
     assert info.name == 'a'
     assert info.version == pkg_resources.parse_version('0.1.0')
-    assert list(info.requires(('x1',))) == [pkg_resources.Requirement.parse("b (>1); extra == 'x1'")]
+    assert list(info.requires('x1')) == [pkg_resources.Requirement.parse("b (>1); extra == 'x1'")]
 
 
 def test_a_with_wrong_extra(metadata_provider):

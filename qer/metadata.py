@@ -141,28 +141,27 @@ class ZipExtractor(Extractor):
         self.zfile.close()
 
 
-def extract_metadata(dist, origin=None, extras=()):
+def extract_metadata(dist, origin=None):
     """"""
     if dist.lower().endswith('.whl'):
-        result = _fetch_from_wheel(dist, extras=extras)
+        result = _fetch_from_wheel(dist)
     elif dist.lower().endswith('.zip'):
-        result = _fetch_from_source(dist, ZipExtractor, extras=extras)
+        result = _fetch_from_source(dist, ZipExtractor)
     elif dist.lower().endswith('.tar.gz'):
-        result = _fetch_from_source(dist, TarExtractor, extras=extras)
+        result = _fetch_from_source(dist, TarExtractor)
     else:
-        result = _fetch_from_source(os.path.abspath(dist), NonExtractor, extras=extras)
+        result = _fetch_from_source(os.path.abspath(dist), NonExtractor)
     if result is not None:
         result.origin = origin
     return result
 
 
-def _fetch_from_source(source_file, extractor_type, extras):
+def _fetch_from_source(source_file, extractor_type):
     """
 
     Args:
         source_file (str): Source file
         extractor_type (type[Extractor]): Type of extractor to use
-        extras:
 
     Returns:
 
@@ -197,11 +196,10 @@ def _fetch_from_source(source_file, extractor_type, extras):
                 pass
             return _parse_requires_file(requires_contents,
                                         name,
-                                        version,
-                                        extras)
+                                        version)
 
         if pkg_info_file:
-            results = _parse_flat_metadata(extractor.open(pkg_info_file, encoding='utf-8').read(), extras)
+            results = _parse_flat_metadata(extractor.open(pkg_info_file, encoding='utf-8').read())
 
         if (results is None or not results.reqs) and setup_file:
             if isinstance(extractor, NonExtractor):
@@ -210,7 +208,7 @@ def _fetch_from_source(source_file, extractor_type, extras):
                 fake_setupdir = tempfile.mkdtemp()
             setup_results = _parse_setup_py(name, fake_setupdir,
                                             extractor.relative_opener(fake_setupdir,
-                                                                      os.path.dirname(setup_file)), extras)
+                                                                      os.path.dirname(setup_file)))
             if setup_results is not None:
                 if version is not None:
                     setup_results.version = version
@@ -225,12 +223,12 @@ def _fetch_from_source(source_file, extractor_type, extras):
                 return None
 
         if metadata_file:
-            return _parse_flat_metadata(extractor.open(metadata_file, encoding='utf-8').read(), extras)
+            return _parse_flat_metadata(extractor.open(metadata_file, encoding='utf-8').read())
     finally:
         extractor.close()
 
 
-def _fetch_from_wheel(wheel, extras):
+def _fetch_from_wheel(wheel):
     zfile = zipfile.ZipFile(wheel, 'r')
     try:
         metadata_file = None
@@ -240,12 +238,12 @@ def _fetch_from_wheel(wheel, extras):
                 metadata_file = info
 
         if metadata_file:
-            return _parse_flat_metadata(zfile.read(metadata_file).decode('utf-8'), extras)
+            return _parse_flat_metadata(zfile.read(metadata_file).decode('utf-8'))
     finally:
         zfile.close()
 
 
-def _parse_flat_metadata(contents, extras):
+def _parse_flat_metadata(contents):
     name = None
     version = None
     raw_reqs = []
@@ -258,7 +256,7 @@ def _parse_flat_metadata(contents, extras):
         if line.lower().startswith('requires-dist:'):
             raw_reqs.append(line.split(':')[1].strip())
 
-    return DistInfo(name, version, list(utils.parse_requirements(raw_reqs)), extras=extras)
+    return DistInfo(name, version, list(utils.parse_requirements(raw_reqs)))
 
 
 class with_decoding(object):
@@ -384,7 +382,7 @@ def fake_import(name, orig_import, modname, *args, **kwargs):
         sys.stdout.flush()
 
 
-def _parse_setup_py(name, fake_setupdir, opener, extras):
+def _parse_setup_py(name, fake_setupdir, opener):
     import setuptools
     import distutils.core
     import sys
@@ -456,11 +454,10 @@ def _parse_setup_py(name, fake_setupdir, opener, extras):
         sys.stdout = old_stdout
     if not results:
         pass
-    results[0].update_extras(extras)
     return results[0]
 
 
-def _parse_requires_file(contents, name, version, extras):
+def _parse_requires_file(contents, name, version):
     reqs = []
     sections = list(pkg_resources.split_sections(contents))
     for section in sections:

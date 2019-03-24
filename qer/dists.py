@@ -1,5 +1,8 @@
 import collections
+from typing import Dict, Set
+import copy
 
+import pkg_resources
 import six
 
 try:
@@ -11,140 +14,205 @@ from qer import utils
 from qer.utils import normalize_project_name, merge_requirements, filter_req, merge_extras
 
 
+class ConstraintViolatedException(Exception):
+    """Raised if a dist cannot be added"""
+    def __init__(self, node):
+        self.node = node
+
+
+class DependencyNode(object):
+    def __init__(self, key, metadata, extra=None):
+        self.key = key
+        self.metadata = metadata
+        self.extra = extra
+        self.dependencies = {}  # type: Dict[DependencyNode, pkg_resources.Requirement]
+        self.reverse_deps = set()  # type: Set[DependencyNode]
+
+    def __repr__(self):
+        return self.key
+
+    def __str__(self):
+        if self.metadata is None:
+            return self.key
+        else:
+            return '{}{}=={}'.format(
+                self.metadata.name,
+                ('[' + self.extra + ']') if self.extra else '',
+                self.metadata.version)
+
+    def build_constraints(self):
+        req = None
+        for node in self.reverse_deps:
+            req = merge_requirements(req, node.dependencies[self])
+
+        if req is None:
+            req = utils.parse_requirement(self.metadata.name)
+            if self.extra:
+                req.extras = (self.extra,)
+                # Reparse to create a correct hash
+                req = utils.parse_requirement(str(req))
+        return req
+
+
 class DistributionCollection(object):
-    CONSTRAINTS_ENTRY = '#constraints#'
+    def __init__(self):
+        self.nodes = {}  # type: Dict[str, DependencyNode]
 
-    def __init__(self, constraints=None):
-        self.dists = {}
-        constraints_dist = DistInfo('#constraints#', 1, constraints or [])
-        self.constraints_dist = constraints_dist
-        self.dists[DistributionCollection.CONSTRAINTS_ENTRY] = MetadataSources(
-            constraints_dist, DistributionCollection.CONSTRAINTS_ENTRY)
-        self.orig_roots = None
-        self.constraint_cache = collections.defaultdict(dict)
+    @staticmethod
+    def _build_key(name, extra=None):
+        return utils.normalize_project_name(name) + (('[' + extra + ']') if extra else '')
 
-    def add_dist(self, metadata, source):
+    def add_dist(self, metadata, source, reason):
         """
         Add a distribution
 
         Args:
-            metadata (DistInfo): Distribution info to add
-            source (str): The source of the distribution, e.g. a filename
+            metadata (DistInfo, None): Distribution info to add
+            source (DependencyNode, None): The source of the distribution, e.g. a filename
+            reason (pkg_resources.Requirement):
         """
-        if metadata.name in self.dists:
-            result = self.dists[normalize_project_name(metadata.name)]
-            result.add(source, metadata)
+        if reason is not None and len(reason.extras) > 1:
+            for extra in reason.extras:
+                new_req = copy.copy(reason)
+                new_req.extras = (extra,)
+                self.add_dist(metadata, source, new_req)
+            return
+
+        has_metadata = False
+        if isinstance(metadata, six.string_types):
+            req_name = metadata
         else:
-            result = MetadataSources(metadata, source)
-            self.dists[normalize_project_name(metadata.name)] = result
+            has_metadata = True
+            req_name = metadata.name
 
-        for req in metadata.reqs:
-            self.constraint_cache.pop(normalize_project_name(req.name), None)
-        return result
+        extra = reason.extras[0] if reason is not None and reason.extras else None
+        key = DistributionCollection._build_key(req_name, extra)
 
-    def remove_dist(self, name):
-        normalized_name = normalize_project_name(name)
-        if normalized_name not in self.dists:
-            return False
+        node_metadata = metadata
+        if extra:
+            node_metadata = DistInfoMirror()
 
-        real_name = self.dists[normalized_name].metadata.name
-        reqs = self.dists[normalized_name].metadata.reqs
-        del self.dists[normalized_name]
-        self.remove_source(real_name)
+        if key in self.nodes:
+            node = self.nodes[key]
+            if has_metadata and (node.metadata is None or node.metadata.invalid):
+                node.metadata = node_metadata
+        else:
+            node = DependencyNode(key, node_metadata if has_metadata else None, extra)
+            self.nodes[key] = node
 
-        for req in reqs:
-            self.constraint_cache.pop(normalize_project_name(req.name), None)
-        return True
+        if extra:
+            # Add a reference back to the root req
+            if reason is not None:
+                non_extra_req = copy.copy(reason)
+                non_extra_req.extras = ()
+                non_extra_req = utils.parse_requirement(str(non_extra_req))
+            else:
+                non_extra_req = utils.parse_requirement(req_name)
+            base_node = self.add_dist(req_name, node, non_extra_req)
+            if has_metadata:
+                base_node.metadata = metadata
 
-    def remove_source(self, source):
-        dists_to_remove = []
-        for dist in six.itervalues(self.dists):
-            if source in dist.sources:
-                dist.remove(source)
-                if not dist.sources:
-                    dists_to_remove.append(normalize_project_name(dist.metadata.name))
+            node_metadata.metadata = base_node.metadata
 
-        if dists_to_remove:
-            for dist in dists_to_remove:
-                self.remove_dist(dist)
+        if reason is not None and node.metadata is not None and not node.metadata.invalid and not reason.specifier.contains(node.metadata.version):
+            # Discard the metadata
+            node.metadata.invalid = True
+            self.remove_dist(node)
+            raise ConstraintViolatedException(node)
+        else:
+            if has_metadata:
+                for req in metadata.requires(node.extra):
+                    self.add_dist(req.name, node, req)
 
-    def __contains__(self, item):
-        return normalize_project_name(item) in self.dists
+            if source is not None:
+                node.reverse_deps.add(source)
+                if extra:
+                    source.dependencies[node] = utils.parse_requirement(req_name)
+                else:
+                    source.dependencies[node] = reason
+
+        return node
+
+    def remove_dist(self, node):
+        if node.key not in self.nodes:
+            return
+
+        del self.nodes[node.key]
+        for reverse_dep in node.reverse_deps:
+            del reverse_dep.dependencies[node]
+
+        for dep in node.dependencies:
+            dep.reverse_deps.remove(node)
+            if not dep.reverse_deps:
+                self.remove_dist(dep)
+
+    def build(self):
+        results = []
+        for node in self.nodes.values():
+            if isinstance(node.metadata, DistInfo) and not node.extra and not node.metadata.invalid:
+                extras = []
+                for reverse_dep in node.reverse_deps:
+                    if reverse_dep.metadata.name == node.metadata.name:
+                        extras.append(reverse_dep.extra)
+                req_expr = '{}{}=={}'.format(
+                    node.metadata.name,
+                    ('[' + ','.join(sorted(extras)) + ']') if extras else '',
+                    node.metadata.version)
+                results.append(utils.parse_requirement(req_expr))
+        return results
+
+    def __contains__(self, project_name):
+        return normalize_project_name(project_name) in self.nodes
 
     def __iter__(self):
-        return iter(self.dists.values())
+        return iter(self.nodes.values())
 
-    def add_global_constraint(self, constraint):
-        result = constraint
-        to_remove = None
-        for req in self.constraints_dist.reqs:
-            if constraint.name == req.name:
-                to_remove = req
-                result = merge_requirements(req, result)
-                break
-
-        if to_remove is not None:
-            self.constraints_dist.reqs.remove(to_remove)
-        self.constraints_dist.reqs.append(result)
-        self.constraints_dist.version += 1
-
-    def build_constraints(self, project_name, extras=()):
-        project_name = normalize_project_name(project_name)
-        if project_name in self.constraint_cache:
-            all_constraints = self.constraint_cache[project_name]
-            if extras in all_constraints:
-                return all_constraints[extras]
-
-        result = self._calc_constraints(project_name, extras)
-        self.constraint_cache[project_name][extras] = result
-        return result
-
-    def _calc_constraints(self, project_name, extras):
-        normalized_name = normalize_project_name(project_name)
-        req = None
-        for dist in six.itervalues(self.dists):
-            for subreq in dist.metadata.requires(extras=extras):
-                if normalize_project_name(subreq.name) == normalized_name:
-                    req = merge_requirements(req, subreq)
-                    break
-        return req if req is not None else utils.parse_requirement(normalized_name)
-
-    def reverse_deps(self, project_name):
-        reverse_deps = {}
-        normalized_name = normalize_project_name(project_name)
-        for dist_name, dist in six.iteritems(self.dists):
-            for subreq in dist.metadata.requires(dist.metadata.extras):
-                if normalize_project_name(subreq.name) == normalized_name:
-                    reverse_deps[dist_name] = subreq
-                    break
-        return reverse_deps
+    def __getitem__(self, project_name):
+        return self.nodes[normalize_project_name(project_name)]
 
 
-class MetadataSources(object):
-    def __init__(self, metadata, source):
-        self.metadata = metadata
-        self.sources = dict()
-        if source is not None:
-            self.add(source, metadata)
+class RequirementsFile(object):
+    def __init__(self, filename, reqs):
+        self.name = filename
+        self.version = utils.parse_version('1')
+        self.reqs = list(reqs)
+        self.meta = True
+        self.invalid = False
 
-    def __repr__(self):
-        return '{}  # {}'.format(self.metadata, ', '.join(self.sources))
+    def requires(self, extra=None):
+        return self.reqs
 
-    def add(self, source, metadata):
-        self.sources[source] = metadata.extras
-        self.metadata.extras = ()
-        for extras in self.sources.values():
-            self.metadata.update_extras(extras)
 
-    def remove(self, source):
-        del self.sources[source]
-        self.metadata.extras = ()
-        for extras in self.sources.values():
-            self.metadata.update_extras(extras)
+class DistInfoMirror(object):
+    def __init__(self):
+        self.metadata = None
+
+    @property
+    def name(self):
+        return self.metadata.name
+
+    @property
+    def version(self):
+        return self.metadata.version
+
+    @property
+    def meta(self):
+        return self.metadata.meta
+
+    def requires(self, extra=None):
+        return self.metadata.requires(extra=extra)
+
+    @property
+    def invalid(self):
+        return self.metadata.invalid
+
+    @invalid.setter
+    def invalid(self, value):
+        self.metadata.invalid = value
 
 
 class DistInfo(object):
-    def __init__(self, name, version, reqs, extras=(), meta=False):
+    def __init__(self, name, version, reqs, meta=False):
         """
         Args:
             name:
@@ -153,20 +221,21 @@ class DistInfo(object):
             extras (tuple[str]): Extras that are active in this metadata by default
             meta:
         """
-        self._name = name
+        self.key = ''
         self.reqs = list(reqs)
-        self.extras = extras
         self.meta = meta
         self._version = version
+        self._name = None
+        self.name = name
         self._recalc_hash()
         self.source = None
+        self.invalid = False
 
     def __hash__(self):
         return self.hash
 
     def _recalc_hash(self):
-        name = self._name or ''
-        self.hash = hash(name + str(self.version))
+        self.hash = hash(self.key + str(self.version))
 
     @property
     def name(self):
@@ -174,8 +243,10 @@ class DistInfo(object):
 
     @name.setter
     def name(self, value):
-        self._name = value
-        self._recalc_hash()
+        if value is not None:
+            self._name = value
+            self.key = utils.normalize_project_name(self._name)
+            self._recalc_hash()
 
     @property
     def version(self):
@@ -186,29 +257,12 @@ class DistInfo(object):
         self._version = value
         self._recalc_hash()
 
-    @lru_cache(maxsize=None)
-    def requires(self, extras=()):
+    def requires(self, extra=None):
         return [req for req in self.reqs
-                if filter_req(req, extras)]
-
-    def update_extras(self, extras):
-        """
-        Args:
-            extras (tuple[str]): Extras to add to this metadata
-        Return:
-            (bool) True if the extras were updated, False otherwise
-        """
-        result = self.extras != extras
-        if result:
-            self.extras = merge_extras(self.extras, extras)
-        return result
+                if filter_req(req, extra)]
 
     def __str__(self):
-        extras = ''
-        if self.extras:
-            extras = '[' + ','.join(sorted(self.extras)) + ']'
-        return '{}{}=={}'.format(self.name, extras,
-                                 self.version)
+        return '{}=={}'.format(self.name, self.version)
 
     def __repr__(self):
         return self.name + ' ' + self.version + '\n' + '\n'.join([str(req) for req in self.reqs])

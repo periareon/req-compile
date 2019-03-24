@@ -6,7 +6,11 @@ from qer.dists import DistributionCollection, DistInfo
 
 def test_unconstrained():
     dists = DistributionCollection()
-    assert dists.build_constraints('bbb') == pkg_resources.Requirement.parse('bbb')
+    dists.add_dist(DistInfo('aaa', '1.2.0',
+                            pkg_resources.parse_requirements(
+                                ['bbb']
+                            )), None, Requirement.parse('aaa'))
+    assert dists['bbb'].build_constraints() == pkg_resources.Requirement.parse('bbb')
 
 
 def test_one_source():
@@ -14,8 +18,8 @@ def test_one_source():
     dists.add_dist(DistInfo('aaa', '1.2.0',
                             pkg_resources.parse_requirements(
                                 ['bbb<1.0']
-                            )), 'root')
-    assert dists.build_constraints('bbb') == pkg_resources.Requirement.parse('bbb<1.0')
+                            )), None, Requirement.parse('aaa'))
+    assert dists['bbb'].build_constraints() == Requirement.parse('bbb<1.0')
 
 
 def test_two_sources():
@@ -23,12 +27,12 @@ def test_two_sources():
     dists.add_dist(DistInfo('aaa', '1.2.0',
                             pkg_resources.parse_requirements(
                                 ['bbb<1.0']
-                            )), 'root')
+                            )), None, Requirement.parse('aaa'))
     dists.add_dist(DistInfo('ccc', '1.0.0',
                             pkg_resources.parse_requirements(
                                 ['bbb>0.5']
-                            )), 'root')
-    assert dists.build_constraints('bbb') == pkg_resources.Requirement.parse('bbb>0.5,<1.0')
+                            )), None, Requirement.parse('ccc'))
+    assert dists['bbb'].build_constraints() == pkg_resources.Requirement.parse('bbb>0.5,<1.0')
 
 
 def test_two_sources_same():
@@ -36,12 +40,12 @@ def test_two_sources_same():
     dists.add_dist(DistInfo('aaa', '1.2.0',
                             pkg_resources.parse_requirements(
                                 ['bbb<1.0']
-                            )), 'root')
+                            )), None, Requirement.parse('aaa'))
     dists.add_dist(DistInfo('ccc', '1.0.0',
                             pkg_resources.parse_requirements(
                                 ['bbb<1.0']
-                            )), 'root')
-    assert dists.build_constraints('bbb') == pkg_resources.Requirement.parse('bbb<1.0')
+                            )), None, Requirement.parse('ccc'))
+    assert dists['bbb'].build_constraints() == pkg_resources.Requirement.parse('bbb<1.0')
 
 
 def test_add_remove_dist():
@@ -49,17 +53,22 @@ def test_add_remove_dist():
     dists.add_dist(DistInfo('aaa', '1.2.0',
                             pkg_resources.parse_requirements(
                                 ['bbb<1.0']
-                            )), 'root')
+                            )), None, Requirement.parse('aaa'))
     dists.remove_dist('aaa')
-    assert dists.build_constraints('bbb') == pkg_resources.Requirement.parse('bbb')
+    assert dists['bbb'].build_constraints() == pkg_resources.Requirement.parse('bbb')
 
 
 def test_dist_with_extras():
     dists = DistributionCollection()
-    dists.add_dist(DistInfo('aaa', '1.2.0', reqs=[], extras=('x1',)), 'source_a')
-    dists.add_dist(DistInfo('aaa', '1.2.0', reqs=[], extras=('x2',)), 'source_b')
+    metadata = DistInfo('a', '1.0.0', reqs=[])
 
-    assert str(dists.dists['aaa'].metadata) == 'aaa[x1,x2]==1.2.0'
+    dists.add_dist(metadata, None, Requirement.parse('a[x1]<3.0'))
+    dists.add_dist(metadata, None, Requirement.parse('a[x2]>=1.0'))
+
+    assert dists['a'].build_constraints() == Requirement.parse('a>=1.0,<3.0')
+    # We don't expect any constraints on the extras themselves
+    assert dists['a[x1]'].build_constraints() == Requirement.parse('a[x1]')
+    assert dists['a[x2]'].build_constraints() == Requirement.parse('a[x2]')
 
 
 def test_dist_with_unselected_extra():
@@ -68,7 +77,7 @@ def test_dist_with_unselected_extra():
                                 ['bbb<1.0 ; extra=="x1"']
                             ), extras=()), 'source_a')
 
-    assert str(dists.dists['aaa'].metadata) == 'aaa==1.2.0'
+    assert str(dists.nodes['aaa'].metadata) == 'aaa==1.2.0'
 
 
 def test_add_remove_two_source_same_dist_different_extras():
@@ -81,9 +90,9 @@ def test_add_remove_two_source_same_dist_different_extras():
                             pkg_resources.parse_requirements(
                                 ['bbb<1.0 ; extra=="x1"']
                             )), 'source_b')
-    assert str(dists.dists['aaa'].metadata) == 'aaa[x1]==1.2.0'
+    assert str(dists.nodes['aaa'].metadata) == 'aaa[x1]==1.2.0'
     dists.remove_source('source_a')
-    assert str(dists.dists['aaa'].metadata) == 'aaa==1.2.0'
+    assert str(dists.nodes['aaa'].metadata) == 'aaa==1.2.0'
 
 
 def test_add_remove_two_source_same_dist_different_extras2():
@@ -96,9 +105,9 @@ def test_add_remove_two_source_same_dist_different_extras2():
                             pkg_resources.parse_requirements(
                                 ['bbb<1.0 ; extra=="x1"']
                             )), 'source_b')
-    assert str(dists.dists['aaa'].metadata) == 'aaa[x1]==1.2.0'
+    assert str(dists.nodes['aaa'].metadata) == 'aaa[x1]==1.2.0'
     dists.remove_source('source_b')
-    assert str(dists.dists['aaa'].metadata) == 'aaa[x1]==1.2.0'
+    assert str(dists.nodes['aaa'].metadata) == 'aaa[x1]==1.2.0'
 
 
 def test_add_remove_source():

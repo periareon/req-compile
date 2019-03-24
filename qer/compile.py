@@ -4,6 +4,7 @@ from __future__ import print_function
 import logging
 
 import pkg_resources
+import six
 
 import qer.dists
 import qer.metadata
@@ -16,86 +17,65 @@ from qer.utils import normalize_project_name
 
 
 ROOT_REQ = 'root__a'
+CONSTRAINTS_REQ = 'constraints__a'
+
 BLACKLIST = [
-    DistributionCollection.CONSTRAINTS_ENTRY,
     'setuptools'
 ]
 
 
-def compile_roots(root, source, repo, dists=None, depth=1,
-                  toplevel=None, wheeldir=None, verbose=True):
+def compile_roots(node, source, repo, dists, depth=1, verbose=True):
+    """
+
+    Args:
+        node (qer.dists.DependencyNode):
+        source (DependencyNode):
+        repo (Repository):
+        dists (DistributionCollection):
+        depth:
+        verbose:
+
+    Returns:
+
+    """
     logger = logging.getLogger('qer.compile')
 
     if verbose:
-        print(' ' * depth + str(root), end='')
+        print(' ' * depth + node.key, end='')
 
     recurse_reqs = False
-    extras = root.extras
-    if root.name in dists:
-        normalized_name = normalize_project_name(root.name)
+    if node.metadata is not None and not node.metadata.invalid:
+        if verbose:
+            print(' ... REUSE')
+        logger.info('Reusing dist %s %s', node.metadata.name, node.metadata.version)
 
-        logger.info('Reusing dist %s %s', root.name, dists.dists[normalized_name].metadata.version)
-        reused_dist = dists.dists[normalized_name]
-        old_extras = reused_dist.metadata.extras
-        reused_dist.add(source, root)
-        if old_extras != root.extras or reused_dist.metadata.meta:
-            metadata = reused_dist.metadata
+        if node.metadata.meta:
             recurse_reqs = True
-        if verbose:
-            print(' ... REUSE ({})'.format(', '.join(reused_dist.sources.keys())))
     else:
-        spec_req = dists.build_constraints(root.name, extras=root.extras)
-        dist, cached = repo.get_candidate(spec_req)
-        source_repo = repo.source_of(spec_req)
+        while True:
+            spec_req = node.build_constraints()
+            dist, cached = repo.get_candidate(spec_req)
+            source_repo = repo.source_of(spec_req)
 
-        if verbose:
-            if cached:
-                print(' ... CACHED ({})'.format(source_repo))
-            else:
-                print(' ... DOWNLOAD ({})'.format(source_repo))
+            if verbose:
+                if cached:
+                    print(' ... CACHED ({})'.format(source_repo))
+                else:
+                    print(' ... DOWNLOAD ({})'.format(source_repo))
 
-        extras = qer.utils.merge_extras(root.extras, source_repo.force_extras())
+            metadata = qer.metadata.extract_metadata(dist, origin=source_repo)
+            try:
+                dists.add_dist(metadata, source, source.dependencies[node])
+                break
+            except qer.dists.ConstraintViolatedException as ex:
+                print('---------- VIOLATED ({}) -------------'.format(ex.node))
+                pass
 
-        metadata = qer.metadata.extract_metadata(dist, origin=source_repo, extras=extras)
-        dists.add_dist(metadata, source)
         recurse_reqs = True
 
-        # See how the new constraints do with the already collected reqs
-        has_violations = False
-        for req in metadata.requires(extras):
-            normalized_name = normalize_project_name(req.name)
-            if normalized_name in dists.dists:
-                current_dist = dists.dists[normalized_name]
-                constraints = dists.build_constraints(req.name, extras=root.extras)
-                has_equality = any(
-                    spec.operator == '==' or spec.operator == '===' for spec in constraints.specifier)
-                if not constraints.specifier.contains(current_dist.metadata.version, prereleases=has_equality):
-                    logger.info('Already selected dist violated (%s %s)',
-                                current_dist.metadata.name, current_dist.metadata.version)
-                    if verbose:
-                        print('------ VIOLATED {} {} -----'.format(current_dist.metadata.name,
-                                                                   current_dist.metadata.version))
-                    # Remove all downstream reqs
-                    dists.remove_dist(current_dist.metadata.name)
-
-                    dists.add_global_constraint(qer.utils.parse_requirement(
-                        '{}!={}'.format(current_dist.metadata.name, current_dist.metadata.version)))
-                    has_violations = True
-
-        if has_violations:
-            # Remove the dist responsible for this violation
-            dists.remove_dist(metadata.name)
-
-            compile_roots(toplevel, 'rerun', repo,
-                          dists=dists, depth=1,
-                          toplevel=toplevel,
-                          wheeldir=wheeldir)
-            return
-
     if recurse_reqs:
-        for req in metadata.requires(extras):
-            compile_roots(req, normalize_project_name(root.name), repo, dists=dists, depth=depth + 1,
-                          toplevel=toplevel, wheeldir=wheeldir)
+        for req in list(node.dependencies):
+            compile_roots(req, node, repo, dists, depth=depth + 1, verbose=verbose)
 
 
 def _generate_constraints(dists):
@@ -132,62 +112,31 @@ def perform_compile(input_reqs, wheeldir, repo, constraint_reqs=None, solution=N
     Returns:
         tuple[DistributionCollection, DistributionCollection, dict]
     """
-    root_req = qer.utils.parse_requirement(ROOT_REQ)
+    results = qer.dists.DistributionCollection()
+
     if constraint_reqs:
-        if all(qer.utils.is_pinned_requirement(req) for req in constraint_reqs):
-            constraint_results = qer.dists.DistributionCollection(constraint_reqs)
-            constraints = constraint_reqs
-        else:
-            constraint_results = qer.dists.DistributionCollection()
-            constraint_results.add_dist(_build_root_metadata(constraint_reqs, ROOT_REQ), ROOT_REQ)
-
-            compile_roots(root_req, ROOT_REQ, repo, dists=constraint_results,
-                          toplevel=root_req,
-                          wheeldir=wheeldir)
-
-            constraints = list(_generate_constraints(constraint_results))
-    else:
-        constraint_results = qer.dists.DistributionCollection()
-        constraints = None
-
-    results = qer.dists.DistributionCollection(constraints)
-
-    if solution is not None:
-        for dist in solution:
-            results.dists[qer.utils.normalize_project_name(dist.metadata.name)] = dist
+        constraint_node = results.add_dist(qer.dists.RequirementsFile(CONSTRAINTS_REQ, constraint_reqs), None, None)
 
     root_mapping = {}
+    nodes = []
     if isinstance(input_reqs, dict):
         fake_reqs = []
         for idx, req_source in enumerate(input_reqs):
             roots = input_reqs[req_source]
             name = '{}{}'.format(ROOT_REQ, idx)
             root_mapping[name] = req_source
-            dist_info = _build_root_metadata(roots, name)
             fake_reqs.append(pkg_resources.Requirement(name))
-            results.add_dist(dist_info,
-                             req_source)
-        results.add_dist(_build_root_metadata(fake_reqs, ROOT_REQ), ROOT_REQ)
+            nodes.append(results.add_dist(qer.dists.RequirementsFile(req_source, roots), None, None))
     else:
-        results.add_dist(_build_root_metadata(input_reqs, ROOT_REQ), ROOT_REQ)
+        nodes.append(results.add_dist(qer.dists.RequirementsFile(ROOT_REQ, input_reqs), None, None))
 
-    try:
-        compile_roots(root_req, ROOT_REQ, repo, dists=results,
-                      toplevel=root_req,
-                      wheeldir=wheeldir)
+    for node in nodes:
+        compile_roots(node, None, repo, dists=results)
 
-        if solution is not None:
-            removed_one = True
-            while removed_one:
-                removed_one = False
-                for dist in list(results.dists.values()):
-                    if not dist.sources:
-                        if results.remove_dist(dist.metadata.name):
-                            removed_one = True
+    if constraint_reqs:
+        results.remove_dist(constraint_node)
 
-        return results, constraint_results, root_mapping
-    except qer.repos.repository.NoCandidateException as ex:
-        ex.results = results
-        ex.constraint_results = constraint_results
-        ex.mapping = root_mapping
-        raise ex
+    for node in results:
+        if node.metadata is None or node.metadata.invalid:
+            raise qer.repos.repository.NoCandidateException()
+    return results, None, root_mapping

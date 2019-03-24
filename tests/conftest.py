@@ -19,7 +19,7 @@ def metadata_provider():
     def _parse_metadata(filename, origin=None, extras=()):
         full_name = filename if os.path.isabs(filename) else os.path.join(os.path.dirname(__file__), filename)
         with open(full_name, 'r') as handle:
-            return qer.metadata._parse_flat_metadata(handle.read(), extras=extras)
+            return qer.metadata._parse_flat_metadata(handle.read())
     return _parse_metadata
 
 
@@ -53,11 +53,14 @@ class MockRepository(Repository):
 
     def _build_candidate(self, req):
         version = ''
-        if req.specs:
-            version = req.specs[0][1]
+        path = _to_path(self.scenario, req)
+        full_name = path if os.path.isabs(path) else os.path.join(os.path.dirname(__file__), path)
+        with open(full_name, 'r') as handle:
+            metadata = qer.metadata._parse_flat_metadata(handle.read())
+
         return Candidate(req.project_name,
-                         _to_path(self.scenario, req),
-                         pkg_resources.parse_version(version),
+                         path,
+                         metadata.version,
                          RequiresPython(None), 'any', None)
 
     def get_candidates(self, req):

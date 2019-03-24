@@ -21,14 +21,9 @@ def test_mock_pypi(mock_metadata, mock_pypi):
 
 
 def _real_outputs(results):
-    outputs = []
-    for dist in results:
-        if dist.metadata.name in qer.compile.BLACKLIST:
-            continue
-        if dist.metadata.name.startswith(qer.compile.ROOT_REQ):
-            continue
-        outputs.append(str(dist.metadata))
-    return sorted(outputs)
+    outputs = results.build()
+    outputs = sorted(outputs, key=lambda x: x.name)
+    return [str(req) for req in outputs]
 
 
 def test_compile_c(mock_metadata, mock_pypi):
@@ -56,6 +51,26 @@ def test_compile_a(mock_metadata, mock_pypi):
         [pkg_resources.Requirement.parse('a')], '.', mock_pypi)
 
     assert _real_outputs(results) == ['a==0.1.0']
+
+
+def test_compile_x_not_possible(mock_metadata, mock_pypi):
+    mock_pypi.load_scenario('multi',
+                            pkg_resources.parse_requirements(
+                                ['x==1.0.0']))
+
+    with pytest.raises(qer.repos.repository.NoCandidateException):
+        qer.compile.perform_compile(
+            [pkg_resources.Requirement.parse('x==1.0.1')], '.', mock_pypi)
+
+
+def test_compile_y_transitive_not_available(mock_metadata, mock_pypi):
+    mock_pypi.load_scenario('multi',
+                            pkg_resources.parse_requirements(
+                                ['y==5.0.0']))
+
+    with pytest.raises(qer.repos.repository.NoCandidateException):
+        qer.compile.perform_compile(
+            [pkg_resources.Requirement.parse('y')], '.', mock_pypi)
 
 
 def test_compile_a_extra(mock_metadata, mock_pypi):
@@ -170,6 +185,8 @@ def test_compile_with_constraint(mock_metadata, mock_pypi):
 
 
 def test_compile_with_constraint_not_in_reqs(mock_metadata, mock_pypi):
+    """If a constraint's requirement is not available, make sure it doesn't
+    affect the compilation"""
     mock_pypi.load_scenario('multi',
                             pkg_resources.parse_requirements(
                                 ['x==1.0.0',
@@ -186,7 +203,20 @@ def test_compile_with_constraint_not_in_reqs(mock_metadata, mock_pypi):
     assert _real_outputs(results) == ['x==1.0.0']
 
 
-def test_compile_with_constraint_not_possible(mock_metadata, mock_pypi):
+def test_compile_with_direct_constraint_not_possible(mock_metadata, mock_pypi):
+    mock_pypi.load_scenario('multi',
+                            pkg_resources.parse_requirements(
+                                ['x==1.0.0']))
+
+    with pytest.raises(qer.repos.repository.NoCandidateException):
+        qer.compile.perform_compile(
+            pkg_resources.parse_requirements(['x']),
+            '.',
+            mock_pypi,
+            constraint_reqs=list(pkg_resources.parse_requirements(['x<1'])))
+
+
+def test_compile_with_transitive_constraint_not_possible(mock_metadata, mock_pypi):
     mock_pypi.load_scenario('multi',
                             pkg_resources.parse_requirements(
                                 ['x==1.0.0',
@@ -196,10 +226,10 @@ def test_compile_with_constraint_not_possible(mock_metadata, mock_pypi):
 
     with pytest.raises(qer.repos.repository.NoCandidateException):
         qer.compile.perform_compile(
-            pkg_resources.parse_requirements(['x==1']),
+            pkg_resources.parse_requirements(['y==5']),
             '.',
             mock_pypi,
-            constraint_reqs=list(pkg_resources.parse_requirements(['y<5'])))
+            constraint_reqs=list(pkg_resources.parse_requirements(['x>1'])))
 
 
 def test_compile_early_violated(mock_metadata, mock_pypi):

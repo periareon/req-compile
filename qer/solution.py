@@ -41,8 +41,8 @@ def load_from_file(filename):
                 extras = extras.replace(']', '')
                 extras = extras.split(',')
                 for extra in extras:
-                    result.dists[qer.utils.normalize_project_name(req_name)].metadata.reqs.append(
+                    result.nodes[qer.utils.normalize_project_name(req_name)].metadata.reqs.append(
                         qer.utils.parse_requirement(req + req_constraints + ' ; extra=="{}"'.format(extra)))
             else:
-                result.dists[qer.utils.normalize_project_name(root_req)].metadata.reqs.append(qer.utils.parse_requirement(req + req_constraints))
+                result.nodes[qer.utils.normalize_project_name(root_req)].metadata.reqs.append(qer.utils.parse_requirement(req + req_constraints))
     return result
