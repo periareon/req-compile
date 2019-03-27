@@ -43,14 +43,15 @@ def compile_roots(node, source, repo, dists, depth=1, verbose=True):
     if verbose:
         print(' ' * depth + node.key, end='')
 
-    recurse_reqs = False
+    nodes_to_recurse = set()
     if node.metadata is not None and not node.metadata.invalid:
         if verbose:
             print(' ... REUSE')
         logger.info('Reusing dist %s %s', node.metadata.name, node.metadata.version)
 
-        if node.metadata.meta:
-            recurse_reqs = True
+        # if node.metadata.meta:
+        nodes_to_recurse = {node}
+        recurse_reqs = True
     else:
         while True:
             spec_req = node.build_constraints()
@@ -65,7 +66,7 @@ def compile_roots(node, source, repo, dists, depth=1, verbose=True):
 
             metadata = qer.metadata.extract_metadata(dist, origin=source_repo)
             try:
-                dists.add_dist(metadata, source, source.dependencies[node])
+                nodes_to_recurse = dists.add_dist(metadata, source, source.dependencies[node])
                 break
             except qer.dists.ConstraintViolatedException as ex:
                 print('---------- VIOLATED ({}) -------------'.format(ex.node))
@@ -73,9 +74,10 @@ def compile_roots(node, source, repo, dists, depth=1, verbose=True):
 
         recurse_reqs = True
 
-    if recurse_reqs:
-        for req in list(node.dependencies):
-            compile_roots(req, node, repo, dists, depth=depth + 1, verbose=verbose)
+    if nodes_to_recurse:
+        for recurse_node in nodes_to_recurse:
+            for req in list(recurse_node.dependencies):
+                compile_roots(req, recurse_node, repo, dists, depth=depth + 1, verbose=verbose)
 
 
 def _generate_constraints(dists):
@@ -118,7 +120,7 @@ def perform_compile(input_reqs, wheeldir, repo, constraint_reqs=None, solution=N
         constraint_node = results.add_dist(qer.dists.RequirementsFile(CONSTRAINTS_REQ, constraint_reqs), None, None)
 
     root_mapping = {}
-    nodes = []
+    nodes = set()
     if isinstance(input_reqs, dict):
         fake_reqs = []
         for idx, req_source in enumerate(input_reqs):
@@ -126,15 +128,15 @@ def perform_compile(input_reqs, wheeldir, repo, constraint_reqs=None, solution=N
             name = '{}{}'.format(ROOT_REQ, idx)
             root_mapping[name] = req_source
             fake_reqs.append(pkg_resources.Requirement(name))
-            nodes.append(results.add_dist(qer.dists.RequirementsFile(req_source, roots), None, None))
+            nodes |= results.add_dist(qer.dists.RequirementsFile(req_source, roots), None, None)
     else:
-        nodes.append(results.add_dist(qer.dists.RequirementsFile(ROOT_REQ, input_reqs), None, None))
+        nodes |= results.add_dist(qer.dists.RequirementsFile(ROOT_REQ, input_reqs), None, None)
 
     for node in nodes:
         compile_roots(node, None, repo, dists=results)
 
     if constraint_reqs:
-        results.remove_dist(constraint_node)
+        results.remove_dists(list(constraint_node)[0])
 
     for node in results:
         if node.metadata is None or node.metadata.invalid:

@@ -27,13 +27,14 @@ class DependencyNode(object):
         self.extra = extra
         self.dependencies = {}  # type: Dict[DependencyNode, pkg_resources.Requirement]
         self.reverse_deps = set()  # type: Set[DependencyNode]
+        self.meta_reset_squad = {self}
 
     def __repr__(self):
         return self.key
 
     def __str__(self):
         if self.metadata is None:
-            return self.key
+            return self.key + ' [UNSOLVED]'
         else:
             return '{}{}=={}'.format(
                 self.metadata.name,
@@ -46,7 +47,10 @@ class DependencyNode(object):
             req = merge_requirements(req, node.dependencies[self])
 
         if req is None:
-            req = utils.parse_requirement(self.metadata.name)
+            if self.metadata is None or self.metadata.invalid:
+                req = utils.parse_requirement(self.key)
+            else:
+                req = utils.parse_requirement(self.metadata.name)
             if self.extra:
                 req.extras = (self.extra,)
                 # Reparse to create a correct hash
@@ -69,7 +73,7 @@ class DistributionCollection(object):
         Args:
             metadata (DistInfo, None): Distribution info to add
             source (DependencyNode, None): The source of the distribution, e.g. a filename
-            reason (pkg_resources.Requirement):
+            reason (pkg_resources.Requirement, optional):
         """
         if reason is not None and len(reason.extras) > 1:
             for extra in reason.extras:
@@ -97,43 +101,73 @@ class DistributionCollection(object):
             if has_metadata and (node.metadata is None or node.metadata.invalid):
                 node.metadata = node_metadata
         else:
-            node = DependencyNode(key, node_metadata if has_metadata else None, extra)
+            node = DependencyNode(key, node_metadata if has_metadata or extra else None, extra)
             self.nodes[key] = node
 
         if extra:
             # Add a reference back to the root req
-            if reason is not None:
-                non_extra_req = copy.copy(reason)
-                non_extra_req.extras = ()
-                non_extra_req = utils.parse_requirement(str(non_extra_req))
-            else:
-                non_extra_req = utils.parse_requirement(req_name)
-            base_node = self.add_dist(req_name, node, non_extra_req)
+            base_node = self.add_base(node, reason, req_name)
+
             if has_metadata:
                 base_node.metadata = metadata
 
-            node_metadata.metadata = base_node.metadata
+            node.meta_reset_squad = base_node.meta_reset_squad
+            node.meta_reset_squad.add(node)
+            node_metadata.node = base_node
+
+            if node.metadata.node is not None and not node.metadata.invalid:
+                has_metadata = True
 
         if reason is not None and node.metadata is not None and not node.metadata.invalid and not reason.specifier.contains(node.metadata.version):
             # Discard the metadata
             node.metadata.invalid = True
-            self.remove_dist(node)
+            self.remove_dists(node)
             raise ConstraintViolatedException(node)
         else:
             if has_metadata:
-                for req in metadata.requires(node.extra):
-                    self.add_dist(req.name, node, req)
+                if node.meta_reset_squad:
+                    for squad_node in node.meta_reset_squad:
+                        if squad_node.extra:
+                            if squad_node.metadata.node.metadata is metadata:
+                                continue
+                        else:
+                            if squad_node.metadata is metadata:
+                                continue
+                        squad_node.dependencies = {}
+                        self.update_dists(squad_node, node_metadata)
+                        if squad_node.extra:
+                            self.add_base(squad_node, reason, req_name)
+                else:
+                    self.update_dists(node, metadata)
+
 
             if source is not None:
                 node.reverse_deps.add(source)
-                if extra:
-                    source.dependencies[node] = utils.parse_requirement(req_name)
-                else:
-                    source.dependencies[node] = reason
+                source.dependencies[node] = reason
 
-        return node
+        return node.meta_reset_squad
 
-    def remove_dist(self, node):
+    def add_base(self, node, reason, req_name):
+        if reason is not None:
+            non_extra_req = copy.copy(reason)
+            non_extra_req.extras = ()
+            non_extra_req = utils.parse_requirement(str(non_extra_req))
+        else:
+            non_extra_req = utils.parse_requirement(req_name)
+        base_node = [node for node in self.add_dist(req_name, node, non_extra_req) if not node.extra][0]
+        return base_node
+
+    def update_dists(self, node, metadata):
+        for req in metadata.requires(node.extra):
+            # This adds a placeholder entry
+            self.add_dist(req.name, node, req)
+
+    def remove_dists(self, node):
+        if isinstance(node, collections.Iterable):
+            for single_node in node:
+                self.remove_dists(single_node)
+            return
+
         if node.key not in self.nodes:
             return
 
@@ -144,7 +178,7 @@ class DistributionCollection(object):
         for dep in node.dependencies:
             dep.reverse_deps.remove(node)
             if not dep.reverse_deps:
-                self.remove_dist(dep)
+                self.remove_dists(dep)
 
     def build(self):
         results = []
@@ -185,30 +219,32 @@ class RequirementsFile(object):
 
 class DistInfoMirror(object):
     def __init__(self):
-        self.metadata = None
+        self.node = None
 
     @property
     def name(self):
-        return self.metadata.name
+        return self.node.metadata.name
 
     @property
     def version(self):
-        return self.metadata.version
+        return self.node.metadata.version
 
     @property
     def meta(self):
-        return self.metadata.meta
+        return self.node.metadata.meta
 
     def requires(self, extra=None):
-        return self.metadata.requires(extra=extra)
+        return self.node.metadata.requires(extra=extra)
 
     @property
     def invalid(self):
-        return self.metadata.invalid
+        if self.node.metadata is None:
+            return True
+        return self.node.metadata.invalid
 
     @invalid.setter
     def invalid(self, value):
-        self.metadata.invalid = value
+        self.node.metadata.invalid = value
 
 
 class DistInfo(object):

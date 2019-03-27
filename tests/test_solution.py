@@ -23,6 +23,6 @@ def test_load_solution(load_solution):
 def test_load_remove_root_removes_all(load_solution):
     result = load_solution('solutionfile.txt')
 
-    result.remove_dist('pylint')
+    result.remove_dists('pylint')
 
     assert len(result.dists) == 1
