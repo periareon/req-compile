@@ -21,13 +21,13 @@ class ConstraintViolatedException(Exception):
 
 
 class DependencyNode(object):
-    def __init__(self, key, metadata, extra=None):
+    def __init__(self, key, req_name, metadata, extra=None):
         self.key = key
         self.metadata = metadata
+        self.req_name = req_name
         self.extra = extra
         self.dependencies = {}  # type: Dict[DependencyNode, pkg_resources.Requirement]
         self.reverse_deps = set()  # type: Set[DependencyNode]
-        self.meta_reset_squad = {self}
 
     def __repr__(self):
         return self.key
@@ -47,7 +47,7 @@ class DependencyNode(object):
             req = merge_requirements(req, node.dependencies[self])
 
         if req is None:
-            if self.metadata is None or self.metadata.invalid:
+            if self.metadata is None:
                 req = utils.parse_requirement(self.key)
             else:
                 req = utils.parse_requirement(self.metadata.name)
@@ -92,60 +92,40 @@ class DistributionCollection(object):
         extra = reason.extras[0] if reason is not None and reason.extras else None
         key = DistributionCollection._build_key(req_name, extra)
 
-        node_metadata = metadata
-        if extra:
-            node_metadata = DistInfoMirror()
-
         if key in self.nodes:
             node = self.nodes[key]
-            if has_metadata and (node.metadata is None or node.metadata.invalid):
-                node.metadata = node_metadata
         else:
-            node = DependencyNode(key, node_metadata if has_metadata or extra else None, extra)
+            node = DependencyNode(key, req_name, None, extra)
             self.nodes[key] = node
 
         if extra:
             # Add a reference back to the root req
             base_node = self.add_base(node, reason, req_name)
-
-            if has_metadata:
-                base_node.metadata = metadata
-
-            node.meta_reset_squad = base_node.meta_reset_squad
-            node.meta_reset_squad.add(node)
-            node_metadata.node = base_node
-
-            if node.metadata.node is not None and not node.metadata.invalid:
-                has_metadata = True
-
-        if reason is not None and node.metadata is not None and not node.metadata.invalid and not reason.specifier.contains(node.metadata.version):
-            # Discard the metadata
-            node.metadata.invalid = True
-            self.remove_dists(node)
-            raise ConstraintViolatedException(node)
         else:
-            if has_metadata:
-                if node.meta_reset_squad:
-                    for squad_node in node.meta_reset_squad:
-                        if squad_node.extra:
-                            if squad_node.metadata.node.metadata is metadata:
-                                continue
-                        else:
-                            if squad_node.metadata is metadata:
-                                continue
-                        squad_node.dependencies = {}
-                        self.update_dists(squad_node, node_metadata)
-                        if squad_node.extra:
-                            self.add_base(squad_node, reason, req_name)
-                else:
-                    self.update_dists(node, metadata)
+            base_node = node
 
+        if has_metadata:
+            self.update_dists(base_node, metadata)
 
-            if source is not None:
-                node.reverse_deps.add(source)
-                source.dependencies[node] = reason
+            # Apply the same metadata to all extras
+            for reverse_node in base_node.reverse_deps:
+                if reverse_node.req_name == req_name:
+                    self.update_dists(reverse_node, metadata)
 
-        return node.meta_reset_squad
+        if base_node.metadata is not None and reason is not None:
+            if not reason.specifier.contains(base_node.metadata.version):
+                # Discard the metadata
+                base_node.metadata = None
+                for dep in base_node.dependencies:
+                    dep.reverse_deps.remove(node)
+                    if not dep.reverse_deps:
+                        self.remove_dists(dep)
+
+        if source is not None:
+            node.reverse_deps.add(source)
+            source.dependencies[node] = reason
+
+        return {node}
 
     def add_base(self, node, reason, req_name):
         if reason is not None:
@@ -158,6 +138,7 @@ class DistributionCollection(object):
         return base_node
 
     def update_dists(self, node, metadata):
+        node.metadata = metadata
         for req in metadata.requires(node.extra):
             # This adds a placeholder entry
             self.add_dist(req.name, node, req)
@@ -183,7 +164,7 @@ class DistributionCollection(object):
     def build(self):
         results = []
         for node in self.nodes.values():
-            if isinstance(node.metadata, DistInfo) and not node.extra and not node.metadata.invalid:
+            if isinstance(node.metadata, DistInfo) and not node.extra:
                 extras = []
                 for reverse_dep in node.reverse_deps:
                     if reverse_dep.metadata.name == node.metadata.name:
@@ -211,40 +192,9 @@ class RequirementsFile(object):
         self.version = utils.parse_version('1')
         self.reqs = list(reqs)
         self.meta = True
-        self.invalid = False
 
     def requires(self, extra=None):
         return self.reqs
-
-
-class DistInfoMirror(object):
-    def __init__(self):
-        self.node = None
-
-    @property
-    def name(self):
-        return self.node.metadata.name
-
-    @property
-    def version(self):
-        return self.node.metadata.version
-
-    @property
-    def meta(self):
-        return self.node.metadata.meta
-
-    def requires(self, extra=None):
-        return self.node.metadata.requires(extra=extra)
-
-    @property
-    def invalid(self):
-        if self.node.metadata is None:
-            return True
-        return self.node.metadata.invalid
-
-    @invalid.setter
-    def invalid(self, value):
-        self.node.metadata.invalid = value
 
 
 class DistInfo(object):
@@ -265,7 +215,6 @@ class DistInfo(object):
         self.name = name
         self._recalc_hash()
         self.source = None
-        self.invalid = False
 
     def __hash__(self):
         return self.hash

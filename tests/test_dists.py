@@ -100,7 +100,7 @@ def test_dist_with_extra_metadata_later():
 
 def test_metadata_is_mirror_with_extra():
     dists = DistributionCollection()
-    metadata = DistInfo('a', '1.0.0', reqs=[])
+    metadata = DistInfo('a', '1.0.0', [])
 
     dists.add_dist('a', None, Requirement.parse('a[x]'))
 
@@ -112,31 +112,98 @@ def test_metadata_is_mirror_with_extra():
     assert dists['a'].metadata.version == '1.0.0'
     assert dists['a[x]'].metadata.version == '1.0.0'
 
-#
-# def test_dist_with_unselected_extra():
-#     dists = DistributionCollection()
-#     dists.add_dist(DistInfo('aaa', '1.2.0', reqs=pkg_resources.parse_requirements(
-#                                 ['bbb<1.0 ; extra=="x1"']
-#                             ), extras=()), 'source_a')
-#
-#     assert str(dists.nodes['aaa'].metadata) == 'aaa==1.2.0'
-#
-#
-# def test_add_remove_two_source_same_dist_different_extras():
-#     dists = DistributionCollection()
-#     dists.add_dist(DistInfo('aaa', '1.2.0',
-#                             pkg_resources.parse_requirements(
-#                                 ['bbb<1.0 ; extra=="x1"']
-#                             ), extras=('x1',)), 'source_a')
-#     dists.add_dist(DistInfo('aaa', '1.2.0',
-#                             pkg_resources.parse_requirements(
-#                                 ['bbb<1.0 ; extra=="x1"']
-#                             )), 'source_b')
-#     assert str(dists.nodes['aaa'].metadata) == 'aaa[x1]==1.2.0'
-#     dists.remove_source('source_a')
-#     assert str(dists.nodes['aaa'].metadata) == 'aaa==1.2.0'
-#
-#
+
+def test_dist_with_unselected_extra():
+    dists = DistributionCollection()
+    dists.add_dist(DistInfo('aaa', '1.2.0', reqs=pkg_resources.parse_requirements(
+                                ['bbb<1.0 ; extra=="x1"']
+                            )), None, None)
+
+    assert str(dists.nodes['aaa'].metadata) == 'aaa==1.2.0'
+
+
+def test_add_remove_two_source_same_dist_different_extras():
+    dists = DistributionCollection()
+
+    nx1 = DistInfo('a', '1.0',
+                   pkg_resources.parse_requirements(
+                       ['aaa[x1]']))
+    nx2 = DistInfo('b', '1.0',
+                   pkg_resources.parse_requirements(
+                       ['aaa[x2]']))
+
+    aaa = DistInfo('aaa', '1.2.0',
+                   pkg_resources.parse_requirements(
+                       ['bbb<1.0 ; extra=="x1"',
+                        'ccc>3.0 ; extra=="x2"']))
+
+    nx1_node = list(dists.add_dist(nx1, None, None))[0]
+    nx2_node = list(dists.add_dist(nx2, None, None))[0]
+    dists.add_dist('aaa', nx1_node, Requirement.parse('aaa[x1]'))
+    dists.add_dist('aaa', nx2_node, Requirement.parse('aaa[x2]'))
+
+    assert 'bbb' not in dists
+    assert 'ccc' not in dists
+
+    assert dists['aaa'].metadata is None
+
+    dists.add_dist(aaa, nx1_node, Requirement.parse('aaa[x1]'))
+
+    assert str(dists['aaa'].metadata) == 'aaa==1.2.0'
+    assert str(dists['aaa[x1]'].metadata) == 'aaa==1.2.0'
+    assert str(dists['aaa[x2]'].metadata) == 'aaa==1.2.0'
+    assert 'bbb' in dists
+    assert 'ccc' in dists
+
+    dists.remove_dists(nx1_node)
+
+    assert str(dists['aaa'].metadata) == 'aaa==1.2.0'
+    assert str(dists['aaa[x2]'].metadata) == 'aaa==1.2.0'
+    assert 'ccc' in dists
+    assert 'aaa[x1]' not in dists
+    assert 'bbb' not in dists
+
+    dists.remove_dists(nx2_node)
+
+    assert 'aaa' not in dists
+    assert 'aaa[x1]' not in dists
+    assert 'aaa[x2]' not in dists
+    assert 'bbb' not in dists
+    assert 'ccc' not in dists
+
+
+def test_metadata_violated():
+    dists = DistributionCollection()
+    metadata_a = DistInfo('a', '1.0.0', [])
+
+    dists.add_dist(metadata_a, None, None)
+    dists.add_dist(metadata_a, None, Requirement.parse('a>1.0'))
+
+    assert dists.nodes['a'].metadata is None
+
+
+def test_metadata_violated_removes_transitive():
+    dists = DistributionCollection()
+    metadata_a = DistInfo('a', '1.0.0', reqs=pkg_resources.parse_requirements(['b']))
+
+    dists.add_dist(metadata_a, None, None)
+    dists.add_dist(metadata_a, None, Requirement.parse('a>1.0'))
+
+    assert dists['a'].metadata is None
+    assert 'b' not in dists
+
+
+def test_metadata_transitive_violated():
+    dists = DistributionCollection()
+    metadata_a = DistInfo('a', '1.0.0', [])
+    metadata_b = DistInfo('b', '1.0.0', reqs=pkg_resources.parse_requirements(['a>1.0']))
+
+    dists.add_dist(metadata_a, None, None)
+    dists.add_dist(metadata_b, None, None)
+
+    assert dists.nodes['a'].metadata is None
+
+
 # def test_add_remove_two_source_same_dist_different_extras2():
 #     dists = DistributionCollection()
 #     dists.add_dist(DistInfo('aaa', '1.2.0',

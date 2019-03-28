@@ -44,35 +44,26 @@ def compile_roots(node, source, repo, dists, depth=1, verbose=True):
         print(' ' * depth + node.key, end='')
 
     nodes_to_recurse = set()
-    if node.metadata is not None and not node.metadata.invalid:
+    if node.metadata is not None:
         if verbose:
             print(' ... REUSE')
         logger.info('Reusing dist %s %s', node.metadata.name, node.metadata.version)
 
         # if node.metadata.meta:
         nodes_to_recurse = {node}
-        recurse_reqs = True
     else:
-        while True:
-            spec_req = node.build_constraints()
-            dist, cached = repo.get_candidate(spec_req)
-            source_repo = repo.source_of(spec_req)
+        spec_req = node.build_constraints()
+        dist, cached = repo.get_candidate(spec_req)
+        source_repo = repo.source_of(spec_req)
 
-            if verbose:
-                if cached:
-                    print(' ... CACHED ({})'.format(source_repo))
-                else:
-                    print(' ... DOWNLOAD ({})'.format(source_repo))
+        if verbose:
+            if cached:
+                print(' ... CACHED ({})'.format(source_repo))
+            else:
+                print(' ... DOWNLOAD ({})'.format(source_repo))
 
-            metadata = qer.metadata.extract_metadata(dist, origin=source_repo)
-            try:
-                nodes_to_recurse = dists.add_dist(metadata, source, source.dependencies[node])
-                break
-            except qer.dists.ConstraintViolatedException as ex:
-                print('---------- VIOLATED ({}) -------------'.format(ex.node))
-                pass
-
-        recurse_reqs = True
+        metadata = qer.metadata.extract_metadata(dist, origin=source_repo)
+        nodes_to_recurse = dists.add_dist(metadata, source, source.dependencies[node])
 
     if nodes_to_recurse:
         for recurse_node in nodes_to_recurse:
@@ -139,6 +130,6 @@ def perform_compile(input_reqs, wheeldir, repo, constraint_reqs=None, solution=N
         results.remove_dists(list(constraint_node)[0])
 
     for node in results:
-        if node.metadata is None or node.metadata.invalid:
+        if node.metadata is None:
             raise qer.repos.repository.NoCandidateException()
     return results, None, root_mapping
