@@ -31,7 +31,7 @@ def load_from_file(filename):
                 else:
                     req_mapping[name][metadata.name].append(constraints)
                     name = name.split('[')[0]
-                result.add_dist(metadata, name)
+                result.add_dist(metadata, None, None)
 
     for root_req in req_mapping:
         for req in req_mapping[root_req]:

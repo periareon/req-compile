@@ -126,6 +126,8 @@ def normalize_project_name(project_name):
 
 
 def filter_req(req, extra):
+    if extra and not req.marker:
+        return False
     keep_req = True
     if req.marker:
         keep_req = req.marker.evaluate({'extra': extra})

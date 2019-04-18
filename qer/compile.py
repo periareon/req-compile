@@ -4,7 +4,6 @@ from __future__ import print_function
 import logging
 
 import pkg_resources
-import six
 
 import qer.dists
 import qer.metadata
@@ -13,7 +12,7 @@ import qer.utils
 import qer.repos.repository
 
 from qer.dists import DistributionCollection
-from qer.utils import normalize_project_name
+from qer.repos.repository import NoCandidateException
 
 
 ROOT_REQ = 'root__a'
@@ -24,7 +23,7 @@ BLACKLIST = [
 ]
 
 
-def compile_roots(node, source, repo, dists, depth=1, verbose=True):
+def compile_roots(node, source, repo, dists, depth=1, verbose=False):
     """
 
     Args:
@@ -49,7 +48,6 @@ def compile_roots(node, source, repo, dists, depth=1, verbose=True):
             print(' ... REUSE')
         logger.info('Reusing dist %s %s', node.metadata.name, node.metadata.version)
 
-        # if node.metadata.meta:
         nodes_to_recurse = {node}
     else:
         spec_req = node.build_constraints()
@@ -123,13 +121,17 @@ def perform_compile(input_reqs, wheeldir, repo, constraint_reqs=None, solution=N
     else:
         nodes |= results.add_dist(qer.dists.RequirementsFile(ROOT_REQ, input_reqs), None, None)
 
-    for node in nodes:
-        compile_roots(node, None, repo, dists=results)
+    try:
+        for node in nodes:
+            compile_roots(node, None, repo, dists=results)
+    except NoCandidateException as ex:
+        ex.results = results
+        raise
 
     if constraint_reqs:
         results.remove_dists(list(constraint_node)[0])
 
     for node in results:
         if node.metadata is None:
-            raise qer.repos.repository.NoCandidateException()
+            raise NoCandidateException()
     return results, None, root_mapping

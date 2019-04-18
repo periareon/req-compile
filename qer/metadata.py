@@ -415,7 +415,7 @@ def _parse_setup_py(name, fake_setupdir, opener):
     old_stderr = sys.stderr
 
     sys.stderr = StringIO()
-    # sys.stdout = StringIO()
+    sys.stdout = StringIO()
 
     curr_dir = os.getcwd()
 

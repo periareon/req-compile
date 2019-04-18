@@ -1,14 +1,11 @@
 from __future__ import print_function
 
 import argparse
-import itertools
 import logging
 import os
 import shutil
 import sys
 import tempfile
-
-import six
 
 import qer.compile
 import qer.dists
@@ -25,38 +22,34 @@ from qer.repos.multi import MultiRepository
 from qer.repos.source import SourceRepository
 
 
-def _get_reason_constraint(root_node, constraint_dists, project_name, extras, root_mapping):
-    """
-
-    Args:
-        dists (DistributionCollection): Results of a compilation
-        constraint_dists:
-        project_name:
-        extras:
-        root_mapping:
-
-    Returns:
-
-    """
+def _build_constraints(root_node):
     constraints = []
     for node in root_node.reverse_deps:
         req = node.dependencies[root_node]
         specifics = ' (' + str(req.specifier) + ')' if req.specifier else ''
-        if node.metadata.name.startswith(qer.compile.ROOT_REQ):
-            source = root_mapping[node.metadata.name]
-        else:
-            source = node.metadata.name
+        source = node.metadata.name + ('[' + node.extra + ']' if node.extra else '')
         constraints += [source + specifics]
-    constraints = ', '.join(constraints)
     return constraints
 
 
-def _generate_lines(dists, constraint_dists, root_mapping, filter):
+def _generate_lines(dists, filter):
     for node in dists:
-        constraints = _get_reason_constraint(node, constraint_dists,
-                                             node.metadata.name, (), root_mapping)
-        if filter(node):
-            yield '{}# {}'.format(str(node.metadata).ljust(43), constraints)
+        if isinstance(node.metadata, qer.dists.DistInfo) and not node.extra:
+            extras = []
+            constraints = _build_constraints(node)
+            for reverse_dep in node.reverse_deps:
+                if reverse_dep.metadata.name == node.metadata.name:
+                    extras.append(reverse_dep.extra)
+                    constraints.extend(_build_constraints(reverse_dep))
+            req_expr = '{}{}=={}'.format(
+                node.metadata.name,
+                ('[' + ','.join(sorted(extras)) + ']') if extras else '',
+                node.metadata.version)
+
+            constraint_text = ', '.join(sorted(constraints))
+            if filter(node):
+                if not node.metadata.meta:
+                    yield '{}# {}'.format(req_expr.ljust(43), constraint_text)
 
 
 def _cantusereason_to_text(reason):
@@ -74,36 +67,14 @@ def _cantusereason_to_text(reason):
 
 
 def _generate_no_candidate_display(ex, repos, dists, constraint_dists, root_mapping):
-    project_name = utils.normalize_project_name(ex.req.name)
-    components = dists.reverse_deps(project_name)
-    if not components:
+    failing_node = dists[ex.req.name]
+    nodes = failing_node.reverse_deps
+    if not nodes:
         print('No package available for {}, latest is {}'.format(ex.req.name, 'unknown'), file=sys.stderr)
     else:
         print('No version of {} could satisfy the following requirements:'.format(ex.req.name), file=sys.stderr)
-        for component in components:
-            for req in dists.dists[component].metadata.reqs:
-                if utils.normalize_project_name(req.name) == project_name:
-                    if component == qer.dists.DistributionCollection.CONSTRAINTS_ENTRY:
-                        constraints_reason = _get_reason_constraint(constraint_dists, None,
-                                                                    project_name, (), root_mapping)
-                        if constraints_reason:
-                            print('   ' + constraints_reason, file=sys.stderr)
-                    else:
-                        specifics = str(req.specifier) if req.specifier else ''
-                        if component.startswith(qer.compile.ROOT_REQ):
-                            source = root_mapping.get(component, 'input file')
-                        else:
-                            constraints_reason = _get_reason_constraint(dists, constraint_dists,
-                                                                        component, (), root_mapping)
-                            if constraints_reason:
-                                constraints_reason = ' (via ' + constraints_reason + ')'
-                            source = '{} {}{}'.format(component, dists.dists[component].metadata.version,
-                                                      constraints_reason)
-
-                        print('   {} requires {}{}'.format(source,
-                                                           ex.req.name, specifics),
-                              file=sys.stderr)
-                        break
+        for node in nodes:
+            print('   {} requires {}'.format(node, node.dependencies[failing_node]), file=sys.stderr)
 
         all_candidates = {repo: repo.get_candidates(ex.req) for repo in repos}
         if sum(len(candidates) for candidates in all_candidates.values()) == 0:
@@ -175,7 +146,7 @@ def run_compile(input_reqfiles, constraint_files, source, force_extras, find_lin
 
             filter = lambda dist: dist.metadata.origin is not source_repo
 
-        lines = sorted(_generate_lines(results, constraint_results, root_mapping, filter), key=str.lower)
+        lines = sorted(_generate_lines(results, filter), key=str.lower)
         print('\n'.join(lines))
     except qer.repos.repository.NoCandidateException as ex:
         _generate_no_candidate_display(ex, repo.repositories, ex.results, ex.constraint_results, ex.mapping)

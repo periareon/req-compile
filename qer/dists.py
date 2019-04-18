@@ -1,5 +1,4 @@
 import collections
-from typing import Dict, Set
 import copy
 
 import pkg_resources
@@ -26,8 +25,8 @@ class DependencyNode(object):
         self.metadata = metadata
         self.req_name = req_name
         self.extra = extra
-        self.dependencies = {}  # type: Dict[DependencyNode, pkg_resources.Requirement]
-        self.reverse_deps = set()  # type: Set[DependencyNode]
+        self.dependencies = {}  # Dict[DependencyNode, pkg_resources.Requirement]
+        self.reverse_deps = set()  # Set[DependencyNode]
 
     def __repr__(self):
         return self.key
@@ -60,7 +59,7 @@ class DependencyNode(object):
 
 class DistributionCollection(object):
     def __init__(self):
-        self.nodes = {}  # type: Dict[str, DependencyNode]
+        self.nodes = {}  # Dict[str, DependencyNode]
 
     @staticmethod
     def _build_key(name, extra=None):
@@ -120,6 +119,13 @@ class DistributionCollection(object):
                     dep.reverse_deps.remove(node)
                     if not dep.reverse_deps:
                         self.remove_dists(dep)
+
+                for reverse_node in list(base_node.reverse_deps):
+                    if reverse_node.req_name == req_name:
+                        for dep in reverse_node.dependencies:
+                            dep.reverse_deps.remove(reverse_node)
+                            if not dep.reverse_deps:
+                                self.remove_dists(dep)
 
         if source is not None:
             node.reverse_deps.add(source)
@@ -194,7 +200,8 @@ class RequirementsFile(object):
         self.meta = True
 
     def requires(self, extra=None):
-        return self.reqs
+        return [req for req in self.reqs
+                if filter_req(req, extra)]
 
 
 class DistInfo(object):
@@ -204,7 +211,6 @@ class DistInfo(object):
             name:
             version:
             reqs:
-            extras (tuple[str]): Extras that are active in this metadata by default
             meta:
         """
         self.key = ''
