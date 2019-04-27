@@ -19,6 +19,7 @@ from qer.repos.findlinks import FindLinksRepository
 from qer.repos.pypi import PyPIRepository
 from qer.repos.repository import CantUseReason
 from qer.repos.multi import MultiRepository
+from qer.repos.solution import SolutionRepository
 from qer.repos.source import SourceRepository
 
 
@@ -96,7 +97,7 @@ def _generate_no_candidate_display(ex, repos, dists, constraint_dists, root_mapp
 
 
 def run_compile(input_reqfiles, constraint_files, source, force_extras, find_links,
-                index_url, wheeldir, no_combine, no_index, remove_source, solution):
+                index_url, wheeldir, no_index, remove_source, solution):
 
     if wheeldir:
         if not os.path.exists(wheeldir):
@@ -110,28 +111,20 @@ def run_compile(input_reqfiles, constraint_files, source, force_extras, find_lin
         dist = qer.metadata.extract_metadata(input_reqfiles[0])
         input_reqs = [utils.parse_requirement(dist.name)]
     else:
-        if no_combine:
-            input_reqs = {
-                req_file: utils.reqs_from_files([req_file])
-                for req_file in input_reqfiles
-            }
-        else:
-            input_reqs = utils.reqs_from_files(input_reqfiles)
+        input_reqs = {
+            req_file: utils.reqs_from_files([req_file])
+            for req_file in input_reqfiles
+        }
 
     if constraint_files:
         constraint_reqs = utils.reqs_from_files(constraint_files)
     else:
         constraint_reqs = None
 
-    repo = build_repo(source, force_extras, find_links, index_url, no_index, wheeldir)
-
-    solution_dists = None
-    if solution is not None:
-        solution_dists = qer.solution.load_from_file(solution)
+    repo = build_repo(solution, source, force_extras, find_links, index_url, no_index, wheeldir)
 
     try:
-        results, constraint_results, root_mapping = perform_compile(
-            input_reqs, wheeldir, repo, constraint_reqs=constraint_reqs, solution=solution_dists)
+        results, constraint_results, root_mapping = perform_compile(input_reqs, repo, constraint_reqs=constraint_reqs)
 
         filter = lambda _: True
 
@@ -155,8 +148,10 @@ def run_compile(input_reqfiles, constraint_files, source, force_extras, find_lin
         shutil.rmtree(wheeldir)
 
 
-def build_repo(source, force_extras, find_links, index_url, no_index, wheeldir):
+def build_repo(solution, source, force_extras, find_links, index_url, no_index, wheeldir):
     repos = []
+    if solution:
+        repos.append(SolutionRepository(solution))
     if source:
         repos.append(SourceRepository(source, force_extras=force_extras))
     if find_links:
@@ -192,7 +187,7 @@ def compile_main():
 
     args = parser.parse_args()
     run_compile(args.requirement_files, args.constraints if args.constraints else None, args.source, tuple(args.extra), args.find_links, args.index_url,
-                args.wheel_dir, args.no_combine, args.no_index, args.remove_source, args.solution)
+                args.wheel_dir, args.no_index, args.remove_source, args.solution)
 
 
 def add_repo_args(parser):

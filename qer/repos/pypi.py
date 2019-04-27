@@ -7,7 +7,7 @@ import requests
 from six.moves import html_parser
 from six.moves import urllib
 
-import qer.repos.repository
+from .repository import Repository, process_distribution
 
 try:
     from functools32 import lru_cache
@@ -39,7 +39,7 @@ class LinksHTMLParser(html_parser.HTMLParser):
     def handle_data(self, data):
         if self.active_link is None:
             return
-        candidate = qer.repos.repository.process_distribution(self.active_link, data, self.active_requires_python)
+        candidate = process_distribution(self.active_link, data, self.active_requires_python)
         if candidate is not None:
             self.dists.append(candidate)
 
@@ -104,7 +104,7 @@ def _do_download(filename, link, session, wheeldir):
     return output_file, False
 
 
-class PyPIRepository(qer.repos.repository.Repository):
+class PyPIRepository(Repository):
     def __init__(self, index_url, wheeldir, allow_prerelease=None):
         super(PyPIRepository, self).__init__(allow_prerelease)
 

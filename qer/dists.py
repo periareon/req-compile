@@ -111,27 +111,23 @@ class DistributionCollection(object):
                 if reverse_node.req_name == req_name:
                     self.update_dists(reverse_node, metadata)
 
+        nodes = {node}
         if base_node.metadata is not None and reason is not None:
             if not reason.specifier.contains(base_node.metadata.version):
                 # Discard the metadata
-                base_node.metadata = None
-                for dep in base_node.dependencies:
-                    dep.reverse_deps.remove(node)
-                    if not dep.reverse_deps:
-                        self.remove_dists(dep)
+                self.remove_dists(base_node, remove_upstream=False)
 
-                for reverse_node in list(base_node.reverse_deps):
+                for reverse_node in base_node.reverse_deps:
                     if reverse_node.req_name == req_name:
-                        for dep in reverse_node.dependencies:
-                            dep.reverse_deps.remove(reverse_node)
-                            if not dep.reverse_deps:
-                                self.remove_dists(dep)
+                        self.remove_dists(reverse_node, remove_upstream=False)
 
         if source is not None:
             node.reverse_deps.add(source)
             source.dependencies[node] = reason
 
-        return {node}
+        if not has_metadata:
+            return set()
+        return nodes
 
     def add_base(self, node, reason, req_name):
         if reason is not None:
@@ -140,8 +136,9 @@ class DistributionCollection(object):
             non_extra_req = utils.parse_requirement(str(non_extra_req))
         else:
             non_extra_req = utils.parse_requirement(req_name)
-        base_node = [node for node in self.add_dist(req_name, node, non_extra_req) if not node.extra][0]
-        return base_node
+
+        self.add_dist(req_name, node, non_extra_req)
+        return self.nodes[req_name]
 
     def update_dists(self, node, metadata):
         node.metadata = metadata
@@ -164,14 +161,14 @@ class DistributionCollection(object):
                 del reverse_dep.dependencies[node]
 
         for dep in node.dependencies:
-            dep.reverse_deps.remove(node)
-            if not dep.reverse_deps:
-                self.remove_dists(dep)
+            if remove_upstream or dep.req_name != node.req_name:
+                dep.reverse_deps.remove(node)
+                if not dep.reverse_deps:
+                    self.remove_dists(dep)
 
         if not remove_upstream:
             node.dependencies = {}
             node.metadata = None
-
 
     def build(self):
         results = []

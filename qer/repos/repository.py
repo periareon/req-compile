@@ -273,10 +273,10 @@ class Repository(six.with_metaclass(abc.ABCMeta, BaseRepository)):
         """
         Fetch all available candidates for a project_name
         Args:
-            project_name (str): Project name as it appears in a requirements file
+            req (Requirement): Requirement to get candidates for
 
         Returns:
-            (list) List of candidates
+            (list[Candidate]) List of candidates
         """
         raise NotImplementedError()
 

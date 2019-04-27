@@ -12,6 +12,7 @@ import tempfile
 import qer.metadata
 from qer.repos.repository import RequiresPython
 from qer.repos.repository import Repository, Candidate
+from qer.solution import load_from_file
 
 
 @pytest.fixture
@@ -146,3 +147,10 @@ def mock_source():
         directory = os.path.join(os.path.dirname(__file__), 'source-packages', directory)
         return directory
     return build_source
+
+
+@pytest.fixture
+def load_solution():
+    def _load(filename):
+        return load_from_file(os.path.join(os.path.dirname(__file__), filename))
+    return _load

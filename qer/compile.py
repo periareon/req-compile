@@ -24,6 +24,7 @@ BLACKLIST = [
 
 MAX_DOWNGRADE = 3
 
+
 def compile_roots(node, source, repo, dists, depth=1, verbose=True):
     """
 
@@ -59,11 +60,13 @@ def compile_roots(node, source, repo, dists, depth=1, verbose=True):
 
             if verbose:
                 if cached:
-                    print(' ... CACHED ({})'.format(source_repo))
+                    print(' ... CACHED[{}] ({})'.format(dist, source_repo))
                 else:
                     print(' ... DOWNLOAD ({})'.format(source_repo))
-
-            metadata = qer.metadata.extract_metadata(dist, origin=source_repo)
+            if isinstance(dist, qer.metadata.DistInfo):
+                metadata = dist
+            else:
+                metadata = qer.metadata.extract_metadata(dist, origin=source_repo)
             nodes_to_recurse = dists.add_dist(metadata, source, source.dependencies[node])
 
             try:
@@ -77,8 +80,6 @@ def compile_roots(node, source, repo, dists, depth=1, verbose=True):
                 if first_failure is None:
                     first_failure = ex
 
-                if verbose:
-                    print('WALKING BACK')
                 for node in nodes_to_recurse:
                     dists.remove_dists(node, remove_upstream=False)
 
@@ -104,7 +105,7 @@ def _build_root_metadata(roots, name):
     return qer.dists.DistInfo(name, '0', roots, meta=True)
 
 
-def perform_compile(input_reqs, wheeldir, repo, constraint_reqs=None, solution=None):
+def perform_compile(input_reqs, repo, constraint_reqs=None):
     """
     Perform a compilation using the given inputs and constraints
     Args:
@@ -113,12 +114,8 @@ def perform_compile(input_reqs, wheeldir, repo, constraint_reqs=None, solution=N
             List of mapping of input requirements. If provided a mapping,
             requirements will be kept separate during compilation for better
             insight into the resolved requirements
-        wheeldir (str): Location to download wheels to and to use as a cache
         constraint_reqs (list[pkg_resources.Requirement] or None): Constraints to use
             when compiling
-        solution (DistributionCollection): Optionally, provide a possible solution
-            to consider when compiling. Existing distributions will be modified as
-            necessary to solve the solution
     Returns:
         tuple[DistributionCollection, DistributionCollection, dict]
     """
