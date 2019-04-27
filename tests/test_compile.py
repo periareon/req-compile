@@ -184,6 +184,24 @@ def test_compile_with_constraint(mock_metadata, mock_pypi):
     assert _real_outputs(results) == ['x==0.9.0']
 
 
+def test_walk_back_1(mock_metadata, mock_pypi):
+    mock_pypi.load_scenario('walk-back',
+                            pkg_resources.parse_requirements(
+                                ['a==4.0',
+                                 'a==3.6',
+                                 'b==1.1',
+                                 'b==1.0']))
+
+    results, cresults, root_mapping = qer.compile.perform_compile(
+        pkg_resources.parse_requirements(['a<3.7', 'b']),
+        '.',
+        mock_pypi)
+
+    assert _real_outputs(results) == ['a==3.6', 'b==1.0']
+
+
+
+
 def test_compile_with_constraint_not_in_reqs(mock_metadata, mock_pypi):
     """If a constraint's requirement is not available, make sure it doesn't
     affect the compilation"""

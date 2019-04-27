@@ -22,8 +22,9 @@ BLACKLIST = [
     'setuptools'
 ]
 
+MAX_DOWNGRADE = 3
 
-def compile_roots(node, source, repo, dists, depth=1, verbose=False):
+def compile_roots(node, source, repo, dists, depth=1, verbose=True):
     """
 
     Args:
@@ -42,31 +43,49 @@ def compile_roots(node, source, repo, dists, depth=1, verbose=False):
     if verbose:
         print(' ' * depth + node.key, end='')
 
-    nodes_to_recurse = set()
     if node.metadata is not None:
         if verbose:
             print(' ... REUSE')
         logger.info('Reusing dist %s %s', node.metadata.name, node.metadata.version)
 
-        nodes_to_recurse = {node}
+        for req in list(node.dependencies):
+            compile_roots(req, node, repo, dists, depth=depth + 1, verbose=verbose)
     else:
         spec_req = node.build_constraints()
-        dist, cached = repo.get_candidate(spec_req)
-        source_repo = repo.source_of(spec_req)
+        first_failure = None
+        for attempt in range(MAX_DOWNGRADE):
+            dist, cached = repo.get_candidate(spec_req)
+            source_repo = repo.source_of(spec_req)
 
-        if verbose:
-            if cached:
-                print(' ... CACHED ({})'.format(source_repo))
-            else:
-                print(' ... DOWNLOAD ({})'.format(source_repo))
+            if verbose:
+                if cached:
+                    print(' ... CACHED ({})'.format(source_repo))
+                else:
+                    print(' ... DOWNLOAD ({})'.format(source_repo))
 
-        metadata = qer.metadata.extract_metadata(dist, origin=source_repo)
-        nodes_to_recurse = dists.add_dist(metadata, source, source.dependencies[node])
+            metadata = qer.metadata.extract_metadata(dist, origin=source_repo)
+            nodes_to_recurse = dists.add_dist(metadata, source, source.dependencies[node])
 
-    if nodes_to_recurse:
-        for recurse_node in nodes_to_recurse:
-            for req in list(recurse_node.dependencies):
-                compile_roots(req, recurse_node, repo, dists, depth=depth + 1, verbose=verbose)
+            try:
+                if nodes_to_recurse:
+                    for recurse_node in nodes_to_recurse:
+                        for req in list(recurse_node.dependencies):
+                            compile_roots(req, recurse_node, repo, dists, depth=depth + 1, verbose=verbose)
+                first_failure = None
+                break
+            except NoCandidateException as ex:
+                if first_failure is None:
+                    first_failure = ex
+
+                if verbose:
+                    print('WALKING BACK')
+                for node in nodes_to_recurse:
+                    dists.remove_dists(node, remove_upstream=False)
+
+                spec_req = qer.utils.merge_requirements(spec_req, qer.utils.parse_requirement(metadata.name + '!=' + str(metadata.version)))
+
+        if first_failure is not None:
+            raise first_failure
 
 
 def _generate_constraints(dists):

@@ -149,7 +149,7 @@ class DistributionCollection(object):
             # This adds a placeholder entry
             self.add_dist(req.name, node, req)
 
-    def remove_dists(self, node):
+    def remove_dists(self, node, remove_upstream=True):
         if isinstance(node, collections.Iterable):
             for single_node in node:
                 self.remove_dists(single_node)
@@ -158,14 +158,20 @@ class DistributionCollection(object):
         if node.key not in self.nodes:
             return
 
-        del self.nodes[node.key]
-        for reverse_dep in node.reverse_deps:
-            del reverse_dep.dependencies[node]
+        if remove_upstream:
+            del self.nodes[node.key]
+            for reverse_dep in node.reverse_deps:
+                del reverse_dep.dependencies[node]
 
         for dep in node.dependencies:
             dep.reverse_deps.remove(node)
             if not dep.reverse_deps:
                 self.remove_dists(dep)
+
+        if not remove_upstream:
+            node.dependencies = {}
+            node.metadata = None
+
 
     def build(self):
         results = []
