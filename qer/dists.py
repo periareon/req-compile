@@ -185,6 +185,46 @@ class DistributionCollection(object):
                 results.append(utils.parse_requirement(req_expr))
         return results
 
+    def _build_constraints(self, root_node, exclude=None):
+        constraints = []
+        for node in root_node.reverse_deps:
+            if node.req_name != exclude:
+                req = node.dependencies[root_node]
+                specifics = ' (' + str(req.specifier) + ')' if req.specifier else ''
+                source = node.metadata.name + ('[' + node.extra + ']' if node.extra else '')
+                constraints += [source + specifics]
+        return constraints
+
+    def generate_lines(self, filter=None):
+        """
+        Generate the lines of a results file from this collection
+        Args:
+            filter (Callable): Filter to apply to each element of the collection.
+                Return True to keep a node, False to exclude it
+
+        Returns:
+            (list[str]) List of rendered node entries in the form of
+                reqname==version   # reasons
+        """
+        filter = filter or (lambda _: True)
+        for node in self.nodes.values():
+            if isinstance(node.metadata, DistInfo) and not node.extra:
+                extras = []
+                constraints = self._build_constraints(node, exclude=node.metadata.name)
+                for reverse_dep in node.reverse_deps:
+                    if reverse_dep.metadata.name == node.metadata.name:
+                        extras.append(reverse_dep.extra)
+                        constraints.extend(self._build_constraints(reverse_dep))
+                req_expr = '{}{}=={}'.format(
+                    node.metadata.name,
+                    ('[' + ','.join(sorted(extras)) + ']') if extras else '',
+                    node.metadata.version)
+
+                constraint_text = ', '.join(sorted(constraints))
+                if filter(node):
+                    if not node.metadata.meta:
+                        yield '{}# {}'.format(req_expr.ljust(43), constraint_text)
+
     def __contains__(self, project_name):
         return normalize_project_name(project_name) in self.nodes
 

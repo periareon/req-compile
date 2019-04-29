@@ -1,0 +1,4 @@
+a[docs,test]==1.0  # inputfile.txt
+docpkg==2.0        # a[docs] (>1.0), b
+pytest==4.0        # a[test]
+b==1.0             # a (1.0)

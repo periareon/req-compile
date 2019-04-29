@@ -1,9 +1,15 @@
 from __future__ import print_function
 
 import logging
+from collections import defaultdict
+
+import six
+from six.moves import map as imap
+
+import qer.dists
+import qer.utils
 
 from qer import utils
-from qer.solution import load_from_file
 
 from .repository import Repository, Candidate, DistributionType, RequiresPython
 
@@ -43,3 +49,53 @@ class SolutionRepository(Repository):
 
     def close(self):
         pass
+
+
+def load_from_file(filename):
+    result = qer.dists.DistributionCollection()
+
+    with open(filename) as reqfile:
+        for line in reqfile.readlines():
+            req_part, _, source_part = line.partition('#')
+            req = qer.utils.parse_requirement(req_part)
+            source_part = source_part.strip()
+
+            sources = source_part.split(', ')
+
+            pkg_names = imap(lambda x: x.split(' ')[0], sources)
+            constraints = imap(lambda x: x.split(' ')[1].replace('(', '').replace(')', '') if '(' in x else None, sources)
+
+            version = qer.utils.parse_version(list(req.specifier)[0].version)
+            metadata = qer.dists.DistInfo(req.name, version, [], req.extras)
+            result.add_dist(metadata, None, req)
+
+            for name, constraints in zip(pkg_names, constraints):
+                if name and not (name.endswith('.txt') or name.endswith('.out')):
+                    result.add_dist(name, None, None)
+                    reverse_dep = result[name]
+                    result.add_dist(metadata.name,
+                                    reverse_dep,
+                                    qer.utils.parse_requirement('{}{}'.format(metadata.name,
+                                                                              constraints if constraints else '')))
+
+    for node in result:
+        requirements = [value for dep_node, value in six.iteritems(node.dependencies)
+                        if dep_node.metadata.name != node.metadata.name]
+        if node.extra:
+            requirements = [qer.utils.parse_requirement('{} ; extra=="{}"'.format(req, node.extra))
+                            for req in requirements]
+        node.metadata.reqs.extend(requirements)
+
+    # for root_req in req_mapping:
+    #     for req in req_mapping[root_req]:
+    #         req_constraints = req_mapping[root_req][req][0] or ''
+    #         if '[' in root_req:
+    #             req_name, extras = root_req.split('[')
+    #             extras = extras.replace(']', '')
+    #             extras = extras.split(',')
+    #             for extra in extras:
+    #                 result.nodes[qer.utils.normalize_project_name(req_name)].metadata.reqs.append(
+    #                     qer.utils.parse_requirement(req + req_constraints + ' ; extra=="{}"'.format(extra)))
+    #         else:
+    #             result.nodes[qer.utils.normalize_project_name(root_req)].metadata.reqs.append(qer.utils.parse_requirement(req + req_constraints))
+    return result

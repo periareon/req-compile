@@ -11,7 +11,6 @@ import qer.compile
 import qer.dists
 import qer.metadata
 import qer.repos.pypi
-import qer.solution
 
 from qer import utils
 from qer.compile import perform_compile
@@ -21,36 +20,6 @@ from qer.repos.repository import CantUseReason
 from qer.repos.multi import MultiRepository
 from qer.repos.solution import SolutionRepository
 from qer.repos.source import SourceRepository
-
-
-def _build_constraints(root_node):
-    constraints = []
-    for node in root_node.reverse_deps:
-        req = node.dependencies[root_node]
-        specifics = ' (' + str(req.specifier) + ')' if req.specifier else ''
-        source = node.metadata.name + ('[' + node.extra + ']' if node.extra else '')
-        constraints += [source + specifics]
-    return constraints
-
-
-def _generate_lines(dists, filter):
-    for node in dists:
-        if isinstance(node.metadata, qer.dists.DistInfo) and not node.extra:
-            extras = []
-            constraints = _build_constraints(node)
-            for reverse_dep in node.reverse_deps:
-                if reverse_dep.metadata.name == node.metadata.name:
-                    extras.append(reverse_dep.extra)
-                    constraints.extend(_build_constraints(reverse_dep))
-            req_expr = '{}{}=={}'.format(
-                node.metadata.name,
-                ('[' + ','.join(sorted(extras)) + ']') if extras else '',
-                node.metadata.version)
-
-            constraint_text = ', '.join(sorted(constraints))
-            if filter(node):
-                if not node.metadata.meta:
-                    yield '{}# {}'.format(req_expr.ljust(43), constraint_text)
 
 
 def _cantusereason_to_text(reason):
@@ -67,7 +36,7 @@ def _cantusereason_to_text(reason):
     return 'unknown'
 
 
-def _generate_no_candidate_display(ex, repos, dists, constraint_dists, root_mapping):
+def _generate_no_candidate_display(ex, repos, dists):
     failing_node = dists[ex.req.name]
     nodes = failing_node.reverse_deps
     if not nodes:
@@ -92,8 +61,6 @@ def _generate_no_candidate_display(ex, repos, dists, constraint_dists, root_mapp
                               file=sys.stderr)
                 else:
                     print('  No candidates found', file=sys.stderr)
-
-    sys.exit(1)
 
 
 def run_compile(input_reqfiles, constraint_files, source, force_extras, find_links,
@@ -124,9 +91,9 @@ def run_compile(input_reqfiles, constraint_files, source, force_extras, find_lin
     repo = build_repo(solution, source, force_extras, find_links, index_url, no_index, wheeldir)
 
     try:
-        results, constraint_results, root_mapping = perform_compile(input_reqs, repo, constraint_reqs=constraint_reqs)
+        results = perform_compile(input_reqs, repo, constraint_reqs=constraint_reqs)
 
-        filter = lambda _: True
+        filter = None
 
         if remove_source:
             source_repo = None
@@ -139,10 +106,11 @@ def run_compile(input_reqfiles, constraint_files, source, force_extras, find_lin
 
             filter = lambda dist: dist.metadata.origin is not source_repo
 
-        lines = sorted(_generate_lines(results, filter), key=str.lower)
+        lines = sorted(results.generate_lines(filter=filter), key=str.lower)
         print('\n'.join(lines))
     except qer.repos.repository.NoCandidateException as ex:
-        _generate_no_candidate_display(ex, repo.repositories, ex.results, ex.constraint_results, ex.mapping)
+        _generate_no_candidate_display(ex, repo.repositories, ex.results)
+        sys.exit(1)
 
     if delete_wheeldir:
         shutil.rmtree(wheeldir)
@@ -161,7 +129,10 @@ def build_repo(solution, source, force_extras, find_links, index_url, no_index, 
         repos.append(PyPIRepository(index_url, wheeldir))
     if not repos:
         raise ValueError('At least one Python distributions source must be provided.')
-    repo = MultiRepository(*repos)
+    if len(repos) > 1:
+        repo = MultiRepository(*repos)
+    else:
+        repo = repos[0]
     return repo
 
 
@@ -172,9 +143,6 @@ def compile_main():
     parser.add_argument('requirement_files', nargs='+', help='Input requirements files')
     parser.add_argument('-c', '--constraints', action='append',
                         help='Contraints files. Not included in final compilation')
-    parser.add_argument('-n', '--no-combine', default=False, action='store_true',
-                        help='Keep input requirement file sources separate to '
-                             'improve errors and output (slower)')
     parser.add_argument('--remove-source', default=False, action='store_true',
                         help='Remove distributions satisfied via --source from the output')
     parser.add_argument('-e', '--extra', nargs='+', default=[],

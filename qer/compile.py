@@ -15,7 +15,7 @@ from qer.dists import DistributionCollection
 from qer.repos.repository import NoCandidateException
 
 
-ROOT_REQ = 'root__a'
+ROOT_REQ = 'root__a.out'
 CONSTRAINTS_REQ = 'constraints__a'
 
 BLACKLIST = [
@@ -25,7 +25,7 @@ BLACKLIST = [
 MAX_DOWNGRADE = 3
 
 
-def compile_roots(node, source, repo, dists, depth=1, verbose=True):
+def compile_roots(node, source, repo, dists, depth=1, verbose=False):
     """
 
     Args:
@@ -124,14 +124,12 @@ def perform_compile(input_reqs, repo, constraint_reqs=None):
     if constraint_reqs:
         constraint_node = results.add_dist(qer.dists.RequirementsFile(CONSTRAINTS_REQ, constraint_reqs), None, None)
 
-    root_mapping = {}
     nodes = set()
     if isinstance(input_reqs, dict):
         fake_reqs = []
         for idx, req_source in enumerate(input_reqs):
             roots = input_reqs[req_source]
             name = '{}{}'.format(ROOT_REQ, idx)
-            root_mapping[name] = req_source
             fake_reqs.append(pkg_resources.Requirement(name))
             nodes |= results.add_dist(qer.dists.RequirementsFile(req_source, roots), None, None)
     else:
@@ -150,4 +148,4 @@ def perform_compile(input_reqs, repo, constraint_reqs=None):
     for node in results:
         if node.metadata is None:
             raise NoCandidateException()
-    return results, None, root_mapping
+    return results

@@ -12,7 +12,7 @@ import tempfile
 import qer.metadata
 from qer.repos.repository import RequiresPython
 from qer.repos.repository import Repository, Candidate
-from qer.solution import load_from_file
+from qer.repos.solution import load_from_file
 
 
 @pytest.fixture
