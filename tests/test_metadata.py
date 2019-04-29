@@ -5,6 +5,7 @@ import six
 import pkg_resources
 import qer.metadata
 
+
 def test_a_with_no_extra(metadata_provider):
     info = metadata_provider('normal/a.METADATA')
     assert info.name == 'a'
@@ -166,6 +167,23 @@ def test_noname(mock_targz):
     metadata = qer.metadata.extract_metadata(archive)
     assert metadata.name == 'noname'
     assert metadata.version == pkg_resources.parse_version('1.0')
+
+
+def test_ed(mock_targz):
+    archive = mock_targz('ed-1.4')
+
+    metadata = qer.metadata.extract_metadata(archive)
+    assert metadata.name == 'ed'
+    assert metadata.version == pkg_resources.parse_version('1.4')
+
+
+def test_ptl(mock_targz):
+    archive = mock_targz('ptl-2015.11.4')
+
+    metadata = qer.metadata.extract_metadata(archive)
+    assert metadata.name == 'ptl'
+    assert metadata.version == pkg_resources.parse_version('2015.11.4')
+    assert set(metadata.reqs) == set(pkg_resources.parse_requirements(['pytest>=2.8.1']))
 
 
 def test_non_extractor():

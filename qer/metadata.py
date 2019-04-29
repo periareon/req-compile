@@ -268,7 +268,7 @@ class with_decoding(object):
         results = self.file.read()
         if self.encoding:
             results = results.decode(self.encoding)
-        elif six.PY2:
+        if six.PY2:
             results = str(''.join([i if ord(i) < 128 else ' ' for i in results]))
         return results
 
@@ -332,6 +332,9 @@ class FakeModule(types.ModuleType):
 
     def __call__(self, *args, **kwargs):
         return FakeModule(self.__name__)
+
+    def __setitem__(self, key, value):
+        pass
 
     def __getattr__(self, item):
         if isinstance(item, str):
@@ -417,6 +420,9 @@ def _parse_setup_py(name, fake_setupdir, opener):
     sys.stderr = StringIO()
     sys.stdout = StringIO()
 
+    old_listdir = os.listdir
+    os.listdir = lambda path: []
+
     curr_dir = os.getcwd()
 
     old_open = io.open
@@ -452,6 +458,8 @@ def _parse_setup_py(name, fake_setupdir, opener):
 
         sys.stderr = old_stderr
         sys.stdout = old_stdout
+
+        os.listdir = old_listdir
     if not results:
         pass
     return results[0]
