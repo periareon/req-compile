@@ -33,7 +33,7 @@ class LinksHTMLParser(html_parser.HTMLParser):
             for attr in attrs:
                 if attr[0] == 'href':
                     self.active_link = self.url, attr[1]
-                elif attr[0] == 'metadata-requires-python':
+                elif attr[0] == 'metadata-requires-python' or attr[0] == 'data-requires-python':
                     self.active_requires_python = attr[1] or None
 
     def handle_data(self, data):
@@ -71,7 +71,7 @@ def _scan_page_links(index_url, project_name, session):
     return parser.dists
 
 
-def _do_download(filename, link, session, wheeldir):
+def _do_download(logger, filename, link, session, wheeldir):
     url, link = link
     split_link = link.split('#sha256=')
     sha = split_link[1]
@@ -90,10 +90,8 @@ def _do_download(filename, link, session, wheeldir):
             logger.info('Reusing %s', output_file)
             return output_file, True
 
-        print("File hash doesn't match")
-
     full_link = urllib.parse.urljoin(url, link)
-    logging.getLogger('qer.net.pypi').info('Downloading %s -> %s', full_link, output_file)
+    logger.info('Downloading %s -> %s', full_link, output_file)
     if session is None:
         session = requests
     response = session.get(full_link, stream=True)
@@ -126,7 +124,7 @@ class PyPIRepository(Repository):
         return _scan_page_links(self.index_url, req.name, self.session)
 
     def resolve_candidate(self, candidate):
-        return _do_download(candidate.filename, candidate.link, self.session, self.wheeldir)
+        return _do_download(self.logger, candidate.filename, candidate.link, self.session, self.wheeldir)
 
     def close(self):
         self.session.close()

@@ -19,6 +19,12 @@ from qer import utils
 from qer.dists import DistInfo
 
 
+class MetadataError(Exception):
+    def __init__(self, name, version):
+        self.name = name
+        self.version = version
+
+
 class Extractor(six.with_metaclass(abc.ABCMeta, object)):
     @abc.abstractmethod
     def names(self):
@@ -206,7 +212,7 @@ def _fetch_from_source(source_file, extractor_type):
                 fake_setupdir = source_file
             else:
                 fake_setupdir = tempfile.mkdtemp()
-            setup_results = _parse_setup_py(name, fake_setupdir,
+            setup_results = _parse_setup_py(name, version, fake_setupdir,
                                             extractor.relative_opener(fake_setupdir,
                                                                       os.path.dirname(setup_file)))
             if setup_results is not None:
@@ -385,7 +391,7 @@ def fake_import(name, orig_import, modname, *args, **kwargs):
         sys.stdout.flush()
 
 
-def _parse_setup_py(name, fake_setupdir, opener):
+def _parse_setup_py(name, version, fake_setupdir, opener):
     import setuptools
     import distutils.core
     import sys
@@ -445,7 +451,7 @@ def _parse_setup_py(name, fake_setupdir, opener):
         contents = contents.replace('print ', '')
         exec(contents, spy_globals, spy_globals)
     except:
-        raise
+        raise MetadataError(name, version)
     finally:
         os.chdir(curr_dir)
         io.open = old_open

@@ -9,6 +9,7 @@ import qer.dists
 import qer.metadata
 import qer.repos.pypi
 import qer.utils
+from qer.utils import parse_requirement, merge_requirements
 import qer.repos.repository
 
 from qer.dists import DistributionCollection
@@ -63,27 +64,36 @@ def compile_roots(node, source, repo, dists, depth=1, verbose=False):
                     print(' ... CACHED[{}] ({})'.format(dist, source_repo))
                 else:
                     print(' ... DOWNLOAD ({})'.format(source_repo))
-            if isinstance(dist, qer.metadata.DistInfo):
-                metadata = dist
-            else:
-                metadata = qer.metadata.extract_metadata(dist, origin=source_repo)
-            nodes_to_recurse = dists.add_dist(metadata, source, source.dependencies[node])
+
+            nodes_to_recurse = set()
+            metadata = None
 
             try:
+                if isinstance(dist, qer.metadata.DistInfo):
+                    metadata = dist
+                else:
+                    metadata = qer.metadata.extract_metadata(dist, origin=source_repo)
+                nodes_to_recurse = dists.add_dist(metadata, source, source.dependencies[node])
                 if nodes_to_recurse:
                     for recurse_node in nodes_to_recurse:
                         for req in list(recurse_node.dependencies):
                             compile_roots(req, recurse_node, repo, dists, depth=depth + 1, verbose=verbose)
                 first_failure = None
                 break
-            except NoCandidateException as ex:
-                if first_failure is None:
-                    first_failure = ex
+            except qer.metadata.MetadataError as meta_error:
+                ex = meta_error
+                spec_req = merge_requirements(spec_req,
+                                              parse_requirement('{}!={}'.format(meta_error.name, meta_error.version)))
+            except NoCandidateException as no_candidate_ex:
+                ex = no_candidate_ex
+                spec_req = merge_requirements(spec_req,
+                                              parse_requirement('{}!={}'.format(metadata.name, metadata.version)))
 
-                for node in nodes_to_recurse:
-                    dists.remove_dists(node, remove_upstream=False)
+            if first_failure is None:
+                first_failure = ex
 
-                spec_req = qer.utils.merge_requirements(spec_req, qer.utils.parse_requirement(metadata.name + '!=' + str(metadata.version)))
+            for node in nodes_to_recurse:
+                dists.remove_dists(node, remove_upstream=False)
 
         if first_failure is not None:
             raise first_failure
