@@ -213,12 +213,17 @@ class DistributionCollection(object):
                 constraints = self._build_constraints(node, exclude=node.metadata.name)
                 for reverse_dep in node.reverse_deps:
                     if reverse_dep.metadata.name == node.metadata.name:
+                        if reverse_dep.extra is None:
+                            print('Reverse dep with none extra: {}'.format(reverse_dep))
                         extras.append(reverse_dep.extra)
                         constraints.extend(self._build_constraints(reverse_dep))
-                req_expr = '{}{}=={}'.format(
-                    node.metadata.name,
-                    ('[' + ','.join(sorted(extras)) + ']') if extras else '',
-                    node.metadata.version)
+                try:
+                    req_expr = '{}{}=={}'.format(
+                        node.metadata.name,
+                        ('[' + ','.join(sorted(extras)) + ']') if extras else '',
+                        node.metadata.version)
+                except TypeError:
+                    print('Failed processing {}, extras={}'.format(node, extras))
 
                 constraint_text = ', '.join(sorted(constraints))
                 if filter(node):

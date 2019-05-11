@@ -117,7 +117,7 @@ def run_compile(input_reqfiles, constraint_files, source, force_extras, find_lin
             if source_repo is None:
                 raise ValueError('Cannot remove results from source, no source provided')
 
-            filter = lambda dist: dist.metadata.origin is not source_repo
+            filter = lambda dist: not hasattr(dist.metadata, 'origin') or dist.metadata.origin is not source_repo
 
         lines = sorted(results.generate_lines(filter=filter), key=str.lower)
         print('\n'.join(lines))

@@ -50,8 +50,9 @@ def compile_roots(node, source, repo, dists, depth=1, verbose=False):
             print(' ... REUSE')
         logger.info('Reusing dist %s %s', node.metadata.name, node.metadata.version)
 
-        for req in list(node.dependencies):
-            compile_roots(req, node, repo, dists, depth=depth + 1, verbose=verbose)
+        if node.metadata.meta:
+            for req in list(node.dependencies):
+                compile_roots(req, node, repo, dists, depth=depth + 1, verbose=verbose)
     else:
         spec_req = node.build_constraints()
         first_failure = None

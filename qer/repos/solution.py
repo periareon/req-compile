@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import logging
+import sys
 from collections import defaultdict
 
 import six
@@ -78,13 +79,21 @@ def load_from_file(filename):
                                     qer.utils.parse_requirement('{}{}'.format(metadata.name,
                                                                               constraints if constraints else '')))
 
+    nodes_to_remove = []
     for node in result:
-        requirements = [value for dep_node, value in six.iteritems(node.dependencies)
-                        if dep_node.metadata.name != node.metadata.name]
-        if node.extra:
-            requirements = [qer.utils.parse_requirement('{} ; extra=="{}"'.format(req, node.extra))
-                            for req in requirements]
-        node.metadata.reqs.extend(requirements)
+        if node.metadata is not None:
+            try:
+                requirements = [value for dep_node, value in six.iteritems(node.dependencies)
+                                if dep_node.metadata.name != node.metadata.name]
+                if node.extra:
+                    requirements = [qer.utils.parse_requirement('{} ; extra=="{}"'.format(req, node.extra))
+                                    for req in requirements]
+                node.metadata.reqs.extend(requirements)
+            except Exception:
+                print('Error while processing requirement {}'.format(node), file=sys.stderr)
+                raise
+        else:
+            nodes_to_remove.append(node)
 
     # for root_req in req_mapping:
     #     for req in req_mapping[root_req]:
@@ -98,4 +107,9 @@ def load_from_file(filename):
     #                     qer.utils.parse_requirement(req + req_constraints + ' ; extra=="{}"'.format(extra)))
     #         else:
     #             result.nodes[qer.utils.normalize_project_name(root_req)].metadata.reqs.append(qer.utils.parse_requirement(req + req_constraints))
+    for node in nodes_to_remove:
+        try:
+            del result.nodes[node.key]
+        except KeyError:
+            pass
     return result
