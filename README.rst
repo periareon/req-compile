@@ -16,9 +16,9 @@ Qer is a Python work-in-progress requirements compiler geared toward large Pytho
 
 * Produce an output file consisting of fully constrained exact versions of your requirements
 * Identify sources of constraints on your requirements
-* Quickly hash your input requirements so you know when recompilation is necessary
 * Constrain your output requirements using requirements that will not be included in the output
 * Save distributions that are downloaded while compiling
+* Use a current solution as a source of requirements. In other words, you can easily compile a subset from an existing solution.
 
 Why use it?
 -----------
@@ -26,9 +26,9 @@ Why use it?
 
 * Does not allow you to use constraints that are not included in the final output
 * Provides no tools to track down where conflicting constraints originate
-* Cannot fetch dependency information from a remote cache
+* Cannot treat source directories recursively as package sources
 
-Qer has (or will have) these features, making it an effective tool for large Python projects.
+Qer has these features, making it an effective tool for large Python projects.
 
 This situation is very common:
 
@@ -94,7 +94,7 @@ adding `tenacity` to a nested requirements file when `tenacity` is already inclu
 
 Constraining output
 ~~~~~~~~~~~~~~~~~~~
-Constraint production outputs with test requirements using the `--constraints` flag. More than one file can be
+Constrain production outputs with test requirements using the `--constraints` flag. More than one file can be
 passed::
 
     > cat requirements.txt
