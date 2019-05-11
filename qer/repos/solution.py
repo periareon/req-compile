@@ -67,17 +67,21 @@ def load_from_file(filename):
             constraints = imap(lambda x: x.split(' ')[1].replace('(', '').replace(')', '') if '(' in x else None, sources)
 
             version = qer.utils.parse_version(list(req.specifier)[0].version)
-            metadata = qer.dists.DistInfo(req.name, version, [], req.extras)
+            metadata = qer.dists.DistInfo(req.name, version, [])
             result.add_dist(metadata, None, req)
 
             for name, constraints in zip(pkg_names, constraints):
                 if name and not (name.endswith('.txt') or name.endswith('.out')):
-                    result.add_dist(name, None, None)
+                    constraint_req = qer.utils.parse_requirement(name)
+                    result.add_dist(constraint_req.name, None, constraint_req)
                     reverse_dep = result[name]
-                    result.add_dist(metadata.name,
-                                    reverse_dep,
-                                    qer.utils.parse_requirement('{}{}'.format(metadata.name,
-                                                                              constraints if constraints else '')))
+                else:
+                    reverse_dep = None
+                result.add_dist(metadata.name,
+                                reverse_dep,
+                                qer.utils.parse_requirement('{}{}{}'.format(metadata.name,
+                                                                            ('[' + ','.join(req.extras) + ']') if req.extras else '',
+                                                                            constraints if constraints else '')))
 
     nodes_to_remove = []
     for node in result:

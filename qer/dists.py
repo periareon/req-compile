@@ -103,6 +103,7 @@ class DistributionCollection(object):
         else:
             base_node = node
 
+        nodes = {base_node}
         if has_metadata:
             self.update_dists(base_node, metadata)
 
@@ -110,8 +111,8 @@ class DistributionCollection(object):
             for reverse_node in base_node.reverse_deps:
                 if reverse_node.req_name == req_name:
                     self.update_dists(reverse_node, metadata)
+                    nodes.add(reverse_node)
 
-        nodes = {node}
         if base_node.metadata is not None and reason is not None:
             if not reason.specifier.contains(base_node.metadata.version):
                 # Discard the metadata

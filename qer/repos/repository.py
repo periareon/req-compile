@@ -193,12 +193,10 @@ class Candidate(object):
 
 
 class NoCandidateException(Exception):
-    def __init__(self, *args):
-        super(NoCandidateException, self).__init__(*args)
-        self.req = None
-        self.results = None
-        self.constraint_results = None
-        self.mapping = None
+    def __init__(self, req, results=None):
+        super(NoCandidateException, self).__init__()
+        self.req = req
+        self.results = results
         self.check_level = 0
 
     def __str__(self):
@@ -325,8 +323,7 @@ class Repository(six.with_metaclass(abc.ABCMeta, BaseRepository)):
                 self.logger.warning('Considering source distribution for %s', candidate.name)
             return self.resolve_candidate(candidate)
 
-        ex = NoCandidateException()
-        ex.req = req
+        ex = NoCandidateException(req)
         ex.check_level = check_level
         raise ex
 

@@ -67,7 +67,9 @@ def test_dist_with_two_extras():
                                  'c ; extra=="x2"'],
                             ))
 
-    dists.add_dist(metadata, None, Requirement.parse('a[x1]<3.0'))
+    recurse = dists.add_dist(metadata, None, Requirement.parse('a[x1]<3.0'))
+    assert recurse == {dists['a'], dists['a[x1]']}
+
     dists.add_dist(metadata, None, Requirement.parse('a[x2]>=1.0'))
 
     assert dists['a'].build_constraints() == Requirement.parse('a>=1.0,<3.0')
@@ -78,7 +80,6 @@ def test_dist_with_two_extras():
     assert {dep.key for dep in dists['a'].dependencies} == set()
     assert {dep.key for dep in dists['a[x1]'].dependencies} == {'a', 'b'}
     assert {dep.key for dep in dists['a[x2]'].dependencies} == {'a', 'c'}
-
 
 def test_dist_with_extra_metadata_later():
     dists = DistributionCollection()

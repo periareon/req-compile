@@ -17,7 +17,7 @@ from qer.repos.repository import NoCandidateException
 
 
 ROOT_REQ = 'root__a.out'
-CONSTRAINTS_REQ = 'constraints__a'
+CONSTRAINTS_REQ = 'constraints__a.out'
 
 BLACKLIST = [
     'setuptools'
@@ -158,5 +158,5 @@ def perform_compile(input_reqs, repo, constraint_reqs=None):
 
     for node in results:
         if node.metadata is None:
-            raise NoCandidateException()
+            raise NoCandidateException(node.build_constraints(), results=results)
     return results
