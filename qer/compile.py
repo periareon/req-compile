@@ -1,6 +1,4 @@
 """Logic for compiling requirements"""
-from __future__ import print_function
-
 import logging
 
 import pkg_resources
@@ -25,8 +23,10 @@ BLACKLIST = [
 
 MAX_DOWNGRADE = 3
 
+LOG = logging.getLogger('qer.compile')
 
-def compile_roots(node, source, repo, dists, depth=1, verbose=False):
+
+def compile_roots(node, source, repo, dists, depth=1):
     """
 
     Args:
@@ -40,19 +40,16 @@ def compile_roots(node, source, repo, dists, depth=1, verbose=False):
     Returns:
 
     """
-    logger = logging.getLogger('qer.compile')
-
-    if verbose:
-        print(' ' * depth + node.key, end='')
+    logger = logging.LoggerAdapter(LOG, dict(depth=depth))
+    logger.debug('Processing node %s', node)
 
     if node.metadata is not None:
-        if verbose:
-            print(' ... REUSE')
-        logger.info('Reusing dist %s %s', node.metadata.name, node.metadata.version)
 
         if node.metadata.meta:
             for req in list(node.dependencies):
-                compile_roots(req, node, repo, dists, depth=depth + 1, verbose=verbose)
+                compile_roots(req, node, repo, dists, depth=depth + 1)
+        else:
+            logger.info('Reusing dist %s %s', node.metadata.name, node.metadata.version)
     else:
         spec_req = node.build_constraints()
         first_failure = None
@@ -60,11 +57,7 @@ def compile_roots(node, source, repo, dists, depth=1, verbose=False):
             dist, cached = repo.get_candidate(spec_req)
             source_repo = repo.source_of(spec_req)
 
-            if verbose:
-                if cached:
-                    print(' ... CACHED[{}] ({})'.format(dist, source_repo))
-                else:
-                    print(' ... DOWNLOAD ({})'.format(source_repo))
+            logger.debug('Acquired candidate %s [%s] (%s)', dist, source_repo, 'cached' if cached else 'download')
 
             nodes_to_recurse = set()
             metadata = None
@@ -78,14 +71,17 @@ def compile_roots(node, source, repo, dists, depth=1, verbose=False):
                 if nodes_to_recurse:
                     for recurse_node in nodes_to_recurse:
                         for req in list(recurse_node.dependencies):
-                            compile_roots(req, recurse_node, repo, dists, depth=depth + 1, verbose=verbose)
+                            compile_roots(req, recurse_node, repo, dists, depth=depth + 1)
                 first_failure = None
                 break
             except qer.metadata.MetadataError as meta_error:
+                logger.warning('The metadata could not be processed for %s (%s)', node.key, meta_error)
                 ex = meta_error
                 spec_req = merge_requirements(spec_req,
                                               parse_requirement('{}!={}'.format(meta_error.name, meta_error.version)))
             except NoCandidateException as no_candidate_ex:
+                logger.debug('Could not use candidate because some of its dependencies could not be satisfied (%s)',
+                             no_candidate_ex)
                 ex = no_candidate_ex
                 spec_req = merge_requirements(spec_req,
                                               parse_requirement('{}!={}'.format(metadata.name, metadata.version)))
@@ -100,31 +96,18 @@ def compile_roots(node, source, repo, dists, depth=1, verbose=False):
             raise first_failure
 
 
-def _generate_constraints(dists):
-    for dist in dists:
-        if dist.metadata.name in BLACKLIST:
-            continue
-        if dist.metadata.name.startswith(ROOT_REQ):
-            continue
-
-        req = dists.build_constraints(dist.metadata.name)
-        if req.specifier:
-            yield req
-
-
-def _build_root_metadata(roots, name):
-    return qer.dists.DistInfo(name, '0', roots, meta=True)
-
-
 def perform_compile(input_reqs, repo, constraint_reqs=None):
     """
     Perform a compilation using the given inputs and constraints
+
     Args:
         input_reqs (list[pkg_resources.Requirement] or
                     dict[str, list[pkg_resources.Requirement]]):
             List of mapping of input requirements. If provided a mapping,
             requirements will be kept separate during compilation for better
             insight into the resolved requirements
+        repo (qer.repos.Repository): Repository to use as a source of
+            Python packages.
         constraint_reqs (list[pkg_resources.Requirement] or None): Constraints to use
             when compiling
     Returns:
@@ -132,7 +115,7 @@ def perform_compile(input_reqs, repo, constraint_reqs=None):
     """
     results = qer.dists.DistributionCollection()
 
-    if constraint_reqs:
+    if constraint_reqs is not None:
         constraint_node = results.add_dist(qer.dists.RequirementsFile(CONSTRAINTS_REQ, constraint_reqs), None, None)
 
     nodes = set()
@@ -153,10 +136,7 @@ def perform_compile(input_reqs, repo, constraint_reqs=None):
         ex.results = results
         raise
 
-    if constraint_reqs:
+    if constraint_reqs is not None:
         results.remove_dists(list(constraint_node)[0])
 
-    for node in results:
-        if node.metadata is None:
-            raise NoCandidateException(node.build_constraints(), results=results)
     return results

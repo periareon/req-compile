@@ -26,54 +26,58 @@ from qer.versions import is_possible
 def _cantusereason_to_text(reason):
     if reason == CantUseReason.VERSION_NO_SATISFY:
         return 'version mismatch'
-    elif reason == CantUseReason.WRONG_PLATFORM:
+    if reason == CantUseReason.WRONG_PLATFORM:
         return 'platform mismatch {}'.format(qer.repos.repository.PLATFORM_TAG)
-    elif reason == CantUseReason.WRONG_PYTHON_VERSION:
+    if reason == CantUseReason.WRONG_PYTHON_VERSION:
         return 'python version/interpreter mismatch ({})'.format(', '.join(
             qer.repos.repository.RequiresPython.WHEEL_VERSION_TAGS))
-    elif reason == CantUseReason.IS_PRERELEASE:
+    if reason == CantUseReason.IS_PRERELEASE:
         return 'prereleases not used'
 
     return 'unknown'
 
 
-def _generate_no_candidate_display(ex, repo, dists):
+def _generate_no_candidate_display(req, repo, dists):
     if isinstance(repo, MultiRepository):
         repos = repo.repositories
     else:
         repos = [repo]
 
-    failing_node = dists[ex.req.name]
+    failing_node = dists[req.name]
     nodes = failing_node.reverse_deps
     constraints = failing_node.build_constraints()
     if not nodes:
-        print('No package available for {}, latest is {}'.format(ex.req.name, 'unknown'), file=sys.stderr)
+        print('No package available for {}, latest is {}'.format(req.name, 'unknown'), file=sys.stderr)
     else:
         can_satisfy = is_possible(constraints)
         if not can_satisfy:
             print('No version could possibly satisfy the following requirements:', file=sys.stderr)
         else:
-            print('No version of {} could satisfy the following requirements:'.format(ex.req.name), file=sys.stderr)
+            print('No version of {} could satisfy the following requirements:'.format(req.name), file=sys.stderr)
 
         for node in nodes:
             print('   {} requires {}'.format(node, node.dependencies[failing_node]), file=sys.stderr)
 
         if can_satisfy:
-            all_candidates = {repo: repo.get_candidates(ex.req) for repo in repos}
+            all_candidates = {repo: repo.get_candidates(req) for repo in repos}
             if sum(len(candidates) for candidates in all_candidates.values()) == 0:
                 print('No candidates found in any of the input sources', file=sys.stderr)
             else:
-                print('Found the following candidates, none of which will work:', file=sys.stderr)
-                for repo in repos:
-                    candidates = repo.get_candidates(ex.req)
-                    print('  {}:'.format(repo), file=sys.stderr)
-                    if candidates:
-                        for candidate in repo._sort_candidates(candidates):
-                            print('  {}: {}'.format(candidate,
-                                                    _cantusereason_to_text(repo.why_cant_I_use(ex.req, candidate))),
-                                  file=sys.stderr)
-                    else:
-                        print('  No candidates found', file=sys.stderr)
+                _dump_repo_candidates(req, repos)
+
+
+def _dump_repo_candidates(req, repos):
+    print('Found the following candidates, none of which will work:', file=sys.stderr)
+    for repo in repos:
+        candidates = repo.get_candidates(req)
+        print('  {}:'.format(repo), file=sys.stderr)
+        if candidates:
+            for candidate in repo._sort_candidates(candidates):
+                print('  {}: {}'.format(candidate,
+                                        _cantusereason_to_text(repo.why_cant_I_use(req, candidate))),
+                      file=sys.stderr)
+        else:
+            print('  No candidates found', file=sys.stderr)
 
 
 def run_compile(input_reqfiles, constraint_files, source, force_extras, find_links,
@@ -106,7 +110,7 @@ def run_compile(input_reqfiles, constraint_files, source, force_extras, find_lin
     try:
         results = perform_compile(input_reqs, repo, constraint_reqs=constraint_reqs)
 
-        filter = None
+        req_filter = None
 
         if remove_source:
             source_repo = None
@@ -117,16 +121,16 @@ def run_compile(input_reqfiles, constraint_files, source, force_extras, find_lin
             if source_repo is None:
                 raise ValueError('Cannot remove results from source, no source provided')
 
-            filter = lambda dist: not hasattr(dist.metadata, 'origin') or dist.metadata.origin is not source_repo
+            req_filter = lambda dist: not hasattr(dist.metadata, 'origin') or dist.metadata.origin is not source_repo
 
-        lines = sorted(results.generate_lines(filter=filter), key=str.lower)
+        lines = sorted(results.generate_lines(filter=req_filter), key=str.lower)
         print('\n'.join(lines))
     except qer.repos.repository.NoCandidateException as ex:
-        _generate_no_candidate_display(ex, repo, ex.results)
+        _generate_no_candidate_display(ex.req, repo, ex.results)
         sys.exit(1)
-
-    if delete_wheeldir:
-        shutil.rmtree(wheeldir)
+    finally:
+        if delete_wheeldir:
+            shutil.rmtree(wheeldir)
 
 
 def build_repo(solution, source, force_extras, find_links, index_url, no_index, wheeldir):
@@ -149,11 +153,20 @@ def build_repo(solution, source, force_extras, find_links, index_url, no_index, 
     return repo
 
 
+class IndentFilter(logging.Filter):
+    def filter(self, record):
+        depth = getattr(record, 'depth', 0)
+        record.msg = (' ' * depth) + record.msg
+        return record
+
+
 def compile_main():
     logging.basicConfig(level=logging.ERROR)
 
     parser = argparse.ArgumentParser()
     parser.add_argument('requirement_files', nargs='+', help='Input requirements files')
+    parser.add_argument('-v', '--verbose', default=False, action='store_true',
+                        help='Enable verbose output to stderr')
     parser.add_argument('-c', '--constraints', action='append',
                         help='Contraints files. Not included in final compilation')
     parser.add_argument('--remove-source', default=False, action='store_true',
@@ -167,7 +180,14 @@ def compile_main():
     add_repo_args(parser)
 
     args = parser.parse_args()
-    run_compile(args.requirement_files, args.constraints if args.constraints else None, args.source, tuple(args.extra), args.find_links, args.index_url,
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG, stream=sys.stderr)
+        logging.getLogger('qer').setLevel(logging.DEBUG)
+
+        logging.getLogger('qer.compile').addFilter(IndentFilter())
+
+    run_compile(args.requirement_files, args.constraints if args.constraints else None,
+                args.source, tuple(args.extra), args.find_links, args.index_url,
                 args.wheel_dir, args.no_index, args.remove_source, args.solution)
 
 

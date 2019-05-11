@@ -10,6 +10,7 @@ import tempfile
 import types
 import zipfile
 import abc
+from contextlib import closing
 
 import pkg_resources
 import six
@@ -173,9 +174,9 @@ def _fetch_from_source(source_file, extractor_type):
 
     """
     extractor = extractor_type(source_file)  # type: Extractor
-    filename = os.path.basename(source_file)
-    name, version = parse_source_filename(filename)
-    try:
+    with closing(extractor):
+        filename = os.path.basename(source_file)
+        name, version = parse_source_filename(filename)
         metadata_file = None
         pkg_info_file = None
         egg_info = None
@@ -230,8 +231,6 @@ def _fetch_from_source(source_file, extractor_type):
 
         if metadata_file:
             return _parse_flat_metadata(extractor.open(metadata_file, encoding='utf-8').read())
-    finally:
-        extractor.close()
 
 
 def _fetch_from_wheel(wheel):
@@ -330,7 +329,7 @@ class FakeModule(types.ModuleType):
     def __getitem__(self, item):
         self.call_count += 1
         if self.call_count > 30:
-            raise ValueError('Too many')
+            raise ValueError('Unintended overflow')
         return None
 
     def __contains__(self, item):
@@ -362,33 +361,20 @@ def fake_import(name, orig_import, modname, *args, **kwargs):
         if 'Cython' in modname or (
                 name == lower_modname or (name + '_') in lower_modname or
                 ('_' + name) in lower_modname):
-            # print('Module is fake: {}'.format(modname))
             sys.modules[modname] = FakeModule(modname)
         return orig_import(modname, *args, **kwargs)
     except ImportError:
-        # print('Failed on {}'.format(modname))
         # Skip any cython importing to improve setup.py compatibility (e.g. subprocess32)
         if 'Cython' in modname:
             raise
         if six.PY2:
             if 'asyncio' in modname:
                 raise
-
-        #     if 'typing' in modname:
-        #         raise
-        #
         if name in modname.lower() or '_version' in modname or 'version' in modname:
             modparts = modname.split('.')
             for idx, mod in enumerate(modparts):
                 sys.modules['.'.join(modparts[:idx + 1])] = FakeModule(mod)
-        # print('Failed, original import')
-        # try:
-        #     return orig_import(modname, *args, **kwargs)
-        # except TypeError:
-        #     pass
         return orig_import(modname, *args, **kwargs)
-    finally:
-        sys.stdout.flush()
 
 
 def _parse_setup_py(name, version, fake_setupdir, opener):

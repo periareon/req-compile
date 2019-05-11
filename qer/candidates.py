@@ -16,7 +16,7 @@ def candidates_main():
     args = parser.parse_args()
 
     wheeldir = tempfile.mkdtemp()
-    repo = build_repo(args.source, None, args.find_links, args.index_url,
+    repo = build_repo(None, args.source, None, args.find_links, args.index_url,
                       args.no_index, wheeldir)
 
     try:

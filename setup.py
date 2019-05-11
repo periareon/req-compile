@@ -15,7 +15,7 @@ setup(
         'console_scripts': [
             'req-compile = qer.cmdline:compile_main',
             'req-hash = qer.hash:hash_main',
-            'req-candidates = qer.hash:candidates_main',
+            'req-candidates = qer.candidates:candidates_main',
         ],
     },
     classifiers=[

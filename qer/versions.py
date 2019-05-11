@@ -1,5 +1,4 @@
 import pkg_resources
-from pkg_resources._vendor.packaging.version import Version
 
 
 PART_MAX = '999999999'

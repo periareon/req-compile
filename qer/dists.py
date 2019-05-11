@@ -1,7 +1,6 @@
 import collections
 import copy
 
-import pkg_resources
 import six
 
 try:
@@ -11,12 +10,6 @@ except ImportError:
 
 from qer import utils
 from qer.utils import normalize_project_name, merge_requirements, filter_req, merge_extras
-
-
-class ConstraintViolatedException(Exception):
-    """Raised if a dist cannot be added"""
-    def __init__(self, node):
-        self.node = node
 
 
 class DependencyNode(object):
