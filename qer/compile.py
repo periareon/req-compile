@@ -10,7 +10,7 @@ import qer.utils
 from qer.utils import parse_requirement, merge_requirements
 import qer.repos.repository
 
-from qer.dists import DistributionCollection
+from qer.dists import DistributionCollection, RequirementsFile
 from qer.repos.repository import NoCandidateException
 
 
@@ -53,20 +53,33 @@ def compile_roots(node, source, repo, dists, depth=1):
     else:
         spec_req = node.build_constraints()
         first_failure = None
+        original_metadata = None
+
         for attempt in range(MAX_DOWNGRADE):
-            dist, cached = repo.get_candidate(spec_req)
-            source_repo = repo.source_of(spec_req)
+            try:
+                dist, cached = repo.get_candidate(spec_req)
+                source_repo = repo.source_of(spec_req)
 
-            logger.debug('Acquired candidate %s [%s] (%s)', dist, source_repo, 'cached' if cached else 'download')
+                logger.debug('Acquired candidate %s [%s] (%s)', dist, source_repo, 'cached' if cached else 'download')
 
-            nodes_to_recurse = set()
-            metadata = None
+                nodes_to_recurse = set()
+                metadata = None
+            except NoCandidateException as no_candidate_ex:
+                if attempt == 0:
+                    raise no_candidate_ex
+                else:
+                    break
 
             try:
                 if isinstance(dist, qer.metadata.DistInfo):
                     metadata = dist
                 else:
                     metadata = qer.metadata.extract_metadata(dist, origin=source_repo)
+
+                # Save off the original metadata for better error information
+                if original_metadata is None:
+                    original_metadata = metadata
+
                 nodes_to_recurse = dists.add_dist(metadata, source, source.dependencies[node])
                 if nodes_to_recurse:
                     for recurse_node in nodes_to_recurse:
@@ -93,6 +106,11 @@ def compile_roots(node, source, repo, dists, depth=1):
                 dists.remove_dists(node, remove_upstream=False)
 
         if first_failure is not None:
+            nodes_to_recurse = dists.add_dist(original_metadata, source, source.dependencies[node])
+            if nodes_to_recurse:
+                for recurse_node in nodes_to_recurse:
+                    for req in list(recurse_node.dependencies):
+                        compile_roots(req, recurse_node, repo, dists, depth=depth + 1)
             raise first_failure
 
 
@@ -111,23 +129,23 @@ def perform_compile(input_reqs, repo, constraint_reqs=None):
         constraint_reqs (list[pkg_resources.Requirement] or None): Constraints to use
             when compiling
     Returns:
-        tuple[DistributionCollection, DistributionCollection, dict]
+        tuple[DistributionCollection, set[DependencyNode], set[DependencyNode]], the solution and the constraints node used for
+            the solution
     """
     results = qer.dists.DistributionCollection()
 
-    if constraint_reqs is not None:
-        constraint_node = results.add_dist(qer.dists.RequirementsFile(CONSTRAINTS_REQ, constraint_reqs), None, None)
-
+    constraint_node = set()
     nodes = set()
+    if constraint_reqs is not None:
+        constraint_node = results.add_dist(RequirementsFile(CONSTRAINTS_REQ, constraint_reqs), None, None)
+        nodes |= constraint_node
+
     if isinstance(input_reqs, dict):
-        fake_reqs = []
         for idx, req_source in enumerate(input_reqs):
             roots = input_reqs[req_source]
-            name = '{}{}'.format(ROOT_REQ, idx)
-            fake_reqs.append(pkg_resources.Requirement(name))
-            nodes |= results.add_dist(qer.dists.RequirementsFile(req_source, roots), None, None)
+            nodes |= results.add_dist(RequirementsFile(req_source, roots), None, None)
     else:
-        nodes |= results.add_dist(qer.dists.RequirementsFile(ROOT_REQ, input_reqs), None, None)
+        nodes |= results.add_dist(RequirementsFile(ROOT_REQ, input_reqs), None, None)
 
     try:
         for node in nodes:
@@ -136,7 +154,4 @@ def perform_compile(input_reqs, repo, constraint_reqs=None):
         ex.results = results
         raise
 
-    if constraint_reqs is not None:
-        results.remove_dists(list(constraint_node)[0])
-
-    return results
+    return results, nodes - constraint_node, constraint_node

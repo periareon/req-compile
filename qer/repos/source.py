@@ -15,13 +15,12 @@ SPECIAL_FILES  = ('__init__.py',)
 
 
 class SourceRepository(Repository):
-    def __init__(self, path, allow_prerelease=None, force_extras=()):
+    def __init__(self, path, allow_prerelease=None):
         super(SourceRepository, self).__init__(allow_prerelease=allow_prerelease)
         self.path = path
         self._logger = logging.getLogger('qer.repository.source')
         self.distributions = collections.defaultdict(list)
         self._find_all_distributions()
-        self._force_extras = force_extras
 
     def _find_all_distributions(self):
         for root, dirs, files in os.walk(self.path):
@@ -63,9 +62,6 @@ class SourceRepository(Repository):
 
     def resolve_candidate(self, candidate):
         return candidate.filename, True
-
-    def force_extras(self):
-        return self._force_extras
 
     def close(self):
         pass

@@ -76,10 +76,11 @@ def test_load_remove_root_removes_all(load_solution):
 def test_round_trip(scenario, roots, mock_metadata, mock_pypi):
     mock_pypi.load_scenario('normal')
 
-    results = qer.compile.perform_compile(pkg_resources.parse_requirements(roots), mock_pypi)
+    results, nodes, _ = qer.compile.perform_compile(pkg_resources.parse_requirements(roots), mock_pypi)
 
     fd, name = tempfile.mkstemp()
-    os.write(fd, '\n'.join(results.generate_lines()).encode('utf-8'))
+    for line in results.generate_lines(nodes):
+        os.write(fd, '{}  # {}\n'.format(line[0], line[1]).encode('utf-8'))
     os.close(fd)
 
     solution_result = load_from_file(name)

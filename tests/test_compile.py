@@ -21,7 +21,7 @@ def test_mock_pypi(mock_metadata, mock_pypi):
 
 
 def _real_outputs(results):
-    outputs = results.build()
+    outputs = results[0].build(results[1])
     outputs = sorted(outputs, key=lambda x: x.name)
     return [str(req) for req in outputs]
 

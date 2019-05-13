@@ -1,5 +1,9 @@
+from __future__ import print_function
+
 import collections
 import copy
+import itertools
+import sys
 
 import six
 
@@ -48,6 +52,17 @@ class DependencyNode(object):
                 # Reparse to create a correct hash
                 req = utils.parse_requirement(str(req))
         return req
+
+
+def _build_constraints(root_node, exclude=None):
+    constraints = []
+    for node in root_node.reverse_deps:
+        if node.req_name != exclude:
+            req = node.dependencies[root_node]
+            specifics = ' (' + str(req.specifier) + ')' if req.specifier else ''
+            source = node.metadata.name + ('[' + node.extra + ']' if node.extra else '')
+            constraints += [source + specifics]
+    return constraints
 
 
 class DistributionCollection(object):
@@ -164,65 +179,59 @@ class DistributionCollection(object):
             node.dependencies = {}
             node.metadata = None
 
-    def build(self):
-        results = []
-        for node in self.nodes.values():
-            if isinstance(node.metadata, DistInfo) and not node.extra:
-                extras = []
-                for reverse_dep in node.reverse_deps:
-                    if reverse_dep.metadata.name == node.metadata.name:
-                        extras.append(reverse_dep.extra)
-                req_expr = '{}{}=={}'.format(
-                    node.metadata.name,
-                    ('[' + ','.join(sorted(extras)) + ']') if extras else '',
-                    node.metadata.version)
-                results.append(utils.parse_requirement(req_expr))
-        return results
+    def build(self, roots):
+        results = self.generate_lines(roots)
+        return [utils.parse_requirement(result[0]) for result in results]
 
-    def _build_constraints(self, root_node, exclude=None):
-        constraints = []
-        for node in root_node.reverse_deps:
-            if node.req_name != exclude:
-                req = node.dependencies[root_node]
-                specifics = ' (' + str(req.specifier) + ')' if req.specifier else ''
-                source = node.metadata.name + ('[' + node.extra + ']' if node.extra else '')
-                constraints += [source + specifics]
-        return constraints
-
-    def generate_lines(self, filter=None):
+    def generate_lines(self, roots, req_filter=None, _visited=None):
         """
         Generate the lines of a results file from this collection
         Args:
-            filter (Callable): Filter to apply to each element of the collection.
+            roots (list[DependencyNode]): List of roots to generate lines from
+            req_filter (Callable): Filter to apply to each element of the collection.
                 Return True to keep a node, False to exclude it
-
+            _visited (set): Internal set to make sure each node is only visited once
         Returns:
             (list[str]) List of rendered node entries in the form of
                 reqname==version   # reasons
         """
-        filter = filter or (lambda _: True)
-        for node in self.nodes.values():
+        if _visited is None:
+            _visited = set()
+        req_filter = req_filter or (lambda _: True)
+
+        results = []
+        for node in itertools.chain(*[six.iterkeys(root.dependencies) for root in roots]):
+            if node in _visited:
+                continue
+
+            _visited.add(node)
+
             if isinstance(node.metadata, DistInfo) and not node.extra:
                 extras = []
-                constraints = self._build_constraints(node, exclude=node.metadata.name)
+                constraints = _build_constraints(node, exclude=node.metadata.name)
                 for reverse_dep in node.reverse_deps:
                     if reverse_dep.metadata.name == node.metadata.name:
                         if reverse_dep.extra is None:
                             print('Reverse dep with none extra: {}'.format(reverse_dep))
                         extras.append(reverse_dep.extra)
-                        constraints.extend(self._build_constraints(reverse_dep))
+                        constraints.extend(_build_constraints(reverse_dep))
                 try:
                     req_expr = '{}{}=={}'.format(
                         node.metadata.name,
                         ('[' + ','.join(sorted(extras)) + ']') if extras else '',
                         node.metadata.version)
                 except TypeError:
-                    print('Failed processing {}, extras={}'.format(node, extras))
+                    print('Failed processing {}, extras={}'.format(node, extras),
+                          file=sys.stderr)
+                    continue
 
                 constraint_text = ', '.join(sorted(constraints))
-                if filter(node):
-                    if not node.metadata.meta:
-                        yield '{}# {}'.format(req_expr.ljust(43), constraint_text)
+                if not node.metadata.meta and req_filter(node):
+                    results.append((req_expr, constraint_text))
+
+            results.extend(self.generate_lines([node], req_filter=req_filter, _visited=_visited))
+
+        return results
 
     def __contains__(self, project_name):
         return normalize_project_name(project_name) in self.nodes

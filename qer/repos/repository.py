@@ -150,8 +150,6 @@ class Candidate(object):
 
         # Sort based on tags to make sure the most specific distributions
         # are matched first
-        # self.sortkey = (candidate_type.value, version, self.tag_score)
-        # self.sortkey = (version, self.tag_score)
         self.sortkey = (version, candidate_type.value, self.tag_score)
 
         self.preparsed = None
@@ -200,10 +198,13 @@ class NoCandidateException(Exception):
         self.check_level = 0
 
     def __str__(self):
-        return 'NoCandidateException - no candidate for "{}" satisfies {}'.format(
-            self.req.name,
-            self.req.specifier
-        )
+        if self.req.specifier:
+            return 'NoCandidateException - no candidate for "{}" satisfies {}'.format(
+                self.req.name,
+                self.req.specifier
+            )
+        else:
+            return 'NoCandidateException - no candidates found for "{}"'.format(self.req.name)
 
 
 def process_distribution(source, filename, py_version=None):
@@ -246,9 +247,6 @@ class BaseRepository(six.with_metaclass(abc.ABCMeta, object)):
 
     def source_of(self, req):
         return self
-
-    def force_extras(self):
-        return ()
 
 
 class CantUseReason(enum.Enum):

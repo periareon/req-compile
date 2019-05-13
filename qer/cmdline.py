@@ -37,11 +37,14 @@ def _cantusereason_to_text(reason):
     return 'unknown'
 
 
-def _generate_no_candidate_display(req, repo, dists):
+def _repo_as_list(repo):
     if isinstance(repo, MultiRepository):
-        repos = repo.repositories
-    else:
-        repos = [repo]
+        return repo.repositories
+    return [repo]
+
+
+def _generate_no_candidate_display(req, repo, dists):
+    repos = _repo_as_list(repo)
 
     failing_node = dists[req.name]
     nodes = failing_node.reverse_deps
@@ -80,8 +83,20 @@ def _dump_repo_candidates(req, repos):
             print('  No candidates found', file=sys.stderr)
 
 
-def run_compile(input_reqfiles, constraint_files, source, force_extras, find_links,
-                index_url, wheeldir, no_index, remove_source, solution):
+def _create_input_reqs(input_arg, extra_source_repos):
+    if os.path.isdir(input_arg):
+        dist = qer.metadata.extract_metadata(input_arg)
+        if dist is None:
+            raise ValueError('Input arg "{}" is not directory containing setup.py or requirements file'.format(input_arg))
+        # source_repo = SourceRepository(input_arg)
+        extra_source_repos.append(input_arg)
+        return [utils.parse_requirement(dist.name)]
+    else:
+        return utils.reqs_from_files([input_arg])
+
+
+def run_compile(input_args, constraint_files, sources, find_links, index_url, wheeldir, no_index, remove_source,
+                solution):
 
     if wheeldir:
         if not os.path.exists(wheeldir):
@@ -91,40 +106,41 @@ def run_compile(input_reqfiles, constraint_files, source, force_extras, find_lin
         wheeldir = tempfile.mkdtemp()
         delete_wheeldir = True
 
-    if len(input_reqfiles) == 1 and os.path.isdir(input_reqfiles[0]):
-        dist = qer.metadata.extract_metadata(input_reqfiles[0])
-        input_reqs = [utils.parse_requirement(dist.name)]
-    else:
-        input_reqs = {
-            req_file: utils.reqs_from_files([req_file])
-            for req_file in input_reqfiles
-        }
+    extra_sources = []
+    input_reqs = {
+        input_arg: _create_input_reqs(input_arg, extra_sources)
+        for input_arg in input_args
+    }
+    if extra_sources:
+        remove_source = True
+
+    sources = extra_sources + sources
 
     if constraint_files:
         constraint_reqs = utils.reqs_from_files(constraint_files)
     else:
         constraint_reqs = None
 
-    repo = build_repo(solution, source, force_extras, find_links, index_url, no_index, wheeldir)
+    repo = build_repo(solution, sources, find_links, index_url, no_index, wheeldir)
 
     try:
-        results = perform_compile(input_reqs, repo, constraint_reqs=constraint_reqs)
+        results, roots, constraints = perform_compile(input_reqs, repo, constraint_reqs=constraint_reqs)
 
         req_filter = None
 
         if remove_source:
-            source_repo = None
-            for repo in repo.repositories:
-                if isinstance(repo, SourceRepository):
-                    source_repo = repo
-
-            if source_repo is None:
+            if not any(isinstance(r, SourceRepository) for r in _repo_as_list(repo)):
                 raise ValueError('Cannot remove results from source, no source provided')
 
-            req_filter = lambda dist: not hasattr(dist.metadata, 'origin') or dist.metadata.origin is not source_repo
+            def is_from_source(dist):
+                return not hasattr(dist.metadata, 'origin') or not isinstance(dist.metadata.origin, SourceRepository)
 
-        lines = sorted(results.generate_lines(filter=req_filter), key=str.lower)
-        print('\n'.join(lines))
+            req_filter = is_from_source
+
+        lines = sorted(results.generate_lines(roots, req_filter=req_filter), key=lambda x: x[0].lower())
+        left_column_len = max(len(x[0]) for x in lines)
+        for line in lines:
+            print('{}  # {}'.format(line[0].ljust(left_column_len), line[1]))
     except qer.repos.repository.NoCandidateException as ex:
         _generate_no_candidate_display(ex.req, repo, ex.results)
         sys.exit(1)
@@ -133,12 +149,12 @@ def run_compile(input_reqfiles, constraint_files, source, force_extras, find_lin
             shutil.rmtree(wheeldir)
 
 
-def build_repo(solution, source, force_extras, find_links, index_url, no_index, wheeldir):
+def build_repo(solution, sources, find_links, index_url, no_index, wheeldir):
     repos = []
     if solution:
         repos.append(SolutionRepository(solution))
-    if source:
-        repos.append(SourceRepository(source, force_extras=force_extras))
+    if sources:
+        repos.extend(SourceRepository(source) for source in sources)
     if find_links:
         repos.append(FindLinksRepository(find_links))
     if not no_index:
@@ -171,9 +187,6 @@ def compile_main():
                         help='Contraints files. Not included in final compilation')
     parser.add_argument('--remove-source', default=False, action='store_true',
                         help='Remove distributions satisfied via --source from the output')
-    parser.add_argument('-e', '--extra', nargs='+', default=[],
-                        help='Extras to include for every discovered distribution '
-                             'provided via --source')
     parser.add_argument('-u', '--solution', type=str, default=None,
                         help='Existing fully-pinned constraints file to use as a baseline when compiling')
 
@@ -186,15 +199,14 @@ def compile_main():
 
         logging.getLogger('qer.compile').addFilter(IndentFilter())
 
-    run_compile(args.requirement_files, args.constraints if args.constraints else None,
-                args.source, tuple(args.extra), args.find_links, args.index_url,
-                args.wheel_dir, args.no_index, args.remove_source, args.solution)
+    run_compile(args.requirement_files, args.constraints if args.constraints else None, args.sources, args.find_links,
+                args.index_url, args.wheel_dir, args.no_index, args.remove_source, args.solution)
 
 
 def add_repo_args(parser):
     parser.add_argument('-i', '--index-url', type=str, default=None)
     parser.add_argument('-f', '--find-links', type=str, default=None)
-    parser.add_argument('-s', '--source', type=str, default=None)
+    parser.add_argument('-s', '--source', nargs='+', dest='sources', default=[])
     parser.add_argument('-w', '--wheel-dir', type=str, default=None)
     parser.add_argument('--no-index',
                         action='store_true', default=False,
