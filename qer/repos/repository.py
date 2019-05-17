@@ -21,18 +21,18 @@ INTERPRETER_TAGS = {
 }
 
 
-def _get_platform_tag():
+def _get_platform_tags():
     is_32 = struct.calcsize("P") == 4
     if sys.platform == 'win32':
         if is_32:
-            tag = 'win32'
+            tag = ('win32',)
         else:
-            tag = 'win_amd64'
+            tag = ('win_amd64',)
     elif sys.platform.startswith('linux'):
         if is_32:
-            tag = 'manylinux1_' + platform.machine()
+            tag = ('manylinux1_' + platform.machine(), 'linux_' + platform.machine())
         else:
-            tag = 'manylinux1_x86_64'
+            tag = ('manylinux1_x86_64', 'linux_x86_64')
     else:
         raise ValueError('Unsupported platform: {}'.format(sys.platform))
     return tag
@@ -41,7 +41,7 @@ def _get_platform_tag():
 INTERPRETER_TAG = INTERPRETER_TAGS.get(platform.python_implementation(), 'cp')
 PY_VERSION_NUM = str(sys.version_info.major) + str(sys.version_info.minor)
 
-PLATFORM_TAG = _get_platform_tag()
+PLATFORM_TAGS = _get_platform_tags()
 EXTENSIONS = ('.whl', '.tar.gz', '.tgz', '.zip')
 
 
@@ -237,7 +237,7 @@ def _tar_gz_candidate(source, filename, py_version=None):
 
 
 def _check_platform_compatibility(py_platform):
-    return py_platform == 'any' or py_platform.lower() == PLATFORM_TAG
+    return py_platform == 'any' or (py_platform.lower() in PLATFORM_TAGS)
 
 
 class BaseRepository(six.with_metaclass(abc.ABCMeta, object)):

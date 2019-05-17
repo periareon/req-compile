@@ -25,6 +25,9 @@ class MetadataError(Exception):
         self.name = name
         self.version = version
 
+    def __str__(self):
+        return 'Failed to parse metadata for package {} - {}'.format(self.name, self.version)
+
 
 class Extractor(six.with_metaclass(abc.ABCMeta, object)):
     @abc.abstractmethod
@@ -370,7 +373,10 @@ def fake_import(name, orig_import, modname, *args, **kwargs):
         if six.PY2:
             if 'asyncio' in modname:
                 raise
-        if name in modname.lower() or '_version' in modname or 'version' in modname:
+        if (name in modname.lower() or
+                '_version' in modname or
+                'version' in modname or
+                modname.startswith('_')):
             modparts = modname.split('.')
             for idx, mod in enumerate(modparts):
                 sys.modules['.'.join(modparts[:idx + 1])] = FakeModule(mod)
@@ -386,6 +392,8 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
     logging.captureWarnings(True)
 
     sys.exit = lambda code: None
+    if not hasattr(sys, 'getwindowsversion'):
+        sys.getwindowsversion = lambda: (6, 0, 1)
 
     results = []
     setup_with_results = functools.partial(setup, results)
@@ -437,7 +445,7 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
         contents = contents.replace('print ', '')
         exec(contents, spy_globals, spy_globals)
     except:
-        raise MetadataError(name, version)
+        raise # MetadataError(name, version)
     finally:
         os.chdir(curr_dir)
         io.open = old_open

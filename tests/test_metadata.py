@@ -177,6 +177,22 @@ def test_ed(mock_targz):
     assert metadata.version == pkg_resources.parse_version('1.4')
 
 
+def test_pyyaml(mock_targz):
+    archive = mock_targz('PyYAML-5.1')
+
+    metadata = qer.metadata.extract_metadata(archive)
+    assert metadata.name == 'PyYAML'
+    assert metadata.version == pkg_resources.parse_version('5.1')
+
+
+def test_psutil(mock_targz):
+    archive = mock_targz('psutil-5.6.2')
+
+    metadata = qer.metadata.extract_metadata(archive)
+    assert metadata.name == 'psutil'
+    assert metadata.version == pkg_resources.parse_version('5.6.2')
+
+
 def test_ptl(mock_targz):
     archive = mock_targz('ptl-2015.11.4')
 

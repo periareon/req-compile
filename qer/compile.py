@@ -1,7 +1,9 @@
 """Logic for compiling requirements"""
 import logging
+import sys
 
 import pkg_resources
+import six
 
 import qer.dists
 import qer.metadata
@@ -89,13 +91,13 @@ def compile_roots(node, source, repo, dists, depth=1):
                 break
             except qer.metadata.MetadataError as meta_error:
                 logger.warning('The metadata could not be processed for %s (%s)', node.key, meta_error)
-                ex = meta_error
+                ex = sys.exc_info()
                 spec_req = merge_requirements(spec_req,
                                               parse_requirement('{}!={}'.format(meta_error.name, meta_error.version)))
             except NoCandidateException as no_candidate_ex:
                 logger.debug('Could not use candidate because some of its dependencies could not be satisfied (%s)',
                              no_candidate_ex)
-                ex = no_candidate_ex
+                ex = sys.exc_info()
                 spec_req = merge_requirements(spec_req,
                                               parse_requirement('{}!={}'.format(metadata.name, metadata.version)))
 
@@ -106,12 +108,13 @@ def compile_roots(node, source, repo, dists, depth=1):
                 dists.remove_dists(node, remove_upstream=False)
 
         if first_failure is not None:
-            nodes_to_recurse = dists.add_dist(original_metadata, source, source.dependencies[node])
-            if nodes_to_recurse:
-                for recurse_node in nodes_to_recurse:
-                    for req in list(recurse_node.dependencies):
-                        compile_roots(req, recurse_node, repo, dists, depth=depth + 1)
-            raise first_failure
+            if original_metadata is not None:
+                nodes_to_recurse = dists.add_dist(original_metadata, source, source.dependencies[node])
+                if nodes_to_recurse:
+                    for recurse_node in nodes_to_recurse:
+                        for req in list(recurse_node.dependencies):
+                            compile_roots(req, recurse_node, repo, dists, depth=depth + 1)
+            six.reraise(*first_failure)
 
 
 def perform_compile(input_reqs, repo, constraint_reqs=None):
