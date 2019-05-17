@@ -1,0 +1,1 @@
+req-compile . --extra test --remove-source --wheel-dir .wheeldir | tee compiled-constraints.txt | req-compile . --solution - --wheel-dir .wheeldir | tee compiled-requirements.txt

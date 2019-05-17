@@ -55,33 +55,41 @@ class SolutionRepository(Repository):
 def load_from_file(filename):
     result = qer.dists.DistributionCollection()
 
-    with open(filename) as reqfile:
-        for line in reqfile.readlines():
-            req_part, _, source_part = line.partition('#')
-            req = qer.utils.parse_requirement(req_part)
-            source_part = source_part.strip()
+    if filename == '-':
+        reqfile = sys.stdin
+    else:
+        reqfile = open(filename)
 
-            sources = source_part.split(', ')
+    for line in reqfile.readlines():
+        req_part, _, source_part = line.partition('#')
+        req = qer.utils.parse_requirement(req_part)
+        source_part = source_part.strip()
 
-            pkg_names = imap(lambda x: x.split(' ')[0], sources)
-            constraints = imap(lambda x: x.split(' ')[1].replace('(', '').replace(')', '') if '(' in x else None, sources)
+        sources = source_part.split(', ')
 
-            version = qer.utils.parse_version(list(req.specifier)[0].version)
-            metadata = qer.dists.DistInfo(req.name, version, [])
-            result.add_dist(metadata, None, req)
+        pkg_names = imap(lambda x: x.split(' ')[0], sources)
+        constraints = imap(lambda x: x.split(' ')[1].replace('(', '').replace(')', '') if '(' in x else None, sources)
 
-            for name, constraints in zip(pkg_names, constraints):
-                if name and not (name.endswith('.txt') or name.endswith('.out')):
-                    constraint_req = qer.utils.parse_requirement(name)
-                    result.add_dist(constraint_req.name, None, constraint_req)
-                    reverse_dep = result[name]
-                else:
-                    reverse_dep = None
-                result.add_dist(metadata.name,
-                                reverse_dep,
-                                qer.utils.parse_requirement('{}{}{}'.format(metadata.name,
-                                                                            ('[' + ','.join(req.extras) + ']') if req.extras else '',
-                                                                            constraints if constraints else '')))
+        version = qer.utils.parse_version(list(req.specifier)[0].version)
+        metadata = qer.dists.DistInfo(req.name, version, [])
+        result.add_dist(metadata, None, req)
+
+        for name, constraints in zip(pkg_names, constraints):
+            if name and not (name.endswith('.txt') or name.endswith('.out')):
+                constraint_req = qer.utils.parse_requirement(name)
+                result.add_dist(constraint_req.name, None, constraint_req)
+                reverse_dep = result[name]
+            else:
+                reverse_dep = None
+            result.add_dist(metadata.name,
+                            reverse_dep,
+                            qer.utils.parse_requirement('{}{}{}'.format(metadata.name,
+                                                                        ('[' + ','.join(req.extras) + ']') if req.extras else '',
+                                                                        constraints if constraints else '')))
+
+    if reqfile is not sys.stdin:
+        reqfile.close()
+
 
     nodes_to_remove = []
     for node in result:

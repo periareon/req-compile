@@ -26,293 +26,72 @@ def _real_outputs(results):
     return [str(req) for req in outputs]
 
 
-def test_compile_c(mock_metadata, mock_pypi):
-    mock_pypi.load_scenario('normal')
-
-    results = qer.compile.perform_compile(
-        [pkg_resources.Requirement.parse('c')], mock_pypi)
-
-    assert list(_real_outputs(results)) == ['c==1.0.0']
-
-
-def test_compile_b(mock_metadata, mock_pypi):
-    mock_pypi.load_scenario('normal')
-
-    results = qer.compile.perform_compile(
-        [pkg_resources.Requirement.parse('b')], mock_pypi)
-
-    assert _real_outputs(results) == ['b==1.1.0', 'c==1.0.0']
-
-
-def test_compile_a(mock_metadata, mock_pypi):
-    mock_pypi.load_scenario('normal')
-
-    results = qer.compile.perform_compile(
-        [pkg_resources.Requirement.parse('a')], mock_pypi)
-
-    assert _real_outputs(results) == ['a==0.1.0']
-
-
-def test_compile_x_not_possible(mock_metadata, mock_pypi):
-    mock_pypi.load_scenario('multi',
-                            pkg_resources.parse_requirements(
-                                ['x==1.0.0']))
-
-    with pytest.raises(qer.repos.repository.NoCandidateException):
-        qer.compile.perform_compile(
-            [pkg_resources.Requirement.parse('x==1.0.1')], mock_pypi)
-
-
-def test_compile_y_transitive_not_available(mock_metadata, mock_pypi):
-    mock_pypi.load_scenario('multi',
-                            pkg_resources.parse_requirements(
-                                ['y==5.0.0']))
-
-    with pytest.raises(qer.repos.repository.NoCandidateException):
-        qer.compile.perform_compile(
-            [pkg_resources.Requirement.parse('y')], mock_pypi)
-
-
-def test_compile_a_extra(mock_metadata, mock_pypi):
-    mock_pypi.load_scenario('normal')
-
-    results = qer.compile.perform_compile(
-        [pkg_resources.Requirement.parse('a[x1]')], mock_pypi)
-
-    assert _real_outputs(results) == ['a[x1]==0.1.0', 'b==1.1.0', 'c==1.0.0']
-
-
-def test_compile_a_b_c(mock_metadata, mock_pypi):
-    mock_pypi.load_scenario('normal')
-
-    results = qer.compile.perform_compile(
-        pkg_resources.parse_requirements(['a', 'b', 'c']), mock_pypi)
-
-    assert _real_outputs(results) == ['a==0.1.0', 'b==1.1.0', 'c==1.0.0']
-
-
-def test_transitive_extra(mock_metadata, mock_pypi):
-    mock_pypi.load_scenario('normal')
-
-    results = qer.compile.perform_compile(
-        pkg_resources.parse_requirements(['d']), mock_pypi)
-
-    assert _real_outputs(results) == ['a[x1]==0.1.0', 'b==1.1.0', 'c==1.0.0', 'd==0.9.0']
-
-
-def test_transitive_extra_with_normal(mock_metadata, mock_pypi):
-    mock_pypi.load_scenario('normal')
-
-    results = qer.compile.perform_compile(
-        pkg_resources.parse_requirements(['a', 'd']), mock_pypi)
-
-    assert _real_outputs(results) == ['a[x1]==0.1.0', 'b==1.1.0', 'c==1.0.0', 'd==0.9.0']
-
-
-def test_combine_transitive_extras(mock_metadata, mock_pypi):
-    mock_pypi.load_scenario('normal')
-
-    results = qer.compile.perform_compile(
-        pkg_resources.parse_requirements(['e', 'd']), mock_pypi)
-
-    assert _real_outputs(results) == ['a[x1,x2]==0.1.0', 'b==1.1.0', 'c==1.0.0',
-                                      'd==0.9.0', 'e==0.9.0', 'f==1.0.0']
-
-
-def test_multiple_extras_in_root(mock_metadata, mock_pypi):
-    mock_pypi.load_scenario('normal')
-
-    results = qer.compile.perform_compile(
-        pkg_resources.parse_requirements(['a[x1,x2,x3]']), mock_pypi)
-
-    assert _real_outputs(results) == ['a[x1,x2,x3]==0.1.0', 'b==1.1.0', 'c==1.0.0',
-                                      'f==1.0.0']
-
-
-def test_constrained_req(mock_metadata, mock_pypi):
-    mock_pypi.load_scenario('multi',
-                            pkg_resources.parse_requirements(
-                                ['x==1.0.0',
-                                 'x==0.9.0']))
-
-    results = qer.compile.perform_compile(
-        pkg_resources.parse_requirements(['x<1']), mock_pypi)
-
-    assert _real_outputs(results) == ['x==0.9.0']
-
-
-def test_top_level_pins(mock_metadata, mock_pypi):
-    mock_pypi.load_scenario('multi',
-                            pkg_resources.parse_requirements(
-                                ['x==1.0.0',
-                                 'x==0.9.0']))
-
-    results = qer.compile.perform_compile(
-        {'a.txt': pkg_resources.parse_requirements(['x']),
-         'b.txt': pkg_resources.parse_requirements(['x<1'])}, mock_pypi)
-
-    assert _real_outputs(results) == ['x==0.9.0']
-
-
-def test_transitive_pin_violation(mock_metadata, mock_pypi):
-    mock_pypi.load_scenario('multi',
-                            pkg_resources.parse_requirements(
-                                ['x==1.0.0',
-                                 'x==0.9.0',
-                                 'y==5.0.0',
-                                 'y==4.0.0']))
-
-    results = qer.compile.perform_compile(
-        {'a.txt': pkg_resources.parse_requirements(['x', 'y']),
-         'b.txt': pkg_resources.parse_requirements(['y<5'])}, mock_pypi)
-
-    assert _real_outputs(results) == ['x==0.9.0', 'y==4.0.0']
-
-
-def test_compile_with_constraint(mock_metadata, mock_pypi):
-    mock_pypi.load_scenario('multi',
-                            pkg_resources.parse_requirements(
-                                ['x==1.0.0',
-                                 'x==0.9.0']))
-
-    results = qer.compile.perform_compile(
-        pkg_resources.parse_requirements(['x']),
-        mock_pypi,
-        constraint_reqs=list(pkg_resources.parse_requirements(['x<1'])))
-
-    assert _real_outputs(results) == ['x==0.9.0']
-
-
-def test_walk_back_1(mock_metadata, mock_pypi):
-    mock_pypi.load_scenario('walk-back',
-                            pkg_resources.parse_requirements(
-                                ['a==4.0',
-                                 'a==3.6',
-                                 'b==1.1',
-                                 'b==1.0']))
-
-    results = qer.compile.perform_compile(
-        pkg_resources.parse_requirements(['a<3.7', 'b']),
-        mock_pypi)
-
-    assert _real_outputs(results) == ['a==3.6', 'b==1.0']
-
-
-
-
-def test_compile_with_constraint_not_in_reqs(mock_metadata, mock_pypi):
-    """If a constraint's requirement is not available, make sure it doesn't
-    affect the compilation"""
-    mock_pypi.load_scenario('multi',
-                            pkg_resources.parse_requirements(
-                                ['x==1.0.0',
-                                 'x==0.9.0',
-                                 'y==5.0.0',
-                                 'y==4.0.0']))
-
-    results = qer.compile.perform_compile(
-        pkg_resources.parse_requirements(['x==1']),
-        mock_pypi,
-        constraint_reqs=list(pkg_resources.parse_requirements(['y==5'])))
-
-    assert _real_outputs(results) == ['x==1.0.0']
-
-
-def test_compile_with_direct_constraint_not_possible(mock_metadata, mock_pypi):
-    mock_pypi.load_scenario('multi',
-                            pkg_resources.parse_requirements(
-                                ['x==1.0.0']))
-
-    with pytest.raises(qer.repos.repository.NoCandidateException):
-        qer.compile.perform_compile(
-            pkg_resources.parse_requirements(['x']),
+@fixture
+def perform_compile(mock_metadata, mock_pypi):
+    def _compile(scenario, index, reqs, constraint_reqs=None):
+        if index is not None:
+            index = [pkg_resources.Requirement.parse(req) for req in index]
+        mock_pypi.load_scenario(scenario, index)
+        if constraint_reqs is not None:
+            constraint_reqs = {'test_constraints': [pkg_resources.Requirement.parse(req) for req in constraint_reqs]}
+        else:
+            constraint_reqs = {}
+
+        if isinstance(reqs, list):
+            reqs = {'test_reqs': reqs}
+
+        input_reqs = {key: [pkg_resources.Requirement.parse(req) for req in value] for key, value in reqs.items()}
+        return _real_outputs(qer.compile.perform_compile(
+            input_reqs,
             mock_pypi,
-            constraint_reqs=list(pkg_resources.parse_requirements(['x<1'])))
+            constraint_reqs=constraint_reqs))
+    return _compile
 
 
-def test_compile_with_transitive_constraint_not_possible(mock_metadata, mock_pypi):
-    mock_pypi.load_scenario('multi',
-                            pkg_resources.parse_requirements(
-                                ['x==1.0.0',
-                                 'x==0.9.0',
-                                 'y==5.0.0',
-                                 'y==4.0.0']))
+@pytest.mark.parametrize(
+    'scenario, index, reqs, constraints, results',
+    [
+        ('normal', None, ['c'], None, ['c==1.0.0']),
+        ('normal', None, ['b'], None, ['b==1.1.0', 'c==1.0.0']),
+        ('normal', None, ['a'], None, ['a==0.1.0']),
+        ('normal', None, ['a[x1]'], None, ['a[x1]==0.1.0', 'b==1.1.0', 'c==1.0.0']),
+        ('normal', None, ['a', 'b', 'c'], None, ['a==0.1.0', 'b==1.1.0', 'c==1.0.0']),
+        ('normal', None, ['d'], None, ['a[x1]==0.1.0', 'b==1.1.0', 'c==1.0.0', 'd==0.9.0']),
+        ('normal', None, ['e', 'd'], None, ['a[x1,x2]==0.1.0', 'b==1.1.0', 'c==1.0.0', 'd==0.9.0', 'e==0.9.0', 'f==1.0.0']),
+        ('normal', None, ['a[x1,x2,x3]'], None, ['a[x1,x2,x3]==0.1.0', 'b==1.1.0', 'c==1.0.0', 'f==1.0.0']),
 
+        ('multi', ['x==1.0.0', 'x==0.9.0'], ['x<1'], None, ['x==0.9.0']),
+        # Test that top level pins apply regardless of source
+        ('multi', ['x==1.0.0', 'x==0.9.0'], {'a.txt': ['x'], 'b.txt': ['x<1']}, None, ['x==0.9.0']),
+        # Check for a transitive pin violation
+        ('multi', ['x==1.0.0', 'x==0.9.0', 'y==5.0.0', 'y==4.0.0'], {'a.txt': ['x', 'y'], 'b.txt': ['y<5']}, None, ['x==0.9.0', 'y==4.0.0']),
+        ('multi', ['x==1.0.0', 'x==0.9.0'], ['x'], ['x<1'], ['x==0.9.0']),
+        ('multi', ['x==1.0.0', 'x==0.9.0', 'y==5.0.0', 'y==4.0.0'], ['x==1'], ['y==5'], ['x==1.0.0']),
+
+        ('walk-back', ['a==4.0', 'a==3.6', 'b==1.1', 'b==1.0'], ['a<3.7', 'b'], None, ['a==3.6', 'b==1.0']),
+
+        ('early-violated', ['a==5.0.0', 'x==0.9.0', 'x==1.1.0', 'y==4.0.0', 'z==1.0.0'], ['a', 'y'], None, ['a==5.0.0', 'x==0.9.0', 'y==4.0.0', 'z==1.0.0']),
+
+        ('extra-violated', ['a==5.0.0', 'b==4.0.0', 'x==0.9.0', 'x==1.1.0', 'y==4.0.0', 'z==1.0.0'], ['a', 'y'], None, ['a==5.0.0', 'b==4.0.0', 'x[test]==0.9.0', 'y==4.0.0', 'z==1.0.0']),
+        ('extra-violated', ['a==5.0.0', 'b==4.0.0', 'x==0.9.0', 'x==1.1.0', 'y==4.0.0', 'z==1.0.0'], ['z', 'y'], None, ['x[test]==0.9.0', 'y==4.0.0', 'z==1.0.0']),
+
+        ('repeat-violated', ['a==5.0.0', 'x==1.2.0', 'x==1.1.0', 'x==0.9.0', 'y==4.0.0'], ['a', 'x', 'y'], None, ['a==5.0.0', 'x==0.9.0', 'y==4.0.0']),
+    ])
+def test_simple_compile(perform_compile, scenario, index, reqs, constraints, results):
+    assert perform_compile(scenario, index, reqs, constraint_reqs=constraints) == results
+
+
+@pytest.mark.parametrize(
+    'scenario, index, reqs, constraints',
+    [
+        ('multi', ['x==1.0.0'], ['x==1.0.1'], None),
+        ('multi', ['y==5.0.0'], ['y'], None),
+        ('multi', ['x==1.0.0'], ['x'], ['x<1']),
+        ('multi', ['x==1.0.0', 'x==0.9.0', 'y==5.0.0', 'y==4.0.0'], ['y==5'], ['x>1'])
+    ])
+def test_no_candidate(perform_compile, scenario, index, reqs, constraints):
     with pytest.raises(qer.repos.repository.NoCandidateException):
-        qer.compile.perform_compile(
-            pkg_resources.parse_requirements(['y==5']),
-            mock_pypi,
-            constraint_reqs=list(pkg_resources.parse_requirements(['x>1'])))
-
-
-def test_compile_early_violated(mock_metadata, mock_pypi):
-    mock_pypi.load_scenario('early-violated',
-                            pkg_resources.parse_requirements(
-                                ['a==5.0.0',
-                                 'x==0.9.0',
-                                 'x==1.1.0',
-                                 'y==4.0.0',
-                                 'z==1.0.0']))
-
-    results = qer.compile.perform_compile(
-        pkg_resources.parse_requirements(['a', 'y']),
-        mock_pypi)
-
-    assert _real_outputs(results) == ['a==5.0.0', 'x==0.9.0', 'y==4.0.0', 'z==1.0.0']
-
-
-def test_extra_violated(mock_metadata, mock_pypi):
-    """When a violated requirement is required with an extra and transitively requires another
-    dist, make sure that dist is not removed when required by another dist"""
-    mock_pypi.load_scenario('extra-violated',
-                            pkg_resources.parse_requirements(
-                                ['a==5.0.0',
-                                 'b==4.0.0',
-                                 'x==0.9.0',
-                                 'x==1.1.0',
-                                 'y==4.0.0',
-                                 'z==1.0.0']))
-
-    results = qer.compile.perform_compile(
-        pkg_resources.parse_requirements(['a', 'y']),
-        mock_pypi)
-
-    assert _real_outputs(results) == ['a==5.0.0', 'b==4.0.0', 'x[test]==0.9.0', 'y==4.0.0', 'z==1.0.0']
-
-
-def test_extra_violated_transitive_removed(mock_metadata, mock_pypi):
-    """When a violated requirement is required with an extra and used to transitively require another
-    package but no longer does, verify it does not appear in the output"""
-    mock_pypi.load_scenario('extra-violated',
-                            pkg_resources.parse_requirements(
-                                ['a==5.0.0',
-                                 'b==4.0.0',
-                                 'x==0.9.0',
-                                 'x==1.1.0',
-                                 'y==4.0.0',
-                                 'z==1.0.0']))
-
-    results = qer.compile.perform_compile(
-        pkg_resources.parse_requirements(['z', 'y']),
-        mock_pypi)
-
-    assert _real_outputs(results) == ['x[test]==0.9.0', 'y==4.0.0', 'z==1.0.0']
-
-
-def test_compile_repeat_violated(mock_metadata, mock_pypi):
-    mock_pypi.load_scenario('repeat-violated',
-                            pkg_resources.parse_requirements(
-                                ['a==5.0.0',
-                                 'x==1.2.0',
-                                 'x==1.1.0',
-                                 'x==0.9.0',
-                                 'y==4.0.0']))
-
-    results = qer.compile.perform_compile(
-        pkg_resources.parse_requirements(['a', 'x', 'y']),
-        mock_pypi)
-
-    assert _real_outputs(results) == ['a==5.0.0', 'x==0.9.0', 'y==4.0.0']
+        perform_compile(scenario, index, reqs, constraint_reqs=constraints)
 
 
 @fixture
@@ -330,17 +109,17 @@ def local_tree():
 
 
 def test_compile_source_user1(local_tree):
-    results = qer.compile.perform_compile([pkg_resources.Requirement.parse('user1')], local_tree)
+    results = qer.compile.perform_compile({'test': [pkg_resources.Requirement.parse('user1')]}, local_tree)
     assert _real_outputs(results) == ['framework==1.0.1', 'user1==2.0.0']
 
 
 def test_compile_source_user2(local_tree):
-    results = qer.compile.perform_compile([pkg_resources.Requirement.parse('user-2')], local_tree)
+    results = qer.compile.perform_compile({'test': [pkg_resources.Requirement.parse('user-2')]}, local_tree)
     assert _real_outputs(results) == ['framework==1.0.1', 'user-2==1.1.0', 'util==8.0.0']
 
 
 def test_compile_source_user2_recursive_root():
     base_dir = os.path.join(os.path.dirname(__file__), 'local-tree')
     repo = SourceRepository(base_dir)
-    results = qer.compile.perform_compile([pkg_resources.Requirement.parse('user-2')], repo)
+    results = qer.compile.perform_compile({'test': [pkg_resources.Requirement.parse('user-2')]}, repo)
     assert _real_outputs(results) == ['framework==1.0.1', 'user-2==1.1.0', 'util==8.0.0']
