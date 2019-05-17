@@ -13,10 +13,6 @@ import qer.repos.repository
 from qer.dists import DistributionCollection, RequirementsFile
 from qer.repos.repository import NoCandidateException
 
-
-ROOT_REQ = 'root__a.out'
-CONSTRAINTS_REQ = 'constraints__a.out'
-
 BLACKLIST = [
     'setuptools'
 ]
@@ -119,14 +115,13 @@ def perform_compile(input_reqs, repo, constraint_reqs=None):
     Perform a compilation using the given inputs and constraints
 
     Args:
-        input_reqs (list[pkg_resources.Requirement] or
-                    dict[str, list[pkg_resources.Requirement]]):
+        input_reqs (dict[str, list[pkg_resources.Requirement]]):
             List of mapping of input requirements. If provided a mapping,
             requirements will be kept separate during compilation for better
             insight into the resolved requirements
         repo (qer.repos.Repository): Repository to use as a source of
             Python packages.
-        constraint_reqs (list[pkg_resources.Requirement] or None): Constraints to use
+        constraint_reqs (dict[str, list[pkg_resources.Requirement]] or None): Constraints to use
             when compiling
     Returns:
         tuple[DistributionCollection, set[DependencyNode], set[DependencyNode]], the solution and the constraints node used for
@@ -134,18 +129,16 @@ def perform_compile(input_reqs, repo, constraint_reqs=None):
     """
     results = qer.dists.DistributionCollection()
 
-    constraint_node = set()
+    constraint_nodes = set()
     nodes = set()
     if constraint_reqs is not None:
-        constraint_node = results.add_dist(RequirementsFile(CONSTRAINTS_REQ, constraint_reqs), None, None)
-        nodes |= constraint_node
+        for constraint_source in constraint_reqs:
+            constraint_node = results.add_dist(RequirementsFile(constraint_source, constraint_reqs[constraint_source]), None, None)
+            constraint_nodes |= constraint_node
+            nodes |= constraint_node
 
-    if isinstance(input_reqs, dict):
-        for idx, req_source in enumerate(input_reqs):
-            roots = input_reqs[req_source]
-            nodes |= results.add_dist(RequirementsFile(req_source, roots), None, None)
-    else:
-        nodes |= results.add_dist(RequirementsFile(ROOT_REQ, input_reqs), None, None)
+    for req_source in input_reqs:
+        nodes |= results.add_dist(RequirementsFile(req_source, input_reqs[req_source]), None, None)
 
     try:
         for node in nodes:
@@ -154,4 +147,4 @@ def perform_compile(input_reqs, repo, constraint_reqs=None):
         ex.results = results
         raise
 
-    return results, nodes - constraint_node, constraint_node
+    return results, nodes - constraint_nodes, constraint_nodes

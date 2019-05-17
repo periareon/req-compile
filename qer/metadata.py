@@ -315,7 +315,7 @@ def setup(results, *args, **kwargs):
 
     all_reqs = list(utils.parse_requirements(reqs))
     for extra, extra_req_strs in extra_reqs.items():
-        cur_reqs = [utils.parse_requirement('{} ; extra=="{}"'.format(reqstr, extra))
+        cur_reqs = [utils.parse_requirement('{} ; extra=="{}"'.format(reqstr.strip(), extra))
                     for reqstr in extra_req_strs]
         all_reqs.extend(cur_reqs)
 

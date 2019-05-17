@@ -83,21 +83,42 @@ def _dump_repo_candidates(req, repos):
             print('  No candidates found', file=sys.stderr)
 
 
-def _create_input_reqs(input_arg, extra_source_repos):
-    if os.path.isdir(input_arg):
+def _create_input_reqs(input_arg, extras=None, extra_source_repos=None):
+    if input_arg == '-':
+        return utils.parse_requirements(sys.stdin.readlines())
+    elif os.path.isdir(input_arg):
         dist = qer.metadata.extract_metadata(input_arg)
         if dist is None:
             raise ValueError('Input arg "{}" is not directory containing setup.py or requirements file'.format(input_arg))
         # source_repo = SourceRepository(input_arg)
-        extra_source_repos.append(input_arg)
-        return [utils.parse_requirement(dist.name)]
+        if extra_source_repos is not None:
+            extra_source_repos.append(input_arg)
+        source_dist_name = dist.name
+        if extras:
+            source_dist_name += '[{}]'.format(','.join(extras))
+        return [utils.parse_requirement(source_dist_name)]
     else:
         return utils.reqs_from_files([input_arg])
 
 
-def run_compile(input_args, constraint_files, sources, find_links, index_url, wheeldir, no_index, remove_source,
-                solution):
+def run_compile(input_args, extras, constraint_files, sources, find_links, index_url,
+                wheeldir, no_index, remove_source, solution):
+    """
+    Args:
+        input_args (list[str]):
+        extras (Iterable[str]):
+        constraint_files (list[str]):
+        sources (list[str]):
+        find_links (str):
+        index_url (str):
+        wheeldir (str):
+        no_index (bool):
+        remove_source (bool):
+        solution (str):
 
+    Returns:
+
+    """
     if wheeldir:
         if not os.path.exists(wheeldir):
             os.mkdir(wheeldir)
@@ -108,7 +129,7 @@ def run_compile(input_args, constraint_files, sources, find_links, index_url, wh
 
     extra_sources = []
     input_reqs = {
-        input_arg: _create_input_reqs(input_arg, extra_sources)
+        input_arg: _create_input_reqs(input_arg, extras, extra_sources)
         for input_arg in input_args
     }
     if extra_sources:
@@ -116,10 +137,12 @@ def run_compile(input_args, constraint_files, sources, find_links, index_url, wh
 
     sources = extra_sources + sources
 
-    if constraint_files:
-        constraint_reqs = utils.reqs_from_files(constraint_files)
-    else:
-        constraint_reqs = None
+    constraint_reqs = {}
+    if constraint_files is not None:
+        constraint_reqs = {
+            input_arg: _create_input_reqs(input_arg, extras, extra_sources)
+            for input_arg in constraint_files
+        }
 
     repo = build_repo(solution, sources, find_links, index_url, no_index, wheeldir)
 
@@ -185,6 +208,8 @@ def compile_main():
                         help='Enable verbose output to stderr')
     parser.add_argument('-c', '--constraints', action='append',
                         help='Contraints files. Not included in final compilation')
+    parser.add_argument('-e', '--extra', nargs='+', dest='extras', default=[],
+                        help='Extras to apply automatically to source packages')
     parser.add_argument('--remove-source', default=False, action='store_true',
                         help='Remove distributions satisfied via --source from the output')
     parser.add_argument('-u', '--solution', type=str, default=None,
@@ -199,7 +224,7 @@ def compile_main():
 
         logging.getLogger('qer.compile').addFilter(IndentFilter())
 
-    run_compile(args.requirement_files, args.constraints if args.constraints else None, args.sources, args.find_links,
+    run_compile(args.requirement_files, args.extras, args.constraints if args.constraints else None, args.sources, args.find_links,
                 args.index_url, args.wheel_dir, args.no_index, args.remove_source, args.solution)
 
 

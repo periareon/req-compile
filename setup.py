@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='qer',
-    version='0.6.2',
+    version='0.6.3',
     author='Spencer Putt',
     author_email='sputt@alumni.iu.edu',
     description='Python requirements compiler',
@@ -17,6 +17,9 @@ setup(
             'req-hash = qer.hash:hash_main',
             'req-candidates = qer.candidates:candidates_main',
         ],
+    },
+    extra_requires={
+        'test': open('test-requirements.txt').readlines()
     },
     classifiers=[
         'Programming Language :: Python',
