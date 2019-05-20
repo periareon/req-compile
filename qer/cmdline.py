@@ -120,8 +120,11 @@ def run_compile(input_args, extras, constraint_files, sources, find_links, index
 
     """
     if wheeldir:
-        if not os.path.exists(wheeldir):
-            os.mkdir(wheeldir)
+        try:
+            if not os.path.exists(wheeldir):
+                os.mkdir(wheeldir)
+        except OSError:
+            pass
         delete_wheeldir = False
     else:
         wheeldir = tempfile.mkdtemp()
