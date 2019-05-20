@@ -121,6 +121,8 @@ class PyPIRepository(Repository):
         return self._logger
 
     def get_candidates(self, req):
+        if req is None:
+            return []
         return _scan_page_links(self.index_url, req.name, self.session)
 
     def resolve_candidate(self, candidate):

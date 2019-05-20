@@ -30,10 +30,12 @@ class FindLinksRepository(Repository):
         return self._logger
 
     def get_candidates(self, req):
-        project_name = utils.normalize_project_name(req.name)
+        project_name = None
+        if req is not None:
+            project_name = utils.normalize_project_name(req.name)
         results = []
         for candidate in self.links:
-            if utils.normalize_project_name(candidate.name) == project_name:
+            if req is None or utils.normalize_project_name(candidate.name) == project_name:
                 results.append(candidate)
 
         return results

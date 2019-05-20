@@ -1,5 +1,6 @@
 from __future__ import print_function
 import collections
+import itertools
 import logging
 import os
 
@@ -17,6 +18,10 @@ SPECIAL_FILES  = ('__init__.py',)
 class SourceRepository(Repository):
     def __init__(self, path, allow_prerelease=None):
         super(SourceRepository, self).__init__(allow_prerelease=allow_prerelease)
+
+        if not os.path.exists(path):
+            raise ValueError('Source directory {} does not exist'.format(path))
+
         self.path = path
         self._logger = logging.getLogger('qer.repository.source')
         self.distributions = collections.defaultdict(list)
@@ -57,8 +62,11 @@ class SourceRepository(Repository):
         return self._logger
 
     def get_candidates(self, req):
-        project_name = utils.normalize_project_name(req.name)
-        return self.distributions.get(project_name, [])
+        if req is None:
+            return itertools.chain(*self.distributions.values())
+        else:
+            project_name = utils.normalize_project_name(req.name)
+            return self.distributions.get(project_name, [])
 
     def resolve_candidate(self, candidate):
         return candidate.filename, True

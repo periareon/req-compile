@@ -445,7 +445,7 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
         contents = contents.replace('print ', '')
         exec(contents, spy_globals, spy_globals)
     except:
-        raise # MetadataError(name, version)
+         raise MetadataError(name, version)
     finally:
         os.chdir(curr_dir)
         io.open = old_open
