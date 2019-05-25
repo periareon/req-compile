@@ -21,12 +21,13 @@ from qer.dists import DistInfo
 
 
 class MetadataError(Exception):
-    def __init__(self, name, version):
+    def __init__(self, name, version, ex):
         self.name = name
         self.version = version
+        self.ex = ex
 
     def __str__(self):
-        return 'Failed to parse metadata for package {} - {}'.format(self.name, self.version)
+        return 'Failed to parse metadata for package {} ({}) - {}'.format(self.name, self.version, str(self.ex))
 
 
 class Extractor(six.with_metaclass(abc.ABCMeta, object)):
@@ -380,7 +381,10 @@ def fake_import(name, orig_import, modname, *args, **kwargs):
             modparts = modname.split('.')
             for idx, mod in enumerate(modparts):
                 sys.modules['.'.join(modparts[:idx + 1])] = FakeModule(mod)
-        return orig_import(modname, *args, **kwargs)
+        try:
+            return orig_import(modname, *args, **kwargs)
+        except TypeError:
+            raise ImportError
 
 
 def _parse_setup_py(name, version, fake_setupdir, opener):
@@ -424,6 +428,9 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
     os.listdir = lambda path: []
 
     curr_dir = os.getcwd()
+    old_getcwd = os.getcwd
+
+    os.getcwd = lambda: '.'
 
     old_open = io.open
     io.open = opener
@@ -444,9 +451,10 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
             contents = '\n'.join(lines)
         contents = contents.replace('print ', '')
         exec(contents, spy_globals, spy_globals)
-    except:
-         raise MetadataError(name, version)
+    # except Exception as ex:
+    #      raise MetadataError(name, version, ex)
     finally:
+        os.getcwd = old_getcwd
         os.chdir(curr_dir)
         io.open = old_open
         if six.PY2:

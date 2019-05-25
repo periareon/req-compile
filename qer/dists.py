@@ -187,7 +187,7 @@ class DistributionCollection(object):
         """
         Generate the lines of a results file from this collection
         Args:
-            roots (list[DependencyNode]): List of roots to generate lines from
+            roots (iterable[DependencyNode]): List of roots to generate lines from
             req_filter (Callable): Filter to apply to each element of the collection.
                 Return True to keep a node, False to exclude it
             _visited (set): Internal set to make sure each node is only visited once
@@ -249,6 +249,14 @@ class RequirementsFile(object):
         self.version = utils.parse_version('1')
         self.reqs = list(reqs)
         self.meta = True
+
+    def __repr__(self):
+        return 'RequirementsFile({})'.format(self.name)
+
+    @staticmethod
+    def from_file(full_path):
+        reqs = utils.reqs_from_files([full_path])
+        return RequirementsFile(full_path, reqs)
 
     def requires(self, extra=None):
         return [req for req in self.reqs

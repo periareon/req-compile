@@ -202,6 +202,14 @@ def test_ptl(mock_targz):
     assert set(metadata.reqs) == set(pkg_resources.parse_requirements(['pytest>=2.8.1']))
 
 
+def test_billiards(mock_targz):
+    archive = mock_targz('billiard-3.6.0.0')
+
+    metadata = qer.metadata.extract_metadata(archive)
+    assert metadata.name == 'billiard'
+    assert metadata.version == pkg_resources.parse_version('3.6.0.0')
+
+
 def test_non_extractor():
     this_path = os.path.dirname(__file__)
     source_path = os.path.join(this_path, 'source-packages', 'comtypes-1.1.7')

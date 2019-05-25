@@ -50,7 +50,7 @@ def reqs_from_files(requirements_files):
     return list(reqs.values())
 
 
-# @lru_cache(maxsize=None)
+@lru_cache(maxsize=None)
 def parse_requirement(req_text):
     if req_text[0] == '#':
         return None

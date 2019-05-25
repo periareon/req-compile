@@ -3,6 +3,7 @@ import collections
 import itertools
 import logging
 import os
+import sys
 
 from qer import utils
 import qer.metadata
@@ -41,17 +42,21 @@ class SourceRepository(Repository):
                     for dir_ in list(dirs):
                         dirs.remove(dir_)
 
-                    result = qer.metadata.extract_metadata(root)
-                    candidate = qer.repos.repository.Candidate(
-                        result.name,
-                        root,
-                        result.version,
-                        qer.repos.repository.RequiresPython(None),
-                        'any',
-                        None,
-                        qer.repos.repository.DistributionType.SOURCE)
-                    candidate.preparsed = result
-                    self.distributions[utils.normalize_project_name(result.name)].append(candidate)
+                    try:
+                        result = qer.metadata.extract_metadata(root)
+                        candidate = qer.repos.repository.Candidate(
+                            result.name,
+                            root,
+                            result.version,
+                            qer.repos.repository.RequiresPython(None),
+                            'any',
+                            None,
+                            qer.repos.repository.DistributionType.SOURCE)
+                        candidate.preparsed = result
+                        self.distributions[utils.normalize_project_name(result.name)].append(candidate)
+                    except qer.metadata.MetadataError as ex:
+                        print('Failed to parse metadata for {} - {}'.format(root, str(ex)),
+                              file=sys.stderr)
                     break
 
     def __repr__(self):
