@@ -1,6 +1,8 @@
 from __future__ import print_function
 
+import contextlib
 import functools
+import imp
 import io
 import logging
 import os
@@ -11,6 +13,9 @@ import types
 import zipfile
 import abc
 from contextlib import closing
+import setuptools
+import distutils.core
+import codecs
 
 import pkg_resources
 import six
@@ -356,17 +361,20 @@ class FakeModule(types.ModuleType):
             return None
 
 
-def fake_import(name, orig_import, modname, *args, **kwargs):
+def fake_import_impl(name, orig_import, modname, globals=None, locals=None, fromlist=(), level=0):
     try:
         lower_modname = modname.lower()
         if 'build_ext' in modname:
+            raise ImportError()
+
+        if 'Cython' in modname:
             raise ImportError()
 
         if 'Cython' in modname or (
                 name == lower_modname or (name + '_') in lower_modname or
                 ('_' + name) in lower_modname):
             sys.modules[modname] = FakeModule(modname)
-        return orig_import(modname, *args, **kwargs)
+        return orig_import(modname, globals, locals, fromlist, level)
     except ImportError:
         # Skip any cython importing to improve setup.py compatibility (e.g. subprocess32)
         if 'Cython' in modname:
@@ -381,95 +389,88 @@ def fake_import(name, orig_import, modname, *args, **kwargs):
             modparts = modname.split('.')
             for idx, mod in enumerate(modparts):
                 sys.modules['.'.join(modparts[:idx + 1])] = FakeModule(mod)
+            return FakeModule(modparts[-1])
         try:
-            return orig_import(modname, *args, **kwargs)
+            return orig_import(modname, globals, locals, fromlist, level)
         except TypeError:
             raise ImportError
+        except ImportError:
+            raise
+
+
+@contextlib.contextmanager
+def patch(module, member, new_value):
+    if isinstance(module, str):
+        if module not in sys.modules:
+            yield
+            return
+
+        module = sys.modules[module]
+
+    if not hasattr(module, member):
+        yield
+        return
+
+    old_member = getattr(module, member)
+    setattr(module, member, new_value)
+    try:
+        yield
+    finally:
+        setattr(module, member, old_member)
+
+
+def _remove_encoding_lines(contents):
+    lines = contents.split('\n')
+    lines = [line for line in lines if not (line.startswith('#') and
+                                            ('-*- coding' in line or '-*- encoding' in line or 'encoding:' in line))]
+    return '\n'.join(lines)
 
 
 def _parse_setup_py(name, version, fake_setupdir, opener):
-    import setuptools
-    import distutils.core
-    import sys
+
+    old_modules = sys.modules.copy()
 
     # Capture warnings.warn, which is sometimes used in setup.py files
     logging.captureWarnings(True)
 
-    sys.exit = lambda code: None
-    if not hasattr(sys, 'getwindowsversion'):
-        sys.getwindowsversion = lambda: (6, 0, 1)
-
     results = []
     setup_with_results = functools.partial(setup, results)
-    if six.PY2:
-        import __builtin__
-        old_import = __builtin__.__import__
-        __builtin__.__import__ = functools.partial(fake_import, name.lower(), __import__)
-    else:
-        import builtins
-        old_import = builtins.__import__
-        builtins.__import__ = functools.partial(fake_import, name.lower(), __import__)
 
-    import imp
-    old_load_source = imp.load_source
-    imp.load_source = lambda *args, **kwargs: FakeModule('load_source')
+    fake_import = functools.partial(fake_import_impl, name.lower(), __import__)
 
-    import codecs
-    old_codecs_open = codecs.open
-    codecs.open = opener
+    with patch(sys, 'stdout', StringIO()), \
+         patch(sys, 'stderr', StringIO()), \
+         patch(sys, 'exit', lambda code: None), \
+         patch(sys, 'getwindowsversion', lambda: (6, 0, 1)), \
+         patch('__builtin__', '__import__', fake_import), \
+         patch('builtins', '__import__', fake_import), \
+         patch(os, 'listdir', lambda path: []), \
+         patch(os, 'getcwd', lambda: '.'), \
+         patch(io, 'open', opener), \
+         patch(codecs, 'open', opener), \
+         patch(imp, 'load_source', lambda *args, **kwargs: FakeModule('load_source')), \
+         patch(setuptools, 'setup', setup_with_results), \
+         patch(distutils.core, 'setup', setup_with_results):
 
-    old_stdout = sys.stdout
-    old_stderr = sys.stderr
+        spy_globals = {'__file__': os.path.join(fake_setupdir, 'setup.py'),
+                       '__name__': '__main__',
+                       'open': opener,
+                       'setup': setup_with_results}
 
-    sys.stderr = StringIO()
-    sys.stdout = StringIO()
+        contents = opener('setup.py', encoding='utf-8').read()
+        try:
+            if six.PY2:
+                contents = _remove_encoding_lines(contents)
+            contents = contents.replace('print ', '')
+            exec (contents, spy_globals, spy_globals)
+        except Exception as ex:
+             raise MetadataError(name, version, ex)
+        finally:
+            # Restore the old module cache
+            sys.modules = old_modules
 
-    old_listdir = os.listdir
-    os.listdir = lambda path: []
-
-    curr_dir = os.getcwd()
-    old_getcwd = os.getcwd
-
-    os.getcwd = lambda: '.'
-
-    old_open = io.open
-    io.open = opener
-
-    spy_globals = {'__file__': os.path.join(fake_setupdir, 'setup.py'),
-                   '__name__': '__main__',
-                   'open': opener,
-                   'setup': setup_with_results}
-
-    setuptools.setup = setup_with_results
-    distutils.core.setup = setup_with_results
-    contents = opener('setup.py', encoding='utf-8').read()
-    try:
-        if six.PY2:
-            lines = contents.split('\n')
-            lines = [line for line in lines if not (line.startswith('#') and
-                                                    ('-*- coding' in line or '-*- encoding' in line or 'encoding:' in line))]
-            contents = '\n'.join(lines)
-        contents = contents.replace('print ', '')
-        exec(contents, spy_globals, spy_globals)
-    # except Exception as ex:
-    #      raise MetadataError(name, version, ex)
-    finally:
-        os.getcwd = old_getcwd
-        os.chdir(curr_dir)
-        io.open = old_open
-        if six.PY2:
-            __builtin__.__import__ = old_import
-        else:
-            builtins.__import__ = old_import
-        imp.load_source = old_load_source
-        codecs.open = old_codecs_open
-
-        sys.stderr = old_stderr
-        sys.stdout = old_stdout
-
-        os.listdir = old_listdir
     if not results:
-        pass
+        return None
     return results[0]
 
 

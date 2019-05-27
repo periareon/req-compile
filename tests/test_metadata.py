@@ -1,5 +1,7 @@
 import os
 import sys
+
+import pytest
 import six
 
 import pkg_resources
@@ -145,20 +147,13 @@ def test_etxmlf(mock_targz):
     assert metadata.version == pkg_resources.parse_version('1.0.1')
 
 
-def test_post(mock_targz):
-    archive = mock_targz('post-3.2.1-1')
+def test_compound(mock_targz):
+    """Test one tar after another directly that have failed in the passed"""
+    archive = mock_targz('etxmlf-1.0.1')
+    qer.metadata.extract_metadata(archive)
 
-    metadata = qer.metadata.extract_metadata(archive)
-    assert metadata.name == 'post'
-    assert metadata.version == pkg_resources.parse_version('3.2.1-1')
-
-
-def test_comtypes(mock_zip):
-    archive = mock_zip('comtypes-1.1.7')
-
-    metadata = qer.metadata.extract_metadata(archive)
-    assert metadata.name == 'comtypes'
-    assert metadata.version == pkg_resources.parse_version('1.1.7')
+    archive = mock_targz('ed-1.4')
+    qer.metadata.extract_metadata(archive)
 
 
 def test_noname(mock_targz):

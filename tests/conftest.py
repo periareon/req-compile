@@ -10,9 +10,17 @@ import tarfile
 import tempfile
 
 import qer.metadata
+import qer.utils
 from qer.repos.repository import RequiresPython
 from qer.repos.repository import Repository, Candidate
 from qer.repos.solution import load_from_file
+
+
+@pytest.fixture(scope='function', autouse=True)
+def clear_caches():
+    """Fixture to automatically clear the LRU cache for
+    the requirement parsing cache"""
+    qer.utils.parse_requirement.cache_clear()
 
 
 @pytest.fixture
