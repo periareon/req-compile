@@ -18,12 +18,21 @@ from qer.utils import normalize_project_name, merge_requirements, filter_req, me
 
 class DependencyNode(object):
     def __init__(self, key, req_name, metadata, extra=None):
+        """
+
+        Args:
+            key:
+            req_name:
+            metadata (RequirementContainer):
+            extra:
+        """
         self.key = key
         self.metadata = metadata
         self.req_name = req_name
         self.extra = extra
         self.dependencies = {}  # Dict[DependencyNode, pkg_resources.Requirement]
         self.reverse_deps = set()  # Set[DependencyNode]
+        self.repo = None
 
     def __repr__(self):
         return self.key
@@ -32,10 +41,7 @@ class DependencyNode(object):
         if self.metadata is None:
             return self.key + ' [UNSOLVED]'
         else:
-            return '{}{}=={}'.format(
-                self.metadata.name,
-                ('[' + self.extra + ']') if self.extra else '',
-                self.metadata.version)
+            return self.metadata.to_definition((self.extra,))
 
     def build_constraints(self):
         req = None
@@ -73,7 +79,7 @@ class DistributionCollection(object):
     def _build_key(name, extra=None):
         return utils.normalize_project_name(name) + (('[' + extra + ']') if extra else '')
 
-    def add_dist(self, metadata, source, reason):
+    def add_dist(self, metadata, source, reason, repo=None):
         """
         Add a distribution
 
@@ -104,6 +110,9 @@ class DistributionCollection(object):
         else:
             node = DependencyNode(key, req_name, None, extra)
             self.nodes[key] = node
+
+        if repo is not None:
+            node.repo = repo
 
         if extra:
             # Add a reference back to the root req

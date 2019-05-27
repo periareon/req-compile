@@ -36,7 +36,7 @@ class MetadataError(Exception):
         self.ex = ex
 
     def __str__(self):
-        return 'Failed to parse metadata for package {} ({}) - {}'.format(self.name, self.version, str(self.ex))
+        return 'Failed to parse metadata for package {} ({}) - {}: {}'.format(self.name, self.version, self.ex.__class__.__name__, str(self.ex))
 
 
 class Extractor(six.with_metaclass(abc.ABCMeta, object)):
@@ -469,8 +469,8 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
                 contents = _remove_encoding_lines(contents)
             contents = contents.replace('print ', '')
             exec (contents, spy_globals, spy_globals)
-        # except Exception as ex:
-        #      raise MetadataError(name, version, ex)
+        except Exception as ex:
+             raise MetadataError(name, version, ex)
         finally:
             # Restore the old module cache
             sys.modules = old_modules

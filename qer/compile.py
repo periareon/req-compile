@@ -78,7 +78,7 @@ def compile_roots(node, source, repo, dists, depth=1):
                 if original_metadata is None:
                     original_metadata = metadata
 
-                nodes_to_recurse = dists.add_dist(metadata, source, source.dependencies[node])
+                nodes_to_recurse = dists.add_dist(metadata, source, source.dependencies[node], repo=source_repo)
                 if nodes_to_recurse:
                     for recurse_node in nodes_to_recurse:
                         for req in list(recurse_node.dependencies):

@@ -1,11 +1,14 @@
 from __future__ import print_function
 
 import argparse
+import datetime
 import logging
 import os
 import shutil
 import sys
 import tempfile
+
+from pip._vendor import pkg_resources
 
 import qer.compile
 import qer.dists
@@ -14,6 +17,7 @@ import qer.repos.pypi
 
 from qer import utils
 from qer.compile import perform_compile
+from qer.config import read_pip_default_index
 from qer.repos.findlinks import FindLinksRepository
 from qer.repos.pypi import PyPIRepository
 from qer.repos.repository import CantUseReason
@@ -101,21 +105,21 @@ def _create_input_reqs(input_arg, extras=None, extra_source_repos=None):
         return utils.reqs_from_files([input_arg])
 
 
-def run_compile(input_args, extras, constraint_files, sources, find_links, index_url,
-                wheeldir, no_index, remove_source, solution):
+def run_compile(input_args, extras, constraint_files, sources, find_links, index_urls,
+                wheeldir, no_index, remove_source, solutions, annotate_source):
     """
     Args:
         input_args (list[str]):
         extras (Iterable[str]):
         constraint_files (list[str]):
         sources (list[str]):
-        find_links (str):
-        index_url (str):
+        find_links (list[str]):
+        index_urls (list[str]):
         wheeldir (str):
         no_index (bool):
         remove_source (bool):
-        solution (str):
-
+        solutions (list[str]):
+        annotate_source (bool):
     Returns:
 
     """
@@ -147,7 +151,7 @@ def run_compile(input_args, extras, constraint_files, sources, find_links, index
             for input_arg in constraint_files
         }
 
-    repo = build_repo(solution, sources, find_links, index_url, no_index, wheeldir)
+    repo = build_repo(solutions, sources, find_links, index_urls, no_index, wheeldir)
 
     try:
         results, roots, constraints = perform_compile(input_reqs, repo, constraint_reqs=constraint_reqs)
@@ -165,8 +169,35 @@ def run_compile(input_args, extras, constraint_files, sources, find_links, index
 
         lines = sorted(results.generate_lines(roots, req_filter=req_filter), key=lambda x: x[0].lower())
         left_column_len = max(len(x[0]) for x in lines)
+        if annotate_source:
+            repo_mapping = {}
+            qer_req = pkg_resources.working_set.find(utils.parse_requirement('qer'))
+            print('# Compiled by Qer Requirements Compiler ({}) on {} UTC'.format(
+                qer_req.version if qer_req else 'dev',
+                datetime.datetime.utcnow()))
+            print('#')
+            print('# Inputs:')
+            for input_arg in input_args:
+                input_to_print = input_arg
+                if os.path.exists(input_arg):
+                    input_to_print = os.path.abspath(input_arg)
+                print('# {}'.format(input_to_print))
+            print('#')
+            print('# Repositories (this annotation produced by --annotate-source):')
+            for idx, repo in enumerate(_repo_as_list(repo)):
+                repo_mapping[repo] = idx
+                print('# [{}] {}'.format(idx, repo))
+            print('')
+        annotation = ''
         for line in lines:
-            print('{}  # {}'.format(line[0].ljust(left_column_len), line[1]))
+            if annotate_source:
+                req = utils.parse_requirement(line[0])
+                key = req.name + ('[{}]'.format(req.extras[0]) if req.extras else '')
+                source = results[key].repo
+                if not source in repo_mapping:
+                    print('No repo for {}'.format(line), file=sys.stderr)
+                annotation = '[{}] '.format(repo_mapping[source])
+            print('{}  # {}{}'.format(line[0].ljust(left_column_len), annotation, line[1]))
     except qer.repos.repository.NoCandidateException as ex:
         _generate_no_candidate_display(ex.req, repo, ex.results)
         sys.exit(1)
@@ -175,17 +206,20 @@ def run_compile(input_args, extras, constraint_files, sources, find_links, index
             shutil.rmtree(wheeldir)
 
 
-def build_repo(solution, sources, find_links, index_url, no_index, wheeldir):
+def build_repo(solutions, sources, find_links, index_urls, no_index, wheeldir):
     repos = []
-    if solution:
-        repos.append(SolutionRepository(solution))
+    if solutions:
+        repos.extend(SolutionRepository(solution) for solution in solutions)
     if sources:
         repos.extend(SourceRepository(source) for source in sources)
     if find_links:
-        repos.append(FindLinksRepository(find_links))
+        repos.extend(FindLinksRepository(find_link) for find_link in find_links)
     if not no_index:
-        index_url = index_url or 'https://pypi.org/simple'
-        repos.append(PyPIRepository(index_url, wheeldir))
+        if not index_urls:
+            default_index_url = read_pip_default_index() or 'https://pypi.org/simple'
+            repos.append(PyPIRepository(default_index_url, wheeldir))
+        else:
+            repos.extend(PyPIRepository(index_url, wheeldir) for index_url in index_urls)
     if not repos:
         raise ValueError('At least one Python distributions source must be provided.')
     if len(repos) > 1:
@@ -215,8 +249,8 @@ def compile_main():
                         help='Extras to apply automatically to source packages')
     parser.add_argument('--remove-source', default=False, action='store_true',
                         help='Remove distributions satisfied via --source from the output')
-    parser.add_argument('-u', '--solution', type=str, default=None,
-                        help='Existing fully-pinned constraints file to use as a baseline when compiling')
+    parser.add_argument('--annotate-source', default=False, action='store_true',
+                        help='Annotate the output file with the sources of each requirement')
 
     add_repo_args(parser)
 
@@ -228,18 +262,18 @@ def compile_main():
         logging.getLogger('qer.compile').addFilter(IndentFilter())
 
     run_compile(args.requirement_files, args.extras, args.constraints if args.constraints else None, args.sources, args.find_links,
-                args.index_url, args.wheel_dir, args.no_index, args.remove_source, args.solution)
+                args.index_urls, args.wheel_dir, args.no_index, args.remove_source, args.solutions, args.annotate_source)
 
 
 def add_repo_args(parser):
-    parser.add_argument('-i', '--index-url', type=str, default=None)
-    parser.add_argument('-f', '--find-links', type=str, default=None)
+    parser.add_argument('-i', '--index-url', nargs='+', dest='index_urls', default=[])
+    parser.add_argument('-f', '--find-links', nargs='+', default=[])
     parser.add_argument('-s', '--source', nargs='+', dest='sources', default=[])
     parser.add_argument('-w', '--wheel-dir', type=str, default=None)
-    parser.add_argument('--no-index',
-                        action='store_true', default=False,
-                        help='Do not connect to the internet to compile. All wheels must be '
-                             'available in --find-links paths.')
+    parser.add_argument('-u', '--solution', nargs='+', dest='solutions', default=[],
+                        help='Existing fully-pinned constraints file to use as a baseline when compiling')
+    parser.add_argument('--no-index', action='store_true', default=False,
+                        help='Do not connect to the internet to compile')
 
 
 if __name__ == '__main__':

@@ -59,9 +59,15 @@ def load_from_file(filename):
 
     for line in reqfile.readlines():
         req_part, _, source_part = line.partition('#')
+        req_part = req_part.strip()
+        if not req_part:
+            continue
+
         req = qer.utils.parse_requirement(req_part)
         source_part = source_part.strip()
 
+        if source_part[0] == '[':
+            _, _, source_part = source_part.partition('] ')
         sources = source_part.split(', ')
 
         pkg_names = imap(lambda x: x.split(' ')[0], sources)
