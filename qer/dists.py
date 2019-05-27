@@ -78,8 +78,8 @@ class DistributionCollection(object):
         Add a distribution
 
         Args:
-            metadata (DistInfo, None): Distribution info to add
-            source (DependencyNode, None): The source of the distribution, e.g. a filename
+            metadata (RequirementContainer|str): Distribution info to add
+            source (DependencyNode, optional): The source of the distribution, e.g. a filename
             reason (pkg_resources.Requirement, optional):
         """
         if reason is not None and len(reason.extras) > 1:
@@ -215,16 +215,8 @@ class DistributionCollection(object):
                             print('Reverse dep with none extra: {}'.format(reverse_dep))
                         extras.append(reverse_dep.extra)
                         constraints.extend(_build_constraints(reverse_dep))
-                try:
-                    req_expr = '{}{}=={}'.format(
-                        node.metadata.name,
-                        ('[' + ','.join(sorted(extras)) + ']') if extras else '',
-                        node.metadata.version)
-                except TypeError:
-                    print('Failed processing {}, extras={}'.format(node, extras),
-                          file=sys.stderr)
-                    continue
 
+                req_expr = node.metadata.to_definition(extras)
                 constraint_text = ', '.join(sorted(constraints))
                 if not node.metadata.meta and req_filter(node):
                     results.append((req_expr, constraint_text))
@@ -243,12 +235,22 @@ class DistributionCollection(object):
         return self.nodes[normalize_project_name(project_name)]
 
 
-class RequirementsFile(object):
+class RequirementContainer(object):
+    def __init__(self, name, meta=False):
+        self.name = name
+        self.meta = meta
+
+    def requires(self, extra=None):
+        raise NotImplementedError()
+
+    def to_definition(self, extras):
+        raise NotImplementedError()
+
+
+class RequirementsFile(RequirementContainer):
     def __init__(self, filename, reqs):
-        self.name = filename
-        self.version = utils.parse_version('1')
+        super(RequirementsFile, self).__init__(filename, meta=True)
         self.reqs = list(reqs)
-        self.meta = True
 
     def __repr__(self):
         return 'RequirementsFile({})'.format(self.name)
@@ -258,12 +260,20 @@ class RequirementsFile(object):
         reqs = utils.reqs_from_files([full_path])
         return RequirementsFile(full_path, reqs)
 
+    def __str__(self):
+        return self.name
+
     def requires(self, extra=None):
         return [req for req in self.reqs
                 if filter_req(req, extra)]
 
+    def to_definition(self, extras):
+        return self.name
 
-class DistInfo(object):
+
+class DistInfo(RequirementContainer):
+    FORMAT_STRING = '{name}{extras}=={version}'
+
     def __init__(self, name, version, reqs, meta=False):
         """
         Args:
@@ -272,47 +282,24 @@ class DistInfo(object):
             reqs:
             meta:
         """
-        self.key = ''
+        super(DistInfo, self).__init__(name, meta=meta)
         self.reqs = list(reqs)
-        self.meta = meta
-        self._version = version
-        self._name = None
-        self.name = name
-        self._recalc_hash()
+        self.version = version
         self.source = None
-
-    def __hash__(self):
-        return self.hash
-
-    def _recalc_hash(self):
-        self.hash = hash(self.key + str(self.version))
-
-    @property
-    def name(self):
-        return self._name
-
-    @name.setter
-    def name(self, value):
-        if value is not None:
-            self._name = value
-            self.key = utils.normalize_project_name(self._name)
-            self._recalc_hash()
-
-    @property
-    def version(self):
-        return self._version
-
-    @version.setter
-    def version(self, value):
-        self._version = value
-        self._recalc_hash()
 
     def requires(self, extra=None):
         return [req for req in self.reqs
                 if filter_req(req, extra)]
 
     def __str__(self):
-        return '{}=={}'.format(self.name, self.version)
+        return self.to_definition(None)
+
+    def to_definition(self, extras):
+        req_expr = '{}{}=={}'.format(
+            self.name,
+            ('[' + ','.join(sorted(extras)) + ']') if extras else '',
+            self.version)
+        return req_expr
 
     def __repr__(self):
         return self.name + ' ' + self.version + '\n' + '\n'.join([str(req) for req in self.reqs])

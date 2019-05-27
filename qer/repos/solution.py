@@ -2,7 +2,6 @@ from __future__ import print_function
 
 import logging
 import sys
-from collections import defaultdict
 
 import six
 from six.moves import map as imap
@@ -10,9 +9,7 @@ from six.moves import map as imap
 import qer.dists
 import qer.utils
 
-from qer import utils
-
-from .repository import Repository, Candidate, DistributionType, RequiresPython
+from qer.repos.repository import Repository, Candidate, DistributionType, RequiresPython
 
 
 class SolutionRepository(Repository):
@@ -90,7 +87,6 @@ def load_from_file(filename):
     if reqfile is not sys.stdin:
         reqfile.close()
 
-
     nodes_to_remove = []
     for node in result:
         if node.metadata is not None:
@@ -107,18 +103,6 @@ def load_from_file(filename):
         else:
             nodes_to_remove.append(node)
 
-    # for root_req in req_mapping:
-    #     for req in req_mapping[root_req]:
-    #         req_constraints = req_mapping[root_req][req][0] or ''
-    #         if '[' in root_req:
-    #             req_name, extras = root_req.split('[')
-    #             extras = extras.replace(']', '')
-    #             extras = extras.split(',')
-    #             for extra in extras:
-    #                 result.nodes[qer.utils.normalize_project_name(req_name)].metadata.reqs.append(
-    #                     qer.utils.parse_requirement(req + req_constraints + ' ; extra=="{}"'.format(extra)))
-    #         else:
-    #             result.nodes[qer.utils.normalize_project_name(root_req)].metadata.reqs.append(qer.utils.parse_requirement(req + req_constraints))
     for node in nodes_to_remove:
         try:
             del result.nodes[node.key]
