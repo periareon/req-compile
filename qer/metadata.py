@@ -13,8 +13,12 @@ import types
 import zipfile
 import abc
 from contextlib import closing
+
+# This block is imported for the benefit of setup.py's.
 import setuptools
 import distutils.core
+import distutils.extension
+import distutils.command.build_ext
 import codecs
 
 import pkg_resources
@@ -408,15 +412,17 @@ def patch(module, member, new_value):
         module = sys.modules[module]
 
     if not hasattr(module, member):
-        yield
-        return
-
-    old_member = getattr(module, member)
+        old_member = None
+    else:
+        old_member = getattr(module, member)
     setattr(module, member, new_value)
     try:
         yield
     finally:
-        setattr(module, member, old_member)
+        if old_member is None:
+            delattr(module, member)
+        else:
+            setattr(module, member, old_member)
 
 
 def _remove_encoding_lines(contents):
@@ -463,8 +469,8 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
                 contents = _remove_encoding_lines(contents)
             contents = contents.replace('print ', '')
             exec (contents, spy_globals, spy_globals)
-        except Exception as ex:
-             raise MetadataError(name, version, ex)
+        # except Exception as ex:
+        #      raise MetadataError(name, version, ex)
         finally:
             # Restore the old module cache
             sys.modules = old_modules
