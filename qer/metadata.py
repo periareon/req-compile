@@ -329,8 +329,8 @@ def setup(results, *args, **kwargs):
     all_reqs = list(utils.parse_requirements(reqs))
     for extra, extra_req_strs in extra_reqs.items():
         cur_reqs = [utils.parse_requirement('{} ; extra=="{}"'.format(reqstr.strip(), extra))
-                    for reqstr in extra_req_strs]
-        all_reqs.extend(cur_reqs)
+                    for reqstr in extra_req_strs if reqstr.strip()]
+        all_reqs.extend(cur_req for cur_req in cur_reqs if cur_req is not None)
 
     results.append(DistInfo(name, version, all_reqs))
     return FakeModule('dist')
@@ -379,12 +379,12 @@ def fake_import_impl(name, orig_import, modname, globals=None, locals=None, from
                 ('_' + name) in lower_modname):
             sys.modules[modname] = FakeModule(modname)
         return orig_import(modname, globals, locals, fromlist, level)
-    except ImportError:
+    except ImportError as ex:
         # Skip any cython importing to improve setup.py compatibility (e.g. subprocess32)
         if 'Cython' in modname:
             raise
         if six.PY2:
-            if 'asyncio' in modname:
+            if 'asyncio' in modname or '_curses' in modname or '_pickle' in modname or '_compat_pickle' in modname:
                 raise
         if (name in modname.lower() or
                 '_version' in modname or
@@ -400,6 +400,8 @@ def fake_import_impl(name, orig_import, modname, globals=None, locals=None, from
             raise ImportError
         except ImportError:
             raise
+    except KeyError:
+        raise ImportError()
 
 
 @contextlib.contextmanager
@@ -469,11 +471,17 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
                 contents = _remove_encoding_lines(contents)
             contents = contents.replace('print ', '')
             exec (contents, spy_globals, spy_globals)
-        except Exception as ex:
-             raise MetadataError(name, version, ex)
+        # except Exception as ex:
+        #      raise MetadataError(name, version, ex)
         finally:
             # Restore the old module cache
-            sys.modules = old_modules
+            modules_to_del = set()
+            for module in sys.modules:
+                if module not in old_modules:
+                    modules_to_del.add(module)
+
+            for module in modules_to_del:
+                del sys.modules[module]
 
     if not results:
         return None
