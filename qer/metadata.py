@@ -14,20 +14,15 @@ import zipfile
 import abc
 from contextlib import closing
 
-# This block is imported for the benefit of setup.py's.
-import setuptools
-import distutils.core
-import distutils.extension
-import distutils.command.build_ext
-import codecs
-
 import pkg_resources
 import six
 from six.moves import StringIO
 
 from qer import utils
+from qer.blacklist import PY2_BLACKLIST
 from qer.dists import DistInfo
 
+USE_PROCESS = False
 
 class MetadataError(Exception):
     def __init__(self, name, version, ex):
@@ -167,10 +162,18 @@ def extract_metadata(dist, origin=None):
         result = _fetch_from_wheel(dist)
     elif dist.lower().endswith('.zip'):
         result = _fetch_from_source(dist, ZipExtractor)
-    elif dist.lower().endswith('.tar.gz'):
-        result = _fetch_from_source(dist, TarExtractor)
     else:
-        result = _fetch_from_source(os.path.abspath(dist), NonExtractor)
+        extractor_type = NonExtractor
+        if dist.lower().endswith('.tar.gz'):
+            extractor_type = TarExtractor
+        if USE_PROCESS:
+            import multiprocessing
+            pool = multiprocessing.Pool(processes=1)
+            result = pool.apply(_fetch_from_source, args=(os.path.abspath(dist), extractor_type))
+            pool.terminate()
+            pool.close()
+        else:
+            result = _fetch_from_source(os.path.abspath(dist), extractor_type)
     if result is not None:
         result.origin = origin
     return result
@@ -368,29 +371,27 @@ class FakeModule(types.ModuleType):
 def fake_import_impl(name, orig_import, modname, globals=None, locals=None, fromlist=(), level=0):
     try:
         lower_modname = modname.lower()
-        if 'build_ext' in modname:
+        if ('build_ext' in modname) or (fromlist and ('build_ext' in fromlist)):
             raise ImportError()
 
-        if 'Cython' in modname:
-            raise ImportError()
-
-        if 'Cython' in modname or (
-                name == lower_modname or (name + '_') in lower_modname or
+        if (name == lower_modname or (name + '_') in lower_modname or
                 ('_' + name) in lower_modname):
             sys.modules[modname] = FakeModule(modname)
-        return orig_import(modname, globals, locals, fromlist, level)
+        result = orig_import(modname, globals, locals, fromlist, level)
+        return result
     except ImportError as ex:
         # Skip any cython importing to improve setup.py compatibility (e.g. subprocess32)
         if 'Cython' in modname:
             raise
+        modparts = modname.split('.')
         if six.PY2:
-            if 'asyncio' in modname or '_curses' in modname or '_pickle' in modname or '_compat_pickle' in modname:
-                raise
+            for part in modparts:
+                if part in PY2_BLACKLIST:
+                    raise
         if (name in modname.lower() or
                 '_version' in modname or
                 'version' in modname or
                 modname.startswith('_')):
-            modparts = modname.split('.')
             for idx, mod in enumerate(modparts):
                 sys.modules['.'.join(modparts[:idx + 1])] = FakeModule(mod)
             return FakeModule(modparts[-1])
@@ -400,8 +401,12 @@ def fake_import_impl(name, orig_import, modname, globals=None, locals=None, from
             raise ImportError
         except ImportError:
             raise
-    except KeyError:
-        raise ImportError()
+    except SyntaxError:
+        print('SyntaxError')
+        return FakeModule(modname)
+    except (KeyError, TypeError) as ex:
+        print('SyntaxError {}'.format(ex))
+        return FakeModule(modname)
 
 
 @contextlib.contextmanager
@@ -446,10 +451,15 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
 
     fake_import = functools.partial(fake_import_impl, name.lower(), __import__)
 
-    with patch(sys, 'stdout', StringIO()), \
-         patch(sys, 'stderr', StringIO()), \
-         patch(sys, 'exit', lambda code: None), \
+    import codecs
+    import setuptools
+    import distutils.core
+    import setuptools.extension
+
+    with patch(sys, 'exit', lambda code: None), \
          patch(sys, 'getwindowsversion', lambda: (6, 0, 1)), \
+         patch(sys, 'stdout', StringIO()), \
+         patch(sys, 'stderr', StringIO()), \
          patch('__builtin__', '__import__', fake_import), \
          patch('builtins', '__import__', fake_import), \
          patch(os, 'listdir', lambda path: []), \
@@ -471,8 +481,8 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
                 contents = _remove_encoding_lines(contents)
             contents = contents.replace('print ', '')
             exec (contents, spy_globals, spy_globals)
-        # except Exception as ex:
-        #      raise MetadataError(name, version, ex)
+        except Exception as ex:
+             raise MetadataError(name, version, ex)
         finally:
             # Restore the old module cache
             modules_to_del = set()

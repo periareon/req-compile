@@ -303,6 +303,20 @@ class DistInfo(RequirementContainer):
     def __str__(self):
         return self.to_definition(None)
 
+    def __getstate__(self):
+        return {
+            'name': self.name,
+            'meta': self.meta,
+            'version': str(self.version),
+            'reqs': [str(req) for req in self.reqs]
+        }
+
+    def __setstate__(self, state):
+        self.name = state['name']
+        self.version = utils.parse_version(state['version'])
+        self.meta = bool(state['meta'])
+        self.reqs = list(utils.parse_requirements(state['reqs']))
+
     def to_definition(self, extras):
         req_expr = '{}{}=={}'.format(
             self.name,
@@ -311,4 +325,4 @@ class DistInfo(RequirementContainer):
         return req_expr
 
     def __repr__(self):
-        return self.name + ' ' + self.version + '\n' + '\n'.join([str(req) for req in self.reqs])
+        return self.name + ' ' + str(self.version) + '\n' + '\n'.join([str(req) for req in self.reqs])
