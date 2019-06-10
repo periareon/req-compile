@@ -196,7 +196,9 @@ def run_compile(input_args, extras, constraint_files, sources, find_links, index
                 source = results[key].repo
                 if not source in repo_mapping:
                     print('No repo for {}'.format(line), file=sys.stderr)
-                annotation = '[{}] '.format(repo_mapping[source])
+                    annotation = '[?] '
+                else:
+                    annotation = '[{}] '.format(repo_mapping[source])
             print('{}  # {}{}'.format(line[0].ljust(left_column_len), annotation, line[1]))
     except qer.repos.repository.NoCandidateException as ex:
         _generate_no_candidate_display(ex.req, repo, ex.results)

@@ -22,7 +22,7 @@ from qer import utils
 from qer.blacklist import PY2_BLACKLIST
 from qer.dists import DistInfo
 
-USE_PROCESS = False
+USE_PROCESS = True
 
 class MetadataError(Exception):
     def __init__(self, name, version, ex):
@@ -483,15 +483,6 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
             exec (contents, spy_globals, spy_globals)
         except Exception as ex:
              raise MetadataError(name, version, ex)
-        finally:
-            # Restore the old module cache
-            modules_to_del = set()
-            for module in sys.modules:
-                if module not in old_modules:
-                    modules_to_del.add(module)
-
-            for module in modules_to_del:
-                del sys.modules[module]
 
     if not results:
         return None
