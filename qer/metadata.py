@@ -22,7 +22,7 @@ from qer import utils
 from qer.blacklist import PY2_BLACKLIST
 from qer.dists import DistInfo
 
-USE_PROCESS = True
+USE_PROCESS = False
 
 class MetadataError(Exception):
     def __init__(self, name, version, ex):
@@ -441,8 +441,6 @@ def _remove_encoding_lines(contents):
 
 def _parse_setup_py(name, version, fake_setupdir, opener):
 
-    old_modules = sys.modules.copy()
-
     # Capture warnings.warn, which is sometimes used in setup.py files
     logging.captureWarnings(True)
 
@@ -480,7 +478,10 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
             if six.PY2:
                 contents = _remove_encoding_lines(contents)
             contents = contents.replace('print ', '')
-            exec (contents, spy_globals, spy_globals)
+
+            from . import localimport
+            with localimport.localimport([]):
+                exec (contents, spy_globals, spy_globals)
         except Exception as ex:
              raise MetadataError(name, version, ex)
 
