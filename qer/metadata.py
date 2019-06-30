@@ -44,7 +44,7 @@ class Extractor(six.with_metaclass(abc.ABCMeta, object)):
         pass
 
     @abc.abstractmethod
-    def open(self, filename, mode='r', encoding=None, errors=None):
+    def open(self, filename, mode='r', encoding=None, errors=None, buffering=False, newline=False):
         pass
 
     @abc.abstractmethod
@@ -105,7 +105,7 @@ class NonExtractor(Extractor):
             for filename in files:
                 yield rel_root + '/' + filename
 
-    def open(self, filename, mode='r', encoding='utf-8', errors=None, buffering=False):
+    def open(self, filename, mode='r', encoding='utf-8', errors=None, buffering=False, newline=False):
         if not os.path.isabs(filename):
             parent_dir = os.path.abspath(os.path.join(self.path, '..'))
             return self.io_open(os.path.join(parent_dir, filename), mode=mode, encoding=encoding)
@@ -401,7 +401,10 @@ class FakeModule(types.ModuleType):  # pylint: disable=no-init
         return None
 
 
-def fake_import_impl(name, opener, orig_import, modname, globals_=None, locals_=None, fromlist=(), level=0):
+def fake_import_impl(name, opener, # pylint: disable=too-many-locals,too-many-branches
+                     orig_import, modname,
+                     globals_=None, locals_=None,
+                     fromlist=(), level=0):
     try:
         lower_modname = modname.lower()
         if ('build_ext' in modname) or (fromlist and ('build_ext' in fromlist)):
@@ -430,12 +433,12 @@ def fake_import_impl(name, opener, orig_import, modname, globals_=None, locals_=
                 contents = opener(os.path.join(path, modname + '.py'))
                 contents = contents.read()
                 globs = {'sys': sys}
-                exec(contents, globs, globs)
+                exec(contents, globs, globs)  # pylint: disable=exec-used
                 module = FakeModule(modname)
                 for sym in globs:
                     setattr(module, sym, globs[sym])
                 return module
-            except Exception:
+            except EnvironmentError:
                 pass
 
         if (name in modname.lower() or
@@ -500,8 +503,7 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
 
     fake_import = functools.partial(fake_import_impl, name.lower(), opener, __import__)
 
-    import sys
-    import os
+    # pylint: disable=unused-import
     import multiprocessing.connection
     import codecs
     import setuptools
@@ -509,10 +511,11 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
     import setuptools.extension
 
     old_dir = os.getcwd()
-# patch(sys, 'stdout', StringIO()), \
+
     with patch(sys, 'exit', lambda code: None), \
          patch(sys, 'getwindowsversion', lambda: (6, 0, 1), sys.platform == 'win32'), \
          patch(sys, 'stderr', StringIO()), \
+         patch(sys, 'stdout', StringIO()), \
          patch('__builtin__', '__import__', fake_import), \
          patch('builtins', '__import__', fake_import), \
          patch(os, 'listdir', lambda path: []), \
