@@ -15,10 +15,6 @@ import qer.repos.repository
 from qer.dists import DistributionCollection, RequirementsFile
 from qer.repos.repository import NoCandidateException
 
-BLACKLIST = [
-    'setuptools'
-]
-
 MAX_DOWNGRADE = 3
 
 LOG = logging.getLogger('qer.compile')
@@ -55,30 +51,24 @@ def compile_roots(node, source, repo, dists, depth=1):
 
         for attempt in range(MAX_DOWNGRADE):
             try:
-                dist, cached = repo.get_candidate(spec_req)
-                source_repo = repo.source_of(spec_req)
+                metadata, cached = repo.get_candidate(spec_req)
 
-                logger.debug('Acquired candidate %s [%s] (%s)', dist, source_repo, 'cached' if cached else 'download')
+                logger.debug('Acquired candidate %s [%s] (%s)',
+                             metadata, metadata.origin, 'cached' if cached else 'download')
 
                 nodes_to_recurse = set()
-                metadata = None
-            except NoCandidateException as no_candidate_ex:
+            except NoCandidateException:
                 if attempt == 0:
-                    raise no_candidate_ex
+                    raise
                 else:
                     break
 
             try:
-                if isinstance(dist, qer.metadata.DistInfo):
-                    metadata = dist
-                else:
-                    metadata = qer.metadata.extract_metadata(dist, origin=source_repo)
-
                 # Save off the original metadata for better error information
                 if original_metadata is None:
                     original_metadata = metadata
 
-                nodes_to_recurse = dists.add_dist(metadata, source, source.dependencies[node], repo=source_repo)
+                nodes_to_recurse = dists.add_dist(metadata, source, source.dependencies[node])
                 if nodes_to_recurse:
                     for recurse_node in nodes_to_recurse:
                         for req in list(recurse_node.dependencies):
@@ -136,7 +126,8 @@ def perform_compile(input_reqs, repo, constraint_reqs=None):
     nodes = set()
     if constraint_reqs is not None:
         for constraint_source in constraint_reqs:
-            constraint_node = results.add_dist(RequirementsFile(constraint_source, constraint_reqs[constraint_source]), None, None)
+            constraint_node = results.add_dist(RequirementsFile(constraint_source, constraint_reqs[constraint_source]),
+                                               None, None)
             constraint_nodes |= constraint_node
             nodes |= constraint_node
 

@@ -8,6 +8,7 @@ from six.moves import html_parser
 from six.moves import urllib
 
 from .repository import Repository, process_distribution
+from qer.metadata import extract_metadata
 
 try:
     from functools32 import lru_cache
@@ -116,6 +117,14 @@ class PyPIRepository(Repository):
     def __repr__(self):
         return '--index-url {}'.format(self.index_url)
 
+    def __eq__(self, other):
+        return (isinstance(other, PyPIRepository) and
+                super(PyPIRepository, self).__eq__(other) and
+                self.index_url == other.index_url)
+
+    def __hash__(self):
+        return hash('pypi') ^ hash(self.index_url)
+
     @property
     def logger(self):
         return self._logger
@@ -126,7 +135,8 @@ class PyPIRepository(Repository):
         return _scan_page_links(self.index_url, req.name, self.session)
 
     def resolve_candidate(self, candidate):
-        return _do_download(self.logger, candidate.filename, candidate.link, self.session, self.wheeldir)
+        filename, cached = _do_download(self.logger, candidate.filename, candidate.link, self.session, self.wheeldir)
+        return extract_metadata(filename, origin=self), cached
 
     def close(self):
         self.session.close()

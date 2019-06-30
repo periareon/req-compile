@@ -245,9 +245,6 @@ class BaseRepository(six.with_metaclass(abc.ABCMeta, object)):
     def get_candidate(self, req):
         raise NotImplementedError()
 
-    def source_of(self, req):
-        return self
-
 
 class CantUseReason(enum.Enum):
     U_CAN_USE = 0
@@ -263,6 +260,12 @@ class Repository(six.with_metaclass(abc.ABCMeta, BaseRepository)):
             allow_prerelease = False
 
         self.allow_prerelease = allow_prerelease
+
+    def __eq__(self, other):
+        return self.allow_prerelease == other.allow_prerelease
+
+    def __iter__(self):
+        return iter([self])
 
     @abc.abstractmethod
     def get_candidates(self, req):

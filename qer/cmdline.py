@@ -26,6 +26,11 @@ from qer.repos.solution import SolutionRepository
 from qer.repos.source import SourceRepository
 from qer.versions import is_possible
 
+# Blacklist of requirements that will be filtered out of the output
+BLACKLIST = [
+    'setuptools'
+]
+
 
 def _cantusereason_to_text(reason):
     if reason == CantUseReason.VERSION_NO_SATISFY:
@@ -41,15 +46,7 @@ def _cantusereason_to_text(reason):
     return 'unknown'
 
 
-def _repo_as_list(repo):
-    if isinstance(repo, MultiRepository):
-        return repo.repositories
-    return [repo]
-
-
 def _generate_no_candidate_display(req, repo, dists):
-    repos = _repo_as_list(repo)
-
     failing_node = dists[req.name]
     nodes = failing_node.reverse_deps
     constraints = failing_node.build_constraints()
@@ -66,11 +63,11 @@ def _generate_no_candidate_display(req, repo, dists):
             print('   {} requires {}'.format(node, node.dependencies[failing_node]), file=sys.stderr)
 
         if can_satisfy:
-            all_candidates = {repo: repo.get_candidates(req) for repo in repos}
+            all_candidates = {repo: repo.get_candidates(req) for repo in repo}
             if sum(len(candidates) for candidates in all_candidates.values()) == 0:
                 print('No candidates found in any of the input sources', file=sys.stderr)
             else:
-                _dump_repo_candidates(req, repos)
+                _dump_repo_candidates(req, repo)
 
 
 def _dump_repo_candidates(req, repos):
@@ -156,16 +153,16 @@ def run_compile(input_args, extras, constraint_files, sources, find_links, index
     try:
         results, roots, constraints = perform_compile(input_reqs, repo, constraint_reqs=constraint_reqs)
 
-        req_filter = None
-
+        blacklist_filter = lambda req: req.metadata.name.lower() not in BLACKLIST
+        req_filter = blacklist_filter
         if remove_source:
-            if not any(isinstance(r, SourceRepository) for r in _repo_as_list(repo)):
+            if not any(isinstance(r, SourceRepository) for r in repo):
                 raise ValueError('Cannot remove results from source, no source provided')
 
             def is_from_source(dist):
-                return not hasattr(dist.metadata, 'origin') or not isinstance(dist.metadata.origin, SourceRepository)
+                return not isinstance(dist.metadata.origin, SourceRepository)
 
-            req_filter = is_from_source
+            req_filter = lambda req: blacklist_filter(req) and is_from_source(req)
 
         lines = sorted(results.generate_lines(roots, req_filter=req_filter), key=lambda x: x[0].lower())
         left_column_len = max(len(x[0]) for x in lines)
@@ -184,7 +181,7 @@ def run_compile(input_args, extras, constraint_files, sources, find_links, index
                 print('# {}'.format(input_to_print))
             print('#')
             print('# Repositories (this annotation produced by --annotate-source):')
-            for idx, repo in enumerate(_repo_as_list(repo)):
+            for idx, repo in enumerate(repo):
                 repo_mapping[repo] = idx
                 print('# [{}] {}'.format(idx, repo))
             print('')
@@ -193,7 +190,7 @@ def run_compile(input_args, extras, constraint_files, sources, find_links, index
             if annotate_source:
                 req = utils.parse_requirement(line[0])
                 key = req.name + ('[{}]'.format(req.extras[0]) if req.extras else '')
-                source = results[key].repo
+                source = results[key].metadata.origin
                 if not source in repo_mapping:
                     print('No repo for {}'.format(line), file=sys.stderr)
                     annotation = '[?] '
@@ -238,7 +235,7 @@ class IndentFilter(logging.Filter):
         return record
 
 
-def compile_main():
+def compile_main(args=None):
     logging.basicConfig(level=logging.ERROR)
 
     parser = argparse.ArgumentParser()
@@ -256,7 +253,7 @@ def compile_main():
 
     add_repo_args(parser)
 
-    args = parser.parse_args()
+    args = parser.parse_args(args=args)
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG, stream=sys.stderr)
         logging.getLogger('qer').setLevel(logging.DEBUG)
@@ -268,11 +265,11 @@ def compile_main():
 
 
 def add_repo_args(parser):
-    parser.add_argument('-i', '--index-url', nargs='+', dest='index_urls', default=[])
-    parser.add_argument('-f', '--find-links', nargs='+', default=[])
-    parser.add_argument('-s', '--source', nargs='+', dest='sources', default=[])
+    parser.add_argument('-i', '--index-url', action='append', dest='index_urls', default=[])
+    parser.add_argument('-f', '--find-links', action='append', default=[])
+    parser.add_argument('-s', '--source', action='append', dest='sources', default=[])
     parser.add_argument('-w', '--wheel-dir', type=str, default=None)
-    parser.add_argument('-u', '--solution', nargs='+', dest='solutions', default=[],
+    parser.add_argument('-u', '--solution', action='append', dest='solutions', default=[],
                         help='Existing fully-pinned constraints file to use as a baseline when compiling')
     parser.add_argument('--no-index', action='store_true', default=False,
                         help='Do not connect to the internet to compile')

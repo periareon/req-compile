@@ -7,6 +7,7 @@ from pytest import fixture
 import qer.compile
 import qer.repos.pypi
 import qer.repos.repository
+import qer.utils
 from qer.repos.multi import MultiRepository
 from qer.repos.source import SourceRepository
 
@@ -16,8 +17,9 @@ def test_mock_pypi(mock_metadata, mock_pypi):
                             pkg_resources.parse_requirements(
                                 ['test==1.0.0']))
 
-    assert mock_pypi.get_candidate(pkg_resources.Requirement.parse('test')) == (
-        os.path.join('normal', 'test.METADATA'), False)
+    metadata, cached = mock_pypi.get_candidate(pkg_resources.Requirement.parse('test'))
+    assert metadata.name == 'test'
+    assert metadata.version == qer.utils.parse_version('1.0.0')
 
 
 def _real_outputs(results):

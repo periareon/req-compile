@@ -7,6 +7,15 @@ class MultiRepository(BaseRepository):
         self.repositories = list(repositories)  # type: list[Repository]
         self.source = {}
 
+    def __repr__(self):
+        return ', '.join(repr(repo) for repo in self.repositories)
+
+    def __iter__(self):
+        return iter(self.repositories)
+
+    def __hash__(self):
+        return hash(self.repositories)
+
     def get_candidate(self, req):
         last_ex = None
         for repo in self.repositories:
@@ -28,6 +37,3 @@ class MultiRepository(BaseRepository):
             except NoCandidateException as ex:
                 pass
         return candidates
-
-    def source_of(self, req):
-        return self.source[req.name]

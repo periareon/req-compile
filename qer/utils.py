@@ -76,21 +76,21 @@ def parse_requirements(reqs):
 
 
 def merge_extras(extras1, extras2):
-    if extras1 is None:
+    if not extras1:
         return extras2
-    if extras2 is None:
+    if not extras2:
         return extras1
     return tuple(sorted(list(set(extras1) | set(extras2))))
 
 
-@lru_cache(maxsize=None)
 def merge_requirements(req1, req2):
     if req1 is not None and req2 is None:
         return req1
     if req2 is not None and req1 is None:
         return req2
 
-    assert normalize_project_name(req1.name) == normalize_project_name(req2.name)
+    req1_name_norm = normalize_project_name(req1.name)
+    assert req1_name_norm == normalize_project_name(req2.name)
     all_specs = set(req1.specs or []) | set(req2.specs or [])
 
     # Handle markers
@@ -111,7 +111,7 @@ def merge_requirements(req1, req2):
     extras_str = ''
     if extras:
         extras_str = '[' + ','.join(extras) + ']'
-    req_str = normalize_project_name(req1.name) + extras_str + ','.join(''.join(parts) for parts in all_specs) + new_marker
+    req_str = req1_name_norm + extras_str + ','.join(''.join(parts) for parts in all_specs) + new_marker
     return parse_requirement(req_str)
 
 

@@ -134,27 +134,14 @@ def extend_path(pth, name):
 
   mod_path = list(pth)
   for path in sys.path:
-    if zipfile.is_zipfile(path):
-      try:
-        egg = zipfile.ZipFile(path, 'r')
-        addpath = (
-          zip_isfile(egg, zname + '/__init__.py') or
-          zip_isfile(egg, zname + '/__init__.pyc') or
-          zip_isfile(egg, zname + '/__init__.pyo'))
-        fpath = os.path.join(path, path, zname)
-        if addpath and fpath not in mod_path:
-          mod_path.append(fpath)
-      except (zipfile.BadZipfile, zipfile.LargeZipFile):
-        pass  # xxx: Show a warning at least?
-    else:
-      path = os.path.join(path, pname)
-      if os.path.isdir(path) and path not in mod_path:
-        addpath = (
-          os.path.isfile(os.path.join(path, init_py)) or
-          os.path.isfile(os.path.join(path, init_pyc)) or
-          os.path.isfile(os.path.join(path, init_pyo)))
-        if addpath and path not in mod_path:
-          mod_path.append(path)
+    path = os.path.join(path, pname)
+    if os.path.isdir(path) and path not in mod_path:
+      addpath = (
+        os.path.isfile(os.path.join(path, init_py)) or
+        os.path.isfile(os.path.join(path, init_pyc)) or
+        os.path.isfile(os.path.join(path, init_pyo)))
+      if addpath and path not in mod_path:
+        mod_path.append(path)
 
   return [os.path.normpath(x) for x in mod_path]
 

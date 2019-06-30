@@ -117,8 +117,8 @@ def test_metadata_is_mirror_with_extra():
 def test_dist_with_unselected_extra():
     dists = DistributionCollection()
     dists.add_dist(DistInfo('aaa', '1.2.0', reqs=pkg_resources.parse_requirements(
-                                ['bbb<1.0 ; extra=="x1"']
-                            )), None, None)
+        ['bbb<1.0 ; extra=="x1"']
+    )), None, None)
 
     assert str(dists.nodes['aaa'].metadata) == 'aaa==1.2.0'
 
@@ -205,86 +205,10 @@ def test_metadata_transitive_violated():
     assert dists.nodes['a'].metadata is None
 
 
-# def test_add_remove_two_source_same_dist_different_extras2():
+# def test_repo_with_extra():
 #     dists = DistributionCollection()
-#     dists.add_dist(DistInfo('aaa', '1.2.0',
-#                             pkg_resources.parse_requirements(
-#                                 ['bbb<1.0 ; extra=="x1"']
-#                             ), extras=('x1',)), 'source_a')
-#     dists.add_dist(DistInfo('aaa', '1.2.0',
-#                             pkg_resources.parse_requirements(
-#                                 ['bbb<1.0 ; extra=="x1"']
-#                             )), 'source_b')
-#     assert str(dists.nodes['aaa'].metadata) == 'aaa[x1]==1.2.0'
-#     dists.remove_source('source_b')
-#     assert str(dists.nodes['aaa'].metadata) == 'aaa[x1]==1.2.0'
+#     metadata_a = DistInfo('a', '1.0.0', [])
+#     metadata_a_extra = DistInfo('a[extra]', '1.0.0', [])
 #
-#
-# def test_add_remove_source():
-#     dists = DistributionCollection()
-#     dists.add_dist(DistInfo('aaa', '1.2.0',
-#                             pkg_resources.parse_requirements(
-#                                 ['bbb<1.0']
-#                             )), 'source_a')
-#     dists.add_dist(DistInfo('xxx', '1.3.0',
-#                             pkg_resources.parse_requirements(
-#                                 ['bbb>0.1.0']
-#                             )), 'source_b')
-#     assert dists.build_constraints('bbb') == pkg_resources.Requirement.parse('bbb>0.1.0,<1.0')
-#     dists.remove_source('source_a')
-#     assert dists.build_constraints('bbb') == pkg_resources.Requirement.parse('bbb>0.1.0')
-#
-#
-# def test_add_remove_two_source_same_dist():
-#     dists = DistributionCollection()
-#     dists.add_dist(DistInfo('aaa', '1.2.0',
-#                             pkg_resources.parse_requirements(
-#                                 ['bbb<1.0']
-#                             )), 'source_a')
-#     dists.add_dist(DistInfo('aaa', '1.2.0',
-#                             pkg_resources.parse_requirements(
-#                                 ['bbb<1.0']
-#                             )), 'source_b')
-#     assert dists.build_constraints('bbb') == pkg_resources.Requirement.parse('bbb<1.0')
-#     dists.remove_source('source_a')
-#     assert dists.build_constraints('bbb') == pkg_resources.Requirement.parse('bbb<1.0')
-#
-#
-# def test_distinfo_requires():
-#     distinfo = DistInfo('aaa', '1.2.0',
-#                         pkg_resources.parse_requirements(
-#                             ['bbb<1.0;extra=="bob"',
-#                              'ccc'],
-#                         ))
-#
-#     assert list(distinfo.requires()) == [pkg_resources.Requirement.parse('ccc')]
-#
-#
-# def test_distinfo_requires_with_extra():
-#     distinfo = DistInfo('aaa', '1.2.0',
-#                         pkg_resources.parse_requirements(
-#                             ['bbb<1.0;extra=="bob"',
-#                              'ccc'],
-#                         ))
-#
-#     assert set(distinfo.requires(extras=('bob',))) == {Requirement.parse('bbb<1.0; extra == "bob"'),
-#                                                        Requirement.parse('ccc')}
-#
-#
-# def test_distinfo_requires_cache_ok():
-#     distinfo1 = DistInfo('aaa', '1.1.0',
-#                          pkg_resources.parse_requirements(
-#                              ['ccc'],
-#                          ))
-#     distinfo2 = DistInfo('aaa', '1.2.0',
-#                          pkg_resources.parse_requirements(
-#                              ['bbb<1.0;extra=="bob"',
-#                               'ccc'],
-#                          ))
-#
-#     assert list(distinfo1.requires()) == [pkg_resources.Requirement.parse('ccc')]
-#     assert list(distinfo1.requires(extras=('bob',))) == [pkg_resources.Requirement.parse('ccc')]
-#
-#     assert set(distinfo2.requires(extras=('bob',))) == {Requirement.parse('bbb<1.0; extra == "bob"'),
-#                                                         Requirement.parse('ccc')}
-#     assert set(distinfo2.requires(extras=('unknown',))) == {Requirement.parse('ccc')}
+#     dists.add_dist(metadata_a, None, None, repo=)
+#     dists.add_dist(metadata_b, None, None)

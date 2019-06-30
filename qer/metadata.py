@@ -22,7 +22,8 @@ from qer import utils
 from qer.blacklist import PY2_BLACKLIST
 from qer.dists import DistInfo
 
-USE_PROCESS = False
+LOG = logging.getLogger('qer.metadata')
+
 
 class MetadataError(Exception):
     def __init__(self, name, version, ex):
@@ -156,24 +157,24 @@ class ZipExtractor(Extractor):
         self.zfile.close()
 
 
-def extract_metadata(dist, origin=None):
+def extract_metadata(filename, origin=None):
     """"""
-    if dist.lower().endswith('.whl'):
-        result = _fetch_from_wheel(dist)
-    elif dist.lower().endswith('.zip'):
-        result = _fetch_from_source(dist, ZipExtractor)
+    LOG.info('Extracting metadata for %s', filename)
+    _, ext = os.path.splitext(filename)
+    ext = ext.lower()
+    if ext == '.whl':
+        LOG.debug('Extracting from wheel')
+        result = _fetch_from_wheel(filename)
+    elif ext == '.zip':
+        LOG.debug('Extracting from a zipped source package')
+        result = _fetch_from_source(filename, ZipExtractor)
+    elif ext == '.gz' or ext == '.tgz':
+        LOG.debug('Extracting from a tar gz package')
+        result = _fetch_from_source(os.path.abspath(filename), TarExtractor)
     else:
-        extractor_type = NonExtractor
-        if dist.lower().endswith('.tar.gz'):
-            extractor_type = TarExtractor
-        if USE_PROCESS:
-            import multiprocessing
-            pool = multiprocessing.Pool(processes=1)
-            result = pool.apply(_fetch_from_source, args=(os.path.abspath(dist), extractor_type))
-            pool.terminate()
-            pool.close()
-        else:
-            result = _fetch_from_source(os.path.abspath(dist), extractor_type)
+        LOG.debug('Extracting directly from a source directory')
+        result = _fetch_from_source(os.path.abspath(filename), NonExtractor)
+
     if result is not None:
         result.origin = origin
     return result
@@ -189,6 +190,9 @@ def _fetch_from_source(source_file, extractor_type):
     Returns:
 
     """
+    if not os.path.exists(source_file):
+        raise ValueError('Source file/path {} does not exist'.format(source_file))
+
     extractor = extractor_type(source_file)  # type: Extractor
     with closing(extractor):
         filename = os.path.basename(source_file)

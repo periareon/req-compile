@@ -47,9 +47,6 @@ class MockRepository(Repository):
         self.scenario = None
         self.index_map = None
 
-    def source_of(self, req):
-        return self
-
     def load_scenario(self, scenario, index_map=None):
         self.scenario = scenario
         if index_map:
@@ -79,7 +76,7 @@ class MockRepository(Repository):
             return [self._build_candidate(req) for req in avail]
 
     def resolve_candidate(self, candidate):
-        return candidate.filename, False
+        return qer.metadata.extract_metadata(candidate.filename, origin=self), False
 
     @property
     def logger(self):

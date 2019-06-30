@@ -6,6 +6,7 @@ import pkg_resources
 from qer import utils
 import qer.repos.repository
 from qer.repos.repository import Repository
+import qer.metadata
 
 
 class FindLinksRepository(Repository):
@@ -18,6 +19,14 @@ class FindLinksRepository(Repository):
 
     def __repr__(self):
         return '--find-links {}'.format(self.path)
+
+    def __eq__(self, other):
+        return (isinstance(other, FindLinksRepository) and
+                super(FindLinksRepository, self).__eq__(other) and
+                self.path == other.path)
+
+    def __hash__(self):
+        return hash('findlinks') ^ hash(self.path)
 
     def _find_all_links(self):
         for filename in os.listdir(self.path):
@@ -41,7 +50,8 @@ class FindLinksRepository(Repository):
         return results
 
     def resolve_candidate(self, candidate):
-        return os.path.join(self.path, candidate.filename), True
+        filename = os.path.join(self.path, candidate.filename)
+        return qer.metadata.extract_metadata(filename, origin=self), True
 
     def close(self):
         pass

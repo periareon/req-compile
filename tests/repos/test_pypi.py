@@ -48,7 +48,7 @@ def test_no_candidates(mocked_responses, tmpdir):
     assert len(mocked_responses.calls) == 1
 
 
-def test_resolve_new_numpy(mocked_responses, tmpdir, read_contents):
+def test_resolve_new_numpy(mocked_responses, tmpdir, read_contents, mocker):
     wheeldir = str(tmpdir)
     mocked_responses.add(
         responses.GET, INDEX_URL + '/numpy/',
@@ -62,7 +62,8 @@ def test_resolve_new_numpy(mocked_responses, tmpdir, read_contents):
                 responses.GET, candidate.link[1],
                 body=read_contents('numpy.whl-contents'), status=200)
 
-    candidate, cached = repo.get_candidate(pkg_resources.Requirement.parse('numpy'))
+    with mocker.patch('qer.repos.pypi.extract_metadata'):
+        candidate, cached = repo.get_candidate(pkg_resources.Requirement.parse('numpy'))
     assert candidate is not None
     assert not cached
 

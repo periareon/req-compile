@@ -3,17 +3,9 @@ from __future__ import print_function
 import collections
 import copy
 import itertools
-import sys
-
-import six
-
-try:
-    from functools32 import lru_cache
-except ImportError:
-    from functools import lru_cache
 
 from qer import utils
-from qer.utils import normalize_project_name, merge_requirements, filter_req, merge_extras
+from qer.utils import normalize_project_name, merge_requirements, filter_req
 
 
 class DependencyNode(object):
@@ -41,7 +33,7 @@ class DependencyNode(object):
         if self.metadata is None:
             return self.key + ' [UNSOLVED]'
         else:
-            return self.metadata.to_definition((self.extra,))
+            return self.metadata.to_definition((self.extra,) if self.extra else None)
 
     def build_constraints(self):
         req = None
@@ -79,7 +71,7 @@ class DistributionCollection(object):
     def _build_key(name, extra=None):
         return utils.normalize_project_name(name) + (('[' + extra + ']') if extra else '')
 
-    def add_dist(self, metadata, source, reason, repo=None):
+    def add_dist(self, metadata, source, reason):
         """
         Add a distribution
 
@@ -96,7 +88,7 @@ class DistributionCollection(object):
             return
 
         has_metadata = False
-        if isinstance(metadata, six.string_types):
+        if isinstance(metadata, str):
             req_name = metadata
         else:
             has_metadata = True
@@ -110,9 +102,6 @@ class DistributionCollection(object):
         else:
             node = DependencyNode(key, req_name, None, extra)
             self.nodes[key] = node
-
-        if repo is not None:
-            node.repo = repo
 
         if extra:
             # Add a reference back to the root req
@@ -209,7 +198,7 @@ class DistributionCollection(object):
         req_filter = req_filter or (lambda _: True)
 
         results = []
-        for node in itertools.chain(*[six.iterkeys(root.dependencies) for root in roots]):
+        for node in itertools.chain(*[root.dependencies.keys() for root in roots]):
             if node in _visited:
                 continue
 
@@ -247,6 +236,7 @@ class DistributionCollection(object):
 class RequirementContainer(object):
     def __init__(self, name, meta=False):
         self.name = name
+        self.origin = None
         self.meta = meta
 
     def requires(self, extra=None):

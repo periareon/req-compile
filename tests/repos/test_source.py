@@ -16,10 +16,10 @@ def test_locate_source_package(monorepo_dir):
     result, cached = source_repo.get_candidate(pkg_resources.Requirement.parse('pkg2'))
     assert cached
 
-    assert result == os.path.join(monorepo_dir, 'pkg2')
+    assert result.name == 'pkg2'
 
 
 def test_nested_pkg(monorepo_dir):
     source_repo = SourceRepository(monorepo_dir)
     result, _ = source_repo.get_candidate(pkg_resources.Requirement.parse('pkg3'))
-    assert result == os.path.join(monorepo_dir, 'subdir', 'pkg3')
+    assert result.name == 'pkg3'

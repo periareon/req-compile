@@ -43,7 +43,7 @@ class SourceRepository(Repository):
                         dirs.remove(dir_)
 
                     try:
-                        result = qer.metadata.extract_metadata(root)
+                        result = qer.metadata.extract_metadata(root, origin=self)
                         candidate = qer.repos.repository.Candidate(
                             result.name,
                             root,
@@ -62,6 +62,11 @@ class SourceRepository(Repository):
     def __repr__(self):
         return '--source {}'.format(self.path)
 
+    def __eq__(self, other):
+        return (isinstance(other, SourceRepository) and
+                super(SourceRepository, self).__eq__(other) and
+                self.path == other.path)
+
     @property
     def logger(self):
         return self._logger
@@ -74,7 +79,7 @@ class SourceRepository(Repository):
             return self.distributions.get(project_name, [])
 
     def resolve_candidate(self, candidate):
-        return candidate.filename, True
+        return candidate.preparsed, True
 
     def close(self):
         pass

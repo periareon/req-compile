@@ -16,11 +16,19 @@ class SolutionRepository(Repository):
     def __init__(self, filename, allow_prerelease=None):
         super(SolutionRepository, self).__init__(allow_prerelease=allow_prerelease)
         self.filename = filename
-        self.solution = load_from_file(self.filename)
+        self.solution = load_from_file(self.filename, origin=self)
         self._logger = logging.getLogger('qer.repository.solution')
 
     def __repr__(self):
         return '--solution {}'.format(self.filename)
+
+    def __eq__(self, other):
+        return (isinstance(other, SolutionRepository) and
+                super(SolutionRepository, self).__eq__(other) and
+                self.filename == other.filename)
+
+    def __hash__(self):
+        return hash('solution') ^ hash(self.solution)
 
     @property
     def logger(self):
@@ -43,13 +51,13 @@ class SolutionRepository(Repository):
             return []
 
     def resolve_candidate(self, candidate):
-        return candidate.filename, True
+        return candidate.preparsed, True
 
     def close(self):
         pass
 
 
-def load_from_file(filename):
+def load_from_file(filename, origin=None):
     result = qer.dists.DistributionCollection()
 
     if filename == '-':
@@ -75,6 +83,8 @@ def load_from_file(filename):
 
         version = qer.utils.parse_version(list(req.specifier)[0].version)
         metadata = qer.dists.DistInfo(req.name, version, [])
+        metadata.origin = origin
+
         result.add_dist(metadata, None, req)
 
         for name, constraints in zip(pkg_names, constraints):
@@ -84,11 +94,10 @@ def load_from_file(filename):
                 reverse_dep = result[name]
             else:
                 reverse_dep = None
-            result.add_dist(metadata.name,
-                            reverse_dep,
-                            qer.utils.parse_requirement('{}{}{}'.format(metadata.name,
-                                                                        ('[' + ','.join(req.extras) + ']') if req.extras else '',
-                                                                        constraints if constraints else '')))
+            result.add_dist(metadata.name, reverse_dep, qer.utils.parse_requirement('{}{}{}'.format(metadata.name,
+                                                                                                    ('[' + ','.join(
+                                                                                                        req.extras) + ']') if req.extras else '',
+                                                                                                    constraints if constraints else '')))
 
     if reqfile is not sys.stdin:
         reqfile.close()
