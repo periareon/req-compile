@@ -43,7 +43,7 @@ def _to_path(scenario, req):
 
 class MockRepository(Repository):
     def __init__(self):
-        super(MockRepository, self).__init__()
+        super(MockRepository, self).__init__('mock')
         self.scenario = None
         self.index_map = None
 
@@ -77,10 +77,6 @@ class MockRepository(Repository):
 
     def resolve_candidate(self, candidate):
         return qer.metadata.extract_metadata(candidate.filename, origin=self), False
-
-    @property
-    def logger(self):
-        return logging.getLogger('')
 
     def close(self):
         pass

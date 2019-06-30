@@ -115,16 +115,15 @@ def merge_requirements(req1, req2):
     return parse_requirement(req_str)
 
 
-name_cache = {}
+NAME_CACHE = {}
 
 
 def normalize_project_name(project_name):
-    if project_name in name_cache:
-        return name_cache[project_name]
-    else:
-        value = project_name.lower().replace('-', '_') #.replace('.', '_')
-        name_cache[project_name] = value
-        return value
+    if project_name in NAME_CACHE:
+        return NAME_CACHE[project_name]
+    value = project_name.lower().replace('-', '_') #.replace('.', '_')
+    NAME_CACHE[project_name] = value
+    return value
 
 
 def filter_req(req, extra):
@@ -155,4 +154,3 @@ def is_pinned_requirement(req):
 
     return any((spec.operator == '==' or spec.operator == '===') and not spec.version.endswith('.*')
                for spec in req.specifier)
-

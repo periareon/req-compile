@@ -1,3 +1,4 @@
+# pylint: skip-file
 # The MIT License (MIT)
 #
 # Copyright (c) 2018 Niklas Rosenstein
@@ -32,327 +33,337 @@ import traceback
 import zipfile
 
 if sys.version_info[0] == 2:
-  # FIXME: pyminifier introduces an additional, badly indented 'pass'
-  # statement to single line functions. See pyminifier#89
-  def items(x):
-    return x.items()
-  def iteritems(x):
-    return x.iteritems()
+    # statement to single line functions. See pyminifier#89
+    def items(x):
+        return x.items()
+
+
+    def iteritems(x):
+        return x.iteritems()
 else:
-  def items(x):
-    return list(x.items())
-  def iteritems(x):
-    return x.items()
+    def items(x):
+        return list(x.items())
+
+
+    def iteritems(x):
+        return x.items()
 
 
 def is_local(filename, pathlist):
-  '''
-  Returns True if *filename* is a subpath of any of the paths in *pathlist*.
-  '''
+    '''
+    Returns True if *filename* is a subpath of any of the paths in *pathlist*.
+    '''
 
-  filename = os.path.abspath(filename)
-  for path_name in pathlist:
-    path_name = os.path.abspath(path_name)
-    if is_subpath(filename, path_name):
-      return True
-  return False
+    filename = os.path.abspath(filename)
+    for path_name in pathlist:
+        path_name = os.path.abspath(path_name)
+        if is_subpath(filename, path_name):
+            return True
+    return False
 
 
 def is_subpath(path, parent):
-  '''
-  Returns True if *path* points to the same or a subpath of *parent*.
-  '''
+    '''
+    Returns True if *path* points to the same or a subpath of *parent*.
+    '''
 
-  try:
-    relpath = os.path.relpath(path, parent)
-  except ValueError:
-    return False  # happens on Windows if drive letters don't match
-  return relpath == os.curdir or not relpath.startswith(os.pardir)
+    try:
+        relpath = os.path.relpath(path, parent)
+    except ValueError:
+        return False  # happens on Windows if drive letters don't match
+    return relpath == os.curdir or not relpath.startswith(os.pardir)
 
 
 def eval_pth(filename, sitedir, dest=None, imports=None):
-  '''
-  Evaluates a `.pth` file (including support for `import` statements), and
-  appends the result to the list *dest*. If *dest* is #None, it will fall
-  back to `sys.path`.
+    '''
+    Evaluates a `.pth` file (including support for `import` statements), and
+    appends the result to the list *dest*. If *dest* is #None, it will fall
+    back to `sys.path`.
 
-  If *imports* is specified, it must be a list. `import` statements will not
-  executed but instead appended to that list in tuples of
-  (*filename*, *line*, *stmt*).
+    If *imports* is specified, it must be a list. `import` statements will not
+    executed but instead appended to that list in tuples of
+    (*filename*, *line*, *stmt*).
 
-  Returns a tuple of (*dest*, *imports*).
-  '''
+    Returns a tuple of (*dest*, *imports*).
+    '''
 
-  if dest is None:
-    dest = sys.path
-  if not os.path.isfile(filename):
-    return
-  with open(filename, 'r') as fp:
-    for index, line in enumerate(fp):
-      if line.startswith('import'):
-        if imports is None:
-          exec_pth_import(filename, index+1, line)
-        else:
-          imports.append((filename, index+1, line))
-      else:
-        index = line.find('#')
-        if index > 0: line = line[:index]
-        line = line.strip()
-        if not os.path.isabs(line):
-          line = os.path.join(os.path.dirname(filename), line)
-        line = os.path.normpath(line)
-        if line and line not in dest:
-          dest.insert(0, line)
+    if dest is None:
+        dest = sys.path
+    if not os.path.isfile(filename):
+        return
+    with open(filename, 'r') as fp:
+        for index, line in enumerate(fp):
+            if line.startswith('import'):
+                if imports is None:
+                    exec_pth_import(filename, index + 1, line)
+                else:
+                    imports.append((filename, index + 1, line))
+            else:
+                index = line.find('#')
+                if index > 0: line = line[:index]
+                line = line.strip()
+                if not os.path.isabs(line):
+                    line = os.path.join(os.path.dirname(filename), line)
+                line = os.path.normpath(line)
+                if line and line not in dest:
+                    dest.insert(0, line)
 
-  return dest
+    return dest
 
 
 def exec_pth_import(filename, lineno, line):
-  line = '\n' * (lineno - 1) + line.strip()
-  try:
-    exec(compile(line, filename, 'exec'))
-  except BaseException:
-    traceback.print_exc()
+    line = '\n' * (lineno - 1) + line.strip()
+    try:
+        exec(compile(line, filename, 'exec'))
+    except BaseException:
+        traceback.print_exc()
 
 
 def extend_path(pth, name):
-  '''
-  Better implementation of #pkgutil.extend_path()  which adds support for
-  zipped Python eggs. The original #pkgutil.extend_path() gets mocked by this
-  function inside the #localimport context.
-  '''
+    '''
+    Better implementation of #pkgutil.extend_path()  which adds support for
+    zipped Python eggs. The original #pkgutil.extend_path() gets mocked by this
+    function inside the #localimport context.
+    '''
 
-  def zip_isfile(z, name):
-    name.rstrip('/')
-    return name in z.namelist()
+    def zip_isfile(z, name):
+        name.rstrip('/')
+        return name in z.namelist()
 
-  pname = os.path.join(*name.split('.'))
-  zname = '/'.join(name.split('.'))
-  init_py = '__init__' + os.extsep + 'py'
-  init_pyc = '__init__' + os.extsep + 'pyc'
-  init_pyo = '__init__' + os.extsep + 'pyo'
+    pname = os.path.join(*name.split('.'))
+    zname = '/'.join(name.split('.'))
+    init_py = '__init__' + os.extsep + 'py'
+    init_pyc = '__init__' + os.extsep + 'pyc'
+    init_pyo = '__init__' + os.extsep + 'pyo'
 
-  mod_path = list(pth)
-  for path in sys.path:
-    path = os.path.join(path, pname)
-    if os.path.isdir(path) and path not in mod_path:
-      addpath = (
-        os.path.isfile(os.path.join(path, init_py)) or
-        os.path.isfile(os.path.join(path, init_pyc)) or
-        os.path.isfile(os.path.join(path, init_pyo)))
-      if addpath and path not in mod_path:
-        mod_path.append(path)
+    mod_path = list(pth)
+    for path in sys.path:
+        path = os.path.join(path, pname)
+        if os.path.isdir(path) and path not in mod_path:
+            addpath = (os.path.isfile(os.path.join(path, init_py)) or
+                       os.path.isfile(os.path.join(path, init_pyc)) or
+                       os.path.isfile(os.path.join(path, init_pyo)))
+            if addpath and path not in mod_path:
+                mod_path.append(path)
 
-  return [os.path.normpath(x) for x in mod_path]
+    return [os.path.normpath(x) for x in mod_path]
 
 
 class localimport(object):
+    _py3k = sys.version_info[0] >= 3
+    _string_types = (str,) if _py3k else (basestring,)
 
-  _py3k = sys.version_info[0] >= 3
-  _string_types = (str,) if _py3k else (basestring,)
-
-  def __init__(self, path, parent_dir=None, do_eggs=True, do_pth=True,
-               do_autodisable=True):
-    if not parent_dir:
-      frame = sys._getframe(1).f_globals
-      if '__file__' in frame:
-        parent_dir = os.path.dirname(os.path.abspath(frame['__file__']))
-
-    # Convert relative paths to absolute paths with parent_dir and
-    # evaluate .egg files in the specified directories.
-    self.path = []
-    if isinstance(path, self._string_types):
-      path = [path]
-    for path_name in path:
-      if not os.path.isabs(path_name):
+    def __init__(self, path, parent_dir=None, do_eggs=True, do_pth=True,
+                 do_autodisable=True):
         if not parent_dir:
-          raise ValueError('relative path but no parent_dir')
-        path_name = os.path.join(parent_dir, path_name)
-      path_name = os.path.normpath(path_name)
-      self.path.append(path_name)
-      if do_eggs:
-        self.path.extend(glob.glob(os.path.join(path_name, '*.egg')))
+            frame = sys._getframe(1).f_globals
+            if '__file__' in frame:
+                parent_dir = os.path.dirname(os.path.abspath(frame['__file__']))
 
-    self.meta_path = []
-    self.modules = {}
-    self.do_pth = do_pth
-    self.in_context = False
-    self.do_autodisable = do_autodisable
-    self.pth_imports = []
+        # Convert relative paths to absolute paths with parent_dir and
+        # evaluate .egg files in the specified directories.
+        self.path = []
+        if isinstance(path, self._string_types):
+            path = [path]
+        for path_name in path:
+            if not os.path.isabs(path_name):
+                if not parent_dir:
+                    raise ValueError('relative path but no parent_dir')
+                path_name = os.path.join(parent_dir, path_name)
+            path_name = os.path.normpath(path_name)
+            self.path.append(path_name)
+            if do_eggs:
+                self.path.extend(glob.glob(os.path.join(path_name, '*.egg')))
 
-    if self.do_pth:
-      seen = set()
-      for path_name in self.path:
-        for fn in glob.glob(os.path.join(path_name, '*.pth')):
-          if fn in seen: continue
-          seen.add(fn)
-          eval_pth(fn, path_name, dest=self.path, imports=self.pth_imports)
+        self.meta_path = []
+        self.modules = {}
+        self.do_pth = do_pth
+        self.in_context = False
+        self.do_autodisable = do_autodisable
+        self.pth_imports = []
 
-  def __enter__(self):
-    # pkg_resources comes with setuptools.
-    try:
-      import pkg_resources
-      nsdict = copy.deepcopy(pkg_resources._namespace_packages)
-      declare_namespace = pkg_resources.declare_namespace
-      pkg_resources.declare_namespace = self._declare_namespace
-    except ImportError:
-      nsdict = None
-      declare_namespace = None
+        if self.do_pth:
+            seen = set()
+            for path_name in self.path:
+                for fn in glob.glob(os.path.join(path_name, '*.pth')):
+                    if fn in seen: continue
+                    seen.add(fn)
+                    eval_pth(fn, path_name, dest=self.path, imports=self.pth_imports)
 
-    # Save the global importer state.
-    self.state = {
-      'nsdict': nsdict,
-      'declare_namespace': declare_namespace,
-      'nspaths': {},
-      'path': sys.path[:],
-      'meta_path': sys.meta_path[:],
-      'disables': {},
-      'pkgutil.extend_path': pkgutil.extend_path,
-    }
+    def __enter__(self):
+        # pkg_resources comes with setuptools.
+        try:
+            import pkg_resources
+            nsdict = copy.deepcopy(pkg_resources._namespace_packages)
+            declare_namespace = pkg_resources.declare_namespace
+            pkg_resources.declare_namespace = self._declare_namespace
+        except ImportError:
+            nsdict = None
+            declare_namespace = None
 
-    # Update the systems meta path and apply function mocks.
-    sys.path[:] = self.path
-    sys.meta_path[:] = self.meta_path + sys.meta_path
-    pkgutil.extend_path = extend_path
+        # Save the global importer state.
+        self.state = {
+            'nsdict': nsdict,
+            'declare_namespace': declare_namespace,
+            'nspaths': {},
+            'path': sys.path[:],
+            'meta_path': sys.meta_path[:],
+            'disables': {},
+            'pkgutil.extend_path': pkgutil.extend_path,
+        }
 
-    # If this function is called not the first time, we need to
-    # restore the modules that have been imported with it and
-    # temporarily disable the ones that would be shadowed.
-    for key, mod in items(self.modules):
-      try: self.state['disables'][key] = sys.modules.pop(key)
-      except KeyError: pass
-      sys.modules[key] = mod
+        # Update the systems meta path and apply function mocks.
+        sys.path[:] = self.path
+        sys.meta_path[:] = self.meta_path + sys.meta_path
+        pkgutil.extend_path = extend_path
 
-    # Evaluate imports from the .pth files, if any.
-    for fn, lineno, stmt in self.pth_imports:
-      exec_pth_import(fn, lineno, stmt)
+        # If this function is called not the first time, we need to
+        # restore the modules that have been imported with it and
+        # temporarily disable the ones that would be shadowed.
+        for key, mod in items(self.modules):
+            try:
+                self.state['disables'][key] = sys.modules.pop(key)
+            except KeyError:
+                pass
+            sys.modules[key] = mod
 
-    # Add the original path to sys.path.
-    sys.path += self.state['path']
+        # Evaluate imports from the .pth files, if any.
+        for fn, lineno, stmt in self.pth_imports:
+            exec_pth_import(fn, lineno, stmt)
 
-    # Update the __path__ of all namespace modules.
-    for key, mod in items(sys.modules):
-      if mod is None:
-        # Relative imports could have lead to None-entries in
-        # sys.modules. Get rid of them so they can be re-evaluated.
-        prefix = key.rpartition('.')[0]
-        if hasattr(sys.modules.get(prefix), '__path__'):
-          del sys.modules[key]
-      elif hasattr(mod, '__path__'):
-        self.state['nspaths'][key] = copy.copy(mod.__path__)
-        mod.__path__ = pkgutil.extend_path(mod.__path__, mod.__name__)
+        # Add the original path to sys.path.
+        sys.path += self.state['path']
 
-    self.in_context = True
-    if self.do_autodisable:
-      self.autodisable()
-    return self
+        # Update the __path__ of all namespace modules.
+        for key, mod in items(sys.modules):
+            if mod is None:
+                # Relative imports could have lead to None-entries in
+                # sys.modules. Get rid of them so they can be re-evaluated.
+                prefix = key.rpartition('.')[0]
+                if hasattr(sys.modules.get(prefix), '__path__'):
+                    del sys.modules[key]
+            elif hasattr(mod, '__path__'):
+                self.state['nspaths'][key] = copy.copy(mod.__path__)
+                mod.__path__ = pkgutil.extend_path(mod.__path__, mod.__name__)
 
-  def __exit__(self, *__):
-    if not self.in_context:
-      raise RuntimeError('context not entered')
+        self.in_context = True
+        if self.do_autodisable:
+            self.autodisable()
+        return self
 
-    # Figure the difference of the original sys.path and the
-    # current path. The list of paths will be used to determine
-    # what modules are local and what not.
-    local_paths = []
-    for path in sys.path:
-      if path not in self.state['path']:
-        local_paths.append(path)
-    for path in self.path:
-      if path not in local_paths:
-        local_paths.append(path)
+    def __exit__(self, *__):
+        if not self.in_context:
+            raise RuntimeError('context not entered')
 
-    # Move all meta path objects to self.meta_path that have not
-    # been there before and have not been in the list before.
-    for meta in sys.meta_path:
-      if meta is not self and meta not in self.state['meta_path']:
-        if meta not in self.meta_path:
-          self.meta_path.append(meta)
+        # Figure the difference of the original sys.path and the
+        # current path. The list of paths will be used to determine
+        # what modules are local and what not.
+        local_paths = []
+        for path in sys.path:
+            if path not in self.state['path']:
+                local_paths.append(path)
+        for path in self.path:
+            if path not in local_paths:
+                local_paths.append(path)
 
-    # Move all modules that shadow modules of the original system
-    # state or modules that are from any of the localimport context
-    # paths away.
-    modules = sys.modules.copy()
-    for key, mod in iteritems(modules):
-      force_pop = False
-      filename = getattr(mod, '__file__', None)
-      if not filename and key not in sys.builtin_module_names:
-        parent = key.rsplit('.', 1)[0]
-        if parent in modules:
-          filename = getattr(modules[parent], '__file__', None)
-        else:
-          force_pop = True
-      if force_pop or (filename and is_local(filename, local_paths)):
-        self.modules[key] = sys.modules.pop(key)
+        # Move all meta path objects to self.meta_path that have not
+        # been there before and have not been in the list before.
+        for meta in sys.meta_path:
+            if meta is not self and meta not in self.state['meta_path']:
+                if meta not in self.meta_path:
+                    self.meta_path.append(meta)
 
-    # Restore the disabled modules.
-    sys.modules.update(self.state['disables'])
-    for key, mod in iteritems(self.state['disables']):
-      try: parent_name = key.split('.')[-2]
-      except IndexError: parent_name = None
-      if parent_name and parent_name in sys.modules:
-        parent = sys.modules[parent_name]
-        setattr(parent, key.split('.')[-1], mod)
+        # Move all modules that shadow modules of the original system
+        # state or modules that are from any of the localimport context
+        # paths away.
+        modules = sys.modules.copy()
+        for key, mod in iteritems(modules):
+            force_pop = False
+            filename = getattr(mod, '__file__', None)
+            if not filename and key not in sys.builtin_module_names:
+                parent = key.rsplit('.', 1)[0]
+                if parent in modules:
+                    filename = getattr(modules[parent], '__file__', None)
+                else:
+                    force_pop = True
+            if force_pop or (filename and is_local(filename, local_paths)):
+                self.modules[key] = sys.modules.pop(key)
 
-    # Restore the original __path__ value of namespace packages.
-    for key, path in iteritems(self.state['nspaths']):
-      try: sys.modules[key].__path__ = path
-      except KeyError: pass
+        # Restore the disabled modules.
+        sys.modules.update(self.state['disables'])
+        for key, mod in iteritems(self.state['disables']):
+            try:
+                parent_name = key.split('.')[-2]
+            except IndexError:
+                parent_name = None
+            if parent_name and parent_name in sys.modules:
+                parent = sys.modules[parent_name]
+                setattr(parent, key.split('.')[-1], mod)
 
-    # Restore the original state of the global importer.
-    sys.path[:] = self.state['path']
-    sys.meta_path[:] = self.state['meta_path']
-    pkgutil.extend_path = self.state['pkgutil.extend_path']
-    try:
-      import pkg_resources
-      pkg_resources.declare_namespace = self.state['declare_namespace']
-      pkg_resources._namespace_packages.clear()
-      pkg_resources._namespace_packages.update(self.state['nsdict'])
-    except ImportError: pass
+        # Restore the original __path__ value of namespace packages.
+        for key, path in iteritems(self.state['nspaths']):
+            try:
+                sys.modules[key].__path__ = path
+            except KeyError:
+                pass
 
-    self.in_context = False
-    del self.state
-
-  def _declare_namespace(self, package_name):
-    '''
-    Mock for #pkg_resources.declare_namespace() which calls
-    #pkgutil.extend_path() afterwards as the original implementation doesn't
-    seem to properly find all available namespace paths.
-    '''
-
-    self.state['declare_namespace'](package_name)
-    mod = sys.modules[package_name]
-    mod.__path__ = pkgutil.extend_path(mod.__path__, package_name)
-
-  def discover(self):
-    return pkgutil.iter_modules(self.path)
-
-  def disable(self, module):
-    if not isinstance(module, self._string_types):
-      [self.disable(x) for x in module]
-      return
-
-    sub_prefix = module + '.'
-    modules = {}
-    for key, mod in iteritems(sys.modules):
-      if key == module or key.startswith(sub_prefix):
-        try: parent_name = '.'.join(key.split('.')[:-1])
-        except IndexError: parent_name = None
-
-        # Delete the child module reference from the parent module.
-        modules[key] = mod
-        if parent_name and parent_name in sys.modules:
-          parent = sys.modules[parent_name]
-          try:
-            delattr(parent, key.split('.')[-1])
-          except AttributeError:
+        # Restore the original state of the global importer.
+        sys.path[:] = self.state['path']
+        sys.meta_path[:] = self.state['meta_path']
+        pkgutil.extend_path = self.state['pkgutil.extend_path']
+        try:
+            import pkg_resources
+            pkg_resources.declare_namespace = self.state['declare_namespace']
+            pkg_resources._namespace_packages.clear()
+            pkg_resources._namespace_packages.update(self.state['nsdict'])
+        except ImportError:
             pass
 
-    # Pop all the modules we found from sys.modules
-    for key, mod in iteritems(modules):
-      del sys.modules[key]
-      self.state['disables'][key] = mod
+        self.in_context = False
+        del self.state
 
-  def autodisable(self):
-    for loader, name, ispkg in self.discover():
-      self.disable(name)
+    def _declare_namespace(self, package_name):
+        '''
+        Mock for #pkg_resources.declare_namespace() which calls
+        #pkgutil.extend_path() afterwards as the original implementation doesn't
+        seem to properly find all available namespace paths.
+        '''
+
+        self.state['declare_namespace'](package_name)
+        mod = sys.modules[package_name]
+        mod.__path__ = pkgutil.extend_path(mod.__path__, package_name)
+
+    def discover(self):
+        return pkgutil.iter_modules(self.path)
+
+    def disable(self, module):
+        if not isinstance(module, self._string_types):
+            [self.disable(x) for x in module]
+            return
+
+        sub_prefix = module + '.'
+        modules = {}
+        for key, mod in iteritems(sys.modules):
+            if key == module or key.startswith(sub_prefix):
+                try:
+                    parent_name = '.'.join(key.split('.')[:-1])
+                except IndexError:
+                    parent_name = None
+
+                # Delete the child module reference from the parent module.
+                modules[key] = mod
+                if parent_name and parent_name in sys.modules:
+                    parent = sys.modules[parent_name]
+                    try:
+                        delattr(parent, key.split('.')[-1])
+                    except AttributeError:
+                        pass
+
+        # Pop all the modules we found from sys.modules
+        for key, mod in iteritems(modules):
+            del sys.modules[key]
+            self.state['disables'][key] = mod
+
+    def autodisable(self):
+        for loader, name, ispkg in self.discover():
+            self.disable(name)

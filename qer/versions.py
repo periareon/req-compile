@@ -16,14 +16,13 @@ def _offset_minor_version(version, offset, pos=2):
                 raise ValueError('Cannot create a version less than 0')
             parts[pos] = PART_MAX
             return _offset_minor_version(pkg_resources.parse_version('.'.join(parts)), -1, pos=pos - 1)
-        else:
-            parts[pos] = str(int(parts[pos]) + offset)
+        parts[pos] = str(int(parts[pos]) + offset)
         return pkg_resources.parse_version('.'.join(parts))
     except TypeError:
         return None
 
 
-def is_possible(req):
+def is_possible(req):  # pylint: disable=too-many-branches
     """
     Determine whether or not the requirement with its given specifiers is even possible.
 

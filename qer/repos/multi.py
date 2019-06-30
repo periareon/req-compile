@@ -21,7 +21,7 @@ class MultiRepository(BaseRepository):
         for repo in self.repositories:
             try:
                 candidates = repo.get_candidates(req)
-                result = repo._do_get_candidate(req, candidates)
+                result = repo.do_get_candidate(req, candidates)
                 self.source[req.name] = repo
                 return result
             except NoCandidateException as ex:
@@ -34,6 +34,6 @@ class MultiRepository(BaseRepository):
             try:
                 repo_candidates = repo.get_candidates(req)
                 candidates.extend(repo_candidates)
-            except NoCandidateException as ex:
+            except NoCandidateException:
                 pass
         return candidates

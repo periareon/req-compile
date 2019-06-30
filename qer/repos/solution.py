@@ -1,6 +1,5 @@
 from __future__ import print_function
 
-import logging
 import os
 import sys
 
@@ -15,14 +14,13 @@ from qer.repos.repository import Repository, Candidate, DistributionType, Requir
 
 class SolutionRepository(Repository):
     def __init__(self, filename, allow_prerelease=None):
-        super(SolutionRepository, self).__init__(allow_prerelease=allow_prerelease)
+        super(SolutionRepository, self).__init__('solution', allow_prerelease=allow_prerelease)
         self.filename = filename
         if os.path.exists(filename):
             self.solution = load_from_file(self.filename, origin=self)
         else:
             print('Solution file {} not found'.format(filename))
             self.solution = {}
-        self._logger = logging.getLogger('qer.repository.solution')
 
     def __repr__(self):
         return '--solution {}'.format(self.filename)
@@ -34,10 +32,6 @@ class SolutionRepository(Repository):
 
     def __hash__(self):
         return hash('solution') ^ hash(self.solution)
-
-    @property
-    def logger(self):
-        return self._logger
 
     def get_candidates(self, req):
         try:
@@ -83,30 +77,36 @@ def load_from_file(filename, origin=None):
             _, _, source_part = source_part.partition('] ')
         sources = source_part.split(', ')
 
-        pkg_names = imap(lambda x: x.split(' ')[0], sources)
         constraints = imap(lambda x: x.split(' ')[1].replace('(', '').replace(')', '') if '(' in x else None, sources)
 
-        version = qer.utils.parse_version(list(req.specifier)[0].version)
-        metadata = qer.dists.DistInfo(req.name, version, [])
+        metadata = qer.dists.DistInfo(req.name,
+                                      qer.utils.parse_version(list(req.specifier)[0].version),
+                                      [])
         metadata.origin = origin
 
         result.add_dist(metadata, None, req)
 
-        for name, constraints in zip(pkg_names, constraints):
+        for name, constraints in zip(imap(lambda x: x.split(' ')[0], sources), constraints):
             if name and not (name.endswith('.txt') or name.endswith('.out')):
                 constraint_req = qer.utils.parse_requirement(name)
                 result.add_dist(constraint_req.name, None, constraint_req)
                 reverse_dep = result[name]
             else:
                 reverse_dep = None
-            result.add_dist(metadata.name, reverse_dep, qer.utils.parse_requirement('{}{}{}'.format(metadata.name,
-                                                                                                    ('[' + ','.join(
-                                                                                                        req.extras) + ']') if req.extras else '',
-                                                                                                    constraints if constraints else '')))
+            result.add_dist(metadata.name, reverse_dep,
+                            qer.utils.parse_requirement('{}{}{}'.format(metadata.name,
+                                                                        ('[' + ','.join(
+                                                                            req.extras) + ']') if req.extras else '',
+                                                                        constraints if constraints else '')))
 
     if reqfile is not sys.stdin:
         reqfile.close()
 
+    _remove_nodes(result)
+    return result
+
+
+def _remove_nodes(result):
     nodes_to_remove = []
     for node in result:
         if node.metadata is not None:
@@ -122,10 +122,8 @@ def load_from_file(filename, origin=None):
                 raise
         else:
             nodes_to_remove.append(node)
-
     for node in nodes_to_remove:
         try:
             del result.nodes[node.key]
         except KeyError:
             pass
-    return result

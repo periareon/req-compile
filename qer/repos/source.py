@@ -1,7 +1,6 @@
 from __future__ import print_function
 import collections
 import itertools
-import logging
 import os
 import sys
 
@@ -11,20 +10,18 @@ import qer.repos.repository
 
 from qer.repos.repository import Repository
 
-
 SPECIAL_DIRS = ('site-packages', 'dist-packages', '.git', '.svn', '.idea')
-SPECIAL_FILES  = ('__init__.py',)
+SPECIAL_FILES = ('__init__.py',)
 
 
 class SourceRepository(Repository):
     def __init__(self, path, allow_prerelease=None):
-        super(SourceRepository, self).__init__(allow_prerelease=allow_prerelease)
+        super(SourceRepository, self).__init__('source', allow_prerelease=allow_prerelease)
 
         if not os.path.exists(path):
             raise ValueError('Source directory {} does not exist (cwd={})'.format(path, os.getcwd()))
 
         self.path = os.path.abspath(path)
-        self._logger = logging.getLogger('qer.repository.source')
         self.distributions = collections.defaultdict(list)
         self._find_all_distributions()
 
@@ -70,16 +67,12 @@ class SourceRepository(Repository):
     def __hash__(self):
         return hash('source') ^ hash(self.path)
 
-    @property
-    def logger(self):
-        return self._logger
-
     def get_candidates(self, req):
         if req is None:
             return itertools.chain(*self.distributions.values())
-        else:
-            project_name = utils.normalize_project_name(req.name)
-            return self.distributions.get(project_name, [])
+
+        project_name = utils.normalize_project_name(req.name)
+        return self.distributions.get(project_name, [])
 
     def resolve_candidate(self, candidate):
         return candidate.preparsed, True

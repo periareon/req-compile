@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import abc
+import logging
 import struct
 import enum
 import platform
@@ -126,8 +127,8 @@ class RequiresPython(object):
         return ''
 
 
-class Candidate(object):
-    def __init__(self, name, filename, version, py_version, platform, link,
+class Candidate(object):  # pylint: disable=too-many-instance-attributes
+    def __init__(self, name, filename, version, py_version, plat, link,
                  candidate_type=DistributionType.SDIST):
         """
 
@@ -136,7 +137,7 @@ class Candidate(object):
             filename:
             version:
             py_version (RequiresPython): Python version
-            platform:
+            plat (str):
             link:
             type:
         """
@@ -144,7 +145,7 @@ class Candidate(object):
         self.filename = filename
         self.version = version
         self.py_version = py_version   # type: RequiresPython
-        self.platform = platform
+        self.platform = plat
         self.link = link
         self.type = candidate_type
 
@@ -203,8 +204,7 @@ class NoCandidateException(Exception):
                 self.req.name,
                 self.req.specifier
             )
-        else:
-            return 'NoCandidateException - no candidates found for "{}"'.format(self.req.name)
+        return 'NoCandidateException - no candidates found for "{}"'.format(self.req.name)
 
 
 def process_distribution(source, filename, py_version=None):
@@ -254,11 +254,24 @@ class CantUseReason(enum.Enum):
     VERSION_NO_SATISFY = 5
 
 
+def sort_candidates(candidates):
+    """
+
+    Args:
+        candidates:
+
+    Returns:
+        (list[Candidate])
+    """
+    return sorted(candidates, key=lambda x: x.sortkey, reverse=True)
+
+
 class Repository(six.with_metaclass(abc.ABCMeta, BaseRepository)):
-    def __init__(self, allow_prerelease=None):
+    def __init__(self, logger_name, allow_prerelease=None):
+        super(Repository, self).__init__()
         if allow_prerelease is None:
             allow_prerelease = False
-
+        self.logger = logging.getLogger('qer.repository').getChild(logger_name)
         self.allow_prerelease = allow_prerelease
 
     def __eq__(self, other):
@@ -283,22 +296,17 @@ class Repository(six.with_metaclass(abc.ABCMeta, BaseRepository)):
     def resolve_candidate(self, candidate):
         raise NotImplementedError()
 
-    @property
-    @abc.abstractmethod
-    def logger(self):
-        raise NotImplementedError()
-
     @abc.abstractmethod
     def close(self):
         raise NotImplementedError()
 
     def get_candidate(self, req):
         candidates = self.get_candidates(req)
-        return self._do_get_candidate(req, candidates)
+        return self.do_get_candidate(req, candidates)
 
-    def _do_get_candidate(self, req, candidates):
+    def do_get_candidate(self, req, candidates):
         self.logger.info('Getting candidate for %s', req)
-        candidates = self._sort_candidates(candidates)
+        candidates = sort_candidates(candidates)
         has_equality = qer.utils.is_pinned_requirement(req)
 
         check_level = 1
@@ -329,20 +337,9 @@ class Repository(six.with_metaclass(abc.ABCMeta, BaseRepository)):
         ex.check_level = check_level
         raise ex
 
-    def why_cant_I_use(self, req, candidate):
+    def why_cant_I_use(self, req, candidate):  # pylint: disable=invalid-name
         try:
-            self._do_get_candidate(req, (candidate,))
+            self.do_get_candidate(req, (candidate,))
             raise ValueError('This requirement can be used')
         except NoCandidateException as ex:
             return CantUseReason(ex.check_level)
-
-    def _sort_candidates(self, candidates):
-        """
-
-        Args:
-            candidates:
-
-        Returns:
-            (list[Candidate])
-        """
-        return sorted(candidates, key=lambda x: x.sortkey, reverse=True)

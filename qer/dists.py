@@ -32,8 +32,7 @@ class DependencyNode(object):
     def __str__(self):
         if self.metadata is None:
             return self.key + ' [UNSOLVED]'
-        else:
-            return self.metadata.to_definition((self.extra,) if self.extra else None)
+        return self.metadata.to_definition((self.extra,) if self.extra else None)
 
     def build_constraints(self):
         req = None
@@ -81,11 +80,12 @@ class DistributionCollection(object):
             reason (pkg_resources.Requirement, optional):
         """
         if reason is not None and len(reason.extras) > 1:
+            result = None
             for extra in reason.extras:
                 new_req = copy.copy(reason)
                 new_req.extras = (extra,)
-                self.add_dist(metadata, source, new_req)
-            return
+                result = self.add_dist(metadata, source, new_req)
+            return result
 
         has_metadata = False
         if isinstance(metadata, str):
@@ -119,6 +119,15 @@ class DistributionCollection(object):
                     self.update_dists(reverse_node, metadata)
                     nodes.add(reverse_node)
 
+        self._discard_metadata_if_necessary(base_node, reason, req_name)
+
+        if source is not None:
+            node.reverse_deps.add(source)
+            source.dependencies[node] = reason
+
+        return nodes if has_metadata else set()
+
+    def _discard_metadata_if_necessary(self, base_node, reason, req_name):
         if base_node.metadata is not None and reason is not None:
             if not reason.specifier.contains(base_node.metadata.version):
                 # Discard the metadata
@@ -127,14 +136,6 @@ class DistributionCollection(object):
                 for reverse_node in base_node.reverse_deps:
                     if reverse_node.req_name == req_name:
                         self.remove_dists(reverse_node, remove_upstream=False)
-
-        if source is not None:
-            node.reverse_deps.add(source)
-            source.dependencies[node] = reason
-
-        if not has_metadata:
-            return set()
-        return nodes
 
     def add_base(self, node, reason, req_name):
         if reason is not None:

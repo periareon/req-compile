@@ -7,16 +7,17 @@ import requests
 from six.moves import html_parser
 from six.moves import urllib
 
-from .repository import Repository, process_distribution
-from qer.metadata import extract_metadata
-
 try:
     from functools32 import lru_cache
 except ImportError:
     from functools import lru_cache
 
+from qer.repos.repository import Repository, process_distribution
+from qer.metadata import extract_metadata
 
-logger = logging.getLogger('qer.pypi')
+
+
+LOG = logging.getLogger('qer.pypi')
 
 
 class LinksHTMLParser(html_parser.HTMLParser):
@@ -105,13 +106,12 @@ def _do_download(logger, filename, link, session, wheeldir):
 
 class PyPIRepository(Repository):
     def __init__(self, index_url, wheeldir, allow_prerelease=False):
-        super(PyPIRepository, self).__init__(allow_prerelease)
+        super(PyPIRepository, self).__init__('pypi', allow_prerelease)
 
         self.index_url = index_url
         self.wheeldir = wheeldir
         self.allow_prerelease = allow_prerelease
 
-        self._logger = logging.getLogger('qer.pypi')
         self.session = requests.Session()
 
     def __repr__(self):
@@ -124,10 +124,6 @@ class PyPIRepository(Repository):
 
     def __hash__(self):
         return hash('pypi') ^ hash(self.index_url)
-
-    @property
-    def logger(self):
-        return self._logger
 
     def get_candidates(self, req):
         if req is None:

@@ -14,7 +14,7 @@ def compile_mock(mocker):
     perform_compile_mock = mocker.patch('qer.cmdline.perform_compile')
     result = mocker.MagicMock()
     result.generate_lines.return_value = [('line', 'line')]
-    perform_compile_mock.return_value = result, mocker.MagicMock(), mocker.MagicMock(),
+    perform_compile_mock.return_value = result, mocker.MagicMock()
     mocker.patch('qer.cmdline._create_input_reqs')
     mocker.patch('os.path.exists')
     mocker.patch('os.listdir')

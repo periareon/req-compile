@@ -2,7 +2,6 @@
 import logging
 import sys
 
-import pkg_resources
 import six
 
 import qer.dists
@@ -12,7 +11,7 @@ import qer.utils
 from qer.utils import parse_requirement, merge_requirements
 import qer.repos.repository
 
-from qer.dists import DistributionCollection, RequirementsFile
+from qer.dists import RequirementsFile
 from qer.repos.repository import NoCandidateException
 
 MAX_DOWNGRADE = 3
@@ -20,7 +19,7 @@ MAX_DOWNGRADE = 3
 LOG = logging.getLogger('qer.compile')
 
 
-def compile_roots(node, source, repo, dists, depth=1):
+def compile_roots(node, source, repo, dists, depth=1):  # pylint: disable=too-many-locals,too-many-branches
     """
 
     Args:
@@ -60,8 +59,7 @@ def compile_roots(node, source, repo, dists, depth=1):
             except NoCandidateException:
                 if attempt == 0:
                     raise
-                else:
-                    break
+                break
 
             try:
                 # Save off the original metadata for better error information
@@ -90,8 +88,8 @@ def compile_roots(node, source, repo, dists, depth=1):
             if first_failure is None:
                 first_failure = ex
 
-            for node in nodes_to_recurse:
-                dists.remove_dists(node, remove_upstream=False)
+            for child_node in nodes_to_recurse:
+                dists.remove_dists(child_node, remove_upstream=False)
 
         if first_failure is not None:
             if original_metadata is not None:
@@ -117,7 +115,8 @@ def perform_compile(input_reqs, repo, constraint_reqs=None):
         constraint_reqs (dict[str, list[pkg_resources.Requirement]] or None): Constraints to use
             when compiling
     Returns:
-        tuple[DistributionCollection, set[DependencyNode], set[DependencyNode]], the solution and the constraints node used for
+        tuple[DistributionCollection, set[DependencyNode], set[DependencyNode]],
+        the solution and the constraints node used for
             the solution
     """
     results = qer.dists.DistributionCollection()
@@ -141,4 +140,4 @@ def perform_compile(input_reqs, repo, constraint_reqs=None):
         ex.results = results
         raise
 
-    return results, nodes - constraint_nodes, constraint_nodes
+    return results, nodes - constraint_nodes

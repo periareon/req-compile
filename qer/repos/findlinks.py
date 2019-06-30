@@ -1,7 +1,4 @@
-import logging
 import os
-
-import pkg_resources
 
 from qer import utils
 import qer.repos.repository
@@ -11,9 +8,8 @@ import qer.metadata
 
 class FindLinksRepository(Repository):
     def __init__(self, path, allow_prerelease=None):
-        super(FindLinksRepository, self).__init__(allow_prerelease=allow_prerelease)
+        super(FindLinksRepository, self).__init__('findlinks', allow_prerelease=allow_prerelease)
         self.path = path
-        self._logger = logging.getLogger('qer.repository.findlinks')
         self.links = []
         self._find_all_links()
 
@@ -34,10 +30,6 @@ class FindLinksRepository(Repository):
             if candidate is not None:
                 self.links.append(candidate)
 
-    @property
-    def logger(self):
-        return self._logger
-
     def get_candidates(self, req):
         project_name = None
         if req is not None:
@@ -55,8 +47,3 @@ class FindLinksRepository(Repository):
 
     def close(self):
         pass
-
-
-if __name__ == '__main__':
-    repo = FindLinksRepository('mywheels')
-    print(repo.get_candidate(pkg_resources.Requirement.parse('astroid')))

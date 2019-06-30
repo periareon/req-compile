@@ -77,7 +77,7 @@ def _dump_repo_candidates(req, repos):
         candidates = repo.get_candidates(req)
         print('  {}:'.format(repo), file=sys.stderr)
         if candidates:
-            for candidate in repo._sort_candidates(candidates):
+            for candidate in repo.sort_candidates(candidates):
                 print('  {}: {}'.format(candidate,
                                         _cantusereason_to_text(repo.why_cant_I_use(req, candidate))),
                       file=sys.stderr)
@@ -124,17 +124,16 @@ def _create_input_reqs(input_arg, extras=None, extra_source_repos=None):
                 return (utils.parse_requirement(line),)
 
         return list(itertools.chain(*[_create_stdin_input_req(line)
-                                  for line in stdin_contents]))
-    elif os.path.isdir(input_arg):
+                                      for line in stdin_contents]))
+
+    if os.path.isdir(input_arg):
         return _create_req_from_path(input_arg, extras, extra_source_repos)
-    elif os.path.isfile(input_arg):
+    if os.path.isfile(input_arg):
         return utils.reqs_from_files([input_arg])
-    else:
-        return _create_req_from_path(input_arg, extras, extra_source_repos)
+    return _create_req_from_path(input_arg, extras, extra_source_repos)
 
 
-
-
+# pylint: disable=too-many-arguments,too-many-statements,too-many-locals,too-many-branches
 def run_compile(input_args, allow_prerelease, extras, constraint_files, sources, find_links, index_urls,
                 wheeldir, no_index, remove_source, solutions, annotate_source):
     """
@@ -192,7 +191,7 @@ def run_compile(input_args, allow_prerelease, extras, constraint_files, sources,
                       allow_prerelease=allow_prerelease)
 
     try:
-        results, roots, constraints = perform_compile(input_reqs, repo, constraint_reqs=constraint_reqs)
+        results, roots = perform_compile(input_reqs, repo, constraint_reqs=constraint_reqs)
 
         blacklist_filter = lambda req: req.metadata.name.lower() not in BLACKLIST
         req_filter = blacklist_filter
@@ -206,31 +205,10 @@ def run_compile(input_args, allow_prerelease, extras, constraint_files, sources,
             req_filter = lambda req: blacklist_filter(req) and is_from_source(req)
 
         lines = sorted(results.generate_lines(roots, req_filter=req_filter), key=lambda x: x[0].lower())
-        if not lines:
-            return
 
         left_column_len = max(len(x[0]) for x in lines)
         if annotate_source:
-            repo_mapping = {}
-            qer_req = pkg_resources.working_set.find(pkg_resources.Requirement.parse('qer'))
-            print('# Compiled by Qer Requirements Compiler ({}) on {} UTC'.format(
-                qer_req.version if qer_req else 'dev',
-                datetime.datetime.utcnow()))
-            print('#')
-            print('# Inputs:')
-            for input_arg in input_reqs:
-                input_to_print = input_arg
-                if input_arg == '-':
-                    input_to_print = list(input_reqs[input_arg])
-                elif os.path.exists(input_arg):
-                    input_to_print = os.path.abspath(input_arg)
-                print('# {}'.format(input_to_print))
-            print('#')
-            print('# Repositories (this annotation produced by --annotate):')
-            for idx, repo in enumerate(repo):
-                repo_mapping[repo] = idx
-                print('# [{}] {}'.format(idx, repo))
-            print('')
+            repo_mapping = _annotate(input_reqs, repo)
         annotation = ''
         for line in lines:
             if annotate_source:
@@ -249,6 +227,30 @@ def run_compile(input_args, allow_prerelease, extras, constraint_files, sources,
     finally:
         if delete_wheeldir:
             shutil.rmtree(wheeldir)
+
+
+def _annotate(input_reqs, repos):
+    repo_mapping = {}
+    qer_req = pkg_resources.working_set.find(pkg_resources.Requirement.parse('qer'))
+    print('# Compiled by Qer Requirements Compiler ({}) on {} UTC'.format(
+        qer_req.version if qer_req else 'dev',
+        datetime.datetime.utcnow()))
+    print('#')
+    print('# Inputs:')
+    for input_arg in input_reqs:
+        input_to_print = input_arg
+        if input_arg == '-':
+            input_to_print = list(input_reqs[input_arg])
+        elif os.path.exists(input_arg):
+            input_to_print = os.path.abspath(input_arg)
+        print('# {}'.format(input_to_print))
+    print('#')
+    print('# Repositories (this annotation produced by --annotate):')
+    for idx, repo in enumerate(repos):
+        repo_mapping[repo] = idx
+        print('# [{}] {}'.format(idx, repo))
+    print('')
+    return repo_mapping
 
 
 def build_repo(solutions, sources, find_links, index_urls, no_index, wheeldir, allow_prerelease=False):
@@ -301,13 +303,13 @@ def compile_main(args=None):
                        metavar='extra',
                        help='Extras to apply automatically to source packages')
     group.add_argument('--remove-source', default=False, action='store_true',
-                        help='Remove distributions satisfied via --source from the output')
+                       help='Remove distributions satisfied via --source from the output')
     group.add_argument('-p', '--pre', dest='allow_prerelease', default=False, action='store_true',
-                        help='Allow preleases from all sources')
+                       help='Allow preleases from all sources')
     group.add_argument('--annotate', default=False, action='store_true',
-                        help='Annotate the output file with the sources of each requirement')
+                       help='Annotate the output file with the sources of each requirement')
     group.add_argument('-v', '--verbose', default=False, action='store_true',
-                        help='Enable verbose output to stderr')
+                       help='Enable verbose output to stderr')
     add_repo_args(parser)
 
     args = parser.parse_args(args=args)
@@ -317,7 +319,8 @@ def compile_main(args=None):
 
         logging.getLogger('qer.compile').addFilter(IndentFilter())
 
-    run_compile(args.requirement_files, args.allow_prerelease, args.extras, args.constraints if args.constraints else None, args.sources, args.find_links,
+    run_compile(args.requirement_files, args.allow_prerelease, args.extras,
+                args.constraints if args.constraints else None, args.sources, args.find_links,
                 args.index_urls, args.wheel_dir, args.no_index, args.remove_source, args.solutions,
                 args.annotate)
 

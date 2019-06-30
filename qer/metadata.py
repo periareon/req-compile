@@ -1,6 +1,5 @@
 from __future__ import print_function
 
-import contextlib
 import functools
 import imp
 import io
@@ -12,6 +11,7 @@ import tempfile
 import types
 import zipfile
 import abc
+import contextlib
 from contextlib import closing
 
 import pkg_resources
@@ -27,12 +27,14 @@ LOG = logging.getLogger('qer.metadata')
 
 class MetadataError(Exception):
     def __init__(self, name, version, ex):
+        super(MetadataError, self).__init__()
         self.name = name
         self.version = version
         self.ex = ex
 
     def __str__(self):
-        return 'Failed to parse metadata for package {} ({}) - {}: {}'.format(self.name, self.version, self.ex.__class__.__name__, str(self.ex))
+        return 'Failed to parse metadata for package {} ({}) - {}: {}'.format(
+            self.name, self.version, self.ex.__class__.__name__, str(self.ex))
 
 
 class Extractor(six.with_metaclass(abc.ABCMeta, object)):
@@ -41,7 +43,7 @@ class Extractor(six.with_metaclass(abc.ABCMeta, object)):
         pass
 
     @abc.abstractmethod
-    def open(self, filename, mode='r', encoding=None):
+    def open(self, filename, mode='r', encoding=None, errors=None):
         pass
 
     @abc.abstractmethod
@@ -95,7 +97,7 @@ class NonExtractor(Extractor):
 
     def names(self):
         parent_dir = os.path.abspath(os.path.join(self.path, '..'))
-        for root, dirs, files in os.walk(self.path):
+        for root, _, files in os.walk(self.path):
             rel_root = os.path.relpath(root, parent_dir).replace('\\', '/')
             for file in files:
                 yield rel_root + '/' + file
@@ -104,8 +106,7 @@ class NonExtractor(Extractor):
         if not os.path.isabs(filename):
             parent_dir = os.path.abspath(os.path.join(self.path, '..'))
             return self.io_open(os.path.join(parent_dir, filename), mode=mode, encoding=encoding)
-        else:
-            return self.io_open(filename, mode=mode, encoding=encoding)
+        return self.io_open(filename, mode=mode, encoding=encoding)
 
     def close(self):
         pass
@@ -124,7 +125,7 @@ class TarExtractor(Extractor):
         if not os.path.isabs(filename):
             try:
                 handle = self.tar.extractfile(filename)
-                return with_decoding(handle, encoding=encoding if mode != 'rb' else None)
+                return WithDecoding(handle, encoding=encoding if mode != 'rb' else None)
             except KeyError:
                 raise IOError('Not found in archive: {}'.format(filename))
         else:
@@ -146,7 +147,7 @@ class ZipExtractor(Extractor):
         filename = filename.replace('\\', '/').replace('./', '')
         if not os.path.isabs(filename):
             try:
-                output = with_decoding(StringIO(self.zfile.read(filename).decode(encoding)), None)
+                output = WithDecoding(StringIO(self.zfile.read(filename).decode(encoding)), None)
                 return output
             except KeyError:
                 raise IOError('Not found in archive: {}'.format(filename))
@@ -161,7 +162,15 @@ class ZipExtractor(Extractor):
 
 
 def extract_metadata(filename, origin=None):
-    """"""
+    """Extract a DistInfo from a file or directory
+
+    Args:
+        filename (str): File or path to extract metadata from
+        origin (str, qer.repos.Repository: Origin of the metadata
+
+    Returns:
+        (RequirementContainer) the result of the metadata extraction
+    """
     LOG.info('Extracting metadata for %s', filename)
     _, ext = os.path.splitext(filename)
     ext = ext.lower()
@@ -171,7 +180,7 @@ def extract_metadata(filename, origin=None):
     elif ext == '.zip':
         LOG.debug('Extracting from a zipped source package')
         result = _fetch_from_source(filename, ZipExtractor)
-    elif ext == '.gz' or ext == '.tgz':
+    elif ext in ('.gz', '.tgz'):
         LOG.debug('Extracting from a tar gz package')
         result = _fetch_from_source(os.path.abspath(filename), TarExtractor)
     else:
@@ -183,7 +192,7 @@ def extract_metadata(filename, origin=None):
     return result
 
 
-def _fetch_from_source(source_file, extractor_type):
+def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many-branches
     """
 
     Args:
@@ -247,14 +256,14 @@ def _fetch_from_source(source_file, extractor_type):
                 if results:
                     setup_results.version = results.version
                 return setup_results
-            elif results is not None:
+            if results is not None:
                 return results
-            else:
-                return None
+            return None
 
         if metadata_file:
             return _parse_flat_metadata(extractor.open(metadata_file, encoding='utf-8').read())
 
+        return None
 
 def _fetch_from_wheel(wheel):
     zfile = zipfile.ZipFile(wheel, 'r')
@@ -267,6 +276,8 @@ def _fetch_from_wheel(wheel):
 
         if metadata_file:
             return _parse_flat_metadata(zfile.read(metadata_file).decode('utf-8'))
+
+        return None
     finally:
         zfile.close()
 
@@ -287,7 +298,7 @@ def _parse_flat_metadata(contents):
     return DistInfo(name, version, list(utils.parse_requirements(raw_reqs)))
 
 
-class with_decoding(object):
+class WithDecoding(object):
     def __init__(self, wrap, encoding):
         self.file = wrap
         self.encoding = encoding
@@ -324,7 +335,7 @@ class with_decoding(object):
         pass
 
 
-def setup(results, *args, **kwargs):
+def setup(results, *_, **kwargs):
     name = kwargs.get('name', None)
     version = kwargs.get('version', '0.0.0')
     reqs = kwargs.get('install_requires', [])
@@ -371,14 +382,13 @@ class FakeModule(types.ModuleType):
         if isinstance(item, str):
             if item == '__path__':
                 return ''
-            elif item == '__file__':
+            if item == '__file__':
                 return os.path.join(self.__getattribute__('__name__'), '__init__.py')
             return FakeModule(item)
-        else:
-            return None
+        return None
 
 
-def fake_import_impl(name, orig_import, modname, globals=None, locals=None, fromlist=(), level=0):
+def fake_import_impl(name, orig_import, modname, globals_=None, locals_=None, fromlist=(), level=0):
     try:
         lower_modname = modname.lower()
         if ('build_ext' in modname) or (fromlist and ('build_ext' in fromlist)):
@@ -387,7 +397,7 @@ def fake_import_impl(name, orig_import, modname, globals=None, locals=None, from
         if (name == lower_modname or (name + '_') in lower_modname or
                 ('_' + name) in lower_modname):
             sys.modules[modname] = FakeModule(modname)
-        result = orig_import(modname, globals, locals, fromlist, level)
+        result = orig_import(modname, globals_, locals_, fromlist, level)
         return result
     except ImportError as ex:
         # Skip any cython importing to improve setup.py compatibility (e.g. subprocess32)
@@ -406,11 +416,9 @@ def fake_import_impl(name, orig_import, modname, globals=None, locals=None, from
                 sys.modules['.'.join(modparts[:idx + 1])] = FakeModule(mod)
             return FakeModule(modparts[-1])
         try:
-            return orig_import(modname, globals, locals, fromlist, level)
+            return orig_import(modname, globals_, locals_, fromlist, level)
         except TypeError:
             raise ImportError
-        except ImportError:
-            raise
     except SyntaxError:
         print('SyntaxError')
         return FakeModule(modname)
@@ -450,7 +458,7 @@ def _remove_encoding_lines(contents):
 
 
 def _parse_setup_py(name, version, fake_setupdir, opener):
-
+    # pylint: disable=no-name-in-module,no-member
     # Capture warnings.warn, which is sometimes used in setup.py files
     logging.captureWarnings(True)
 
@@ -493,9 +501,10 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
 
             from . import localimport
             with localimport.localimport([]):
-                exec (contents, spy_globals, spy_globals)
+                # pylint: disable=exec-used
+                exec(contents, spy_globals, spy_globals)
         except Exception as ex:
-             raise MetadataError(name, version, ex)
+            raise MetadataError(name, version, ex)
         finally:
             os.chdir(old_dir)
 

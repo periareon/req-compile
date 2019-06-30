@@ -4,4 +4,3 @@ PY2_BLACKLIST = (
     '_pickle',
     '_compat_pickle'
 )
-
