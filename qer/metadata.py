@@ -503,7 +503,7 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
 
     fake_import = functools.partial(fake_import_impl, name.lower(), opener, __import__)
 
-    # pylint: disable=unused-import
+    # pylint: disable=unused-import,unused-variable
     import multiprocessing.connection
     import codecs
     import setuptools
