@@ -151,7 +151,10 @@ class ZipExtractor(Extractor):
             except KeyError:
                 raise IOError('Not found in archive: {}'.format(filename))
         else:
-            return self.io_open(filename, mode=mode, encoding=encoding)
+            kwargs = {}
+            if 'b' not in mode:
+                kwargs = {'encoding': encoding}
+            return self.io_open(filename, mode=mode, **kwargs)
 
     def close(self):
         self.zfile.close()
@@ -352,6 +355,9 @@ class FakeModule(types.ModuleType):
             raise ValueError('Unintended overflow')
         return None
 
+    def __iter__(self):
+        return iter([1, 0, 0, 0])
+
     def __contains__(self, item):
         return True
 
@@ -458,6 +464,8 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
     import distutils.core
     import setuptools.extension
 
+    old_dir = os.getcwd()
+
     with patch(sys, 'exit', lambda code: None), \
          patch(sys, 'getwindowsversion', lambda: (6, 0, 1)), \
          patch(sys, 'stdout', StringIO()), \
@@ -488,9 +496,12 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
                 exec (contents, spy_globals, spy_globals)
         except Exception as ex:
              raise MetadataError(name, version, ex)
+        finally:
+            os.chdir(old_dir)
 
     if not results:
-        return None
+        raise ValueError('Distutils/setuptools setup() was not ever '
+                         'called on "{}". Is this a valid project?'.format(name))
     return results[0]
 
 

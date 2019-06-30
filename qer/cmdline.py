@@ -2,6 +2,7 @@ from __future__ import print_function
 
 import argparse
 import datetime
+import itertools
 import logging
 import os
 import shutil
@@ -36,7 +37,7 @@ def _cantusereason_to_text(reason):
     if reason == CantUseReason.VERSION_NO_SATISFY:
         return 'version mismatch'
     if reason == CantUseReason.WRONG_PLATFORM:
-        return 'platform mismatch {}'.format(qer.repos.repository.PLATFORM_TAG)
+        return 'platform mismatch {}'.format(qer.repos.repository.PLATFORM_TAGS)
     if reason == CantUseReason.WRONG_PYTHON_VERSION:
         return 'python version/interpreter mismatch ({})'.format(', '.join(
             qer.repos.repository.RequiresPython.WHEEL_VERSION_TAGS))
@@ -84,29 +85,62 @@ def _dump_repo_candidates(req, repos):
             print('  No candidates found', file=sys.stderr)
 
 
+def _create_req_from_path(path, extras, extra_source_repos):
+    """
+
+    Args:
+        path (str):
+
+    Returns:
+
+    """
+    # Check if any extras were specified
+    if '[' in path and path[-1] == ']':
+        extra_idx = path.index('[')
+        extras = extras or []
+        extras += extras + [s.strip() for s in path[extra_idx + 1:-1].split(',')]
+        path = path[:extra_idx]
+
+    dist = qer.metadata.extract_metadata(path)
+    if dist is None:
+        raise ValueError('Input arg "{}" is not directory containing setup.py or requirements file'.format(path))
+    source_dist_name = dist.name
+    if extras:
+        source_dist_name += '[{}]'.format(','.join(extras))
+    if extra_source_repos is not None:
+        extra_source_repos.append(path)
+    return [utils.parse_requirement(source_dist_name)]
+
+
 def _create_input_reqs(input_arg, extras=None, extra_source_repos=None):
+    input_arg = input_arg.strip()
     if input_arg == '-':
-        return utils.parse_requirements(sys.stdin.readlines())
+        stdin_contents = sys.stdin.readlines()
+
+        def _create_stdin_input_req(line):
+            try:
+                return _create_input_reqs(line, extras=extras, extra_source_repos=extra_source_repos)
+            except ValueError:
+                return (utils.parse_requirement(line),)
+
+        return list(itertools.chain(*[_create_stdin_input_req(line)
+                                  for line in stdin_contents]))
     elif os.path.isdir(input_arg):
-        dist = qer.metadata.extract_metadata(input_arg)
-        if dist is None:
-            raise ValueError('Input arg "{}" is not directory containing setup.py or requirements file'.format(input_arg))
-        # source_repo = SourceRepository(input_arg)
-        if extra_source_repos is not None:
-            extra_source_repos.append(input_arg)
-        source_dist_name = dist.name
-        if extras:
-            source_dist_name += '[{}]'.format(','.join(extras))
-        return [utils.parse_requirement(source_dist_name)]
-    else:
+        return _create_req_from_path(input_arg, extras, extra_source_repos)
+    elif os.path.isfile(input_arg):
         return utils.reqs_from_files([input_arg])
+    else:
+        return _create_req_from_path(input_arg, extras, extra_source_repos)
 
 
-def run_compile(input_args, extras, constraint_files, sources, find_links, index_urls,
+
+
+def run_compile(input_args, allow_prerelease, extras, constraint_files, sources, find_links, index_urls,
                 wheeldir, no_index, remove_source, solutions, annotate_source):
     """
     Args:
         input_args (list[str]):
+        allow_prerelease (bool): Whether or not to allow prereleases
         extras (Iterable[str]):
         constraint_files (list[str]):
         sources (list[str]):
@@ -132,6 +166,12 @@ def run_compile(input_args, extras, constraint_files, sources, find_links, index
         delete_wheeldir = True
 
     extra_sources = []
+    if not input_args:
+        if not sys.stdin.isatty():
+            input_args = ('-',)
+        else:
+            input_args = ('.',)
+
     input_reqs = {
         input_arg: _create_input_reqs(input_arg, extras, extra_sources)
         for input_arg in input_args
@@ -148,7 +188,8 @@ def run_compile(input_args, extras, constraint_files, sources, find_links, index
             for input_arg in constraint_files
         }
 
-    repo = build_repo(solutions, sources, find_links, index_urls, no_index, wheeldir)
+    repo = build_repo(solutions, sources, find_links, index_urls, no_index, wheeldir,
+                      allow_prerelease=allow_prerelease)
 
     try:
         results, roots, constraints = perform_compile(input_reqs, repo, constraint_reqs=constraint_reqs)
@@ -165,22 +206,27 @@ def run_compile(input_args, extras, constraint_files, sources, find_links, index
             req_filter = lambda req: blacklist_filter(req) and is_from_source(req)
 
         lines = sorted(results.generate_lines(roots, req_filter=req_filter), key=lambda x: x[0].lower())
+        if not lines:
+            return
+
         left_column_len = max(len(x[0]) for x in lines)
         if annotate_source:
             repo_mapping = {}
-            qer_req = pkg_resources.working_set.find(utils.parse_requirement('qer'))
+            qer_req = pkg_resources.working_set.find(pkg_resources.Requirement.parse('qer'))
             print('# Compiled by Qer Requirements Compiler ({}) on {} UTC'.format(
                 qer_req.version if qer_req else 'dev',
                 datetime.datetime.utcnow()))
             print('#')
             print('# Inputs:')
-            for input_arg in input_args:
+            for input_arg in input_reqs:
                 input_to_print = input_arg
-                if os.path.exists(input_arg):
+                if input_arg == '-':
+                    input_to_print = list(input_reqs[input_arg])
+                elif os.path.exists(input_arg):
                     input_to_print = os.path.abspath(input_arg)
                 print('# {}'.format(input_to_print))
             print('#')
-            print('# Repositories (this annotation produced by --annotate-source):')
+            print('# Repositories (this annotation produced by --annotate):')
             for idx, repo in enumerate(repo):
                 repo_mapping[repo] = idx
                 print('# [{}] {}'.format(idx, repo))
@@ -205,20 +251,24 @@ def run_compile(input_args, extras, constraint_files, sources, find_links, index
             shutil.rmtree(wheeldir)
 
 
-def build_repo(solutions, sources, find_links, index_urls, no_index, wheeldir):
+def build_repo(solutions, sources, find_links, index_urls, no_index, wheeldir, allow_prerelease=False):
     repos = []
     if solutions:
-        repos.extend(SolutionRepository(solution) for solution in solutions)
+        repos.extend(SolutionRepository(solution, allow_prerelease=allow_prerelease)
+                     for solution in solutions)
     if sources:
-        repos.extend(SourceRepository(source) for source in sources)
+        repos.extend(SourceRepository(source, allow_prerelease=allow_prerelease)
+                     for source in sources)
     if find_links:
-        repos.extend(FindLinksRepository(find_link) for find_link in find_links)
+        repos.extend(FindLinksRepository(find_link, allow_prerelease=allow_prerelease)
+                     for find_link in find_links)
     if not no_index:
         if not index_urls:
             default_index_url = read_pip_default_index() or 'https://pypi.org/simple'
-            repos.append(PyPIRepository(default_index_url, wheeldir))
+            repos.append(PyPIRepository(default_index_url, wheeldir, allow_prerelease=allow_prerelease))
         else:
-            repos.extend(PyPIRepository(index_url, wheeldir) for index_url in index_urls)
+            repos.extend(PyPIRepository(index_url, wheeldir, allow_prerelease=allow_prerelease)
+                         for index_url in index_urls)
     if not repos:
         raise ValueError('At least one Python distributions source must be provided.')
     if len(repos) > 1:
@@ -239,18 +289,25 @@ def compile_main(args=None):
     logging.basicConfig(level=logging.ERROR)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('requirement_files', nargs='+', help='Input requirements files')
-    parser.add_argument('-v', '--verbose', default=False, action='store_true',
-                        help='Enable verbose output to stderr')
-    parser.add_argument('-c', '--constraints', action='append',
-                        help='Contraints files. Not included in final compilation')
-    parser.add_argument('-e', '--extra', nargs='+', dest='extras', default=[],
-                        help='Extras to apply automatically to source packages')
-    parser.add_argument('--remove-source', default=False, action='store_true',
+    group = parser.add_argument_group('requirement compilation')
+    group.add_argument('requirement_files', nargs='*',
+                       metavar='requirements_file',
+                       help='Input requirements file or project directory to compile. Pass - to compile'
+                            'from stdin')
+    group.add_argument('-c', '--constraints', action='append',
+                       metavar='constraints_file',
+                       help='Constraints file or project directory to use as constraints. ')
+    group.add_argument('-e', '--extra', action='append', dest='extras', default=[],
+                       metavar='extra',
+                       help='Extras to apply automatically to source packages')
+    group.add_argument('--remove-source', default=False, action='store_true',
                         help='Remove distributions satisfied via --source from the output')
-    parser.add_argument('--annotate-source', default=False, action='store_true',
+    group.add_argument('-p', '--pre', dest='allow_prerelease', default=False, action='store_true',
+                        help='Allow preleases from all sources')
+    group.add_argument('--annotate', default=False, action='store_true',
                         help='Annotate the output file with the sources of each requirement')
-
+    group.add_argument('-v', '--verbose', default=False, action='store_true',
+                        help='Enable verbose output to stderr')
     add_repo_args(parser)
 
     args = parser.parse_args(args=args)
@@ -260,19 +317,30 @@ def compile_main(args=None):
 
         logging.getLogger('qer.compile').addFilter(IndentFilter())
 
-    run_compile(args.requirement_files, args.extras, args.constraints if args.constraints else None, args.sources, args.find_links,
-                args.index_urls, args.wheel_dir, args.no_index, args.remove_source, args.solutions, args.annotate_source)
+    run_compile(args.requirement_files, args.allow_prerelease, args.extras, args.constraints if args.constraints else None, args.sources, args.find_links,
+                args.index_urls, args.wheel_dir, args.no_index, args.remove_source, args.solutions,
+                args.annotate)
 
 
 def add_repo_args(parser):
-    parser.add_argument('-i', '--index-url', action='append', dest='index_urls', default=[])
-    parser.add_argument('-f', '--find-links', action='append', default=[])
-    parser.add_argument('-s', '--source', action='append', dest='sources', default=[])
-    parser.add_argument('-w', '--wheel-dir', type=str, default=None)
-    parser.add_argument('-u', '--solution', action='append', dest='solutions', default=[],
-                        help='Existing fully-pinned constraints file to use as a baseline when compiling')
-    parser.add_argument('--no-index', action='store_true', default=False,
-                        help='Do not connect to the internet to compile')
+    group = parser.add_argument_group('repositories')
+    group.add_argument('-n', '--solution', action='append', dest='solutions', default=[],
+                       metavar='solution_file',
+                       help='Existing fully-pinned constraints file to use as a baseline when compiling')
+    group.add_argument('-s', '--source', action='append', dest='sources', default=[],
+                       metavar='project_dir',
+                       help='Search for projects in the provided directory recursively')
+    group.add_argument('-f', '--find-links', action='append', default=[],
+                       metavar='directory',
+                       help='Directory to search for wheel and source distributions')
+    group.add_argument('-i', '--index-url', action='append', dest='index_urls', default=[],
+                       metavar='index_url',
+                       help='Link to a remote index of python distributions (http or https)')
+    group.add_argument('-w', '--wheel-dir', type=str, default=None,
+                       metavar='wheel_dir',
+                       help='Directory to which to download wheel and source distributions from remote index')
+    group.add_argument('--no-index', action='store_true', default=False,
+                       help='Do not connect to the internet to compile')
 
 
 if __name__ == '__main__':

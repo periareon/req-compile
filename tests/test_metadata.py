@@ -131,6 +131,14 @@ def test_pt(mock_targz):
     assert metadata.version == pkg_resources.parse_version('2.0.0')
 
 
+def test_termcolor(mock_targz):
+    archive = mock_targz('termcolor-1.1.0')
+
+    metadata = qer.metadata.extract_metadata(archive)
+    assert metadata.name == 'termcolor'
+    assert metadata.version == pkg_resources.parse_version('1.1.0')
+
+
 def test_pyreadline(mock_zip):
     archive = mock_zip('pyreadline-2.1')
 

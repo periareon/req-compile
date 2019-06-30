@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import logging
+import os
 import sys
 
 import six
@@ -16,7 +17,11 @@ class SolutionRepository(Repository):
     def __init__(self, filename, allow_prerelease=None):
         super(SolutionRepository, self).__init__(allow_prerelease=allow_prerelease)
         self.filename = filename
-        self.solution = load_from_file(self.filename, origin=self)
+        if os.path.exists(filename):
+            self.solution = load_from_file(self.filename, origin=self)
+        else:
+            print('Solution file {} not found'.format(filename))
+            self.solution = {}
         self._logger = logging.getLogger('qer.repository.solution')
 
     def __repr__(self):

@@ -13,7 +13,7 @@ import pkg_resources
 
 def run_qer_compile(reqfile, index_url=None):
     output_file, name = tempfile.mkstemp()
-    subprocess.check_call([sys.executable, '-m', 'qer.cmdline', reqfile, '--wheel-dir', 'wheeldir'], stdout=output_file)
+    subprocess.check_call([sys.executable, '-m', 'qer.cmdline', reqfile], stdout=output_file)
     os.close(output_file)
     return name
 
@@ -22,7 +22,7 @@ def run_pip_compile(reqfile, index_url=None):
     output_file, name = tempfile.mkstemp()
     os.close(output_file)
     # '--rebuild',
-    subprocess.check_output([sys.executable, '-m', 'piptools', 'compile', reqfile, '-o', name])
+    subprocess.check_output([sys.executable, '-m', 'piptools', 'compile', reqfile, '-o', name, '--rebuild'])
     return name
 
 

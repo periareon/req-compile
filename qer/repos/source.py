@@ -21,9 +21,9 @@ class SourceRepository(Repository):
         super(SourceRepository, self).__init__(allow_prerelease=allow_prerelease)
 
         if not os.path.exists(path):
-            raise ValueError('Source directory {} does not exist'.format(path))
+            raise ValueError('Source directory {} does not exist (cwd={})'.format(path, os.getcwd()))
 
-        self.path = path
+        self.path = os.path.abspath(path)
         self._logger = logging.getLogger('qer.repository.source')
         self.distributions = collections.defaultdict(list)
         self._find_all_distributions()
@@ -66,6 +66,9 @@ class SourceRepository(Repository):
         return (isinstance(other, SourceRepository) and
                 super(SourceRepository, self).__eq__(other) and
                 self.path == other.path)
+
+    def __hash__(self):
+        return hash('source') ^ hash(self.path)
 
     @property
     def logger(self):

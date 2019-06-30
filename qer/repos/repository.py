@@ -316,7 +316,8 @@ class Repository(six.with_metaclass(abc.ABCMeta, BaseRepository)):
                 continue
 
             check_level += 1
-            if not req.specifier.contains(candidate.version, prereleases=has_equality):
+            if not req.specifier.contains(candidate.version,
+                                          prereleases=has_equality or self.allow_prerelease):
                 continue
 
             check_level += 1

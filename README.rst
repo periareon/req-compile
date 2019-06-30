@@ -73,23 +73,44 @@ files to req-compile::
     typing==3.6.6                           # astroid
     wrapt==1.11.1                           # astroid
 
-Output is always emitted to stdout.
+Output is always emitted to stdout. Possible inputs include::
+
+    > req-compile
+    > req-compile .
+    # Compiles the current directory (looks for a setup.py)
+
+    > req-compile .[test]
+    # Compiles the current directory with the extra "test"
+
+    > req-compile subdir/project
+    # Compiles the project in the subdir/project directory
+
+    > req-compile subdir/project2[test,docs]
+    # Compiles the project in the subdir/project2 directory with the test and docs extra requirements included
+
+    > req-candidates --paths-only | req-compile
+    # Search for candidates and compile them piped in via stdin
+
+    > echo flask | req-compile
+    # Compile the requirement 'flask' using the defaut remote index (PyPI)
+
 
 Specifying source of distributions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Qer supports obtaining python distributions from multiple sources, each of which can be specified more than once. The following sources
 can be specified, resolved in the same order (e.g. source takes precedence over index-url):
 
+* ``--solution``
+
+  Load a previous solution and use it as a source of distributions. This will allow a full
+  recompilation of a working solution without requiring any other source. If the
+  solution file can't be found, a warning will be emitted but not cause a failure
 * ``--source``
 
   Use a local filesystem with source python packages to compile from. This will search the entire
   tree specified at the source directory, until an __init__.py is reached. ``--remove-source`` can
   be supplied to remove results that were obtained from source directories. You may want to do
   this if compiling for a project and only third party requirements compilation results need to be saved.
-* ``--solution``
-
-  Load a previous solution and use it as a source of distributions. This will allow a full
-  recompilation of a working solution without requiring any other source
 * ``--find-links``
 
   Read a directory to load distributions from. The directory can contain anything
@@ -180,3 +201,70 @@ the execution times of builds when a separate compile step is required::
     > req-compile projectreqs.txt --wheel-dir .wheeldir > compiledreqs.txt
     > pip install -r compilereqs.txt --find-links .wheeldir --no-index
 
+Cookbook
+--------
+Some useful patterns for projects are outlined below.
+
+Compile, then install
+~~~~~~~~~~~~~~~~~~~~~
+After requirements are compiled, the usual next step is to install them
+into a virtualenv.
+
+A script for test might run::
+
+    > req-compile --extra test --solution compiled-requirements.txt --wheel-dir .wheeldir > compiled-requirements.txt
+    > pip-sync compiled-requirement.txt --find-links .wheeldir --no-index
+    or
+    > pip install -r compiled-requirements.txt --find-links .wheeldir --no-index
+
+This would produce an environment containing all of the requirements and test requirements for the project
+in the current directory (as defined by a setup.py).  This is a *stable* set, in that only changes to
+the requirements and constraints would produce a new output.  To produce a totally fresh compilation,
+don't pass in a previous solution.
+
+The find-links parameter to the sync or pip install will *reuse* the wheels already downloaded by Qer during
+the compilation phase. This will make the installation step entirely offline.
+
+When taking this environment to deploy, trim down the set to the install requirements::
+
+    > req-compile --solution compiled-requirements.txt --no-index > install-requirements.txt
+
+install-requirements.txt will contain the pinned requirements that should be installed in your
+target environment. The reason for this extra step is that you don't want to distribute
+your test requirements, and you also want your installed requirements to be the same
+versions that you've tested with. In order to get all of your explicitly declared
+requirements and all of the transitive dependencies, you can use the prior solution to
+extract a subset. Passing the ``--no-index`` makes it clear that this command will not
+hit the remote index at all (though this would naturally be the case as solution files
+take precedence over remote indexes in repository search order).
+
+Compile for a group of projects
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Qer can discover requirements that are grouped together on the filesystem. The
+``req-candidates`` command will print discovered projects and with the ``--paths-only`` options
+will dump their paths to stdout. This allows recursive discovery of projects that you
+may want to compile together.
+
+For example, consider a filesystem with this layout::
+
+    solution
+      \_ utilities
+      |   \_ network_helper
+      |_ integrations
+      |   \_ github
+      \_ frameworks
+          |_ neural_net
+          \_ cluster
+
+In each of the leaf nodes, there is a setup.py and full python project. To compile these
+together and ensure that their requirements will all install into the same environment::
+
+    > cd solution
+    > req-candidates --paths-only
+    /home/user/projects/solution/utilities/network_helper
+    /home/user/projects/solution/integrations/github
+    /home/user/projects/solution/frameworks/neural_net
+    /home/user/projects/solution/frameworks/cluster
+
+    > req-candidates --paths-only | req-compile --extra test --solution compiled-requirements.txt --wheel-dir .wheeldir > compiled-requirements.txt
+    .. all reqs and all test reqs compiled together...

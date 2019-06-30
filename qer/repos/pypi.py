@@ -104,7 +104,7 @@ def _do_download(logger, filename, link, session, wheeldir):
 
 
 class PyPIRepository(Repository):
-    def __init__(self, index_url, wheeldir, allow_prerelease=None):
+    def __init__(self, index_url, wheeldir, allow_prerelease=False):
         super(PyPIRepository, self).__init__(allow_prerelease)
 
         self.index_url = index_url
