@@ -1,6 +1,7 @@
 pytest
 pytest-mock
 responses
+pylint
 
 # Add tenacity and tornado to verify tenacity's interaction with tornado works
 # inside of setup.pys
