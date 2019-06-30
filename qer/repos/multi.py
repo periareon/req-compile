@@ -1,10 +1,10 @@
-from qer.repos.repository import Repository, BaseRepository, NoCandidateException
+from qer.repos.repository import BaseRepository, NoCandidateException
 
 
 class MultiRepository(BaseRepository):
     def __init__(self, *repositories):
         super(MultiRepository, self).__init__()
-        self.repositories = list(repositories)  # type: list[Repository]
+        self.repositories = list(repositories)
         self.source = {}
 
     def __repr__(self):
@@ -17,7 +17,7 @@ class MultiRepository(BaseRepository):
         return hash(self.repositories)
 
     def get_candidate(self, req):
-        last_ex = None
+        last_ex = NoCandidateException(req)
         for repo in self.repositories:
             try:
                 candidates = repo.get_candidates(req)

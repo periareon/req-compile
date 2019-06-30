@@ -99,8 +99,8 @@ class NonExtractor(Extractor):
         parent_dir = os.path.abspath(os.path.join(self.path, '..'))
         for root, _, files in os.walk(self.path):
             rel_root = os.path.relpath(root, parent_dir).replace('\\', '/')
-            for file in files:
-                yield rel_root + '/' + file
+            for filename in files:
+                yield rel_root + '/' + filename
 
     def open(self, filename, mode='r', encoding='utf-8', errors=None):
         if not os.path.isabs(filename):
@@ -357,7 +357,7 @@ def setup(results, *_, **kwargs):
     return FakeModule('dist')
 
 
-class FakeModule(types.ModuleType):
+class FakeModule(types.ModuleType):  # pylint: disable=no-init
     call_count = 0
 
     def __getitem__(self, item):

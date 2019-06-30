@@ -31,11 +31,11 @@ class SourceRepository(Repository):
                 if dir_ in SPECIAL_DIRS:
                     dirs.remove(dir_)
 
-            for file in files:
-                if file in SPECIAL_FILES:
+            for filename in files:
+                if filename in SPECIAL_FILES:
                     for dir_ in dirs:
                         dirs.remove(dir_)
-                elif file == 'setup.py':
+                elif filename == 'setup.py':
                     for dir_ in list(dirs):
                         dirs.remove(dir_)
 
