@@ -21,6 +21,7 @@ from six.moves import StringIO
 from qer import utils
 from qer.blacklist import PY2_BLACKLIST
 from qer.dists import DistInfo
+from qer.localimport import localimport
 
 LOG = logging.getLogger('qer.metadata')
 
@@ -53,6 +54,8 @@ class Extractor(six.with_metaclass(abc.ABCMeta, object)):
     def relative_opener(self, fake_root, directory):
         def inner_opener(filename, *args, **kwargs):
             archive_path = filename
+            if isinstance(filename, int):
+                return self.open(filename, *args, **kwargs)
             if os.path.isabs(filename):
                 if filename.startswith(fake_root):
                     archive_path = os.path.relpath(filename, fake_root)
@@ -102,7 +105,7 @@ class NonExtractor(Extractor):
             for filename in files:
                 yield rel_root + '/' + filename
 
-    def open(self, filename, mode='r', encoding='utf-8', errors=None):
+    def open(self, filename, mode='r', encoding='utf-8', errors=None, buffering=False):
         if not os.path.isabs(filename):
             parent_dir = os.path.abspath(os.path.join(self.path, '..'))
             return self.io_open(os.path.join(parent_dir, filename), mode=mode, encoding=encoding)
@@ -120,7 +123,9 @@ class TarExtractor(Extractor):
     def names(self):
         return (info.name for info in self.tar.getmembers())
 
-    def open(self, filename, mode='r', encoding='utf-8', errors=None):
+    def open(self, filename, mode='r', encoding='utf-8', errors=None, buffering=False, newline=False):
+        if isinstance(filename, int):
+            return self.io_open(filename, mode=mode, encoding=encoding)
         filename = filename.replace('\\', '/').replace('./', '')
         if not os.path.isabs(filename):
             try:
@@ -143,7 +148,9 @@ class ZipExtractor(Extractor):
     def names(self):
         return self.zfile.namelist()
 
-    def open(self, filename, mode='r', encoding='utf-8', errors=None):
+    def open(self, filename, mode='r', encoding='utf-8', errors=None, buffering=False, newline=False):
+        if isinstance(filename, int):
+            return self.io_open(filename, mode=mode, encoding=encoding)
         filename = filename.replace('\\', '/').replace('./', '')
         if not os.path.isabs(filename):
             try:
@@ -378,6 +385,12 @@ class FakeModule(types.ModuleType):  # pylint: disable=no-init
     def __setitem__(self, key, value):
         pass
 
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
     def __getattr__(self, item):
         if isinstance(item, str):
             if item == '__path__':
@@ -388,10 +401,12 @@ class FakeModule(types.ModuleType):  # pylint: disable=no-init
         return None
 
 
-def fake_import_impl(name, orig_import, modname, globals_=None, locals_=None, fromlist=(), level=0):
+def fake_import_impl(name, opener, orig_import, modname, globals_=None, locals_=None, fromlist=(), level=0):
     try:
         lower_modname = modname.lower()
         if ('build_ext' in modname) or (fromlist and ('build_ext' in fromlist)):
+            raise ImportError()
+        if modname == '_winapi' and sys.platform != 'win32':
             raise ImportError()
 
         if (name == lower_modname or (name + '_') in lower_modname or
@@ -403,11 +418,26 @@ def fake_import_impl(name, orig_import, modname, globals_=None, locals_=None, fr
         # Skip any cython importing to improve setup.py compatibility (e.g. subprocess32)
         if 'Cython' in modname:
             raise
+
         modparts = modname.split('.')
         if six.PY2:
             for part in modparts:
                 if part in PY2_BLACKLIST:
                     raise
+
+        for path in sys.path:
+            try:
+                contents = opener(os.path.join(path, modname + '.py'))
+                contents = contents.read()
+                globs = {'sys': sys}
+                exec(contents, globs, globs)
+                module = FakeModule(modname)
+                for sym in globs:
+                    setattr(module, sym, globs[sym])
+                return module
+            except Exception:
+                pass
+
         if (name in modname.lower() or
                 '_version' in modname or
                 'version' in modname or
@@ -428,7 +458,10 @@ def fake_import_impl(name, orig_import, modname, globals_=None, locals_=None, fr
 
 
 @contextlib.contextmanager
-def patch(module, member, new_value):
+def patch(module, member, new_value, conditional=True):
+    if not conditional:
+        yield
+        return
     if isinstance(module, str):
         if module not in sys.modules:
             yield
@@ -465,18 +498,20 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
     results = []
     setup_with_results = functools.partial(setup, results)
 
-    fake_import = functools.partial(fake_import_impl, name.lower(), __import__)
+    fake_import = functools.partial(fake_import_impl, name.lower(), opener, __import__)
 
+    import sys
+    import os
+    import multiprocessing.connection
     import codecs
     import setuptools
     import distutils.core
     import setuptools.extension
 
     old_dir = os.getcwd()
-
+# patch(sys, 'stdout', StringIO()), \
     with patch(sys, 'exit', lambda code: None), \
-         patch(sys, 'getwindowsversion', lambda: (6, 0, 1)), \
-         patch(sys, 'stdout', StringIO()), \
+         patch(sys, 'getwindowsversion', lambda: (6, 0, 1), sys.platform == 'win32'), \
          patch(sys, 'stderr', StringIO()), \
          patch('__builtin__', '__import__', fake_import), \
          patch('builtins', '__import__', fake_import), \
@@ -499,8 +534,8 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
                 contents = _remove_encoding_lines(contents)
             contents = contents.replace('print ', '')
 
-            from . import localimport
-            with localimport.localimport([]):
+
+            with localimport([]):
                 # pylint: disable=exec-used
                 exec(contents, spy_globals, spy_globals)
         except Exception as ex:
