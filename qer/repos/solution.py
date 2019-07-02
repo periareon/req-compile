@@ -13,10 +13,10 @@ from qer.repos.repository import Repository, Candidate, DistributionType, Requir
 
 
 class SolutionRepository(Repository):
-    def __init__(self, filename, allow_prerelease=None):
-        super(SolutionRepository, self).__init__('solution', allow_prerelease=allow_prerelease)
+    def __init__(self, filename):
+        super(SolutionRepository, self).__init__('solution', allow_prerelease=True)
         self.filename = filename
-        if os.path.exists(filename):
+        if os.path.exists(filename) or filename == '-':
             self.solution = load_from_file(self.filename, origin=self)
         else:
             print('Solution file {} not found'.format(filename))
@@ -31,7 +31,7 @@ class SolutionRepository(Repository):
                 self.filename == other.filename)
 
     def __hash__(self):
-        return hash('solution') ^ hash(self.solution)
+        return hash('solution') ^ hash(self.filename)
 
     def get_candidates(self, req):
         try:

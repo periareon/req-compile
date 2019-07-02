@@ -3,24 +3,31 @@ import pytest
 from qer.cmdline import compile_main
 import os
 
+from qer.dists import DistInfo
 from qer.repos.findlinks import FindLinksRepository
 from qer.repos.pypi import PyPIRepository
 from qer.repos.solution import SolutionRepository
 from qer.repos.source import SourceRepository
+from qer import utils
 
 
 @pytest.fixture
-def compile_mock(mocker):
+def basic_compile_mock(mocker):
     perform_compile_mock = mocker.patch('qer.cmdline.perform_compile')
     result = mocker.MagicMock()
     result.generate_lines.return_value = [('line', 'line')]
     perform_compile_mock.return_value = result, mocker.MagicMock()
+    return perform_compile_mock
+
+
+@pytest.fixture
+def compile_mock(basic_compile_mock, mocker):
     mocker.patch('qer.cmdline._create_input_reqs')
     mocker.patch('os.path.exists')
     mocker.patch('os.listdir')
     mocker.patch('qer.repos.solution.load_from_file')
     mocker.patch('qer.repos.repository.process_distribution')
-    return perform_compile_mock
+    return basic_compile_mock
 
 
 def test_multiple_sources(compile_mock):
@@ -45,3 +52,14 @@ def test_resolution_order(compile_mock):
              SourceRepository('source 2'),
              FindLinksRepository('find-links'),
              PyPIRepository('index', None)])
+
+
+def test_source_dirs_dont_hit_pypi(mocker, basic_compile_mock):
+    mocker.patch('os.path.exists')
+    metadata_mock = mocker.patch('qer.metadata.extract_metadata')
+    metadata_mock.return_value = DistInfo('myproj', '1.0', ['unknown_req'])
+
+    compile_main(['source/myproj'])
+    perform_compile_args = basic_compile_mock.mock_calls[0][1]
+    assert (perform_compile_args[0] ==
+            {'source/myproj': [utils.parse_requirement('myproj==1.0')]})

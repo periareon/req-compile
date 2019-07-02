@@ -3,6 +3,7 @@ from __future__ import print_function
 import collections
 import copy
 import itertools
+import six
 
 from qer import utils
 from qer.utils import normalize_project_name, merge_requirements, filter_req
@@ -88,7 +89,7 @@ class DistributionCollection(object):
             return result
 
         has_metadata = False
-        if isinstance(metadata, str):
+        if isinstance(metadata, six.string_types):
             req_name = metadata
         else:
             has_metadata = True
@@ -129,7 +130,8 @@ class DistributionCollection(object):
 
     def _discard_metadata_if_necessary(self, base_node, reason, req_name):
         if base_node.metadata is not None and reason is not None:
-            if not reason.specifier.contains(base_node.metadata.version):
+            if not reason.specifier.contains(base_node.metadata.version,
+                                             prereleases=True):
                 # Discard the metadata
                 self.remove_dists(base_node, remove_upstream=False)
 
@@ -146,7 +148,7 @@ class DistributionCollection(object):
             non_extra_req = utils.parse_requirement(req_name)
 
         self.add_dist(req_name, node, non_extra_req)
-        return self.nodes[req_name]
+        return self[req_name]
 
     def update_dists(self, node, metadata):
         node.metadata = metadata

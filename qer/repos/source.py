@@ -15,8 +15,8 @@ SPECIAL_FILES = ('__init__.py',)
 
 
 class SourceRepository(Repository):
-    def __init__(self, path, allow_prerelease=None):
-        super(SourceRepository, self).__init__('source', allow_prerelease=allow_prerelease)
+    def __init__(self, path):
+        super(SourceRepository, self).__init__('source', allow_prerelease=True)
 
         if not os.path.exists(path):
             raise ValueError('Source directory {} does not exist (cwd={})'.format(path, os.getcwd()))

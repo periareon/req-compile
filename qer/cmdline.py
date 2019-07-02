@@ -21,7 +21,7 @@ from qer.compile import perform_compile
 from qer.config import read_pip_default_index
 from qer.repos.findlinks import FindLinksRepository
 from qer.repos.pypi import PyPIRepository
-from qer.repos.repository import CantUseReason
+from qer.repos.repository import CantUseReason, sort_candidates
 from qer.repos.multi import MultiRepository
 from qer.repos.solution import SolutionRepository
 from qer.repos.source import SourceRepository
@@ -29,7 +29,6 @@ from qer.versions import is_possible
 
 # Blacklist of requirements that will be filtered out of the output
 BLACKLIST = [
-    'setuptools'
 ]
 
 
@@ -72,12 +71,17 @@ def _generate_no_candidate_display(req, repo, dists):
 
 
 def _dump_repo_candidates(req, repos):
+    """
+    Args:
+        req (str):
+        repos (Repository):
+    """
     print('Found the following candidates, none of which will work:', file=sys.stderr)
     for repo in repos:
         candidates = repo.get_candidates(req)
         print('  {}:'.format(repo), file=sys.stderr)
         if candidates:
-            for candidate in repo.sort_candidates(candidates):
+            for candidate in sort_candidates(candidates):
                 print('  {}: {}'.format(candidate,
                                         _cantusereason_to_text(repo.why_cant_I_use(req, candidate))),
                       file=sys.stderr)
@@ -109,7 +113,7 @@ def _create_req_from_path(path, extras, extra_source_repos):
         source_dist_name += '[{}]'.format(','.join(extras))
     if extra_source_repos is not None:
         extra_source_repos.append(path)
-    return [utils.parse_requirement(source_dist_name)]
+    return [utils.parse_requirement('{}=={}'.format(source_dist_name, dist.version))]
 
 
 def _create_input_reqs(input_arg, extras=None, extra_source_repos=None):
@@ -193,7 +197,8 @@ def run_compile(input_args, allow_prerelease, extras, constraint_files, sources,
     try:
         results, roots = perform_compile(input_reqs, repo, constraint_reqs=constraint_reqs)
 
-        blacklist_filter = lambda req: req.metadata.name.lower() not in BLACKLIST
+        def blacklist_filter(req):
+            return req.metadata.name.lower() not in BLACKLIST
         req_filter = blacklist_filter
         if remove_source:
             if not any(isinstance(r, SourceRepository) for r in repo):
@@ -205,22 +210,22 @@ def run_compile(input_args, allow_prerelease, extras, constraint_files, sources,
             req_filter = lambda req: blacklist_filter(req) and is_from_source(req)
 
         lines = sorted(results.generate_lines(roots, req_filter=req_filter), key=lambda x: x[0].lower())
-
-        left_column_len = max(len(x[0]) for x in lines)
         if annotate_source:
             repo_mapping = _annotate(input_reqs, repo)
-        annotation = ''
-        for line in lines:
-            if annotate_source:
-                req = utils.parse_requirement(line[0])
-                key = req.name + ('[{}]'.format(req.extras[0]) if req.extras else '')
-                source = results[key].metadata.origin
-                if not source in repo_mapping:
-                    print('No repo for {}'.format(line), file=sys.stderr)
-                    annotation = '[?] '
-                else:
-                    annotation = '[{}] '.format(repo_mapping[source])
-            print('{}  # {}{}'.format(line[0].ljust(left_column_len), annotation, line[1]))
+        if lines:
+            left_column_len = max(len(x[0]) for x in lines)
+            annotation = ''
+            for line in lines:
+                if annotate_source:
+                    req = utils.parse_requirement(line[0])
+                    key = req.name + ('[{}]'.format(req.extras[0]) if req.extras else '')
+                    source = results[key].metadata.origin
+                    if not source in repo_mapping:
+                        print('No repo for {}'.format(line), file=sys.stderr)
+                        annotation = '[?] '
+                    else:
+                        annotation = '[{}] '.format(repo_mapping[source])
+                print('{}  # {}{}'.format(line[0].ljust(left_column_len), annotation, line[1]))
     except qer.repos.repository.NoCandidateException as ex:
         _generate_no_candidate_display(ex.req, repo, ex.results)
         sys.exit(1)
@@ -256,10 +261,10 @@ def _annotate(input_reqs, repos):
 def build_repo(solutions, sources, find_links, index_urls, no_index, wheeldir, allow_prerelease=False):
     repos = []
     if solutions:
-        repos.extend(SolutionRepository(solution, allow_prerelease=allow_prerelease)
+        repos.extend(SolutionRepository(solution)
                      for solution in solutions)
     if sources:
-        repos.extend(SourceRepository(source, allow_prerelease=allow_prerelease)
+        repos.extend(SourceRepository(source)
                      for source in sources)
     if find_links:
         repos.extend(FindLinksRepository(find_link, allow_prerelease=allow_prerelease)

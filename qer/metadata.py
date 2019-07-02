@@ -366,6 +366,7 @@ def setup(results, *_, **kwargs):
 
 class FakeModule(types.ModuleType):  # pylint: disable=no-init
     call_count = 0
+    __version__ = '1.0.0'  # Some setup.py's may inspect the module for a __version__
 
     def __getitem__(self, item):
         self.call_count += 1

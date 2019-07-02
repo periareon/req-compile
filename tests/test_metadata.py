@@ -205,6 +205,14 @@ def test_ptl(mock_targz):
     assert set(metadata.reqs) == set(pkg_resources.parse_requirements(['pytest>=2.8.1']))
 
 
+def test_reloader(mock_targz):
+    archive = mock_targz('reloader-1.0')
+
+    metadata = qer.metadata.extract_metadata(archive)
+    assert metadata.name == 'reloader'
+    assert metadata.version == pkg_resources.parse_version('1.0')
+
+
 def test_billiards(mock_targz):
     archive = mock_targz('billiard-3.6.0.0')
 

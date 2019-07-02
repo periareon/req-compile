@@ -123,6 +123,16 @@ def test_dist_with_unselected_extra():
     assert str(dists.nodes['aaa'].metadata) == 'aaa==1.2.0'
 
 
+def test_unnormalized_dist_with_extra():
+    dists = DistributionCollection()
+    metadata = DistInfo('A', '1.0.0', [])
+
+    dists.add_dist(metadata, None, Requirement.parse('A[x]'))
+
+    assert dists['A'].metadata.version == '1.0.0'
+    assert dists['A[x]'].metadata.version == '1.0.0'
+
+
 def test_add_remove_two_source_same_dist_different_extras():
     dists = DistributionCollection()
 
