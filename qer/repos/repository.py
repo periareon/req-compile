@@ -243,6 +243,14 @@ def _check_platform_compatibility(py_platform):
 class BaseRepository(six.with_metaclass(abc.ABCMeta, object)):
     @abc.abstractmethod
     def get_candidate(self, req):
+        """Fetch the best matching candidate for the given requirement
+
+        Args:
+            req (pkg_resources.Requirement): Requirement to find a match for
+
+        Returns:
+            (Candidate) The best matching candidate
+        """
         raise NotImplementedError()
 
 

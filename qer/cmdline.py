@@ -137,37 +137,23 @@ def _create_input_reqs(input_arg, extras=None, extra_source_repos=None):
     return _create_req_from_path(input_arg, extras, extra_source_repos)
 
 
-# pylint: disable=too-many-arguments,too-many-statements,too-many-locals,too-many-branches
-def run_compile(input_args, allow_prerelease, extras, constraint_files, sources, find_links, index_urls,
-                wheeldir, no_index, remove_source, solutions, annotate_source):
+# pylint: disable=too-many-locals,too-many-branches
+def run_compile(input_args,
+                extras,
+                constraint_files,
+                repo,
+                remove_source,
+                annotate_source):
     """
     Args:
         input_args (list[str]):
-        allow_prerelease (bool): Whether or not to allow prereleases
         extras (Iterable[str]):
         constraint_files (list[str]):
-        sources (list[str]):
-        find_links (list[str]):
-        index_urls (list[str]):
-        wheeldir (str):
-        no_index (bool):
         remove_source (bool):
-        solutions (list[str]):
         annotate_source (bool):
     Returns:
 
     """
-    if wheeldir:
-        try:
-            if not os.path.exists(wheeldir):
-                os.mkdir(wheeldir)
-        except OSError:
-            pass
-        delete_wheeldir = False
-    else:
-        wheeldir = tempfile.mkdtemp()
-        delete_wheeldir = True
-
     extra_sources = []
     if not input_args:
         if not sys.stdin.isatty():
@@ -181,8 +167,8 @@ def run_compile(input_args, allow_prerelease, extras, constraint_files, sources,
     }
     if extra_sources:
         remove_source = True
-
-    sources = extra_sources + sources
+        # Add the sources provided to the search repos
+        repo = MultiRepository(*([SourceRepository(source) for source in extra_sources] + [repo]))
 
     constraint_reqs = {}
     if constraint_files is not None:
@@ -190,9 +176,6 @@ def run_compile(input_args, allow_prerelease, extras, constraint_files, sources,
             input_arg: _create_input_reqs(input_arg, extras, extra_sources)
             for input_arg in constraint_files
         }
-
-    repo = build_repo(solutions, sources, find_links, index_urls, no_index, wheeldir,
-                      allow_prerelease=allow_prerelease)
 
     try:
         results, roots = perform_compile(input_reqs, repo, constraint_reqs=constraint_reqs)
@@ -229,9 +212,6 @@ def run_compile(input_args, allow_prerelease, extras, constraint_files, sources,
     except qer.repos.repository.NoCandidateException as ex:
         _generate_no_candidate_display(ex.req, repo, ex.results)
         sys.exit(1)
-    finally:
-        if delete_wheeldir:
-            shutil.rmtree(wheeldir)
 
 
 def _annotate(input_reqs, repos):
@@ -307,6 +287,9 @@ def compile_main(args=None):
     group.add_argument('-e', '--extra', action='append', dest='extras', default=[],
                        metavar='extra',
                        help='Extras to apply automatically to source packages')
+    group.add_argument('-P', '--upgrade-package', action='append', dest='upgrade_packages',
+                       metavar='package_name',
+                       help='Package to omit from solutions. Use this to upgrade packages')
     group.add_argument('--remove-source', default=False, action='store_true',
                        help='Remove distributions satisfied via --source from the output')
     group.add_argument('-p', '--pre', dest='allow_prerelease', default=False, action='store_true',
@@ -324,10 +307,31 @@ def compile_main(args=None):
 
         logging.getLogger('qer.compile').addFilter(IndentFilter())
 
-    run_compile(args.requirement_files, args.allow_prerelease, args.extras,
-                args.constraints if args.constraints else None, args.sources, args.find_links,
-                args.index_urls, args.wheel_dir, args.no_index, args.remove_source, args.solutions,
-                args.annotate)
+    wheeldir = args.wheel_dir
+    if wheeldir:
+        try:
+            if not os.path.exists(wheeldir):
+                os.mkdir(wheeldir)
+        except OSError:
+            pass
+        delete_wheeldir = False
+    else:
+        wheeldir = tempfile.mkdtemp()
+        delete_wheeldir = True
+
+    try:
+        repo = build_repo(args.solutions, args.sources, args.find_links, args.index_urls, args.no_index, wheeldir,
+                          allow_prerelease=args.allow_prerelease)
+
+        run_compile(args.requirement_files,
+                    args.extras,
+                    args.constraints if args.constraints else None,
+                    repo,
+                    args.remove_source,
+                    args.annotate)
+    finally:
+        if delete_wheeldir:
+            shutil.rmtree(wheeldir)
 
 
 def add_repo_args(parser):

@@ -1,3 +1,5 @@
+import itertools
+
 from qer.repos.repository import BaseRepository, NoCandidateException
 
 
@@ -8,10 +10,11 @@ class MultiRepository(BaseRepository):
         self.source = {}
 
     def __repr__(self):
-        return ', '.join(repr(repo) for repo in self.repositories)
+        return ', '.join(repr(repo) for repo in self)
 
     def __iter__(self):
-        return iter(self.repositories)
+        # Expand nested MultiRepositories as well
+        return itertools.chain(*(iter(repo) for repo in self.repositories))
 
     def __hash__(self):
         return hash(self.repositories)
