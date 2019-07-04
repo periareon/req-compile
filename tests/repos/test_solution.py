@@ -43,6 +43,18 @@ def test_load_solution(load_solution):
     }
 
 
+def test_load_solution_excluded(load_solution):
+    repo = SolutionRepository('solutionfile.txt', excluded_packages=['mccabe'])
+    result = repo.get_candidates(pkg_resources.Requirement.parse('mccabe'))
+    assert result == []
+
+
+def test_load_solution_excluded_normalized(load_solution):
+    repo = SolutionRepository('solutionfile.txt', excluded_packages=['lazy_object_proxy'])
+    result = repo.get_candidates(pkg_resources.Requirement.parse('lazy-object-proxy'))
+    assert result == []
+
+
 def test_load_solution_extras(load_solution):
     result = load_solution('solutionfile_extras.txt')
 

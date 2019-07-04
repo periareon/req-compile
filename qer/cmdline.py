@@ -238,10 +238,10 @@ def _annotate(input_reqs, repos):
     return repo_mapping
 
 
-def build_repo(solutions, sources, find_links, index_urls, no_index, wheeldir, allow_prerelease=False):
+def build_repo(solutions, upgrade_packages, sources, find_links, index_urls, no_index, wheeldir, allow_prerelease=False):
     repos = []
     if solutions:
-        repos.extend(SolutionRepository(solution)
+        repos.extend(SolutionRepository(solution, excluded_packages=upgrade_packages)
                      for solution in solutions)
     if sources:
         repos.extend(SourceRepository(source)
@@ -320,7 +320,9 @@ def compile_main(args=None):
         delete_wheeldir = True
 
     try:
-        repo = build_repo(args.solutions, args.sources, args.find_links, args.index_urls, args.no_index, wheeldir,
+        repo = build_repo(args.solutions, args.upgrade_packages,
+                          args.sources,
+                          args.find_links, args.index_urls, args.no_index, wheeldir,
                           allow_prerelease=args.allow_prerelease)
 
         run_compile(args.requirement_files,

@@ -13,9 +13,13 @@ from qer.repos.repository import Repository, Candidate, DistributionType, Requir
 
 
 class SolutionRepository(Repository):
-    def __init__(self, filename):
+    def __init__(self, filename, excluded_packages=None):
         super(SolutionRepository, self).__init__('solution', allow_prerelease=True)
-        self.filename = filename
+        self.filename = os.path.abspath(filename)
+        self.excluded_packages = excluded_packages or []
+        if excluded_packages:
+            self.excluded_packages = [qer.utils.normalize_project_name(pkg)
+                                      for pkg in excluded_packages]
         if os.path.exists(filename) or filename == '-':
             self.solution = load_from_file(self.filename, origin=self)
         else:
@@ -34,6 +38,9 @@ class SolutionRepository(Repository):
         return hash('solution') ^ hash(self.filename)
 
     def get_candidates(self, req):
+        if qer.utils.normalize_project_name(req.name) in self.excluded_packages:
+            return []
+
         try:
             node = self.solution[req.name]
             candidate = Candidate(
