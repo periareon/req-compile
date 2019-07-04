@@ -25,7 +25,7 @@ def candidates_main():
     args = parser.parse_args()
 
     wheeldir = tempfile.mkdtemp()
-    repo = build_repo(None, args.sources, args.find_links, args.index_urls, args.no_index, wheeldir)
+    repo = build_repo(None, None, args.sources, args.find_links, args.index_urls, args.no_index, wheeldir)
 
     if isinstance(repo, PyPIRepository) and args.project_name is None:
         repo = SourceRepository('.')

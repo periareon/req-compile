@@ -238,7 +238,11 @@ def _annotate(input_reqs, repos):
     return repo_mapping
 
 
-def build_repo(solutions, upgrade_packages, sources, find_links, index_urls, no_index, wheeldir, allow_prerelease=False):
+def build_repo(solutions, upgrade_packages,
+               sources,
+               find_links,
+               index_urls, no_index, wheeldir,
+               allow_prerelease=False):
     repos = []
     if solutions:
         repos.extend(SolutionRepository(solution, excluded_packages=upgrade_packages)
