@@ -243,6 +243,14 @@ def test_non_extractor():
     }
 
 
+def test_pkg_with_cython(mock_source):
+    path = mock_source('pkg-with-cython-1.0')
+
+    metadata = qer.metadata.extract_metadata(path)
+    assert metadata.name == 'pkg-with-cython'
+    assert metadata.version == pkg_resources.parse_version('1.0')
+
+
 def test_comtypes_as_source(mock_source):
     path = mock_source('comtypes-1.1.7')
 

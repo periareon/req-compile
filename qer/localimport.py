@@ -30,7 +30,6 @@ import os
 import pkgutil
 import sys
 import traceback
-import zipfile
 
 if sys.version_info[0] == 2:
     # statement to single line functions. See pyminifier#89

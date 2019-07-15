@@ -1,11 +1,13 @@
 from __future__ import print_function
+import shutil
+import sys
+sys.modules['typing'] = None
 
 import functools
 import imp
 import io
 import logging
 import os
-import sys
 import tarfile
 import tempfile
 import types
@@ -346,7 +348,7 @@ def setup(results, *_, **kwargs):
     name = kwargs.get('name', None)
     version = kwargs.get('version', '0.0.0')
     reqs = kwargs.get('install_requires', [])
-    extra_reqs = kwargs.get('extra_requires', {})
+    extra_reqs = kwargs.get('extras_require', {})
 
     if version is None or isinstance(version, FakeModule):
         version = '0.0.0'
@@ -356,9 +358,12 @@ def setup(results, *_, **kwargs):
 
     all_reqs = list(utils.parse_requirements(reqs))
     for extra, extra_req_strs in extra_reqs.items():
-        cur_reqs = [utils.parse_requirement('{} ; extra=="{}"'.format(reqstr.strip(), extra))
+        try:
+            cur_reqs = [utils.parse_requirement('{} ; extra=="{}"'.format(reqstr.strip(), extra))
                     for reqstr in extra_req_strs if reqstr.strip()]
-        all_reqs.extend(cur_req for cur_req in cur_reqs if cur_req is not None)
+            all_reqs.extend(cur_req for cur_req in cur_reqs if cur_req is not None)
+        except Exception:
+            LOG.exception('Failed to parse extras for %s: %s', extra, extra_req_strs)
 
     results.append(DistInfo(name, version, all_reqs))
     return FakeModule('dist')
@@ -406,12 +411,16 @@ def fake_import_impl(name, opener, # pylint: disable=too-many-locals,too-many-br
                      orig_import, modname,
                      globals_=None, locals_=None,
                      fromlist=(), level=0):
+    lower_modname = modname.lower()
     try:
-        lower_modname = modname.lower()
         if ('build_ext' in modname) or (fromlist and ('build_ext' in fromlist)):
-            raise ImportError()
+            raise ImportError('Not allowing import of build_ext')
+        if ('cython' in lower_modname) or (fromlist and ('cython' in fromlist)):
+            raise ImportError('Not allowing import of cython')
+        if 'typing' in modname:
+            raise ImportError('Not allowing import of typing')
         if modname == '_winapi' and sys.platform != 'win32':
-            raise ImportError()
+            raise ImportError('Not allowing win32api on Linux')
 
         if (name == lower_modname or (name + '_') in lower_modname or
                 ('_' + name) in lower_modname):
@@ -420,7 +429,7 @@ def fake_import_impl(name, opener, # pylint: disable=too-many-locals,too-many-br
         return result
     except ImportError as ex:
         # Skip any cython importing to improve setup.py compatibility (e.g. subprocess32)
-        if 'Cython' in modname:
+        if 'cython.distutils' in lower_modname or ('cython' in lower_modname and (fromlist and ('Disutils' in fromlist))):
             raise
 
         modparts = modname.split('.')
@@ -431,9 +440,11 @@ def fake_import_impl(name, opener, # pylint: disable=too-many-locals,too-many-br
 
         for path in sys.path:
             try:
-                contents = opener(os.path.join(path, modname + '.py'))
+                filename = os.path.join(path, modname + '.py')
+                contents = opener(filename)
                 contents = contents.read()
-                globs = {'sys': sys}
+                globs = {'sys': sys,
+                         '__file__': os.path.join('.', modname + '.py')}
                 exec(contents, globs, globs)  # pylint: disable=exec-used
                 module = FakeModule(modname)
                 for sym in globs:
@@ -442,9 +453,11 @@ def fake_import_impl(name, opener, # pylint: disable=too-many-locals,too-many-br
             except EnvironmentError:
                 pass
 
-        if (name in modname.lower() or
+        if (name in lower_modname or
                 '_version' in modname or
                 'version' in modname or
+                'release' in modname or
+                'cython' in lower_modname or
                 modname.startswith('_')):
             for idx, mod in enumerate(modparts):
                 sys.modules['.'.join(modparts[:idx + 1])] = FakeModule(mod)
@@ -454,10 +467,8 @@ def fake_import_impl(name, opener, # pylint: disable=too-many-locals,too-many-br
         except TypeError:
             raise ImportError
     except SyntaxError:
-        print('SyntaxError')
         return FakeModule(modname)
-    except (KeyError, TypeError) as ex:
-        print('SyntaxError {}'.format(ex))
+    except (TypeError, KeyError):
         return FakeModule(modname)
 
 
@@ -537,7 +548,6 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
             if six.PY2:
                 contents = _remove_encoding_lines(contents)
             contents = contents.replace('print ', '')
-
 
             with localimport([]):
                 # pylint: disable=exec-used

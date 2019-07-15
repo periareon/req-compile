@@ -214,7 +214,8 @@ class DistributionCollection(object):
                     if reverse_dep.metadata.name == node.metadata.name:
                         if reverse_dep.extra is None:
                             print('Reverse dep with none extra: {}'.format(reverse_dep))
-                        extras.append(reverse_dep.extra)
+                        else:
+                            extras.append(reverse_dep.extra)
                         constraints.extend(_build_constraints(reverse_dep))
 
                 req_expr = node.metadata.to_definition(extras)

@@ -178,7 +178,7 @@ def run_compile(input_args,
         }
 
     try:
-        results, roots = perform_compile(input_reqs, repo, constraint_reqs=constraint_reqs)
+        results, roots = perform_compile(input_reqs, repo, extras=extras, constraint_reqs=constraint_reqs)
 
         def blacklist_filter(req):
             return req.metadata.name.lower() not in BLACKLIST

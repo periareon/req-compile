@@ -84,16 +84,16 @@ def load_from_file(filename, origin=None):
             _, _, source_part = source_part.partition('] ')
         sources = source_part.split(', ')
 
+        pkg_names = imap(lambda x: x.split(' ')[0], sources)
         constraints = imap(lambda x: x.split(' ')[1].replace('(', '').replace(')', '') if '(' in x else None, sources)
 
-        metadata = qer.dists.DistInfo(req.name,
-                                      qer.utils.parse_version(list(req.specifier)[0].version),
-                                      [])
+        version = qer.utils.parse_version(list(req.specifier)[0].version)
+        metadata = qer.dists.DistInfo(req.name, version, [])
         metadata.origin = origin
 
         result.add_dist(metadata, None, req)
 
-        for name, constraints in zip(imap(lambda x: x.split(' ')[0], sources), constraints):
+        for name, constraints in zip(pkg_names, constraints):
             if name and not (name.endswith('.txt') or name.endswith('.out')):
                 constraint_req = qer.utils.parse_requirement(name)
                 result.add_dist(constraint_req.name, None, constraint_req)

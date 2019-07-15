@@ -1,6 +1,9 @@
 from __future__ import print_function
 import argparse
 import shutil
+import sys
+# Disable the typing module in this interpreter
+sys.modules['typing'] = None
 import tempfile
 
 import pkg_resources
@@ -25,7 +28,10 @@ def candidates_main():
     args = parser.parse_args()
 
     wheeldir = tempfile.mkdtemp()
-    repo = build_repo(None, None, args.sources, args.find_links, args.index_urls, args.no_index, wheeldir)
+    repo = build_repo(None, None,
+                      args.sources,
+                      args.find_links,
+                      args.index_urls, args.no_index, wheeldir)
 
     if isinstance(repo, PyPIRepository) and args.project_name is None:
         repo = SourceRepository('.')

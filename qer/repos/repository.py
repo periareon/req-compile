@@ -313,33 +313,33 @@ class Repository(six.with_metaclass(abc.ABCMeta, BaseRepository)):
         return self.do_get_candidate(req, candidates)
 
     def do_get_candidate(self, req, candidates):
-        self.logger.info('Getting candidate for %s', req)
-        candidates = sort_candidates(candidates)
-        has_equality = qer.utils.is_pinned_requirement(req)
+        if candidates:
+            candidates = sort_candidates(candidates)
+            has_equality = qer.utils.is_pinned_requirement(req)
 
-        check_level = 1
-        for candidate in candidates:
-            check_level += 1
-            if not candidate.py_version.check_compatibility():
-                continue
+            check_level = 1
+            for candidate in candidates:
+                check_level += 1
+                if not candidate.py_version.check_compatibility():
+                    continue
 
-            check_level += 1
-            if not _check_platform_compatibility(candidate.platform):
-                continue
+                check_level += 1
+                if not _check_platform_compatibility(candidate.platform):
+                    continue
 
-            check_level += 1
-            if not has_equality and not self.allow_prerelease and candidate.version.is_prerelease:
-                continue
+                check_level += 1
+                if not has_equality and not self.allow_prerelease and candidate.version.is_prerelease:
+                    continue
 
-            check_level += 1
-            if not req.specifier.contains(candidate.version,
-                                          prereleases=has_equality or self.allow_prerelease):
-                continue
+                check_level += 1
+                if not req.specifier.contains(candidate.version,
+                                              prereleases=has_equality or self.allow_prerelease):
+                    continue
 
-            check_level += 1
-            if candidate.type == DistributionType.SDIST:
-                self.logger.warning('Considering source distribution for %s', candidate.name)
-            return self.resolve_candidate(candidate)
+                check_level += 1
+                if candidate.type == DistributionType.SDIST:
+                    self.logger.warning('Considering source distribution for %s', candidate.name)
+                return self.resolve_candidate(candidate)
 
         ex = NoCandidateException(req)
         ex.check_level = check_level

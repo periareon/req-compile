@@ -7,7 +7,6 @@ class MultiRepository(BaseRepository):
     def __init__(self, *repositories):
         super(MultiRepository, self).__init__()
         self.repositories = list(repositories)
-        self.source = {}
 
     def __repr__(self):
         return ', '.join(repr(repo) for repo in self)
@@ -23,10 +22,7 @@ class MultiRepository(BaseRepository):
         last_ex = NoCandidateException(req)
         for repo in self.repositories:
             try:
-                candidates = repo.get_candidates(req)
-                result = repo.do_get_candidate(req, candidates)
-                self.source[req.name] = repo
-                return result
+                return repo.get_candidate(req)
             except NoCandidateException as ex:
                 last_ex = ex
         raise last_ex

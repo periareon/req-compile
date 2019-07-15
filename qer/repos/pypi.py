@@ -91,6 +91,11 @@ def _do_download(logger, filename, link, session, wheeldir):
         if hasher.hexdigest() == sha:
             logger.info('Reusing %s', output_file)
             return output_file, True
+        else:
+            logger.debug('No hash match for downloaded file, removing')
+            os.remove(output_file)
+    else:
+        logger.debug('No file in wheel-dir')
 
     full_link = urllib.parse.urljoin(url, link)
     logger.info('Downloading %s -> %s', full_link, output_file)
@@ -108,6 +113,8 @@ class PyPIRepository(Repository):
     def __init__(self, index_url, wheeldir, allow_prerelease=False):
         super(PyPIRepository, self).__init__('pypi', allow_prerelease)
 
+        if index_url.endswith('/'):
+            index_url = index_url[:-1]
         self.index_url = index_url
         self.wheeldir = wheeldir
         self.allow_prerelease = allow_prerelease

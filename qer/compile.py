@@ -8,6 +8,7 @@ import qer.dists
 import qer.metadata
 import qer.repos.pypi
 import qer.utils
+from qer.repos.source import SourceRepository
 from qer.utils import parse_requirement, merge_requirements
 import qer.repos.repository
 
@@ -19,7 +20,7 @@ MAX_DOWNGRADE = 3
 LOG = logging.getLogger('qer.compile')
 
 
-def compile_roots(node, source, repo, dists, depth=1):  # pylint: disable=too-many-locals,too-many-branches
+def compile_roots(node, source, repo, dists, depth=1, extras=None):  # pylint: disable=too-many-locals,too-many-branches
     """
 
     Args:
@@ -40,7 +41,7 @@ def compile_roots(node, source, repo, dists, depth=1):  # pylint: disable=too-ma
 
         if node.metadata.meta:
             for req in list(node.dependencies):
-                compile_roots(req, node, repo, dists, depth=depth + 1)
+                compile_roots(req, node, repo, dists, depth=depth + 1, extras=extras)
         else:
             logger.info('Reusing dist %s %s', node.metadata.name, node.metadata.version)
     else:
@@ -66,20 +67,23 @@ def compile_roots(node, source, repo, dists, depth=1):  # pylint: disable=too-ma
                 if original_metadata is None:
                     original_metadata = metadata
 
-                nodes_to_recurse = dists.add_dist(metadata, source, source.dependencies[node])
+                reason = source.dependencies[node]
+                if extras and isinstance(metadata.origin, SourceRepository):
+                    reason = merge_requirements(reason, parse_requirement(reason.name + '[' + ','.join(extras) + ']'))
+                nodes_to_recurse = dists.add_dist(metadata, source, reason)
                 if nodes_to_recurse:
                     for recurse_node in nodes_to_recurse:
                         for req in list(recurse_node.dependencies):
-                            compile_roots(req, recurse_node, repo, dists, depth=depth + 1)
+                            compile_roots(req, recurse_node, repo, dists, depth=depth + 1, extras=extras)
                 first_failure = None
                 break
             except qer.metadata.MetadataError as meta_error:
-                logger.warning('The metadata could not be processed for %s (%s)', node.key, meta_error)
+                logger.error('The metadata could not be processed for %s (%s)', node.key, meta_error)
                 ex = sys.exc_info()
                 spec_req = merge_requirements(spec_req,
                                               parse_requirement('{}!={}'.format(meta_error.name, meta_error.version)))
             except NoCandidateException as no_candidate_ex:
-                logger.debug('Could not use candidate because some of its dependencies could not be satisfied (%s)',
+                logger.error('Could not use candidate because some of its dependencies could not be satisfied (%s)',
                              no_candidate_ex)
                 ex = sys.exc_info()
                 spec_req = merge_requirements(spec_req,
@@ -97,11 +101,11 @@ def compile_roots(node, source, repo, dists, depth=1):  # pylint: disable=too-ma
                 if nodes_to_recurse:
                     for recurse_node in nodes_to_recurse:
                         for req in list(recurse_node.dependencies):
-                            compile_roots(req, recurse_node, repo, dists, depth=depth + 1)
+                            compile_roots(req, recurse_node, repo, dists, depth=depth + 1, extras=extras)
             six.reraise(*first_failure)
 
 
-def perform_compile(input_reqs, repo, constraint_reqs=None):
+def perform_compile(input_reqs, repo, extras=None, constraint_reqs=None):
     """
     Perform a compilation using the given inputs and constraints
 
@@ -135,7 +139,7 @@ def perform_compile(input_reqs, repo, constraint_reqs=None):
 
     try:
         for node in nodes:
-            compile_roots(node, None, repo, dists=results)
+            compile_roots(node, None, repo, dists=results, extras=extras)
     except NoCandidateException as ex:
         ex.results = results
         raise
