@@ -221,7 +221,8 @@ def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many
         fake_setupdir = source_file
     else:
         fake_setupdir = tempfile.mkdtemp()
-        os.mkdir(os.path.join(fake_setupdir, name))
+        if six.PY2:
+            os.mkdir(os.path.join(fake_setupdir, name))
 
     extractor = extractor_type(source_file)
     with closing(extractor):
@@ -394,6 +395,9 @@ class FakeModule(types.ModuleType):  # pylint: disable=no-init
     def __contains__(self, item):
         return True
 
+    def __subclasscheck__(cls, subclass):
+        return False
+
     def __call__(self, *args, **kwargs):
         return FakeModule(self.__name__)
 
@@ -420,14 +424,18 @@ def fake_import_impl(name, opener, # pylint: disable=too-many-locals,too-many-br
                      orig_import, modname,
                      globals_=None, locals_=None,
                      fromlist=(), level=0):
+
     lower_modname = modname.lower()
     try:
-        if ('cython' in lower_modname) or (fromlist and ('cython' in fromlist)):
+        modparts = lower_modname.split('.')
+        if ('cython' in modparts) or (fromlist and ('cython' in fromlist)):
             raise ImportError('Not allowing import of cython')
-        if 'sphinx' in lower_modname:
+        if 'sphinx' in modparts:
             raise ImportError('Not allowing import of sphinx')
-        if 'typing' in modname:
+        if 'typing' in modparts:
             raise ImportError('Not allowing import of typing')
+        if 'tornado' in modparts:
+            raise ImportError('Not allowing import of tornado')
         if modname == '_winapi' and sys.platform != 'win32':
             raise ImportError('Not allowing win32api on Linux')
 
@@ -435,7 +443,7 @@ def fake_import_impl(name, opener, # pylint: disable=too-many-locals,too-many-br
         return result
     except ImportError as ex:
         # Skip any cython importing to improve setup.py compatibility (e.g. subprocess32)
-        if 'cython.distutils' in lower_modname or ('cython' in lower_modname and (fromlist and ('Disutils' in fromlist))):
+        if 'cython.distutils' in lower_modname or ('cython' in lower_modname and (fromlist and ('Distutils' in fromlist))):
             raise
 
         modparts = modname.split('.')
@@ -456,14 +464,15 @@ def fake_import_impl(name, opener, # pylint: disable=too-many-locals,too-many-br
                         contents = _remove_encoding_lines(contents)
                     globs = {'sys': sys,
                              '__file__': filename}
-                    exec(contents, globs, globs)  # pylint: disable=exec-used
                     module = FakeModule(modname)
+                    sys.modules[modname] = module
+                    exec(contents, globs, globs)  # pylint: disable=exec-used
                     for sym in globs:
                         setattr(module, sym, globs[sym])
                     return module
                 except EnvironmentError:
                     pass
-        if ('cython' in lower_modname):
+        if ('cython' in lower_modname or 'numpy' in lower_modname):
             for idx, mod in enumerate(modparts):
                 sys.modules['.'.join(modparts[:idx + 1])] = FakeModule(mod)
             return orig_import(modname, globals_, locals_, fromlist, level)
