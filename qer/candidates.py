@@ -1,7 +1,6 @@
 from __future__ import print_function
 import argparse
 import shutil
-import sys
 import tempfile
 
 import pkg_resources

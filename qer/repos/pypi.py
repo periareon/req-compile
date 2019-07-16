@@ -91,9 +91,8 @@ def _do_download(logger, filename, link, session, wheeldir):
         if hasher.hexdigest() == sha:
             logger.info('Reusing %s', output_file)
             return output_file, True
-        else:
-            logger.debug('No hash match for downloaded file, removing')
-            os.remove(output_file)
+        logger.debug('No hash match for downloaded file, removing')
+        os.remove(output_file)
     else:
         logger.debug('No file in wheel-dir')
 

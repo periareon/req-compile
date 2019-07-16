@@ -368,12 +368,9 @@ def setup(results, *_, **kwargs):
 
     all_reqs = list(utils.parse_requirements(reqs))
     for extra, extra_req_strs in extra_reqs.items():
-        try:
-            cur_reqs = [utils.parse_requirement('{} ; extra=="{}"'.format(reqstr.strip(), extra))
+        cur_reqs = [utils.parse_requirement('{} ; extra=="{}"'.format(reqstr.strip(), extra))
                     for reqstr in extra_req_strs if reqstr.strip()]
-            all_reqs.extend(cur_req for cur_req in cur_reqs if cur_req is not None)
-        except Exception:
-            LOG.exception('Failed to parse extras for %s: %s', extra, extra_req_strs)
+        all_reqs.extend(cur_req for cur_req in cur_reqs if cur_req is not None)
 
     results.append(DistInfo(name, version, all_reqs))
     return FakeModule('dist')
@@ -394,9 +391,6 @@ class FakeModule(types.ModuleType):  # pylint: disable=no-init
 
     def __contains__(self, item):
         return True
-
-    def __subclasscheck__(cls, subclass):
-        return False
 
     def __call__(self, *args, **kwargs):
         return FakeModule(self.__name__)
@@ -420,7 +414,7 @@ class FakeModule(types.ModuleType):  # pylint: disable=no-init
         return None
 
 
-def fake_import_impl(name, opener, # pylint: disable=too-many-locals,too-many-branches
+def fake_import_impl(opener,  # pylint: disable=too-many-locals,too-many-branches
                      orig_import, modname,
                      globals_=None, locals_=None,
                      fromlist=(), level=0):
@@ -441,9 +435,10 @@ def fake_import_impl(name, opener, # pylint: disable=too-many-locals,too-many-br
 
         result = orig_import(modname, globals_, locals_, fromlist, level)
         return result
-    except ImportError as ex:
+    except ImportError:
         # Skip any cython importing to improve setup.py compatibility (e.g. subprocess32)
-        if 'cython.distutils' in lower_modname or ('cython' in lower_modname and (fromlist and ('Distutils' in fromlist))):
+        if 'cython.distutils' in lower_modname or ('cython' in lower_modname
+                                                   and (fromlist and ('Distutils' in fromlist))):
             raise
 
         modparts = modname.split('.')
@@ -516,7 +511,7 @@ def _remove_encoding_lines(contents):
     return '\n'.join(lines)
 
 
-def _parse_setup_py(name, version, fake_setupdir, opener):
+def _parse_setup_py(name, version, fake_setupdir, opener):  # pylint: disable=too-many-locals
     # pylint: disable=no-name-in-module,no-member
     # Capture warnings.warn, which is sometimes used in setup.py files
 
@@ -525,7 +520,7 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
     results = []
     setup_with_results = functools.partial(setup, results)
 
-    fake_import = functools.partial(fake_import_impl, name.lower(), opener, __import__)
+    fake_import = functools.partial(fake_import_impl, opener, __import__)
 
     old_error = tarfile.InvalidHeaderError
 
@@ -536,7 +531,7 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
 
     # pylint: disable=unused-import,unused-variable
     import multiprocessing.connection
-    import os.path
+    import os.path  # pylint: disable=redefined-outer-name
     import codecs
     import setuptools
     import distutils.core
@@ -546,8 +541,8 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
 
     def _fake_exists(path):
         try:
-            fh = opener(path, 'r')
-            fh.close()
+            file_handle = opener(path, 'r')
+            file_handle.close()
             return True
         except IOError:
             return False
@@ -591,8 +586,7 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
                 exec(contents, spy_globals, spy_globals)
         except Exception as ex:
             print(contents, file=orig_stderr)
-            six.reraise(*sys.exc_info())
-            # raise MetadataError(name, version, ex)
+            raise MetadataError(name, version, ex)
         finally:
             os.chdir(old_dir)
 

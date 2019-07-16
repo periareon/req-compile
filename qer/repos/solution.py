@@ -63,7 +63,7 @@ class SolutionRepository(Repository):
         pass
 
 
-def load_from_file(filename, origin=None):
+def load_from_file(filename, origin=None):  # pylint: disable=too-many-locals
     result = qer.dists.DistributionCollection()
 
     if filename == '-':
