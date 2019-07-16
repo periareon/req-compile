@@ -313,11 +313,11 @@ class Repository(six.with_metaclass(abc.ABCMeta, BaseRepository)):
         return self.do_get_candidate(req, candidates)
 
     def do_get_candidate(self, req, candidates):
+        check_level = 1
         if candidates:
             candidates = sort_candidates(candidates)
             has_equality = qer.utils.is_pinned_requirement(req)
 
-            check_level = 1
             for candidate in candidates:
                 check_level += 1
                 if not candidate.py_version.check_compatibility():

@@ -233,17 +233,17 @@ class localimport(object):
         # Add the original path to sys.path.
         sys.path += self.state['path']
 
-        # Update the __path__ of all namespace modules.
-        for key, mod in items(sys.modules):
-            if mod is None:
-                # Relative imports could have lead to None-entries in
-                # sys.modules. Get rid of them so they can be re-evaluated.
-                prefix = key.rpartition('.')[0]
-                if hasattr(sys.modules.get(prefix), '__path__'):
-                    del sys.modules[key]
-            elif hasattr(mod, '__path__'):
-                self.state['nspaths'][key] = copy.copy(mod.__path__)
-                mod.__path__ = pkgutil.extend_path(mod.__path__, mod.__name__)
+        # # Update the __path__ of all namespace modules.
+        # for key, mod in items(sys.modules):
+        #     if mod is None:
+        #         # Relative imports could have lead to None-entries in
+        #         # sys.modules. Get rid of them so they can be re-evaluated.
+        #         prefix = key.rpartition('.')[0]
+        #         if hasattr(sys.modules.get(prefix), '__path__'):
+        #             del sys.modules[key]
+        #     elif hasattr(mod, '__path__'):
+        #         self.state['nspaths'][key] = copy.copy(mod.__path__)
+        #         mod.__path__ = pkgutil.extend_path(mod.__path__, mod.__name__)
 
         self.in_context = True
         if self.do_autodisable:

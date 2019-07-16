@@ -15,6 +15,7 @@ import zipfile
 import abc
 import contextlib
 from contextlib import closing
+import collections
 
 import pkg_resources
 import six
@@ -63,6 +64,12 @@ class Extractor(six.with_metaclass(abc.ABCMeta, object)):
                     archive_path = os.path.relpath(filename, fake_root)
                 else:
                     return self.open(filename, *args, **kwargs)
+            else:
+                cur = os.getcwd()
+                if cur != fake_root:
+                    archive_path = os.path.relpath(cur, fake_root) + '/' + archive_path
+                    # return self.open(archive_path, *args, **kwargs)
+
             return self.open(directory + '/' + archive_path, *args, **kwargs)
         return inner_opener
 
@@ -214,10 +221,17 @@ def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many
     if not os.path.exists(source_file):
         raise ValueError('Source file/path {} does not exist'.format(source_file))
 
-    extractor = extractor_type(source_file)  # type: Extractor
+    filename = os.path.basename(source_file)
+    name, version = parse_source_filename(filename)
+
+    if extractor_type is NonExtractor:
+        fake_setupdir = source_file
+    else:
+        fake_setupdir = tempfile.mkdtemp()
+        os.mkdir(os.path.join(fake_setupdir, name))
+
+    extractor = extractor_type(source_file)
     with closing(extractor):
-        filename = os.path.basename(source_file)
-        name, version = parse_source_filename(filename)
         metadata_file = None
         pkg_info_file = None
         egg_info = None
@@ -250,10 +264,6 @@ def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many
             results = _parse_flat_metadata(extractor.open(pkg_info_file, encoding='utf-8').read())
 
         if (results is None or not results.reqs) and setup_file:
-            if isinstance(extractor, NonExtractor):
-                fake_setupdir = source_file
-            else:
-                fake_setupdir = tempfile.mkdtemp()
             setup_results = _parse_setup_py(name, version, fake_setupdir,
                                             extractor.relative_opener(fake_setupdir,
                                                                       os.path.dirname(setup_file)))
@@ -318,6 +328,12 @@ class WithDecoding(object):
             results = results.decode(self.encoding)
         if six.PY2:
             results = str(''.join([i if ord(i) < 128 else ' ' for i in results]))
+        return results
+
+    def readline(self):
+        results = self.file.readline()
+        if self.encoding:
+            results = results.decode(self.encoding)
         return results
 
     def readlines(self):
@@ -457,8 +473,7 @@ def fake_import_impl(name, opener, # pylint: disable=too-many-locals,too-many-br
                 '_version' in modname or
                 'version' in modname or
                 'release' in modname or
-                'cython' in lower_modname or
-                modname.startswith('_')):
+                'cython' in lower_modname):
             for idx, mod in enumerate(modparts):
                 sys.modules['.'.join(modparts[:idx + 1])] = FakeModule(mod)
             return FakeModule(modparts[-1])
@@ -508,6 +523,7 @@ def _remove_encoding_lines(contents):
 def _parse_setup_py(name, version, fake_setupdir, opener):
     # pylint: disable=no-name-in-module,no-member
     # Capture warnings.warn, which is sometimes used in setup.py files
+
     logging.captureWarnings(True)
 
     results = []
@@ -515,8 +531,16 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
 
     fake_import = functools.partial(fake_import_impl, name.lower(), opener, __import__)
 
+    old_error = tarfile.InvalidHeaderError
+
+    def create_error(*args, **kwargs):
+        return old_error(*args, **kwargs)
+
+    tarfile.InvalidHeaderError = create_error
+
     # pylint: disable=unused-import,unused-variable
     import multiprocessing.connection
+    import os.path
     import codecs
     import setuptools
     import distutils.core
@@ -524,14 +548,30 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
 
     old_dir = os.getcwd()
 
+    def _fake_exists(path):
+        try:
+            fh = opener(path, 'r')
+            fh.close()
+            return True
+        except IOError:
+            return False
+
+    orig_stderr = sys.stderr
+    os.chdir(fake_setupdir)
+    sys.getwindowsversion()
+
+    winver = collections.namedtuple('winver', ['major', 'minor', 'patch'])
+    cur_winver = winver(major=7, minor=0, patch=1)
+
     with patch(sys, 'exit', lambda code: None), \
-         patch(sys, 'getwindowsversion', lambda: (6, 0, 1), sys.platform == 'win32'), \
+         patch(sys, 'getwindowsversion', cur_winver, sys.platform == 'win32'), \
          patch(sys, 'stderr', StringIO()), \
          patch(sys, 'stdout', StringIO()), \
          patch('__builtin__', '__import__', fake_import), \
+         patch('__builtin__', 'execfile', lambda filename: None), \
          patch('builtins', '__import__', fake_import), \
          patch(os, 'listdir', lambda path: []), \
-         patch(os, 'getcwd', lambda: '.'), \
+         patch(os.path, 'exists', _fake_exists), \
          patch(io, 'open', opener), \
          patch(codecs, 'open', opener), \
          patch(imp, 'load_source', lambda *args, **kwargs: FakeModule('load_source')), \
@@ -543,6 +583,7 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
                        'open': opener,
                        'setup': setup_with_results}
 
+        LOG.debug('Cur dir: %s', os.getcwd())
         contents = opener('setup.py', encoding='utf-8').read()
         try:
             if six.PY2:
@@ -553,7 +594,9 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
                 # pylint: disable=exec-used
                 exec(contents, spy_globals, spy_globals)
         except Exception as ex:
-            raise MetadataError(name, version, ex)
+            print(contents, file=orig_stderr)
+            six.reraise(*sys.exc_info())
+            # raise MetadataError(name, version, ex)
         finally:
             os.chdir(old_dir)
 

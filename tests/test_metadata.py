@@ -283,3 +283,11 @@ def test_svn(mock_targz):
     assert metadata.reqs == list(pkg_resources.parse_requirements([
         'python-dateutil>=2.2',
         'nose']))
+
+
+def test_path_exists(mock_targz):
+    archive = mock_targz('path-exists-2.0')
+
+    metadata = qer.metadata.extract_metadata(archive)
+    assert metadata.name == 'path-exists'
+    assert metadata.version == pkg_resources.parse_version('2.0')
