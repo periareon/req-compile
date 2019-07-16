@@ -2,8 +2,6 @@ from __future__ import print_function
 import argparse
 import shutil
 import sys
-# Disable the typing module in this interpreter
-sys.modules['typing'] = None
 import tempfile
 
 import pkg_resources

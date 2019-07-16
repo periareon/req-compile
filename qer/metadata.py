@@ -1,8 +1,5 @@
 from __future__ import print_function
-import shutil
 import sys
-sys.modules['typing'] = None
-
 import functools
 import imp
 import io
@@ -12,7 +9,6 @@ import tarfile
 import tempfile
 import types
 import zipfile
-import abc
 import contextlib
 from contextlib import closing
 import collections
@@ -41,16 +37,13 @@ class MetadataError(Exception):
             self.name, self.version, self.ex.__class__.__name__, str(self.ex))
 
 
-class Extractor(six.with_metaclass(abc.ABCMeta, object)):
-    @abc.abstractmethod
+class Extractor(object):
     def names(self):
         pass
 
-    @abc.abstractmethod
     def open(self, filename, mode='r', encoding=None, errors=None, buffering=False, newline=False):
         pass
 
-    @abc.abstractmethod
     def close(self):
         pass
 
@@ -429,18 +422,15 @@ def fake_import_impl(name, opener, # pylint: disable=too-many-locals,too-many-br
                      fromlist=(), level=0):
     lower_modname = modname.lower()
     try:
-        if ('build_ext' in modname) or (fromlist and ('build_ext' in fromlist)):
-            raise ImportError('Not allowing import of build_ext')
         if ('cython' in lower_modname) or (fromlist and ('cython' in fromlist)):
             raise ImportError('Not allowing import of cython')
+        if 'sphinx' in lower_modname:
+            raise ImportError('Not allowing import of sphinx')
         if 'typing' in modname:
             raise ImportError('Not allowing import of typing')
         if modname == '_winapi' and sys.platform != 'win32':
             raise ImportError('Not allowing win32api on Linux')
 
-        if (name == lower_modname or (name + '_') in lower_modname or
-                ('_' + name) in lower_modname):
-            sys.modules[modname] = FakeModule(modname)
         result = orig_import(modname, globals_, locals_, fromlist, level)
         return result
     except ImportError as ex:
@@ -454,33 +444,30 @@ def fake_import_impl(name, opener, # pylint: disable=too-many-locals,too-many-br
                 if part in PY2_BLACKLIST:
                     raise
 
-        for path in sys.path:
-            try:
-                filename = os.path.join(path, modname + '.py')
-                contents = opener(filename)
-                contents = contents.read()
-                globs = {'sys': sys,
-                         '__file__': os.path.join('.', modname + '.py')}
-                exec(contents, globs, globs)  # pylint: disable=exec-used
-                module = FakeModule(modname)
-                for sym in globs:
-                    setattr(module, sym, globs[sym])
-                return module
-            except EnvironmentError:
-                pass
+        old_exc_info = sys.exc_info()
 
-        if (name in lower_modname or
-                '_version' in modname or
-                'version' in modname or
-                'release' in modname or
-                'cython' in lower_modname):
+        for path in sys.path:
+            for filename in (os.path.join(path, modname + '.py'),
+                             os.path.join(path, modname, '__init__.py')):
+                try:
+                    contents = opener(filename)
+                    contents = contents.read()
+                    if six.PY2:
+                        contents = _remove_encoding_lines(contents)
+                    globs = {'sys': sys,
+                             '__file__': filename}
+                    exec(contents, globs, globs)  # pylint: disable=exec-used
+                    module = FakeModule(modname)
+                    for sym in globs:
+                        setattr(module, sym, globs[sym])
+                    return module
+                except EnvironmentError:
+                    pass
+        if ('cython' in lower_modname):
             for idx, mod in enumerate(modparts):
                 sys.modules['.'.join(modparts[:idx + 1])] = FakeModule(mod)
-            return FakeModule(modparts[-1])
-        try:
             return orig_import(modname, globals_, locals_, fromlist, level)
-        except TypeError:
-            raise ImportError
+        six.reraise(*old_exc_info)
     except SyntaxError:
         return FakeModule(modname)
     except (TypeError, KeyError):
@@ -558,18 +545,17 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
 
     orig_stderr = sys.stderr
     os.chdir(fake_setupdir)
-    sys.getwindowsversion()
 
     winver = collections.namedtuple('winver', ['major', 'minor', 'patch'])
     cur_winver = winver(major=7, minor=0, patch=1)
 
     with patch(sys, 'exit', lambda code: None), \
-         patch(sys, 'getwindowsversion', cur_winver, sys.platform == 'win32'), \
-         patch(sys, 'stderr', StringIO()), \
-         patch(sys, 'stdout', StringIO()), \
+         patch(sys, 'getwindowsversion', lambda: cur_winver, sys.platform == 'win32'), \
          patch('__builtin__', '__import__', fake_import), \
          patch('__builtin__', 'execfile', lambda filename: None), \
          patch('builtins', '__import__', fake_import), \
+         patch(sys, 'stderr', StringIO()), \
+         patch(sys, 'stdout', StringIO()), \
          patch(os, 'listdir', lambda path: []), \
          patch(os.path, 'exists', _fake_exists), \
          patch(io, 'open', opener), \
@@ -591,6 +577,7 @@ def _parse_setup_py(name, version, fake_setupdir, opener):
             contents = contents.replace('print ', '')
 
             with localimport([]):
+                sys.path.append(fake_setupdir)
                 # pylint: disable=exec-used
                 exec(contents, spy_globals, spy_globals)
         except Exception as ex:

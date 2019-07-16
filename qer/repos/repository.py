@@ -1,6 +1,5 @@
 from __future__ import print_function
 
-import abc
 import logging
 import struct
 import enum
@@ -144,7 +143,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
         self.name = name
         self.filename = filename
         self.version = version
-        self.py_version = py_version   # type: RequiresPython
+        self.py_version = py_version
         self.platform = plat
         self.link = link
         self.type = candidate_type
@@ -240,8 +239,7 @@ def _check_platform_compatibility(py_platform):
     return py_platform == 'any' or (py_platform.lower() in PLATFORM_TAGS)
 
 
-class BaseRepository(six.with_metaclass(abc.ABCMeta, object)):
-    @abc.abstractmethod
+class BaseRepository(object):
     def get_candidate(self, req):
         """Fetch the best matching candidate for the given requirement
 
@@ -274,7 +272,7 @@ def sort_candidates(candidates):
     return sorted(candidates, key=lambda x: x.sortkey, reverse=True)
 
 
-class Repository(six.with_metaclass(abc.ABCMeta, BaseRepository)):
+class Repository(BaseRepository):
     def __init__(self, logger_name, allow_prerelease=None):
         super(Repository, self).__init__()
         if allow_prerelease is None:
@@ -288,7 +286,6 @@ class Repository(six.with_metaclass(abc.ABCMeta, BaseRepository)):
     def __iter__(self):
         return iter([self])
 
-    @abc.abstractmethod
     def get_candidates(self, req):
         """
         Fetch all available candidates for a project_name
@@ -300,11 +297,9 @@ class Repository(six.with_metaclass(abc.ABCMeta, BaseRepository)):
         """
         raise NotImplementedError()
 
-    @abc.abstractmethod
     def resolve_candidate(self, candidate):
         raise NotImplementedError()
 
-    @abc.abstractmethod
     def close(self):
         raise NotImplementedError()
 

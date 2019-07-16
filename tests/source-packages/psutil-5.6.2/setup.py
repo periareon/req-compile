@@ -39,6 +39,7 @@ from _common import POSIX  # NOQA
 from _common import SUNOS  # NOQA
 from _common import WINDOWS  # NOQA
 
+print('LINUX = {}, WINDOWS={}'.format(LINUX, WINDOWS))
 
 macros = []
 if POSIX:
