@@ -33,12 +33,17 @@ class DependencyNode(object):
     def __str__(self):
         if self.metadata is None:
             return self.key + ' [UNSOLVED]'
-        return self.metadata.to_definition((self.extra,) if self.extra else None)
+        if self.metadata.meta:
+            return self.metadata.name
+        return '=='.join(str(x) for x in self.metadata.to_definition(
+            (self.extra,)
+            if self.extra else None))
 
     def build_constraints(self):
         req = None
         for node in self.reverse_deps:
-            req = merge_requirements(req, node.dependencies[self])
+            if self in node.dependencies:
+                req = merge_requirements(req, node.dependencies[self])
 
         if req is None:
             if self.metadata is None:
@@ -271,7 +276,7 @@ class RequirementsFile(RequirementContainer):
                 if filter_req(req, extra)]
 
     def to_definition(self, extras):
-        return self.name
+        return self.name, None
 
 
 class DistInfo(RequirementContainer):
@@ -295,7 +300,7 @@ class DistInfo(RequirementContainer):
                 if filter_req(req, extra)]
 
     def __str__(self):
-        return self.to_definition(None)
+        return '{}=={}'.format(*self.to_definition(None))
 
     def __getstate__(self):
         return {
@@ -312,11 +317,10 @@ class DistInfo(RequirementContainer):
         self.reqs = list(utils.parse_requirements(state['reqs']))
 
     def to_definition(self, extras):
-        req_expr = '{}{}=={}'.format(
+        req_expr = '{}{}'.format(
             self.name,
-            ('[' + ','.join(sorted(extras)) + ']') if extras else '',
-            self.version)
-        return req_expr
+            ('[' + ','.join(sorted(extras)) + ']') if extras else '')
+        return req_expr, self.version
 
     def __repr__(self):
         return self.name + ' ' + str(self.version) + '\n' + '\n'.join([str(req) for req in self.reqs])

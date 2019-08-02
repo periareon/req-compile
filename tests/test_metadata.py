@@ -291,3 +291,11 @@ def test_path_exists(mock_targz):
     metadata = qer.metadata.extract_metadata(archive)
     assert metadata.name == 'path-exists'
     assert metadata.version == pkg_resources.parse_version('2.0')
+
+
+def test_future(mock_targz):
+    archive = mock_targz('future-0.17.4')
+
+    metadata = qer.metadata.extract_metadata(archive)
+    assert metadata.name == 'future'
+    assert metadata.version == pkg_resources.parse_version('0.17.4')

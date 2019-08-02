@@ -46,56 +46,67 @@ def compile_roots(node, source, repo, dists, depth=1, extras=None):  # pylint: d
             logger.info('Reusing dist %s %s', node.metadata.name, node.metadata.version)
     else:
         spec_req = node.build_constraints()
+        original_spec_req = spec_req
         first_failure = None
         original_metadata = None
 
+        attempt = 0
+        ex = None
+        nodes_to_recurse = set()
+
         for attempt in range(MAX_DOWNGRADE):
+            metadata = None
+
             try:
                 metadata, cached = repo.get_candidate(spec_req)
-
                 logger.debug('Acquired candidate %s [%s] (%s)',
                              metadata, metadata.origin, 'cached' if cached else 'download')
-
-                nodes_to_recurse = set()
-            except NoCandidateException:
-                if attempt == 0:
-                    raise
-                break
-
-            try:
-                # Save off the original metadata for better error information
-                if original_metadata is None:
-                    original_metadata = metadata
-
-                reason = source.dependencies[node]
-                if extras and isinstance(metadata.origin, SourceRepository):
-                    reason = merge_requirements(reason, parse_requirement(reason.name + '[' + ','.join(extras) + ']'))
-                nodes_to_recurse = dists.add_dist(metadata, source, reason)
-                if nodes_to_recurse:
-                    for recurse_node in nodes_to_recurse:
-                        for req in list(recurse_node.dependencies):
-                            compile_roots(req, recurse_node, repo, dists, depth=depth + 1, extras=extras)
-                first_failure = None
-                break
             except qer.metadata.MetadataError as meta_error:
-                logger.error('The metadata could not be processed for %s (%s)', node.key, meta_error)
+                logger.warning('The metadata could not be processed for %s (%s)', node.key, meta_error)
+                meta_error.req = original_spec_req
                 ex = sys.exc_info()
                 spec_req = merge_requirements(spec_req,
                                               parse_requirement('{}!={}'.format(meta_error.name, meta_error.version)))
             except NoCandidateException as no_candidate_ex:
-                logger.error('Could not use candidate because some of its dependencies could not be satisfied (%s)',
-                             no_candidate_ex)
-                ex = sys.exc_info()
-                spec_req = merge_requirements(spec_req,
-                                              parse_requirement('{}!={}'.format(metadata.name, metadata.version)))
+                no_candidate_ex.req = original_spec_req
+                if attempt == 0:
+                    raise
+                break
+
+            if metadata is not None:
+                if nodes_to_recurse:
+                    for child_node in nodes_to_recurse:
+                        dists.remove_dists(child_node, remove_upstream=False)
+
+                try:
+                    reason = source.dependencies[node]
+                    if extras and isinstance(metadata.origin, SourceRepository):
+                        reason = merge_requirements(reason, parse_requirement(reason.name + '[' + ','.join(extras) + ']'))
+                    nodes_to_recurse = dists.add_dist(metadata, source, reason)
+                    if nodes_to_recurse:
+                        for recurse_node in nodes_to_recurse:
+                            for req in list(recurse_node.dependencies):
+                                compile_roots(req, recurse_node, repo, dists, depth=depth + 1, extras=extras)
+                    first_failure = None
+                    break
+                except (qer.metadata.MetadataError, NoCandidateException) as no_candidate_ex:
+                    logger.error('Could not use %s because some of its dependencies could not be satisfied (%s)',
+                                 node,
+                                 no_candidate_ex)
+                    ex = sys.exc_info()
+                    spec_req = merge_requirements(spec_req,
+                                                  parse_requirement('{}!={}'.format(metadata.name, metadata.version)))
 
             if first_failure is None:
                 first_failure = ex
 
-            for child_node in nodes_to_recurse:
-                dists.remove_dists(child_node, remove_upstream=False)
-
-        if first_failure is not None:
+        if first_failure is None and metadata is not None:
+            if attempt > 0:
+                logger.error('Walked back %d version%s from %s',
+                             attempt,
+                             '' if attempt == 1 else 's',
+                             original_spec_req)
+        else:
             if original_metadata is not None:
                 nodes_to_recurse = dists.add_dist(original_metadata, source, source.dependencies[node])
                 if nodes_to_recurse:
@@ -140,7 +151,7 @@ def perform_compile(input_reqs, repo, extras=None, constraint_reqs=None):
     try:
         for node in nodes:
             compile_roots(node, None, repo, dists=results, extras=extras)
-    except NoCandidateException as ex:
+    except (NoCandidateException, qer.metadata.MetadataError) as ex:
         ex.results = results
         raise
 

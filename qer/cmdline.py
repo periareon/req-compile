@@ -21,7 +21,7 @@ from qer.compile import perform_compile
 from qer.config import read_pip_default_index
 from qer.repos.findlinks import FindLinksRepository
 from qer.repos.pypi import PyPIRepository
-from qer.repos.repository import CantUseReason, sort_candidates
+from qer.repos.repository import CantUseReason, sort_candidates, NoCandidateException
 from qer.repos.multi import MultiRepository
 from qer.repos.solution import SolutionRepository
 from qer.repos.source import SourceRepository
@@ -46,21 +46,34 @@ def _cantusereason_to_text(reason):
     return 'unknown'
 
 
-def _generate_no_candidate_display(req, repo, dists):
+def _generate_no_candidate_display(req, repo, dists, failure):
     failing_node = dists[req.name]
     nodes = failing_node.reverse_deps
     constraints = failing_node.build_constraints()
     if not nodes:
         print('No package available for {}, latest is {}'.format(req.name, 'unknown'), file=sys.stderr)
     else:
-        can_satisfy = is_possible(constraints)
-        if not can_satisfy:
-            print('No version could possibly satisfy the following requirements:', file=sys.stderr)
+        can_satisfy = True
+        if isinstance(failure, NoCandidateException):
+            can_satisfy = is_possible(constraints)
+            if not can_satisfy:
+                print('No version could possibly satisfy the following requirements:', file=sys.stderr)
+            else:
+                print('No version of {} could satisfy the following requirements:'.format(req.name), file=sys.stderr)
         else:
-            print('No version of {} could satisfy the following requirements:'.format(req.name), file=sys.stderr)
+            print("A problem occurred while determining requirements for {name}:\n"
+                  "{failure}".format(name=req.name, failure=failure), file=sys.stderr)
 
-        for node in nodes:
-            print('   {} requires {}'.format(node, node.dependencies[failing_node]), file=sys.stderr)
+        nodes_to_dump = [failing_node]
+        has_dumped = set()
+        while nodes_to_dump:
+            cur_node = nodes_to_dump.pop(0)
+            for node in cur_node.reverse_deps:
+                if node not in has_dumped and cur_node in node.dependencies:
+                    has_dumped.add(node)
+                    print('   {} requires {}'.format(node, node.dependencies[cur_node]),
+                          file=sys.stderr)
+                    nodes_to_dump.append(node)
 
         if can_satisfy:
             all_candidates = {repo: repo.get_candidates(req) for repo in repo}
@@ -81,10 +94,19 @@ def _dump_repo_candidates(req, repos):
         candidates = repo.get_candidates(req)
         print('  {}:'.format(repo), file=sys.stderr)
         if candidates:
-            for candidate in sort_candidates(candidates):
-                print('  {}: {}'.format(candidate,
-                                        _cantusereason_to_text(repo.why_cant_I_use(req, candidate))),
-                      file=sys.stderr)
+            attempted_versions = set()
+            for num, candidate in enumerate(sort_candidates(candidates)):
+                attempted_versions.add(candidate.version)
+                if len(attempted_versions) > 3:
+                    print('  -- Attempts stopped here ({} versions too '
+                          'old to try)'.format(len(candidates) - num - 1), file=sys.stderr)
+                    break
+                try:
+                    print('  {}: {}'.format(candidate,
+                                            _cantusereason_to_text(repo.why_cant_I_use(req, candidate))),
+                          file=sys.stderr)
+                except qer.metadata.MetadataError:
+                    print('  {}: {}'.format(candidate, 'Failed to parse metadata'), file=sys.stderr)
         else:
             print('  No candidates found', file=sys.stderr)
 
@@ -143,7 +165,9 @@ def run_compile(input_args,
                 constraint_files,
                 repo,
                 remove_source,
-                annotate_source):
+                annotate_source,
+                no_comments,
+                no_pins):
     """
     Args:
         input_args (list[str]):
@@ -166,7 +190,7 @@ def run_compile(input_args,
         for input_arg in input_args
     }
     if extra_sources:
-        remove_source = True
+        # remove_source = True
         # Add the sources provided to the search repos
         repo = MultiRepository(*([SourceRepository(source) for source in extra_sources] + [repo]))
 
@@ -192,25 +216,33 @@ def run_compile(input_args,
 
             req_filter = lambda req: blacklist_filter(req) and is_from_source(req)
 
-        lines = sorted(results.generate_lines(roots, req_filter=req_filter), key=lambda x: x[0].lower())
+        lines = sorted(results.generate_lines(roots, req_filter=req_filter), key=lambda x: x[0][0].lower())
+
+        fmt = '{key}'
+        if not no_pins:
+            fmt += '=={version}'
+        if not no_comments:
+            fmt += '  # {annotation}{constraints}'
+
         if annotate_source:
             repo_mapping = _annotate(input_reqs, repo)
         if lines:
-            left_column_len = max(len(x[0]) for x in lines)
+            # left_column_len = max(len(x[0][0]) + len(x[0][1]) + 2 for x in lines)
             annotation = ''
             for line in lines:
                 if annotate_source:
-                    req = utils.parse_requirement(line[0])
-                    key = req.name + ('[{}]'.format(req.extras[0]) if req.extras else '')
+                    key = line[0][0]
                     source = results[key].metadata.origin
-                    if not source in repo_mapping:
+                    if source not in repo_mapping:
                         print('No repo for {}'.format(line), file=sys.stderr)
                         annotation = '[?] '
                     else:
                         annotation = '[{}] '.format(repo_mapping[source])
-                print('{}  # {}{}'.format(line[0].ljust(left_column_len), annotation, line[1]))
-    except qer.repos.repository.NoCandidateException as ex:
-        _generate_no_candidate_display(ex.req, repo, ex.results)
+
+                print(fmt.format(key=line[0][0], version=line[0][1],
+                                 annotation=annotation, constraints=line[1]))
+    except (qer.repos.repository.NoCandidateException, qer.metadata.MetadataError) as ex:
+        _generate_no_candidate_display(ex.req, repo, ex.results, ex)
         sys.exit(1)
 
 
@@ -300,6 +332,10 @@ def compile_main(args=None):
                        help='Allow preleases from all sources')
     group.add_argument('--annotate', default=False, action='store_true',
                        help='Annotate the output file with the sources of each requirement')
+    group.add_argument('--no-comments', default=False, action='store_true',
+                       help='Disable comments in the output')
+    group.add_argument('--no-pins', default=False, action='store_true',
+                       help='Disable version pins, just list distributions')
     group.add_argument('-v', '--verbose', default=False, action='store_true',
                        help='Enable verbose output to stderr')
     add_repo_args(parser)
@@ -334,7 +370,9 @@ def compile_main(args=None):
                     args.constraints if args.constraints else None,
                     repo,
                     args.remove_source,
-                    args.annotate)
+                    args.annotate,
+                    args.no_comments,
+                    args.no_pins)
     finally:
         if delete_wheeldir:
             shutil.rmtree(wheeldir)

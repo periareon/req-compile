@@ -17,6 +17,11 @@ import pkg_resources
 import six
 from six.moves import StringIO
 
+try:
+    from functools32 import lru_cache
+except ImportError:
+    from functools import lru_cache
+
 from qer import utils
 from qer.blacklist import PY2_BLACKLIST
 from qer.dists import DistInfo
@@ -144,7 +149,7 @@ class TarExtractor(Extractor):
 
 class ZipExtractor(Extractor):
     def __init__(self, filename):
-        self.zfile = zipfile.ZipFile(filename, 'r')
+        self.zfile = zipfile.ZipFile(os.path.abspath(filename), 'r')
         self.io_open = io.open
 
     def names(self):
@@ -170,6 +175,7 @@ class ZipExtractor(Extractor):
         self.zfile.close()
 
 
+@lru_cache(maxsize=None)
 def extract_metadata(filename, origin=None):
     """Extract a DistInfo from a file or directory
 
@@ -366,11 +372,23 @@ def setup(results, *_, **kwargs):
     if version is not None and version != '':
         version = pkg_resources.parse_version(str(version))
 
+    if isinstance(reqs, str):
+        reqs = [reqs]
     all_reqs = list(utils.parse_requirements(reqs))
     for extra, extra_req_strs in extra_reqs.items():
-        cur_reqs = [utils.parse_requirement('{} ; extra=="{}"'.format(reqstr.strip(), extra))
-                    for reqstr in extra_req_strs if reqstr.strip()]
-        all_reqs.extend(cur_req for cur_req in cur_reqs if cur_req is not None)
+        try:
+            if isinstance(extra_req_strs, six.string_types):
+                extra_req_strs = [extra_req_strs]
+            cur_reqs = utils.parse_requirements(extra_req_strs)
+            reqs_with_extra_marker = [
+                utils.merge_requirements(cur_req, utils.parse_requirement(
+                    '{} ; extra == "{}"'.format(cur_req.name, extra)))
+                for cur_req in cur_reqs]
+            all_reqs.extend(reqs_with_extra_marker)
+        except pkg_resources.RequirementParseError as ex:
+            print('Failed to parse extra requirement ({}) '
+                  'from the set:\n{}'.format(str(ex),extra_reqs), file=sys.stderr)
+            raise
 
     results.append(DistInfo(name, version, all_reqs))
     return FakeModule('dist')
@@ -413,29 +431,36 @@ class FakeModule(types.ModuleType):  # pylint: disable=no-init
             return FakeModule(item)
         return None
 
+importlevel = 0
+
 
 def fake_import_impl(opener,  # pylint: disable=too-many-locals,too-many-branches
                      orig_import, modname,
                      globals_=None, locals_=None,
                      fromlist=(), level=0):
-
+    global importlevel
     lower_modname = modname.lower()
     try:
         modparts = lower_modname.split('.')
+        importlevel += 1
+        print('{}{}'.format(' ' * importlevel, '{'))
+        print(
+            '{}Running orig import {}, {}, {}'.format(' ' * importlevel, modname, fromlist, level))
+
         if ('cython' in modparts) or (fromlist and ('cython' in fromlist)):
             raise ImportError('Not allowing import of cython')
         if 'sphinx' in modparts:
             raise ImportError('Not allowing import of sphinx')
         if 'typing' in modparts:
             raise ImportError('Not allowing import of typing')
-        if 'tornado' in modparts:
+        if 'tornado' in modparts or 'flask' in modparts or 'jinja' in modparts:
             raise ImportError('Not allowing import of tornado')
         if modname == '_winapi' and sys.platform != 'win32':
             raise ImportError('Not allowing win32api on Linux')
-
         result = orig_import(modname, globals_, locals_, fromlist, level)
+        print('{}Success'.format(' ' * importlevel))
         return result
-    except ImportError:
+    except ImportError as ex:
         # Skip any cython importing to improve setup.py compatibility (e.g. subprocess32)
         if 'cython.distutils' in lower_modname or ('cython' in lower_modname
                                                    and (fromlist and ('Distutils' in fromlist))):
@@ -449,16 +474,23 @@ def fake_import_impl(opener,  # pylint: disable=too-many-locals,too-many-branche
 
         old_exc_info = sys.exc_info()
 
+        if 'Not allowing' in str(ex):
+            for idx, mod in enumerate(modparts):
+                sys.modules['.'.join(modparts[:idx + 1])] = FakeModule(mod)
+            return orig_import(modname, globals_, locals_, fromlist, level)
+
         for path in sys.path:
-            for filename in (os.path.join(path, modname + '.py'),
-                             os.path.join(path, modname, '__init__.py')):
+            for filename in (os.path.join(path, modname.replace('.', '/') + '.py'),
+                             os.path.join(path, modname.replace('.', '/'), '__init__.py')):
                 try:
                     contents = opener(filename)
                     contents = contents.read()
                     if six.PY2:
                         contents = _remove_encoding_lines(contents)
                     globs = {'sys': sys,
-                             '__file__': filename}
+                             '__file__': filename,
+                             # 'open': opener
+                             }
                     module = FakeModule(modname)
                     sys.modules[modname] = module
                     exec(contents, globs, globs)  # pylint: disable=exec-used
@@ -467,15 +499,21 @@ def fake_import_impl(opener,  # pylint: disable=too-many-locals,too-many-branche
                     return module
                 except EnvironmentError:
                     pass
-        if ('cython' in lower_modname or 'numpy' in lower_modname):
-            for idx, mod in enumerate(modparts):
-                sys.modules['.'.join(modparts[:idx + 1])] = FakeModule(mod)
-            return orig_import(modname, globals_, locals_, fromlist, level)
+                except ImportError:
+                    print(contents, file=sys.stderr)
+                    raise
         six.reraise(*old_exc_info)
-    except SyntaxError:
-        return FakeModule(modname)
-    except (TypeError, KeyError):
-        return FakeModule(modname)
+    # except SyntaxError:
+    #     return FakeModule(modname)
+    # except (TypeError, KeyError):
+    #     return FakeModule(modname)
+    except:
+        print('{}FAILED OVERALL ON THIS REQUIREMENT'.format(' ' * importlevel))
+        raise
+    finally:
+        print('{}Done {}, {}, {}'.format(' ' * importlevel, modname, fromlist, level))
+        print('{}{}'.format(' ' * importlevel, '}'))
+        importlevel -= 1
 
 
 @contextlib.contextmanager
@@ -585,7 +623,6 @@ def _parse_setup_py(name, version, fake_setupdir, opener):  # pylint: disable=to
                 # pylint: disable=exec-used
                 exec(contents, spy_globals, spy_globals)
         except Exception as ex:
-            print(contents, file=orig_stderr)
             raise MetadataError(name, version, ex)
         finally:
             os.chdir(old_dir)

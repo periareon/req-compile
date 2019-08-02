@@ -13,7 +13,7 @@ except ImportError:
     from functools import lru_cache
 
 from qer.repos.repository import Repository, process_distribution
-from qer.metadata import extract_metadata
+from qer.metadata import extract_metadata, MetadataError
 
 
 
@@ -137,8 +137,17 @@ class PyPIRepository(Repository):
         return _scan_page_links(self.index_url, req.name, self.session)
 
     def resolve_candidate(self, candidate):
-        filename, cached = _do_download(self.logger, candidate.filename, candidate.link, self.session, self.wheeldir)
-        return extract_metadata(filename, origin=self), cached
+        filename, cached = None, True
+        try:
+            filename, cached = _do_download(self.logger, candidate.filename, candidate.link, self.session, self.wheeldir)
+            return extract_metadata(filename, origin=self), cached
+        except MetadataError:
+            if not cached:
+                try:
+                    os.remove(filename)
+                except EnvironmentError:
+                    pass
+            raise
 
     def close(self):
         self.session.close()
