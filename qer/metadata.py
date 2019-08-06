@@ -26,6 +26,7 @@ from qer import utils
 from qer.blacklist import PY2_BLACKLIST
 from qer.dists import DistInfo
 from qer.localimport import localimport
+from qer.importhook import import_hook
 
 LOG = logging.getLogger('qer.metadata')
 
@@ -130,6 +131,7 @@ class TarExtractor(Extractor):
         return (info.name for info in self.tar.getmembers())
 
     def open(self, filename, mode='r', encoding='utf-8', errors=None, buffering=False, newline=False):
+        print('Tar open {}'.format(filename))
         if isinstance(filename, int):
             return self.io_open(filename, mode=mode, encoding=encoding)
         filename = filename.replace('\\', '/').replace('./', '')
@@ -549,10 +551,7 @@ def _parse_setup_py(name, version, fake_setupdir, opener):  # pylint: disable=to
 
     spy_globals = {'__file__': os.path.join(fake_setupdir, 'setup.py'),
                    '__name__': '__main__',
-                   'open': opener,
                    'setup': setup_with_results}
-
-    fake_import = functools.partial(fake_import_impl, opener, __import__, spy_globals)
 
     old_error = tarfile.InvalidHeaderError
 
@@ -610,9 +609,12 @@ def _parse_setup_py(name, version, fake_setupdir, opener):  # pylint: disable=to
          patch(sys, 'stdout', StringIO()):
         pass
 
+    fake_import = functools.partial(import_hook, opener)
+
     with \
          patch(sys, 'exit', lambda code: None), \
          patch('__builtin__', '__import__', fake_import), \
+         patch('__builtin__', 'open', opener), \
          patch('__builtin__', 'execfile', lambda filename: None), \
          patch('builtins', '__import__', fake_import), \
          patch(os, 'listdir', lambda path: []), \

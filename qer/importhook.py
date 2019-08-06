@@ -4,14 +4,14 @@ import os
 import sys
 
 
-def import_hook(name, globals=None, locals=None, fromlist=None):
+def import_hook(opener, name, globals=None, locals=None, fromlist=None, level=0):
     parent = determine_parent(globals)
-    q, tail = find_head_package(parent, name)
-    m = load_tail(q, tail)
+    q, tail = find_head_package(opener, parent, name)
+    m = load_tail(opener, q, tail)
     if not fromlist:
         return q
     if hasattr(m, "__path__"):
-        ensure_fromlist(m, fromlist)
+        ensure_fromlist(opener, m, fromlist)
     return m
 
 
@@ -19,6 +19,7 @@ def determine_parent(globals):
     if not globals or not globals.has_key("__name__"):
         return None
     pname = globals['__name__']
+    print('PARENT NAME: {}'.format(pname))
     if globals.has_key("__path__"):
         parent = sys.modules[pname]
         assert globals is parent.__dict__
@@ -32,7 +33,7 @@ def determine_parent(globals):
     return None
 
 
-def find_head_package(parent, name):
+def find_head_package(opener, parent, name):
     if '.' in name:
         i = name.find('.')
         head = name[:i]
@@ -44,30 +45,32 @@ def find_head_package(parent, name):
         qname = "%s.%s" % (parent.__name__, head)
     else:
         qname = head
-    q = import_module(head, qname, parent)
-    if q: return q, tail
+    q = import_module(opener, head, qname, parent)
+    if q:
+        return q, tail
     if parent:
         qname = head
         parent = None
-        q = import_module(head, qname, parent)
-        if q: return q, tail
+        q = import_module(opener, head, qname, parent)
+        if q:
+            return q, tail
     raise ImportError("No module named " + qname)
 
 
-def load_tail(q, tail):
+def load_tail(opener, q, tail):
     m = q
     while tail:
         i = tail.find('.')
         if i < 0: i = len(tail)
         head, tail = tail[:i], tail[i + 1:]
         mname = "%s.%s" % (m.__name__, head)
-        m = import_module(head, mname, m)
+        m = import_module(opener, head, mname, m)
         if not m:
             raise ImportError("No module named " + mname)
     return m
 
 
-def ensure_fromlist(m, fromlist, recursive=0):
+def ensure_fromlist(opener, m, fromlist, recursive=0):
     for sub in fromlist:
         if sub == "*":
             if not recursive:
@@ -76,26 +79,41 @@ def ensure_fromlist(m, fromlist, recursive=0):
                 except AttributeError:
                     pass
                 else:
-                    ensure_fromlist(m, all, 1)
+                    ensure_fromlist(opener, m, all, 1)
             continue
         if sub != "*" and not hasattr(m, sub):
             subname = "%s.%s" % (m.__name__, sub)
-            submod = import_module(sub, subname, m)
+            submod = import_module(opener, sub, subname, m)
             if not submod:
                 raise ImportError("No module named " + subname)
 
 
-def _do_import(modname):
-    for filename in [os.path.join(main_dir, modname + '.py'),
-                     os.path.join(main_dir, modname, '__init__.py')]:
-        try:
-            with open(filename) as fh:
-                return imp.load_module(modname, fh, filename, ('', '', 5))
-        except EnvironmentError as ex:
-            pass
+def _do_import(opener, modname, paths):
+    all_paths = sys.path
+    if paths:
+        all_paths = paths + all_paths
+    for path in all_paths:
+        for filename in (os.path.join(path, modname.replace('.', '/') + '.py'),
+                         os.path.join(path, modname.replace('.', '/'), '__init__.py')):
+            try:
+                with opener(filename) as src:
+                    contents = src.read()
+                    module = imp.new_module(modname)
+                    if filename.endswith('__init__.py'):
+                        setattr(module, '__path__',
+                                [os.path.dirname(filename)])
+                    setattr(module, '__name__', modname)
+                    setattr(module, '__file__', filename)
+                    sys.modules[modname] = module
+                    exec(contents, module.__dict__)
+                    return module
+            except EnvironmentError as ex:
+                pass
+    return None
 
 
-def import_module(partname, fqname, parent):
+def import_module(opener, partname, fqname, parent):
+    print('Import partname {} fqname {} (parent={})'.format(partname, fqname, parent))
     try:
         return sys.modules[fqname]
     except KeyError:
@@ -106,8 +124,7 @@ def import_module(partname, fqname, parent):
                                               parent and parent.__path__)
         m = imp.load_module(fqname, fp, pathname, stuff)
     except ImportError:
-        print('Could not find')
-        m = _do_import(fqname)
+        m = _do_import(opener, fqname, parent and parent.__path__)
     finally:
         if fp is not None:
             fp.close()
