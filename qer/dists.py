@@ -187,7 +187,7 @@ class DistributionCollection(object):
 
     def build(self, roots):
         results = self.generate_lines(roots)
-        return [utils.parse_requirement(result[0]) for result in results]
+        return [utils.parse_requirement('=='.join([result[0][0], str(result[0][1])])) for result in results]
 
     def generate_lines(self, roots, req_filter=None, _visited=None):
         """

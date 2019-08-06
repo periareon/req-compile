@@ -54,11 +54,17 @@ def compile_roots(node, source, repo, dists, depth=1, extras=None):  # pylint: d
         ex = None
         nodes_to_recurse = set()
 
+        walkback_repo = repo
+
         for attempt in range(MAX_DOWNGRADE):
             metadata = None
 
             try:
-                metadata, cached = repo.get_candidate(spec_req)
+                metadata, cached = walkback_repo.get_candidate(spec_req)
+                # If the package was discovered in a source repository, it can be walked back
+                # but only within the repository
+                if isinstance(metadata.origin, SourceRepository):
+                    walkback_repo = metadata.origin
                 logger.debug('Acquired candidate %s [%s] (%s)',
                              metadata, metadata.origin, 'cached' if cached else 'download')
             except qer.metadata.MetadataError as meta_error:

@@ -102,7 +102,16 @@ def test_extract_tar_utf8(mock_targz):
 def test_extract_print(mock_targz):
     tar_archive = mock_targz('print-1.1.0b8')
 
-    metadata = qer.metadata.extract_metadata(tar_archive)
+    try:
+        metadata = qer.metadata.extract_metadata(tar_archive)
+        if six.PY3:
+            assert False
+    except qer.metadata.MetadataError:
+        if six.PY2:
+            assert False
+        else:
+            return
+
     assert metadata.name == 'print'
     assert metadata.version == pkg_resources.parse_version('1.1.0b8')
 
@@ -147,20 +156,23 @@ def test_pyreadline(mock_zip):
     assert metadata.version == pkg_resources.parse_version('2.1')
 
 
-def test_etxmlf(mock_targz):
-    archive = mock_targz('etxmlf-1.0.1')
+def test_et_xmlfile(mock_targz):
+    archive = mock_targz('et_xmlfile-1.0.1')
 
     metadata = qer.metadata.extract_metadata(archive)
-    assert metadata.name == 'etxmlf'
+    assert metadata.name == 'et_xmlfile'
     assert metadata.version == pkg_resources.parse_version('1.0.1')
 
 
 def test_compound(mock_targz):
     """Test one tar after another directly that have failed in the passed"""
-    archive = mock_targz('etxmlf-1.0.1')
+    archive = mock_targz('et_xmlfile-1.0.1')
     qer.metadata.extract_metadata(archive)
 
     archive = mock_targz('ed-1.4')
+    qer.metadata.extract_metadata(archive)
+
+    archive = mock_targz('pyusb-1.0.2')
     qer.metadata.extract_metadata(archive)
 
 
@@ -299,3 +311,35 @@ def test_future(mock_targz):
     metadata = qer.metadata.extract_metadata(archive)
     assert metadata.name == 'future'
     assert metadata.version == pkg_resources.parse_version('0.17.4')
+
+
+def test_dill(mock_targz):
+    archive = mock_targz('dill-0.3.0')
+
+    metadata = qer.metadata.extract_metadata(archive)
+    assert metadata.name == 'dill'
+    assert metadata.version == pkg_resources.parse_version('0.3.0')
+
+
+def test_scapy(mock_targz):
+    archive = mock_targz('scapy-2.4.0')
+
+    metadata = qer.metadata.extract_metadata(archive)
+    assert metadata.name == 'scapy'
+    assert metadata.version == pkg_resources.parse_version('2.4.0')
+
+
+def test_cerberus(mock_targz):
+    archive = mock_targz('cerberus-1.1')
+
+    metadata = qer.metadata.extract_metadata(archive)
+    assert metadata.name == 'Cerberus'
+    assert metadata.version == pkg_resources.parse_version('1.1')
+
+
+def test_pyusb(mock_targz):
+    archive = mock_targz('pyusb-1.0.2')
+
+    metadata = qer.metadata.extract_metadata(archive)
+    assert metadata.name == 'pyusb'
+    assert metadata.version == pkg_resources.parse_version('1.0.2')

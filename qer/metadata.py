@@ -66,7 +66,6 @@ class Extractor(object):
                 cur = os.getcwd()
                 if cur != fake_root:
                     archive_path = os.path.relpath(cur, fake_root) + '/' + archive_path
-                    # return self.open(archive_path, *args, **kwargs)
 
             return self.open(directory + '/' + archive_path, *args, **kwargs)
         return inner_opener
@@ -323,6 +322,7 @@ class WithDecoding(object):
         self.encoding = encoding
 
     def read(self):
+        print('Reading file {}'.format(self.file))
         results = self.file.read()
         if self.encoding:
             results = results.decode(self.encoding)
@@ -381,8 +381,8 @@ def setup(results, *_, **kwargs):
                 extra_req_strs = [extra_req_strs]
             cur_reqs = utils.parse_requirements(extra_req_strs)
             reqs_with_extra_marker = [
-                utils.merge_requirements(cur_req, utils.parse_requirement(
-                    '{} ; extra == "{}"'.format(cur_req.name, extra)))
+                utils.parse_requirement(str(cur_req) + ' and extra=="{}"'.format(extra) if ';' in str(cur_req) else
+                                        str(cur_req) + '; extra=="{}"'.format(extra))
                 for cur_req in cur_reqs]
             all_reqs.extend(reqs_with_extra_marker)
         except pkg_resources.RequirementParseError as ex:
@@ -399,6 +399,7 @@ class FakeModule(types.ModuleType):  # pylint: disable=no-init
     __version__ = '1.0.0'  # Some setup.py's may inspect the module for a __version__
 
     def __getitem__(self, item):
+        print('Getitem'.format(item))
         self.call_count += 1
         if self.call_count > 30:
             raise ValueError('Unintended overflow')
@@ -408,6 +409,7 @@ class FakeModule(types.ModuleType):  # pylint: disable=no-init
         return iter([1, 0, 0, 0])
 
     def __contains__(self, item):
+        print('Contains {}'.format(item))
         return True
 
     def __call__(self, *args, **kwargs):
@@ -423,6 +425,7 @@ class FakeModule(types.ModuleType):  # pylint: disable=no-init
         pass
 
     def __getattr__(self, item):
+        print('Getting attr {}'.format(item))
         if isinstance(item, str):
             if item == '__path__':
                 return ''
@@ -435,80 +438,64 @@ importlevel = 0
 
 
 def fake_import_impl(opener,  # pylint: disable=too-many-locals,too-many-branches
-                     orig_import, modname,
+                     orig_import,
+                     spy_globals,
+                     modname,
                      globals_=None, locals_=None,
                      fromlist=(), level=0):
     global importlevel
     lower_modname = modname.lower()
     try:
-        modparts = lower_modname.split('.')
-        importlevel += 1
-        print('{}{}'.format(' ' * importlevel, '{'))
-        print(
-            '{}Running orig import {}, {}, {}'.format(' ' * importlevel, modname, fromlist, level))
+        try:
+            modparts = lower_modname.split('.')
+            importlevel += 1
+            print('{}{}'.format(' ' * importlevel, '{'))
+            print(
+                '{}Running orig import {}, {}, {}'.format(' ' * importlevel, modname, fromlist, level))
 
-        if ('cython' in modparts) or (fromlist and ('cython' in fromlist)):
-            raise ImportError('Not allowing import of cython')
-        if 'sphinx' in modparts:
-            raise ImportError('Not allowing import of sphinx')
-        if 'typing' in modparts:
-            raise ImportError('Not allowing import of typing')
-        if 'tornado' in modparts or 'flask' in modparts or 'jinja' in modparts:
-            raise ImportError('Not allowing import of tornado')
-        if modname == '_winapi' and sys.platform != 'win32':
-            raise ImportError('Not allowing win32api on Linux')
-        result = orig_import(modname, globals_, locals_, fromlist, level)
-        print('{}Success'.format(' ' * importlevel))
-        return result
-    except ImportError as ex:
-        # Skip any cython importing to improve setup.py compatibility (e.g. subprocess32)
-        if 'cython.distutils' in lower_modname or ('cython' in lower_modname
-                                                   and (fromlist and ('Distutils' in fromlist))):
-            raise
-
-        modparts = modname.split('.')
-        if six.PY2:
-            for part in modparts:
-                if part in PY2_BLACKLIST:
-                    raise
-
-        old_exc_info = sys.exc_info()
-
-        if 'Not allowing' in str(ex):
-            for idx, mod in enumerate(modparts):
-                sys.modules['.'.join(modparts[:idx + 1])] = FakeModule(mod)
-            return orig_import(modname, globals_, locals_, fromlist, level)
-
-        for path in sys.path:
-            for filename in (os.path.join(path, modname.replace('.', '/') + '.py'),
-                             os.path.join(path, modname.replace('.', '/'), '__init__.py')):
-                try:
-                    contents = opener(filename)
-                    contents = contents.read()
-                    if six.PY2:
-                        contents = _remove_encoding_lines(contents)
-                    globs = {'sys': sys,
-                             '__file__': filename,
-                             # 'open': opener
-                             }
-                    module = FakeModule(modname)
-                    sys.modules[modname] = module
-                    exec(contents, globs, globs)  # pylint: disable=exec-used
-                    for sym in globs:
-                        setattr(module, sym, globs[sym])
-                    return module
-                except EnvironmentError:
-                    pass
-                except ImportError:
-                    print(contents, file=sys.stderr)
-                    raise
-        six.reraise(*old_exc_info)
-    # except SyntaxError:
-    #     return FakeModule(modname)
-    # except (TypeError, KeyError):
-    #     return FakeModule(modname)
-    except:
-        print('{}FAILED OVERALL ON THIS REQUIREMENT'.format(' ' * importlevel))
+            # if ('cython' in modparts) or (fromlist and ('cython' in fromlist)):
+            #     raise ImportError('Not allowing import of cython')
+            # if 'sphinx' in modparts:
+            #     raise ImportError('Not allowing import of sphinx')
+            # if 'typing' in modparts:
+            #     raise ImportError('Not allowing import of typing')
+            # if 'tornado' in modparts or 'flask' in modparts or 'jinja' in modparts:
+            #     raise ImportError('Not allowing import of tornado')
+            # if modname == '_winapi' and sys.platform != 'win32':
+            #     raise ImportError('Not allowing win32api on Linux')
+            result = orig_import(modname, globals_, locals_, fromlist, level)
+            print('{}Success = {}'.format(' ' * importlevel, sys.modules[modname]))
+            sys.exc_clear()
+            return result
+        except (ImportError, ValueError) as ex:
+            old_exc_info = sys.exc_info()
+            print('{}Failed to import {}'.format(' ' * importlevel, ex))
+            global_paths = [os.path.dirname(globals_['__file__'])] if globals_ and '__file__' in globals_ else []
+            if six.PY2:
+                global_paths += [os.getcwd()]
+            for path in sys.path + global_paths:
+                for filename in (os.path.join(path, modname.replace('.', '/') + '.py'),
+                                 os.path.join(path, modname.replace('.', '/'), '__init__.py')):
+                    try:
+                        contents = opener(filename)
+                        contents = contents.read()
+                        if six.PY2:
+                            contents = _remove_encoding_lines(contents)
+                        module = imp.new_module(modname)
+                        sys.modules[modname] = module
+                        exec(contents, module.__dict__)  # pylint: disable=exec-used
+                        print('{}Successfully exec child module {}'.format(' ' * importlevel, modname))
+                        return module
+                    except EnvironmentError as ex:
+                        print('{}Failed to exec child {}'.format(' ' * importlevel, ex))
+                        pass
+                    except Exception as ex:
+                        del sys.modules[modname]
+                        print('{}Failed to exec child {}'.format(' ' * importlevel, ex))
+                        raise
+            # six.reraise(*old_exc_info)
+    except Exception as ex:
+        print('{}FAILED OVERALL ON THIS REQUIREMENT {}'.format(' ' * importlevel, ex))
         raise
     finally:
         print('{}Done {}, {}, {}'.format(' ' * importlevel, modname, fromlist, level))
@@ -558,7 +545,14 @@ def _parse_setup_py(name, version, fake_setupdir, opener):  # pylint: disable=to
     results = []
     setup_with_results = functools.partial(setup, results)
 
-    fake_import = functools.partial(fake_import_impl, opener, __import__)
+    import os.path  # pylint: disable=redefined-outer-name
+
+    spy_globals = {'__file__': os.path.join(fake_setupdir, 'setup.py'),
+                   '__name__': '__main__',
+                   'open': opener,
+                   'setup': setup_with_results}
+
+    fake_import = functools.partial(fake_import_impl, opener, __import__, spy_globals)
 
     old_error = tarfile.InvalidHeaderError
 
@@ -569,7 +563,6 @@ def _parse_setup_py(name, version, fake_setupdir, opener):  # pylint: disable=to
 
     # pylint: disable=unused-import,unused-variable
     import multiprocessing.connection
-    import os.path  # pylint: disable=redefined-outer-name
     import codecs
     import setuptools
     import distutils.core
@@ -588,44 +581,64 @@ def _parse_setup_py(name, version, fake_setupdir, opener):  # pylint: disable=to
     orig_stderr = sys.stderr
     os.chdir(fake_setupdir)
 
-    winver = collections.namedtuple('winver', ['major', 'minor', 'patch'])
-    cur_winver = winver(major=7, minor=0, patch=1)
+    orig_chdir = os.chdir
+    def _fake_chdir(new_dir):
+        if os.path.isabs(new_dir):
+            new_dir = os.path.relpath(new_dir, fake_setupdir)
+            if new_dir != '.' and new_dir.startswith('.'):
+                raise ValueError('Cannot operate outside of setup dir ({})'.format(new_dir))
+        try:
+            os.mkdir(new_dir)
+        except OSError:
+            pass
+        return orig_chdir(new_dir)
 
-    with patch(sys, 'exit', lambda code: None), \
-         patch(sys, 'getwindowsversion', lambda: cur_winver, sys.platform == 'win32'), \
+    old_cythonize = None
+    try:
+        import Cython.Build
+        old_cythonize = Cython.Build.cythonize
+        Cython.Build.cythonize = lambda *args, **kwargs: ''
+    except ImportError:
+        pass
+
+    # winver = collections.namedtuple('winver', ['major', 'minor', 'patch'])
+    # cur_winver = winver(major=7, minor=0, patch=1)
+    # patch(sys, 'getwindowsversion', lambda: cur_winver, sys.platform == 'win32'),
+
+    with \
+         patch(sys, 'stderr', StringIO()), \
+         patch(sys, 'stdout', StringIO()):
+        pass
+
+    with \
+         patch(sys, 'exit', lambda code: None), \
          patch('__builtin__', '__import__', fake_import), \
          patch('__builtin__', 'execfile', lambda filename: None), \
          patch('builtins', '__import__', fake_import), \
-         patch(sys, 'stderr', StringIO()), \
-         patch(sys, 'stdout', StringIO()), \
          patch(os, 'listdir', lambda path: []), \
          patch(os.path, 'exists', _fake_exists), \
+         patch(os, 'chdir', _fake_chdir), \
          patch(io, 'open', opener), \
          patch(codecs, 'open', opener), \
          patch(imp, 'load_source', lambda *args, **kwargs: FakeModule('load_source')), \
          patch(setuptools, 'setup', setup_with_results), \
          patch(distutils.core, 'setup', setup_with_results):
 
-        spy_globals = {'__file__': os.path.join(fake_setupdir, 'setup.py'),
-                       '__name__': '__main__',
-                       'open': opener,
-                       'setup': setup_with_results}
-
         LOG.debug('Cur dir: %s', os.getcwd())
         contents = opener('setup.py', encoding='utf-8').read()
         try:
-            if six.PY2:
-                contents = _remove_encoding_lines(contents)
-            contents = contents.replace('print ', '')
+            # if six.PY2:
+            #     contents = _remove_encoding_lines(contents)
 
-            with localimport([]):
-                sys.path.append(fake_setupdir)
-                # pylint: disable=exec-used
-                exec(contents, spy_globals, spy_globals)
+            sys.path.insert(0, fake_setupdir)
+            # pylint: disable=exec-used
+            exec(contents, spy_globals, spy_globals)
         except Exception as ex:
-            raise MetadataError(name, version, ex)
+            raise # MetadataError(name, version, ex)
         finally:
-            os.chdir(old_dir)
+            orig_chdir(old_dir)
+            if old_cythonize is not None:
+                Cython.Build.cythonize = old_cythonize
 
     if not results:
         raise ValueError('Distutils/setuptools setup() was not ever '

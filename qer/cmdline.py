@@ -1,3 +1,4 @@
+# coding=utf-8
 from __future__ import print_function
 
 import argparse
@@ -46,41 +47,57 @@ def _cantusereason_to_text(reason):
     return 'unknown'
 
 
+def _find_paths_to_root(failing_node, visited=None):
+    if visited is None:
+        visited = set()
+
+    if not failing_node.reverse_deps:
+        return [[failing_node]]
+
+    paths = []
+    for reverse_dep in failing_node.reverse_deps:
+        if reverse_dep not in visited:
+            new_visited = set(visited | {reverse_dep})
+            new_paths = _find_paths_to_root(reverse_dep, visited=new_visited)
+            for one_path in new_paths:
+                one_path.append(failing_node)
+                paths.append(one_path)
+
+    return sorted(paths, key=lambda x: len(x))
+
+
 def _generate_no_candidate_display(req, repo, dists, failure):
     failing_node = dists[req.name]
-    nodes = failing_node.reverse_deps
     constraints = failing_node.build_constraints()
-    if not nodes:
-        print('No package available for {}, latest is {}'.format(req.name, 'unknown'), file=sys.stderr)
-    else:
-        can_satisfy = True
-        if isinstance(failure, NoCandidateException):
-            can_satisfy = is_possible(constraints)
-            if not can_satisfy:
-                print('No version could possibly satisfy the following requirements:', file=sys.stderr)
-            else:
-                print('No version of {} could satisfy the following requirements:'.format(req.name), file=sys.stderr)
+    can_satisfy = True
+    if isinstance(failure, NoCandidateException):
+        can_satisfy = is_possible(constraints)
+        if not can_satisfy:
+            print('No version could possibly satisfy the following requirements:',
+                  file=sys.stderr)
         else:
-            print("A problem occurred while determining requirements for {name}:\n"
-                  "{failure}".format(name=req.name, failure=failure), file=sys.stderr)
+            print('No version of {} could satisfy the following requirements ({}):'.format(req.name, constraints),
+                  file=sys.stderr)
+    else:
+        print("A problem occurred while determining requirements for {name}:\n"
+              "{failure}".format(name=req.name, failure=failure), file=sys.stderr)
 
-        nodes_to_dump = [failing_node]
-        has_dumped = set()
-        while nodes_to_dump:
-            cur_node = nodes_to_dump.pop(0)
-            for node in cur_node.reverse_deps:
-                if node not in has_dumped and cur_node in node.dependencies:
-                    has_dumped.add(node)
-                    print('   {} requires {}'.format(node, node.dependencies[cur_node]),
-                          file=sys.stderr)
-                    nodes_to_dump.append(node)
+    paths = _find_paths_to_root(failing_node)
+    for path in paths:
+        for idx, node in enumerate(path[:-1]):
+            if idx > 0:
+                if node.metadata is path[idx - 1].metadata:
+                    continue
+            node_str = node.metadata.to_definition((node.extra,) if node.extra else None)[0]
+            print('  ' + node_str + ' → ', end='', file=sys.stderr)
+        print(path[-2].dependencies[failing_node], file=sys.stderr)
 
-        if can_satisfy:
-            all_candidates = {repo: repo.get_candidates(req) for repo in repo}
-            if sum(len(candidates) for candidates in all_candidates.values()) == 0:
-                print('No candidates found in any of the input sources', file=sys.stderr)
-            else:
-                _dump_repo_candidates(req, repo)
+    if can_satisfy:
+        all_candidates = {repo: repo.get_candidates(req) for repo in repo}
+        if sum(len(candidates) for candidates in all_candidates.values()) == 0:
+            print('No candidates found in any of the input sources', file=sys.stderr)
+        else:
+            _dump_repo_candidates(req, repo)
 
 
 def _dump_repo_candidates(req, repos):
@@ -103,7 +120,8 @@ def _dump_repo_candidates(req, repos):
                     break
                 try:
                     print('  {}: {}'.format(candidate,
-                                            _cantusereason_to_text(repo.why_cant_I_use(req, candidate))),
+                                            _cantusereason_to_text(
+                                                repo.why_cant_I_use(req, candidate))),
                           file=sys.stderr)
                 except qer.metadata.MetadataError:
                     print('  {}: {}'.format(candidate, 'Failed to parse metadata'), file=sys.stderr)
@@ -129,7 +147,8 @@ def _create_req_from_path(path, extras, extra_source_repos):
 
     dist = qer.metadata.extract_metadata(path)
     if dist is None:
-        raise ValueError('Input arg "{}" is not directory containing setup.py or requirements file'.format(path))
+        raise ValueError(
+            'Input arg "{}" is not directory containing setup.py or requirements file'.format(path))
     source_dist_name = dist.name
     if extras:
         source_dist_name += '[{}]'.format(','.join(extras))
@@ -145,7 +164,8 @@ def _create_input_reqs(input_arg, extras=None, extra_source_repos=None):
 
         def _create_stdin_input_req(line):
             try:
-                return _create_input_reqs(line, extras=extras, extra_source_repos=extra_source_repos)
+                return _create_input_reqs(line, extras=extras,
+                                          extra_source_repos=extra_source_repos)
             except ValueError:
                 return (utils.parse_requirement(line),)
 
@@ -202,10 +222,12 @@ def run_compile(input_args,
         }
 
     try:
-        results, roots = perform_compile(input_reqs, repo, extras=extras, constraint_reqs=constraint_reqs)
+        results, roots = perform_compile(input_reqs, repo, extras=extras,
+                                         constraint_reqs=constraint_reqs)
 
         def blacklist_filter(req):
             return req.metadata.name.lower() not in BLACKLIST
+
         req_filter = blacklist_filter
         if remove_source:
             if not any(isinstance(r, SourceRepository) for r in repo):
@@ -216,7 +238,8 @@ def run_compile(input_args,
 
             req_filter = lambda req: blacklist_filter(req) and is_from_source(req)
 
-        lines = sorted(results.generate_lines(roots, req_filter=req_filter), key=lambda x: x[0][0].lower())
+        lines = sorted(results.generate_lines(roots, req_filter=req_filter),
+                       key=lambda x: x[0][0].lower())
 
         fmt = '{key}'
         if not no_pins:
@@ -288,7 +311,8 @@ def build_repo(solutions, upgrade_packages,
     if not no_index:
         if not index_urls:
             default_index_url = read_pip_default_index() or 'https://pypi.org/simple'
-            repos.append(PyPIRepository(default_index_url, wheeldir, allow_prerelease=allow_prerelease))
+            repos.append(
+                PyPIRepository(default_index_url, wheeldir, allow_prerelease=allow_prerelease))
         else:
             repos.extend(PyPIRepository(index_url, wheeldir, allow_prerelease=allow_prerelease)
                          for index_url in index_urls)

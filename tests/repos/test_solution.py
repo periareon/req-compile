@@ -92,7 +92,7 @@ def test_round_trip(scenario, roots, mock_metadata, mock_pypi):
 
     fd, name = tempfile.mkstemp()
     for line in results.generate_lines(nodes):
-        os.write(fd, '{}  # {}\n'.format(line[0], line[1]).encode('utf-8'))
+        os.write(fd, '{}=={}  # {}\n'.format(line[0][0], line[0][1], line[1]).encode('utf-8'))
     os.close(fd)
 
     solution_result = load_from_file(name)
