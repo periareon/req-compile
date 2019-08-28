@@ -19,7 +19,7 @@ def determine_parent(globals):
     if not globals or not globals.has_key("__name__"):
         return None
     pname = globals['__name__']
-    print('PARENT NAME: {}'.format(pname))
+    # print('PARENT NAME: {}'.format(pname))
     if globals.has_key("__path__"):
         parent = sys.modules[pname]
         assert globals is parent.__dict__
@@ -88,6 +88,13 @@ def ensure_fromlist(opener, m, fromlist, recursive=0):
                 raise ImportError("No module named " + subname)
 
 
+def _remove_encoding_lines(contents):
+    lines = contents.split('\n')
+    lines = [line for line in lines if not (line.startswith('#') and
+                                            ('-*- coding' in line or '-*- encoding' in line or 'encoding:' in line))]
+    return '\n'.join(lines)
+
+
 def _do_import(opener, modname, paths):
     all_paths = sys.path
     if paths:
@@ -105,6 +112,7 @@ def _do_import(opener, modname, paths):
                     setattr(module, '__name__', modname)
                     setattr(module, '__file__', filename)
                     sys.modules[modname] = module
+                    contents = _remove_encoding_lines(contents)
                     exec(contents, module.__dict__)
                     return module
             except EnvironmentError as ex:
@@ -113,7 +121,7 @@ def _do_import(opener, modname, paths):
 
 
 def import_module(opener, partname, fqname, parent):
-    print('Import partname {} fqname {} (parent={})'.format(partname, fqname, parent))
+    # print('Import partname {} fqname {} (parent={})'.format(partname, fqname, parent))
     try:
         return sys.modules[fqname]
     except KeyError:

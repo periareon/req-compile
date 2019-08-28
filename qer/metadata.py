@@ -131,7 +131,7 @@ class TarExtractor(Extractor):
         return (info.name for info in self.tar.getmembers())
 
     def open(self, filename, mode='r', encoding='utf-8', errors=None, buffering=False, newline=False):
-        print('Tar open {}'.format(filename))
+        # print('Tar open {}'.format(filename))
         if isinstance(filename, int):
             return self.io_open(filename, mode=mode, encoding=encoding)
         filename = filename.replace('\\', '/').replace('./', '')
@@ -324,7 +324,7 @@ class WithDecoding(object):
         self.encoding = encoding
 
     def read(self):
-        print('Reading file {}'.format(self.file))
+        # print('Reading file {}'.format(self.file))
         results = self.file.read()
         if self.encoding:
             results = results.decode(self.encoding)
@@ -401,7 +401,7 @@ class FakeModule(types.ModuleType):  # pylint: disable=no-init
     __version__ = '1.0.0'  # Some setup.py's may inspect the module for a __version__
 
     def __getitem__(self, item):
-        print('Getitem'.format(item))
+        # print('Getitem'.format(item))
         self.call_count += 1
         if self.call_count > 30:
             raise ValueError('Unintended overflow')
@@ -411,7 +411,7 @@ class FakeModule(types.ModuleType):  # pylint: disable=no-init
         return iter([1, 0, 0, 0])
 
     def __contains__(self, item):
-        print('Contains {}'.format(item))
+        # print('Contains {}'.format(item))
         return True
 
     def __call__(self, *args, **kwargs):
@@ -427,7 +427,7 @@ class FakeModule(types.ModuleType):  # pylint: disable=no-init
         pass
 
     def __getattr__(self, item):
-        print('Getting attr {}'.format(item))
+        # print('Getting attr {}'.format(item))
         if isinstance(item, str):
             if item == '__path__':
                 return ''
