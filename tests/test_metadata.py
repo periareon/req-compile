@@ -128,7 +128,7 @@ def test_wuc(mock_zip):
     zip_archive = mock_zip('wuc-0.5')
 
     metadata = qer.metadata.extract_metadata(zip_archive)
-    assert metadata.name == 'win_unicode_console'
+    assert metadata.name == 'win-unicode-console'
     assert metadata.version == pkg_resources.parse_version('0.5')
 
 
@@ -180,7 +180,6 @@ def test_noname(mock_targz):
     archive = mock_targz('noname-1.0')
 
     metadata = qer.metadata.extract_metadata(archive)
-    assert metadata.name == 'noname'
     assert metadata.version == pkg_resources.parse_version('1.0')
 
 

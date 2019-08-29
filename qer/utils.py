@@ -43,11 +43,7 @@ def reqs_from_files(requirements_files):
     for reqfile_name in requirements_files:
         raw_reqs = itertools.chain(raw_reqs, _req_iter_from_file(reqfile_name))
 
-    reqs = defaultdict(lambda: None)
-    for req in raw_reqs:
-        reqs[req.name] = merge_requirements(reqs[req.name], req)
-
-    return list(reqs.values())
+    return list(raw_reqs)
 
 
 @lru_cache(maxsize=None)
@@ -90,7 +86,8 @@ def merge_requirements(req1, req2):
         return req2
 
     req1_name_norm = normalize_project_name(req1.name)
-    assert req1_name_norm == normalize_project_name(req2.name)
+    if req1_name_norm != normalize_project_name(req2.name):
+        raise ValueError("Reqs don't match: {} != {}".format(req1, req2))
     all_specs = set(req1.specs or []) | set(req2.specs or [])
 
     # Handle markers

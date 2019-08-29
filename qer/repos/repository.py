@@ -209,21 +209,27 @@ class NoCandidateException(Exception):
 def process_distribution(source, filename, py_version=None):
     candidate = None
     if '.whl' in filename:
-        candidate = _wheel_candidate(source, filename)
+        candidate = _wheel_candidate(source, filename, py_version=py_version)
     elif '.tar.gz' in filename or '.tgz' in filename or '.zip' in filename:
         candidate = _tar_gz_candidate(source, filename, py_version=py_version)
     return candidate
 
 
-def _wheel_candidate(source, filename):
+def _wheel_candidate(source, filename, py_version=None):
     data_parts = filename.split('-')
     name = data_parts[0]
     version = pkg_resources.parse_version(data_parts[1])
     plat = data_parts[4].split('.')[0]
+
+    if py_version is not None:
+        requires_python = RequiresPython(py_version)
+    else:
+        requires_python = RequiresPython(tuple(data_parts[2].split('.')))
+
     return Candidate(name,
                      filename,
                      version,
-                     RequiresPython(tuple(data_parts[2].split('.'))),
+                     requires_python,
                      plat,
                      source,
                      candidate_type=DistributionType.WHEEL)

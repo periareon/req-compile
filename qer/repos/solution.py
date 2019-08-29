@@ -3,13 +3,11 @@ from __future__ import print_function
 import os
 import sys
 
-import six
-from six.moves import map as imap
-
 import qer.dists
 import qer.utils
-
+import six
 from qer.repos.repository import Repository, Candidate, DistributionType, RequiresPython
+from six.moves import map as imap
 
 
 class SolutionRepository(Repository):
@@ -37,21 +35,29 @@ class SolutionRepository(Repository):
     def __hash__(self):
         return hash('solution') ^ hash(self.filename)
 
+    def _candidate_from_node(self, node):
+        candidate = Candidate(
+            node.key,
+            node.metadata,
+            node.metadata.version,
+            RequiresPython(None),
+            'any',
+            None,
+            DistributionType.SOURCE)
+        candidate.preparsed = node.metadata
+        return candidate
+
     def get_candidates(self, req):
+        if req is None:
+            return [self._candidate_from_node(node)
+                    for node in self.solution]
+
         if qer.utils.normalize_project_name(req.name) in self.excluded_packages:
             return []
 
         try:
             node = self.solution[req.name]
-            candidate = Candidate(
-                node.key,
-                node.metadata,
-                node.metadata.version,
-                RequiresPython(None),
-                'any',
-                None,
-                DistributionType.SOURCE)
-            candidate.preparsed = node.metadata
+            candidate = self._candidate_from_node(node)
             return [candidate]
         except KeyError:
             return []
@@ -94,7 +100,7 @@ def load_from_file(filename, origin=None):  # pylint: disable=too-many-locals
         result.add_dist(metadata, None, req)
 
         for name, constraints in zip(pkg_names, constraints):
-            if name and not (name.endswith('.txt') or name.endswith('.out')):
+            if name and not (name.endswith('.txt') or name.endswith('.out') or '\\' in name or '/' in name):
                 constraint_req = qer.utils.parse_requirement(name)
                 result.add_dist(constraint_req.name, None, constraint_req)
                 reverse_dep = result[name]

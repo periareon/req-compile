@@ -76,11 +76,14 @@ def _scan_page_links(index_url, project_name, session):
 def _do_download(logger, filename, link, session, wheeldir):
     url, link = link
     split_link = link.split('#sha256=')
-    sha = split_link[1]
+    if len(split_link) > 1:
+        sha = split_link[1]
+    else:
+        sha = None
 
     output_file = os.path.join(wheeldir, filename)
 
-    if os.path.exists(output_file):
+    if sha is not None and os.path.exists(output_file):
         hasher = sha256()
         with open(output_file, 'rb') as handle:
             while True:

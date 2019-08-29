@@ -189,6 +189,27 @@ class DistributionCollection(object):
         results = self.generate_lines(roots)
         return [utils.parse_requirement('=='.join([result[0][0], str(result[0][1])])) for result in results]
 
+    def visit_nodes(self, roots, max_depth=None, reverse=False, _visited=None, _cur_depth=0):
+        if _visited is None:
+            _visited = set()
+
+        if reverse:
+            next_nodes = itertools.chain(*[root.reverse_deps for root in roots])
+        else:
+            next_nodes = itertools.chain(*[root.dependencies.keys() for root in roots])
+        for node in next_nodes:
+            if node in _visited:
+                continue
+
+            yield node
+            _visited.add(node)
+
+            if max_depth is None or _cur_depth < max_depth - 1:
+                results = self.visit_nodes([node], reverse=reverse, max_depth=max_depth,
+                                           _visited=_visited, _cur_depth=_cur_depth + 1)
+                for result in results:
+                    yield result
+
     def generate_lines(self, roots, req_filter=None, _visited=None):
         """
         Generate the lines of a results file from this collection

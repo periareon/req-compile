@@ -1,17 +1,17 @@
 from __future__ import print_function
-import sys
+
+import contextlib
 import functools
 import imp
 import io
 import logging
 import os
+import sys
 import tarfile
 import tempfile
 import types
 import zipfile
-import contextlib
 from contextlib import closing
-import collections
 
 import pkg_resources
 import six
@@ -23,9 +23,7 @@ except ImportError:
     from functools import lru_cache
 
 from qer import utils
-from qer.blacklist import PY2_BLACKLIST
 from qer.dists import DistInfo
-from qer.localimport import localimport
 from qer.importhook import import_hook
 
 LOG = logging.getLogger('qer.metadata')
@@ -116,6 +114,7 @@ class NonExtractor(Extractor):
         if not os.path.isabs(filename):
             parent_dir = os.path.abspath(os.path.join(self.path, '..'))
             return self.io_open(os.path.join(parent_dir, filename), mode=mode, encoding=encoding)
+        print(filename)
         return self.io_open(filename, mode=mode, encoding=encoding)
 
     def close(self):
@@ -192,7 +191,10 @@ def extract_metadata(filename, origin=None):
     ext = ext.lower()
     if ext == '.whl':
         LOG.debug('Extracting from wheel')
-        result = _fetch_from_wheel(filename)
+        try:
+            result = _fetch_from_wheel(filename)
+        except zipfile.BadZipfile as ex:
+            raise MetadataError(os.path.basename(filename).replace('.whl', ''), '0.0', ex)
     elif ext == '.zip':
         LOG.debug('Extracting from a zipped source package')
         result = _fetch_from_source(filename, ZipExtractor)
@@ -246,44 +248,44 @@ def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many
             elif info_name.endswith('metadata') and info_name.count('/') <= 1:
                 metadata_file = info_name
 
-            if info_name.endswith('setup.py') and info_name.count('/') <= 1:
+            if setup_file is None and info_name.endswith('setup.py') and info_name.count('/') <= 1:
                 setup_file = info_name
-                break
 
         results = None
-        if egg_info:
+
+        if pkg_info_file:
+            results = _parse_flat_metadata(extractor.open(pkg_info_file, encoding='utf-8').read())
+        elif metadata_file:
+            results = _parse_flat_metadata(extractor.open(metadata_file, encoding='utf-8').read())
+
+        if results is None:
+            # try:
+                results = _parse_setup_py(name, fake_setupdir,
+                                extractor.relative_opener(fake_setupdir, os.path.dirname(setup_file)))
+            # except Exception:
+            #     temp_wheeldir = tempfile.mkdtemp()
+            #     try:
+            #         LOG.info('Building wheel file for %s', source_file)
+            #         subprocess.check_call([
+            #             sys.executable,
+            #             '-m', 'pip', 'wheel',
+            #             source_file, '--no-deps', '--no-index', '--wheel-dir', temp_wheeldir
+            #         ])
+            #         wheel_file = os.path.join(temp_wheeldir, os.listdir(temp_wheeldir)[0])
+            #         results = _fetch_from_wheel(wheel_file)
+            #     finally:
+            #         shutil.rmtree(temp_wheeldir)
+        elif egg_info:
             requires_contents = ''
             try:
                 requires_contents = extractor.open(egg_info, encoding='utf-8').read()
             except KeyError:
                 pass
-            return _parse_requires_file(requires_contents,
-                                        name,
-                                        version)
+            results = _parse_requires_file(requires_contents,
+                                           results.name,
+                                           results.version)
+        return results
 
-        if pkg_info_file:
-            results = _parse_flat_metadata(extractor.open(pkg_info_file, encoding='utf-8').read())
-
-        if (results is None or not results.reqs) and setup_file:
-            setup_results = _parse_setup_py(name, version, fake_setupdir,
-                                            extractor.relative_opener(fake_setupdir,
-                                                                      os.path.dirname(setup_file)))
-            if setup_results is not None:
-                if version is not None:
-                    setup_results.version = version
-                if setup_results.name is None:
-                    setup_results.name = name
-                if results:
-                    setup_results.version = results.version
-                return setup_results
-            if results is not None:
-                return results
-            return None
-
-        if metadata_file:
-            return _parse_flat_metadata(extractor.open(metadata_file, encoding='utf-8').read())
-
-        return None
 
 def _fetch_from_wheel(wheel):
     zfile = zipfile.ZipFile(wheel, 'r')
@@ -291,7 +293,7 @@ def _fetch_from_wheel(wheel):
         metadata_file = None
         infos = zfile.namelist()
         for info in infos:
-            if info.lower().endswith('metadata'):
+            if info.lower().endswith('metadata') and info.count('/') <= 1:
                 metadata_file = info
 
         if metadata_file:
@@ -308,6 +310,9 @@ def _parse_flat_metadata(contents):
     raw_reqs = []
 
     for line in contents.split('\n'):
+        if not line.strip():
+            break
+
         if line.lower().startswith('name:'):
             name = line.split(':')[1].strip()
         if line.lower().startswith('version:'):
@@ -436,74 +441,6 @@ class FakeModule(types.ModuleType):  # pylint: disable=no-init
             return FakeModule(item)
         return None
 
-importlevel = 0
-
-
-def fake_import_impl(opener,  # pylint: disable=too-many-locals,too-many-branches
-                     orig_import,
-                     spy_globals,
-                     modname,
-                     globals_=None, locals_=None,
-                     fromlist=(), level=0):
-    global importlevel
-    lower_modname = modname.lower()
-    try:
-        try:
-            modparts = lower_modname.split('.')
-            importlevel += 1
-            print('{}{}'.format(' ' * importlevel, '{'))
-            print(
-                '{}Running orig import {}, {}, {}'.format(' ' * importlevel, modname, fromlist, level))
-
-            # if ('cython' in modparts) or (fromlist and ('cython' in fromlist)):
-            #     raise ImportError('Not allowing import of cython')
-            # if 'sphinx' in modparts:
-            #     raise ImportError('Not allowing import of sphinx')
-            # if 'typing' in modparts:
-            #     raise ImportError('Not allowing import of typing')
-            # if 'tornado' in modparts or 'flask' in modparts or 'jinja' in modparts:
-            #     raise ImportError('Not allowing import of tornado')
-            # if modname == '_winapi' and sys.platform != 'win32':
-            #     raise ImportError('Not allowing win32api on Linux')
-            result = orig_import(modname, globals_, locals_, fromlist, level)
-            print('{}Success = {}'.format(' ' * importlevel, sys.modules[modname]))
-            sys.exc_clear()
-            return result
-        except (ImportError, ValueError) as ex:
-            old_exc_info = sys.exc_info()
-            print('{}Failed to import {}'.format(' ' * importlevel, ex))
-            global_paths = [os.path.dirname(globals_['__file__'])] if globals_ and '__file__' in globals_ else []
-            if six.PY2:
-                global_paths += [os.getcwd()]
-            for path in sys.path + global_paths:
-                for filename in (os.path.join(path, modname.replace('.', '/') + '.py'),
-                                 os.path.join(path, modname.replace('.', '/'), '__init__.py')):
-                    try:
-                        contents = opener(filename)
-                        contents = contents.read()
-                        if six.PY2:
-                            contents = _remove_encoding_lines(contents)
-                        module = imp.new_module(modname)
-                        sys.modules[modname] = module
-                        exec(contents, module.__dict__)  # pylint: disable=exec-used
-                        print('{}Successfully exec child module {}'.format(' ' * importlevel, modname))
-                        return module
-                    except EnvironmentError as ex:
-                        print('{}Failed to exec child {}'.format(' ' * importlevel, ex))
-                        pass
-                    except Exception as ex:
-                        del sys.modules[modname]
-                        print('{}Failed to exec child {}'.format(' ' * importlevel, ex))
-                        raise
-            # six.reraise(*old_exc_info)
-    except Exception as ex:
-        print('{}FAILED OVERALL ON THIS REQUIREMENT {}'.format(' ' * importlevel, ex))
-        raise
-    finally:
-        print('{}Done {}, {}, {}'.format(' ' * importlevel, modname, fromlist, level))
-        print('{}{}'.format(' ' * importlevel, '}'))
-        importlevel -= 1
-
 
 @contextlib.contextmanager
 def patch(module, member, new_value, conditional=True):
@@ -538,7 +475,7 @@ def _remove_encoding_lines(contents):
     return '\n'.join(lines)
 
 
-def _parse_setup_py(name, version, fake_setupdir, opener):  # pylint: disable=too-many-locals
+def _parse_setup_py(name, fake_setupdir, opener):  # pylint: disable=too-many-locals
     # pylint: disable=no-name-in-module,no-member
     # Capture warnings.warn, which is sometimes used in setup.py files
 
@@ -553,17 +490,8 @@ def _parse_setup_py(name, version, fake_setupdir, opener):  # pylint: disable=to
                    '__name__': '__main__',
                    'setup': setup_with_results}
 
-    old_error = tarfile.InvalidHeaderError
-
-    def create_error(*args, **kwargs):
-        return old_error(*args, **kwargs)
-
-    tarfile.InvalidHeaderError = create_error
-
     # pylint: disable=unused-import,unused-variable
-    import multiprocessing.connection
     import codecs
-    import setuptools
     import distutils.core
     import setuptools.extension
 
@@ -600,23 +528,19 @@ def _parse_setup_py(name, version, fake_setupdir, opener):  # pylint: disable=to
     except ImportError:
         pass
 
-    # winver = collections.namedtuple('winver', ['major', 'minor', 'patch'])
-    # cur_winver = winver(major=7, minor=0, patch=1)
-    # patch(sys, 'getwindowsversion', lambda: cur_winver, sys.platform == 'win32'),
-
-    with \
-         patch(sys, 'stderr', StringIO()), \
-         patch(sys, 'stdout', StringIO()):
-        pass
+    # with \
+    #      patch(sys, 'stderr', StringIO()), \
+    #      patch(sys, 'stdout', StringIO()):
+    #     pass
 
     fake_import = functools.partial(import_hook, opener)
+     # patch('__builtin__', '__import__', fake_import), \
+     # patch('builtins', '__import__', fake_import), \
 
     with \
          patch(sys, 'exit', lambda code: None), \
-         patch('__builtin__', '__import__', fake_import), \
          patch('__builtin__', 'open', opener), \
          patch('__builtin__', 'execfile', lambda filename: None), \
-         patch('builtins', '__import__', fake_import), \
          patch(os, 'listdir', lambda path: []), \
          patch(os.path, 'exists', _fake_exists), \
          patch(os, 'chdir', _fake_chdir), \
@@ -626,7 +550,6 @@ def _parse_setup_py(name, version, fake_setupdir, opener):  # pylint: disable=to
          patch(setuptools, 'setup', setup_with_results), \
          patch(distutils.core, 'setup', setup_with_results):
 
-        LOG.debug('Cur dir: %s', os.getcwd())
         contents = opener('setup.py', encoding='utf-8').read()
         try:
             # if six.PY2:
@@ -641,6 +564,7 @@ def _parse_setup_py(name, version, fake_setupdir, opener):  # pylint: disable=to
             orig_chdir(old_dir)
             if old_cythonize is not None:
                 Cython.Build.cythonize = old_cythonize
+            sys.path.remove(fake_setupdir)
 
     if not results:
         raise ValueError('Distutils/setuptools setup() was not ever '
