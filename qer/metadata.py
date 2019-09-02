@@ -12,6 +12,8 @@ import tempfile
 import types
 import zipfile
 from contextlib import closing
+import shutil
+import subprocess
 
 import pkg_resources
 import six
@@ -115,7 +117,10 @@ class NonExtractor(Extractor):
             parent_dir = os.path.abspath(os.path.join(self.path, '..'))
             return self.io_open(os.path.join(parent_dir, filename), mode=mode, encoding=encoding)
         print(filename)
-        return self.io_open(filename, mode=mode, encoding=encoding)
+        if 'b' in mode:
+            return self.io_open(filename, mode=mode)
+        else:
+            return self.io_open(filename, mode=mode, encoding=encoding)
 
     def close(self):
         pass
@@ -259,22 +264,22 @@ def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many
             results = _parse_flat_metadata(extractor.open(metadata_file, encoding='utf-8').read())
 
         if results is None:
-            # try:
+            try:
                 results = _parse_setup_py(name, fake_setupdir,
                                 extractor.relative_opener(fake_setupdir, os.path.dirname(setup_file)))
-            # except Exception:
-            #     temp_wheeldir = tempfile.mkdtemp()
-            #     try:
-            #         LOG.info('Building wheel file for %s', source_file)
-            #         subprocess.check_call([
-            #             sys.executable,
-            #             '-m', 'pip', 'wheel',
-            #             source_file, '--no-deps', '--no-index', '--wheel-dir', temp_wheeldir
-            #         ])
-            #         wheel_file = os.path.join(temp_wheeldir, os.listdir(temp_wheeldir)[0])
-            #         results = _fetch_from_wheel(wheel_file)
-            #     finally:
-            #         shutil.rmtree(temp_wheeldir)
+            except Exception:
+                temp_wheeldir = tempfile.mkdtemp()
+                try:
+                    LOG.info('Building wheel file for %s', source_file)
+                    subprocess.check_call([
+                        sys.executable,
+                        '-m', 'pip', 'wheel',
+                        source_file, '--no-deps', '--no-index', '--wheel-dir', temp_wheeldir
+                    ])
+                    wheel_file = os.path.join(temp_wheeldir, os.listdir(temp_wheeldir)[0])
+                    results = _fetch_from_wheel(wheel_file)
+                finally:
+                    shutil.rmtree(temp_wheeldir)
         elif egg_info:
             requires_contents = ''
             try:
@@ -540,6 +545,8 @@ def _parse_setup_py(name, fake_setupdir, opener):  # pylint: disable=too-many-lo
     with \
          patch(sys, 'exit', lambda code: None), \
          patch('__builtin__', 'open', opener), \
+         patch(sys, 'stderr', StringIO()), \
+         patch(sys, 'stdout', StringIO()), \
          patch('__builtin__', 'execfile', lambda filename: None), \
          patch(os, 'listdir', lambda path: []), \
          patch(os.path, 'exists', _fake_exists), \

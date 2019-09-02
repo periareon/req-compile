@@ -125,7 +125,7 @@ def _remove_nodes(result):
         if node.metadata is not None:
             try:
                 requirements = [value for dep_node, value in six.iteritems(node.dependencies)
-                                if dep_node.metadata.name != node.metadata.name]
+                                if dep_node.metadata is not None and dep_node.metadata.name != node.metadata.name]
                 if node.extra:
                     requirements = [qer.utils.parse_requirement('{} ; extra=="{}"'.format(req, node.extra))
                                     for req in requirements]

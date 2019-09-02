@@ -48,9 +48,9 @@ def reqs_from_files(requirements_files):
 
 @lru_cache(maxsize=None)
 def parse_requirement(req_text):
-    if req_text[0] == '#':
-        return None
     if not req_text.strip():
+        return None
+    if req_text[0] == '#':
         return None
     return pkg_resources.Requirement.parse(req_text)
 
