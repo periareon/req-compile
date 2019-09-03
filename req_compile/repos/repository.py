@@ -60,7 +60,7 @@ class RequiresPython(object):
         '>=': lambda x, y: x >= y,
         '<=': lambda x, y: x <= y
     }
-    SYS_PY_VERSION = pkg_resources.parse_version(sys.version.split(' ')[0])
+    SYS_PY_VERSION = pkg_resources.parse_version(sys.version.split(' ')[0].replace('+', ''))
     SYS_PY_MAJOR = pkg_resources.parse_version('{}'.format(sys.version_info.major))
     SYS_PY_MAJOR_MINOR = pkg_resources.parse_version('{}.{}'.format(sys.version_info.major,
                                                                     sys.version_info.minor))
@@ -83,6 +83,7 @@ class RequiresPython(object):
     @classmethod
     def _check_py_constraint(cls, version_constraint):
         ref_version = cls.SYS_PY_VERSION
+
         version_part = re.split('[!=<>~]', version_constraint)[-1].strip()
         operator = version_constraint.replace(version_part, '').strip()
         if version_part.endswith('.*'):

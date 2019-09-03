@@ -263,19 +263,18 @@ def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many
                 opener = extractor.relative_opener(fake_setupdir, os.path.dirname(setup_file))
                 results = _parse_setup_py(name, fake_setupdir, opener)
             except Exception:  # pylint: disable=broad-except
-                raise
-                # temp_wheeldir = tempfile.mkdtemp()
-                # try:
-                #     LOG.info('Building wheel file for %s', source_file)
-                #     subprocess.check_call([
-                #         sys.executable,
-                #         '-m', 'pip', 'wheel',
-                #         source_file, '--no-deps', '--no-index', '--wheel-dir', temp_wheeldir
-                #     ])
-                #     wheel_file = os.path.join(temp_wheeldir, os.listdir(temp_wheeldir)[0])
-                #     results = _fetch_from_wheel(wheel_file)
-                # finally:
-                #     shutil.rmtree(temp_wheeldir)
+                temp_wheeldir = tempfile.mkdtemp()
+                try:
+                    LOG.info('Building wheel file for %s', source_file)
+                    subprocess.check_call([
+                        sys.executable,
+                        '-m', 'pip', 'wheel',
+                        source_file, '--no-deps', '--no-index', '--wheel-dir', temp_wheeldir
+                    ])
+                    wheel_file = os.path.join(temp_wheeldir, os.listdir(temp_wheeldir)[0])
+                    results = _fetch_from_wheel(wheel_file)
+                finally:
+                    shutil.rmtree(temp_wheeldir)
         elif egg_info:
             requires_contents = ''
             try:
