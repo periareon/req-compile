@@ -4,10 +4,10 @@ import tempfile
 import pkg_resources
 import pytest
 
-import qer.compile
-from qer.dists import DistInfo
+import req_compile.compile
+from req_compile.dists import DistInfo
 
-from qer.repos.solution import SolutionRepository, load_from_file
+from req_compile.repos.solution import SolutionRepository, load_from_file
 
 
 def test_solution_repo():
@@ -88,7 +88,7 @@ def test_load_remove_root_removes_all(load_solution):
 def test_round_trip(scenario, roots, mock_metadata, mock_pypi):
     mock_pypi.load_scenario('normal')
 
-    results, nodes = qer.compile.perform_compile({'test': pkg_resources.parse_requirements(roots)}, mock_pypi)
+    results, nodes = req_compile.compile.perform_compile({'test': pkg_resources.parse_requirements(roots)}, mock_pypi)
 
     fd, name = tempfile.mkstemp()
     for line in results.generate_lines(nodes):

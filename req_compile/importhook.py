@@ -1,3 +1,4 @@
+# pylint: disable=redefined-builtin,invalid-name,unused-argument
 # Replacement for __import__()
 import imp
 import os
@@ -16,11 +17,10 @@ def import_hook(opener, name, globals=None, locals=None, fromlist=None, level=0)
 
 
 def determine_parent(globals):
-    if not globals or not globals.has_key("__name__"):
+    if not globals or '__name__' not in globals:
         return None
     pname = globals['__name__']
-    # print('PARENT NAME: {}'.format(pname))
-    if globals.has_key("__path__"):
+    if '__path__' in globals:
         parent = sys.modules[pname]
         assert globals is parent.__dict__
         return parent
@@ -61,7 +61,8 @@ def load_tail(opener, q, tail):
     m = q
     while tail:
         i = tail.find('.')
-        if i < 0: i = len(tail)
+        if i < 0:
+            i = len(tail)
         head, tail = tail[:i], tail[i + 1:]
         mname = "%s.%s" % (m.__name__, head)
         m = import_module(opener, head, mname, m)
@@ -88,11 +89,24 @@ def ensure_fromlist(opener, m, fromlist, recursive=0):
                 raise ImportError("No module named " + subname)
 
 
-def _remove_encoding_lines(contents):
+def remove_encoding_lines(contents):
     lines = contents.split('\n')
     lines = [line for line in lines if not (line.startswith('#') and
                                             ('-*- coding' in line or '-*- encoding' in line or 'encoding:' in line))]
     return '\n'.join(lines)
+
+
+def import_contents(modname, filename, contents):
+    module = imp.new_module(modname)
+    if filename.endswith('__init__.py'):
+        setattr(module, '__path__',
+                [os.path.dirname(filename)])
+    setattr(module, '__name__', modname)
+    setattr(module, '__file__', filename)
+    sys.modules[modname] = module
+    contents = remove_encoding_lines(contents)
+    exec(contents, module.__dict__)  # pylint: disable=exec-used
+    return module
 
 
 def _do_import(opener, modname, paths):
@@ -105,23 +119,14 @@ def _do_import(opener, modname, paths):
             try:
                 with opener(filename) as src:
                     contents = src.read()
-                    module = imp.new_module(modname)
-                    if filename.endswith('__init__.py'):
-                        setattr(module, '__path__',
-                                [os.path.dirname(filename)])
-                    setattr(module, '__name__', modname)
-                    setattr(module, '__file__', filename)
-                    sys.modules[modname] = module
-                    contents = _remove_encoding_lines(contents)
-                    exec(contents, module.__dict__)
+                    module = import_contents(modname, filename, contents)
                     return module
-            except EnvironmentError as ex:
+            except EnvironmentError:
                 pass
     return None
 
 
 def import_module(opener, partname, fqname, parent):
-    # print('Import partname {} fqname {} (parent={})'.format(partname, fqname, parent))
     try:
         return sys.modules[fqname]
     except KeyError:

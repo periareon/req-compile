@@ -1,18 +1,18 @@
-README for Qer Python Requirements Compiler
-============================================
+README for Req-Compile Python Requirements Compiler
+===================================================
 
-.. image:: https://travis-ci.org/sputt/qer.svg?branch=master
-    :target: https://travis-ci.org/sputt/qer
+.. image:: https://travis-ci.org/sputt/req-compile.svg?branch=master
+    :target: https://travis-ci.org/sputt/req-compile
 
-.. image:: https://img.shields.io/pypi/v/qer.svg
+.. image:: https://img.shields.io/pypi/v/req-compile.svg
     :alt: PyPI Package version
-    :target: https://pypi.python.org/pypi/qer
+    :target: https://pypi.python.org/pypi/req-compile
 
-================================
-Qer Python Requirements Compiler
-================================
+========================================
+Req-Compile Python Requirements Compiler
+========================================
 
-Qer is a Python work-in-progress requirements compiler geared toward large Python projects. It allows you to:
+Req-Compile is a Python work-in-progress requirements compiler geared toward large Python projects. It allows you to:
 
 * Produce an output file consisting of fully constrained exact versions of your requirements
 * Identify sources of constraints on your requirements
@@ -28,7 +28,7 @@ Why use it?
 * Provides no tools to track down where conflicting constraints originate
 * Cannot treat source directories recursively as package sources
 
-Qer has these features, making it an effective tool for large Python projects.
+Req-Compile has these features, making it an effective tool for large Python projects.
 
 This situation is very common:
 
@@ -37,16 +37,16 @@ to produce a fully constrained output of ``requirements.txt`` to use to deploy y
 compile ``requirements.txt``. However, if your test requirements will in any way constrain packages you need,
 even those needed transitively, it means you will have tested with different versions than you'll ship.
 
-For this reason, you can user Qer to compile ``requirements.txt`` using ``test-requirements.txt`` as constraints.
+For this reason, you can user Req-Compile to compile ``requirements.txt`` using ``test-requirements.txt`` as constraints.
 
 The Basics
 ----------
 
 Install and run
 ~~~~~~~~~~~~~~~
-Qer can be simply installed by running::
+Req-Compile can be simply installed by running::
 
-    pip install qer
+    pip install req-compile
 
 Two entrypoint scripts are provided::
 
@@ -97,7 +97,7 @@ Output is always emitted to stdout. Possible inputs include::
 
 Specifying source of distributions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Qer supports obtaining python distributions from multiple sources, each of which can be specified more than once. The following sources
+Req-Compile supports obtaining python distributions from multiple sources, each of which can be specified more than once. The following sources
 can be specified, resolved in the same order (e.g. source takes precedence over index-url):
 
 * ``--solution``
@@ -136,7 +136,7 @@ Why did I just get version 1.11.0 of ``six``? Find out by examining the output::
 
 Hashing input requirements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
-Hash input requirements by allowing Qer to parse, combine, and hash a single list. This will allow
+Hash input requirements by allowing Req-Compile to parse, combine, and hash a single list. This will allow
 multiple input files to be logically combined so irrelevant changes don't cause recompilations. For example,
 adding ``tenacity`` to a nested requirements file when ``tenacity`` is already included elsewhere.::
 
@@ -222,7 +222,7 @@ in the current directory (as defined by a setup.py).  This is a *stable* set, in
 the requirements and constraints would produce a new output.  To produce a totally fresh compilation,
 don't pass in a previous solution.
 
-The find-links parameter to the sync or pip install will *reuse* the wheels already downloaded by Qer during
+The find-links parameter to the sync or pip install will *reuse* the wheels already downloaded by Req-Compile during
 the compilation phase. This will make the installation step entirely offline.
 
 When taking this environment to deploy, trim down the set to the install requirements::
@@ -240,7 +240,7 @@ take precedence over remote indexes in repository search order).
 
 Compile for a group of projects
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Qer can discover requirements that are grouped together on the filesystem. The
+Req-Compile can discover requirements that are grouped together on the filesystem. The
 ``req-candidates`` command will print discovered projects and with the ``--paths-only`` options
 will dump their paths to stdout. This allows recursive discovery of projects that you
 may want to compile together.

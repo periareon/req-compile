@@ -13,7 +13,7 @@ import pkg_resources
 
 def run_qer_compile(reqfile, index_url=None):
     output_file, name = tempfile.mkstemp()
-    subprocess.check_call([sys.executable, '-m', 'qer.cmdline', reqfile], stdout=output_file)
+    subprocess.check_call([sys.executable, '-m', 'req_compile.cmdline', reqfile], stdout=output_file)
     os.close(output_file)
     return name
 
@@ -79,5 +79,5 @@ if __name__ == '__main__':
     pip_handle.close()
 
     if failed:
-        shutil.move(qer_output_file, 'qer.txt')
+        shutil.move(qer_output_file, 'req_compile.txt')
         shutil.move(pip_output_file, 'pip.txt')

@@ -1,19 +1,19 @@
 import pytest
 
-from qer.cmdline import compile_main
+from req_compile.cmdline import compile_main
 import os
 
-from qer.dists import DistInfo
-from qer.repos.findlinks import FindLinksRepository
-from qer.repos.pypi import PyPIRepository
-from qer.repos.solution import SolutionRepository
-from qer.repos.source import SourceRepository
-from qer import utils
+from req_compile.dists import DistInfo
+from req_compile.repos.findlinks import FindLinksRepository
+from req_compile.repos.pypi import PyPIRepository
+from req_compile.repos.solution import SolutionRepository
+from req_compile.repos.source import SourceRepository
+from req_compile import utils
 
 
 @pytest.fixture
 def basic_compile_mock(mocker):
-    perform_compile_mock = mocker.patch('qer.cmdline.perform_compile')
+    perform_compile_mock = mocker.patch('req_compile.cmdline.perform_compile')
     result = mocker.MagicMock()
     result.generate_lines.return_value = [('line', 'line')]
     perform_compile_mock.return_value = result, mocker.MagicMock()
@@ -22,11 +22,11 @@ def basic_compile_mock(mocker):
 
 @pytest.fixture
 def compile_mock(basic_compile_mock, mocker):
-    mocker.patch('qer.cmdline._create_input_reqs')
+    mocker.patch('req_compile.cmdline._create_input_reqs')
     mocker.patch('os.path.exists')
     mocker.patch('os.listdir')
-    mocker.patch('qer.repos.solution.load_from_file')
-    mocker.patch('qer.repos.repository.process_distribution')
+    mocker.patch('req_compile.repos.solution.load_from_file')
+    mocker.patch('req_compile.repos.repository.process_distribution')
     return basic_compile_mock
 
 
@@ -56,7 +56,7 @@ def test_resolution_order(compile_mock):
 
 def test_source_dirs_dont_hit_pypi(mocker, basic_compile_mock):
     mocker.patch('os.path.exists')
-    metadata_mock = mocker.patch('qer.metadata.extract_metadata')
+    metadata_mock = mocker.patch('req_compile.metadata.extract_metadata')
     metadata_mock.return_value = DistInfo('myproj', '1.0', ['unknown_req'])
 
     compile_main(['source/myproj'])

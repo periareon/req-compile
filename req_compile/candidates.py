@@ -5,9 +5,9 @@ import tempfile
 
 import pkg_resources
 
-from qer.cmdline import add_repo_args, build_repo
-from qer.repos.pypi import PyPIRepository
-from qer.repos.source import SourceRepository
+from req_compile.cmdline import add_repo_args, build_repo
+from req_compile.repos.pypi import PyPIRepository
+from req_compile.repos.source import SourceRepository
 
 
 def candidates_main():

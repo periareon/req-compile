@@ -3,11 +3,25 @@ from __future__ import print_function
 import os
 import sys
 
-import qer.dists
-import qer.utils
 import six
-from qer.repos.repository import Repository, Candidate, DistributionType, RequiresPython
 from six.moves import map as imap
+
+import req_compile.dists
+import req_compile.utils
+from req_compile.repos.repository import Repository, Candidate, DistributionType, RequiresPython
+
+
+def _candidate_from_node(node):
+    candidate = Candidate(
+        node.key,
+        node.metadata,
+        node.metadata.version,
+        RequiresPython(None),
+        'any',
+        None,
+        DistributionType.SOURCE)
+    candidate.preparsed = node.metadata
+    return candidate
 
 
 class SolutionRepository(Repository):
@@ -16,7 +30,7 @@ class SolutionRepository(Repository):
         self.filename = os.path.abspath(filename)
         self.excluded_packages = excluded_packages or []
         if excluded_packages:
-            self.excluded_packages = [qer.utils.normalize_project_name(pkg)
+            self.excluded_packages = [req_compile.utils.normalize_project_name(pkg)
                                       for pkg in excluded_packages]
         if os.path.exists(filename) or filename == '-':
             self.solution = load_from_file(self.filename, origin=self)
@@ -35,29 +49,17 @@ class SolutionRepository(Repository):
     def __hash__(self):
         return hash('solution') ^ hash(self.filename)
 
-    def _candidate_from_node(self, node):
-        candidate = Candidate(
-            node.key,
-            node.metadata,
-            node.metadata.version,
-            RequiresPython(None),
-            'any',
-            None,
-            DistributionType.SOURCE)
-        candidate.preparsed = node.metadata
-        return candidate
-
     def get_candidates(self, req):
         if req is None:
-            return [self._candidate_from_node(node)
+            return [_candidate_from_node(node)
                     for node in self.solution]
 
-        if qer.utils.normalize_project_name(req.name) in self.excluded_packages:
+        if req_compile.utils.normalize_project_name(req.name) in self.excluded_packages:
             return []
 
         try:
             node = self.solution[req.name]
-            candidate = self._candidate_from_node(node)
+            candidate = _candidate_from_node(node)
             return [candidate]
         except KeyError:
             return []
@@ -70,7 +72,7 @@ class SolutionRepository(Repository):
 
 
 def load_from_file(filename, origin=None):  # pylint: disable=too-many-locals
-    result = qer.dists.DistributionCollection()
+    result = req_compile.dists.DistributionCollection()
 
     if filename == '-':
         reqfile = sys.stdin
@@ -83,7 +85,7 @@ def load_from_file(filename, origin=None):  # pylint: disable=too-many-locals
         if not req_part:
             continue
 
-        req = qer.utils.parse_requirement(req_part)
+        req = req_compile.utils.parse_requirement(req_part)
         source_part = source_part.strip()
 
         if source_part[0] == '[':
@@ -93,24 +95,25 @@ def load_from_file(filename, origin=None):  # pylint: disable=too-many-locals
         pkg_names = imap(lambda x: x.split(' ')[0], sources)
         constraints = imap(lambda x: x.split(' ')[1].replace('(', '').replace(')', '') if '(' in x else None, sources)
 
-        version = qer.utils.parse_version(list(req.specifier)[0].version)
-        metadata = qer.dists.DistInfo(req.name, version, [])
+        version = req_compile.utils.parse_version(list(req.specifier)[0].version)
+        metadata = req_compile.dists.DistInfo(req.name, version, [])
         metadata.origin = origin
 
         result.add_dist(metadata, None, req)
 
         for name, constraints in zip(pkg_names, constraints):
             if name and not (name.endswith('.txt') or name.endswith('.out') or '\\' in name or '/' in name):
-                constraint_req = qer.utils.parse_requirement(name)
+                constraint_req = req_compile.utils.parse_requirement(name)
                 result.add_dist(constraint_req.name, None, constraint_req)
                 reverse_dep = result[name]
             else:
                 reverse_dep = None
             result.add_dist(metadata.name, reverse_dep,
-                            qer.utils.parse_requirement('{}{}{}'.format(metadata.name,
-                                                                        ('[' + ','.join(
-                                                                            req.extras) + ']') if req.extras else '',
-                                                                        constraints if constraints else '')))
+                            req_compile.utils.parse_requirement('{}{}{}'.format(
+                                metadata.name,
+                                ('[' + ','.join(
+                                    req.extras) + ']') if req.extras else '',
+                                constraints if constraints else '')))
 
     if reqfile is not sys.stdin:
         reqfile.close()
@@ -127,7 +130,7 @@ def _remove_nodes(result):
                 requirements = [value for dep_node, value in six.iteritems(node.dependencies)
                                 if dep_node.metadata is not None and dep_node.metadata.name != node.metadata.name]
                 if node.extra:
-                    requirements = [qer.utils.parse_requirement('{} ; extra=="{}"'.format(req, node.extra))
+                    requirements = [req_compile.utils.parse_requirement('{} ; extra=="{}"'.format(req, node.extra))
                                     for req in requirements]
                 node.metadata.reqs.extend(requirements)
             except Exception:

@@ -12,12 +12,11 @@ try:
 except ImportError:
     from functools import lru_cache
 
-from qer.repos.repository import Repository, process_distribution
-from qer.metadata import extract_metadata, MetadataError
+from req_compile.repos.repository import Repository, process_distribution
+from req_compile.metadata import extract_metadata, MetadataError
 
 
-
-LOG = logging.getLogger('qer.pypi')
+LOG = logging.getLogger('req_compile.pypi')
 
 
 class LinksHTMLParser(html_parser.HTMLParser):
@@ -62,7 +61,7 @@ def _scan_page_links(index_url, project_name, session):
         (list[Candidate])
     """
     url = '{index_url}/{project_name}'.format(index_url=index_url, project_name=project_name)
-    logging.getLogger('qer.net.pypi').info('Fetching versions for %s', project_name)
+    logging.getLogger('req_compile.net.pypi').info('Fetching versions for %s', project_name)
     if session is None:
         session = requests
     response = session.get(url + '/')
@@ -142,7 +141,8 @@ class PyPIRepository(Repository):
     def resolve_candidate(self, candidate):
         filename, cached = None, True
         try:
-            filename, cached = _do_download(self.logger, candidate.filename, candidate.link, self.session, self.wheeldir)
+            filename, cached = _do_download(self.logger, candidate.filename, candidate.link,
+                                            self.session, self.wheeldir)
             return extract_metadata(filename, origin=self), cached
         except MetadataError:
             if not cached:

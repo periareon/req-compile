@@ -1,7 +1,7 @@
 import pkg_resources
 import pytest
 
-from qer.repos.repository import RequiresPython
+from req_compile.repos.repository import RequiresPython
 
 
 @pytest.fixture
@@ -9,13 +9,13 @@ def mock_py_version(mocker):
     def _mock_version(version):
         major_version = version.split('.')[0]
         minor_version = version.split('.')[1]
-        mocker.patch('qer.repos.repository.RequiresPython.SYS_PY_VERSION',
+        mocker.patch('req_compile.repos.repository.RequiresPython.SYS_PY_VERSION',
                      pkg_resources.parse_version(version))
-        mocker.patch('qer.repos.repository.RequiresPython.SYS_PY_MAJOR',
+        mocker.patch('req_compile.repos.repository.RequiresPython.SYS_PY_MAJOR',
                      pkg_resources.parse_version(major_version))
-        mocker.patch('qer.repos.repository.RequiresPython.SYS_PY_MAJOR_MINOR',
+        mocker.patch('req_compile.repos.repository.RequiresPython.SYS_PY_MAJOR_MINOR',
                      pkg_resources.parse_version('.'.join(version.split('.')[:2])))
-        mocker.patch('qer.repos.repository.RequiresPython.WHEEL_VERSION_TAGS',
+        mocker.patch('req_compile.repos.repository.RequiresPython.WHEEL_VERSION_TAGS',
                      ('py' + major_version, 'py' + major_version + minor_version))
     return _mock_version
 
@@ -50,8 +50,8 @@ def test_requires_python_incompatible(mock_py_version, sys_py_version, py_requir
 
 @pytest.mark.parametrize('py_requires, expected', [
     (('py2',), 'py2'),
-    (('py2', 'py3'), 'py2,py3'),
-    (('py3', 'py2'), 'py2,py3'),
+    (('py2', 'py3'), 'py2.py3'),
+    (('py3', 'py2'), 'py2.py3'),
     ((), 'any'),
     (None, 'any'),
     ('>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*', '')

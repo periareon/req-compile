@@ -1,6 +1,6 @@
 from pkg_resources import Requirement
 
-from qer.utils import merge_requirements
+from req_compile.utils import merge_requirements
 
 
 def test_combine_reqs_conditions_and_markers():

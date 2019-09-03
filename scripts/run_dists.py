@@ -1,6 +1,6 @@
 import pkg_resources
 
-from qer.dists import DistributionCollection, DistInfo
+from req_compile.dists import DistributionCollection, DistInfo
 
 dists = None
 

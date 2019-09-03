@@ -1,6 +1,6 @@
 import itertools
 
-from qer.repos.repository import BaseRepository, NoCandidateException
+from req_compile.repos.repository import BaseRepository, NoCandidateException
 
 
 class MultiRepository(BaseRepository):

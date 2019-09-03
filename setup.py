@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='qer',
+    name='req-compile',
     version='0.8.0',
     author='Spencer Putt',
     author_email='sputt@alumni.iu.edu',
@@ -9,13 +9,13 @@ setup(
     long_description=open('README.rst').read(),
     url='https://github.com/sputt/qer',
     install_requires=open('requirements.txt').readlines(),
-    packages=find_packages(include=['qer*']),
+    packages=find_packages(include=['req_compile*']),
     license='MIT License',
     entry_points={
         'console_scripts': [
-            'req-compile = qer.cmdline:compile_main',
-            'req-hash = qer.hash:hash_main',
-            'req-candidates = qer.candidates:candidates_main',
+            'req-compile = req_compile.cmdline:compile_main',
+            'req-hash = req_compile.hash:hash_main',
+            'req-candidates = req_compile.candidates:candidates_main',
         ],
     },
     extra_requires={

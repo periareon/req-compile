@@ -4,7 +4,7 @@ import pkg_resources
 import responses
 import pytest
 
-from qer.repos.pypi import PyPIRepository
+from req_compile.repos.pypi import PyPIRepository
 
 INDEX_URL = 'https://pypi.org'
 
@@ -62,7 +62,7 @@ def test_resolve_new_numpy(mocked_responses, tmpdir, read_contents, mocker):
                 responses.GET, candidate.link[1],
                 body=read_contents('numpy.whl-contents'), status=200)
 
-    with mocker.patch('qer.repos.pypi.extract_metadata'):
+    with mocker.patch('req_compile.repos.pypi.extract_metadata'):
         candidate, cached = repo.get_candidate(pkg_resources.Requirement.parse('numpy'))
     assert candidate is not None
     assert not cached
@@ -82,10 +82,10 @@ def test_resolve_new_numpy(mocked_responses, tmpdir, read_contents, mocker):
     'https://pypi.org/numpy-1.16.3.zip#sha256=HASH'
 ])
 def test_python_requires(mocker, mocked_responses, tmpdir, read_contents, url_to_check):
-    mocker.patch('qer.repos.repository.RequiresPython.SYS_PY_VERSION', pkg_resources.parse_version('3.7.12'))
-    mocker.patch('qer.repos.repository.RequiresPython.SYS_PY_MAJOR', pkg_resources.parse_version('3'))
-    mocker.patch('qer.repos.repository.RequiresPython.SYS_PY_MAJOR_MINOR', pkg_resources.parse_version('3.7'))
-    mocker.patch('qer.repos.repository.RequiresPython.WHEEL_VERSION_TAGS', ('py3', 'cp37', 'py37'))
+    mocker.patch('req_compile.repos.repository.RequiresPython.SYS_PY_VERSION', pkg_resources.parse_version('3.7.12'))
+    mocker.patch('req_compile.repos.repository.RequiresPython.SYS_PY_MAJOR', pkg_resources.parse_version('3'))
+    mocker.patch('req_compile.repos.repository.RequiresPython.SYS_PY_MAJOR_MINOR', pkg_resources.parse_version('3.7'))
+    mocker.patch('req_compile.repos.repository.RequiresPython.WHEEL_VERSION_TAGS', ('py3', 'cp37', 'py37'))
 
     wheeldir = str(tmpdir)
     mocked_responses.add(

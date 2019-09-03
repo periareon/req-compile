@@ -1,7 +1,9 @@
 from __future__ import print_function
 
 import contextlib
-import functools
+from contextlib import closing
+import shutil
+import subprocess
 import imp
 import io
 import logging
@@ -9,26 +11,18 @@ import os
 import sys
 import tarfile
 import tempfile
-import types
 import zipfile
-from contextlib import closing
-import shutil
-import subprocess
+import functools
 
-import pkg_resources
 import six
 from six.moves import StringIO
+import pkg_resources
 
-try:
-    from functools32 import lru_cache
-except ImportError:
-    from functools import lru_cache
+from req_compile import utils
+from req_compile.dists import DistInfo
+from req_compile.importhook import import_hook, import_contents, remove_encoding_lines
 
-from qer import utils
-from qer.dists import DistInfo
-from qer.importhook import import_hook
-
-LOG = logging.getLogger('qer.metadata')
+LOG = logging.getLogger('req_compile.metadata')
 
 
 class MetadataError(Exception):
@@ -116,11 +110,9 @@ class NonExtractor(Extractor):
         if not os.path.isabs(filename):
             parent_dir = os.path.abspath(os.path.join(self.path, '..'))
             return self.io_open(os.path.join(parent_dir, filename), mode=mode, encoding=encoding)
-        print(filename)
         if 'b' in mode:
             return self.io_open(filename, mode=mode)
-        else:
-            return self.io_open(filename, mode=mode, encoding=encoding)
+        return self.io_open(filename, mode=mode, encoding=encoding)
 
     def close(self):
         pass
@@ -135,7 +127,6 @@ class TarExtractor(Extractor):
         return (info.name for info in self.tar.getmembers())
 
     def open(self, filename, mode='r', encoding='utf-8', errors=None, buffering=False, newline=False):
-        # print('Tar open {}'.format(filename))
         if isinstance(filename, int):
             return self.io_open(filename, mode=mode, encoding=encoding)
         filename = filename.replace('\\', '/').replace('./', '')
@@ -146,7 +137,10 @@ class TarExtractor(Extractor):
             except KeyError:
                 raise IOError('Not found in archive: {}'.format(filename))
         else:
-            return self.io_open(filename, mode=mode, encoding=encoding)
+            kwargs = {}
+            if 'b' not in mode:
+                kwargs = {'encoding': encoding}
+            return self.io_open(filename, mode=mode, **kwargs)
 
     def close(self):
         self.tar.close()
@@ -180,13 +174,12 @@ class ZipExtractor(Extractor):
         self.zfile.close()
 
 
-@lru_cache(maxsize=None)
 def extract_metadata(filename, origin=None):
     """Extract a DistInfo from a file or directory
 
     Args:
         filename (str): File or path to extract metadata from
-        origin (str, qer.repos.Repository: Origin of the metadata
+        origin (str, req_compile.repos.Repository: Origin of the metadata
 
     Returns:
         (RequirementContainer) the result of the metadata extraction
@@ -215,7 +208,7 @@ def extract_metadata(filename, origin=None):
     return result
 
 
-def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many-branches
+def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many-branches,too-many-locals,too-many-statements
     """
 
     Args:
@@ -229,7 +222,7 @@ def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many
         raise ValueError('Source file/path {} does not exist'.format(source_file))
 
     filename = os.path.basename(source_file)
-    name, version = parse_source_filename(filename)
+    name, _ = parse_source_filename(filename)
 
     if extractor_type is NonExtractor:
         fake_setupdir = source_file
@@ -264,10 +257,12 @@ def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many
             results = _parse_flat_metadata(extractor.open(metadata_file, encoding='utf-8').read())
 
         if results is None:
+            if setup_file is None:
+                raise ValueError('Could not find a setup.py in {}'.format(os.path.basename(source_file)))
             try:
-                results = _parse_setup_py(name, fake_setupdir,
-                                extractor.relative_opener(fake_setupdir, os.path.dirname(setup_file)))
-            except Exception:
+                opener = extractor.relative_opener(fake_setupdir, os.path.dirname(setup_file))
+                results = _parse_setup_py(name, fake_setupdir, opener)
+            except Exception:  # pylint: disable=broad-except
                 temp_wheeldir = tempfile.mkdtemp()
                 try:
                     LOG.info('Building wheel file for %s', source_file)
@@ -334,7 +329,6 @@ class WithDecoding(object):
         self.encoding = encoding
 
     def read(self):
-        # print('Reading file {}'.format(self.file))
         results = self.file.read()
         if self.encoding:
             results = results.decode(self.encoding)
@@ -378,7 +372,7 @@ def setup(results, *_, **kwargs):
     reqs = kwargs.get('install_requires', [])
     extra_reqs = kwargs.get('extras_require', {})
 
-    if version is None or isinstance(version, FakeModule):
+    if version is None:
         version = '0.0.0'
 
     if version is not None and version != '':
@@ -399,52 +393,15 @@ def setup(results, *_, **kwargs):
             all_reqs.extend(reqs_with_extra_marker)
         except pkg_resources.RequirementParseError as ex:
             print('Failed to parse extra requirement ({}) '
-                  'from the set:\n{}'.format(str(ex),extra_reqs), file=sys.stderr)
+                  'from the set:\n{}'.format(str(ex), extra_reqs), file=sys.stderr)
             raise
 
     results.append(DistInfo(name, version, all_reqs))
-    return FakeModule('dist')
 
-
-class FakeModule(types.ModuleType):  # pylint: disable=no-init
-    call_count = 0
-    __version__ = '1.0.0'  # Some setup.py's may inspect the module for a __version__
-
-    def __getitem__(self, item):
-        # print('Getitem'.format(item))
-        self.call_count += 1
-        if self.call_count > 30:
-            raise ValueError('Unintended overflow')
-        return None
-
-    def __iter__(self):
-        return iter([1, 0, 0, 0])
-
-    def __contains__(self, item):
-        # print('Contains {}'.format(item))
-        return True
-
-    def __call__(self, *args, **kwargs):
-        return FakeModule(self.__name__)
-
-    def __setitem__(self, key, value):
-        pass
-
-    def __enter__(self):
-        pass
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
-
-    def __getattr__(self, item):
-        # print('Getting attr {}'.format(item))
-        if isinstance(item, str):
-            if item == '__path__':
-                return ''
-            if item == '__file__':
-                return os.path.join(self.__getattribute__('__name__'), '__init__.py')
-            return FakeModule(item)
-        return None
+    class FakeResult(object):
+        def __getattr__(self, item):
+            return None
+    return FakeResult()
 
 
 @contextlib.contextmanager
@@ -473,14 +430,7 @@ def patch(module, member, new_value, conditional=True):
             setattr(module, member, old_member)
 
 
-def _remove_encoding_lines(contents):
-    lines = contents.split('\n')
-    lines = [line for line in lines if not (line.startswith('#') and
-                                            ('-*- coding' in line or '-*- encoding' in line or 'encoding:' in line))]
-    return '\n'.join(lines)
-
-
-def _parse_setup_py(name, fake_setupdir, opener):  # pylint: disable=too-many-locals
+def _parse_setup_py(name, fake_setupdir, opener):  # pylint: disable=too-many-locals,too-many-statements
     # pylint: disable=no-name-in-module,no-member
     # Capture warnings.warn, which is sometimes used in setup.py files
 
@@ -499,6 +449,9 @@ def _parse_setup_py(name, fake_setupdir, opener):  # pylint: disable=too-many-lo
     import codecs
     import distutils.core
     import setuptools.extension
+    import setuptools.command.sdist
+    import setuptools.command.test
+    import setuptools.extern  # Extern performs some weird module manipulation we can't handle
 
     old_dir = os.getcwd()
 
@@ -510,10 +463,9 @@ def _parse_setup_py(name, fake_setupdir, opener):  # pylint: disable=too-many-lo
         except IOError:
             return False
 
-    orig_stderr = sys.stderr
     os.chdir(fake_setupdir)
-
     orig_chdir = os.chdir
+
     def _fake_chdir(new_dir):
         if os.path.isabs(new_dir):
             new_dir = os.path.relpath(new_dir, fake_setupdir)
@@ -533,40 +485,39 @@ def _parse_setup_py(name, fake_setupdir, opener):  # pylint: disable=too-many-lo
     except ImportError:
         pass
 
-    # with \
-    #      patch(sys, 'stderr', StringIO()), \
-    #      patch(sys, 'stdout', StringIO()):
-    #     pass
-
     fake_import = functools.partial(import_hook, opener)
-     # patch('__builtin__', '__import__', fake_import), \
-     # patch('builtins', '__import__', fake_import), \
+
+    def fake_load_source(modname, filename, filehandle=None):  # pylint: disable=unused-argument
+        with opener(filename) as handle:
+            return import_contents(modname, filename, handle.read())
 
     with \
          patch(sys, 'exit', lambda code: None), \
-         patch('__builtin__', 'open', opener), \
          patch(sys, 'stderr', StringIO()), \
          patch(sys, 'stdout', StringIO()), \
+         patch('builtins', 'open', opener), \
+         patch('__builtin__', 'open', opener), \
+         patch('builtins', '__import__', fake_import), \
+         patch('__builtin__', '__import__', fake_import), \
          patch('__builtin__', 'execfile', lambda filename: None), \
          patch(os, 'listdir', lambda path: []), \
          patch(os.path, 'exists', _fake_exists), \
          patch(os, 'chdir', _fake_chdir), \
          patch(io, 'open', opener), \
          patch(codecs, 'open', opener), \
-         patch(imp, 'load_source', lambda *args, **kwargs: FakeModule('load_source')), \
          patch(setuptools, 'setup', setup_with_results), \
+         patch(imp, 'load_source', fake_load_source), \
          patch(distutils.core, 'setup', setup_with_results):
 
         contents = opener('setup.py', encoding='utf-8').read()
         try:
-            # if six.PY2:
-            #     contents = _remove_encoding_lines(contents)
+            if six.PY2:
+                contents = remove_encoding_lines(contents)
 
             sys.path.insert(0, fake_setupdir)
             # pylint: disable=exec-used
+            contents = contents.replace('print ', '')
             exec(contents, spy_globals, spy_globals)
-        except Exception as ex:
-            raise # MetadataError(name, version, ex)
         finally:
             orig_chdir(old_dir)
             if old_cythonize is not None:

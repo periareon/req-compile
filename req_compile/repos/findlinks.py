@@ -1,9 +1,9 @@
 import os
 
-from qer import utils
-import qer.repos.repository
-from qer.repos.repository import Repository
-import qer.metadata
+from req_compile import utils
+import req_compile.repos.repository
+from req_compile.repos.repository import Repository
+import req_compile.metadata
 
 
 class FindLinksRepository(Repository):
@@ -26,7 +26,7 @@ class FindLinksRepository(Repository):
 
     def _find_all_links(self):
         for filename in os.listdir(self.path):
-            candidate = qer.repos.repository.process_distribution(None, filename)
+            candidate = req_compile.repos.repository.process_distribution(None, filename)
             if candidate is not None:
                 self.links.append(candidate)
 
@@ -43,7 +43,7 @@ class FindLinksRepository(Repository):
 
     def resolve_candidate(self, candidate):
         filename = os.path.join(self.path, candidate.filename)
-        return qer.metadata.extract_metadata(filename, origin=self), True
+        return req_compile.metadata.extract_metadata(filename, origin=self), True
 
     def close(self):
         pass

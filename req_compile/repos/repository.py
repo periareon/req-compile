@@ -6,12 +6,12 @@ import enum
 import platform
 import re
 import sys
-
-import pkg_resources
 import six
 
-import qer.metadata
-import qer.utils
+import pkg_resources
+
+import req_compile.metadata
+import req_compile.utils
 
 INTERPRETER_TAGS = {
     'CPython': 'cp',
@@ -122,7 +122,9 @@ class RequiresPython(object):
             return 'any'
 
         if isinstance(self.py_version, tuple):
-            return ','.join(sorted(self.py_version))
+            return '.'.join(sorted(self.py_version))
+
+
         return ''
 
 
@@ -236,7 +238,7 @@ def _wheel_candidate(source, filename, py_version=None):
 
 
 def _tar_gz_candidate(source, filename, py_version=None):
-    name, version = qer.metadata.parse_source_filename(filename)
+    name, version = req_compile.metadata.parse_source_filename(filename)
     return Candidate(name, filename, version, RequiresPython(py_version), 'any',
                      source, candidate_type=DistributionType.SDIST)
 
@@ -283,7 +285,7 @@ class Repository(BaseRepository):
         super(Repository, self).__init__()
         if allow_prerelease is None:
             allow_prerelease = False
-        self.logger = logging.getLogger('qer.repository').getChild(logger_name)
+        self.logger = logging.getLogger('req_compile.repository').getChild(logger_name)
         self.allow_prerelease = allow_prerelease
 
     def __eq__(self, other):
@@ -317,7 +319,7 @@ class Repository(BaseRepository):
         check_level = 1
         if candidates:
             candidates = sort_candidates(candidates)
-            has_equality = qer.utils.is_pinned_requirement(req)
+            has_equality = req_compile.utils.is_pinned_requirement(req)
 
             for candidate in candidates:
                 check_level += 1

@@ -12,21 +12,21 @@ import tempfile
 
 from pip._vendor import pkg_resources
 
-import qer.compile
-import qer.dists
-import qer.metadata
-import qer.repos.pypi
+import req_compile.compile
+import req_compile.dists
+import req_compile.metadata
+import req_compile.repos.pypi
 
-from qer import utils
-from qer.compile import perform_compile
-from qer.config import read_pip_default_index
-from qer.repos.findlinks import FindLinksRepository
-from qer.repos.pypi import PyPIRepository
-from qer.repos.repository import CantUseReason, sort_candidates, NoCandidateException
-from qer.repos.multi import MultiRepository
-from qer.repos.solution import SolutionRepository
-from qer.repos.source import SourceRepository
-from qer.versions import is_possible
+from req_compile import utils
+from req_compile.compile import perform_compile
+from req_compile.config import read_pip_default_index
+from req_compile.repos.findlinks import FindLinksRepository
+from req_compile.repos.pypi import PyPIRepository
+from req_compile.repos.repository import CantUseReason, sort_candidates, NoCandidateException
+from req_compile.repos.multi import MultiRepository
+from req_compile.repos.solution import SolutionRepository
+from req_compile.repos.source import SourceRepository
+from req_compile.versions import is_possible
 
 # Blacklist of requirements that will be filtered out of the output
 BLACKLIST = [
@@ -37,10 +37,10 @@ def _cantusereason_to_text(reason):
     if reason == CantUseReason.VERSION_NO_SATISFY:
         return 'version mismatch'
     if reason == CantUseReason.WRONG_PLATFORM:
-        return 'platform mismatch {}'.format(qer.repos.repository.PLATFORM_TAGS)
+        return 'platform mismatch {}'.format(req_compile.repos.repository.PLATFORM_TAGS)
     if reason == CantUseReason.WRONG_PYTHON_VERSION:
         return 'python version/interpreter mismatch ({})'.format(', '.join(
-            qer.repos.repository.RequiresPython.WHEEL_VERSION_TAGS))
+            req_compile.repos.repository.RequiresPython.WHEEL_VERSION_TAGS))
     if reason == CantUseReason.IS_PRERELEASE:
         return 'prereleases not used'
 
@@ -63,7 +63,7 @@ def _find_paths_to_root(failing_node, visited=None):
                 one_path.append(failing_node)
                 paths.append(one_path)
 
-    return sorted(paths, key=lambda x: len(x))
+    return sorted(paths, key=len)
 
 
 def _generate_no_candidate_display(req, repo, dists, failure):
@@ -123,7 +123,7 @@ def _dump_repo_candidates(req, repos):
                                             _cantusereason_to_text(
                                                 repo.why_cant_I_use(req, candidate))),
                           file=sys.stderr)
-                except qer.metadata.MetadataError:
+                except req_compile.metadata.MetadataError:
                     print('  {}: {}'.format(candidate, 'Failed to parse metadata'), file=sys.stderr)
         else:
             print('  No candidates found', file=sys.stderr)
@@ -145,7 +145,7 @@ def _create_req_from_path(path, extras, extra_source_repos):
         extras += extras + [s.strip() for s in path[extra_idx + 1:-1].split(',')]
         path = path[:extra_idx]
 
-    dist = qer.metadata.extract_metadata(path)
+    dist = req_compile.metadata.extract_metadata(path)
     if dist is None:
         raise ValueError(
             'Input arg "{}" is not directory containing setup.py or requirements file'.format(path))
@@ -264,14 +264,14 @@ def run_compile(input_args,
 
                 print(fmt.format(key=line[0][0], version=line[0][1],
                                  annotation=annotation, constraints=line[1]))
-    except (qer.repos.repository.NoCandidateException, qer.metadata.MetadataError) as ex:
+    except (req_compile.repos.repository.NoCandidateException, req_compile.metadata.MetadataError) as ex:
         _generate_no_candidate_display(ex.req, repo, ex.results, ex)
         sys.exit(1)
 
 
 def _annotate(input_reqs, repos):
     repo_mapping = {}
-    qer_req = pkg_resources.working_set.find(pkg_resources.Requirement.parse('qer'))
+    qer_req = pkg_resources.working_set.find(pkg_resources.Requirement.parse('req_compile'))
     print('# Compiled by Qer Requirements Compiler ({}) on {} UTC'.format(
         qer_req.version if qer_req else 'dev',
         datetime.datetime.utcnow()))
@@ -367,9 +367,9 @@ def compile_main(args=None):
     args = parser.parse_args(args=args)
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG, stream=sys.stderr)
-        logging.getLogger('qer').setLevel(logging.DEBUG)
+        logging.getLogger('req_compile').setLevel(logging.DEBUG)
 
-        logging.getLogger('qer.compile').addFilter(IndentFilter())
+        logging.getLogger('req_compile.compile').addFilter(IndentFilter())
 
     wheeldir = args.wheel_dir
     if wheeldir:

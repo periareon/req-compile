@@ -4,11 +4,11 @@ import itertools
 import os
 import sys
 
-from qer import utils
-import qer.metadata
-import qer.repos.repository
+from req_compile import utils
+import req_compile.metadata
+import req_compile.repos.repository
 
-from qer.repos.repository import Repository
+from req_compile.repos.repository import Repository
 
 SPECIAL_DIRS = ('site-packages', 'dist-packages', '.git', '.svn', '.idea')
 SPECIAL_FILES = ('__init__.py',)
@@ -40,18 +40,18 @@ class SourceRepository(Repository):
                         dirs.remove(dir_)
 
                     try:
-                        result = qer.metadata.extract_metadata(root, origin=self)
-                        candidate = qer.repos.repository.Candidate(
+                        result = req_compile.metadata.extract_metadata(root, origin=self)
+                        candidate = req_compile.repos.repository.Candidate(
                             result.name,
                             root,
                             result.version,
-                            qer.repos.repository.RequiresPython(None),
+                            req_compile.repos.repository.RequiresPython(None),
                             'any',
                             None,
-                            qer.repos.repository.DistributionType.SOURCE)
+                            req_compile.repos.repository.DistributionType.SOURCE)
                         candidate.preparsed = result
                         self.distributions[utils.normalize_project_name(result.name)].append(candidate)
-                    except qer.metadata.MetadataError as ex:
+                    except req_compile.metadata.MetadataError as ex:
                         print('Failed to parse metadata for {} - {}'.format(root, str(ex)),
                               file=sys.stderr)
                     break

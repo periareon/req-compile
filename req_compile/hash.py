@@ -9,9 +9,9 @@ from hashlib import sha256
 
 import six
 
-from qer.repos.source import SourceRepository
-from qer.utils import merge_requirements
-import qer.utils
+from req_compile.repos.source import SourceRepository
+from req_compile.utils import merge_requirements
+import req_compile.utils
 
 
 def run_hash(reqs):
@@ -49,7 +49,7 @@ def hash_main():
             for candidate in candidates:
                 reqs.extend(candidate.preparsed.requires(extras=extras))
     else:
-        reqs = qer.utils.reqs_from_files(args.requirement_files)
+        reqs = req_compile.utils.reqs_from_files(args.requirement_files)
 
     print(run_hash(reqs))
 

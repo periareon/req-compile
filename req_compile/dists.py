@@ -5,8 +5,8 @@ import copy
 import itertools
 import six
 
-from qer import utils
-from qer.utils import normalize_project_name, merge_requirements, filter_req
+from req_compile import utils
+from req_compile.utils import normalize_project_name, merge_requirements, filter_req
 
 
 class DependencyNode(object):

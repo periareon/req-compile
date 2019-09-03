@@ -4,12 +4,12 @@ import pkg_resources
 import pytest
 from pytest import fixture
 
-import qer.compile
-import qer.repos.pypi
-import qer.repos.repository
-import qer.utils
-from qer.repos.multi import MultiRepository
-from qer.repos.source import SourceRepository
+import req_compile.compile
+import req_compile.repos.pypi
+import req_compile.repos.repository
+import req_compile.utils
+from req_compile.repos.multi import MultiRepository
+from req_compile.repos.source import SourceRepository
 
 
 def test_mock_pypi(mock_metadata, mock_pypi):
@@ -19,7 +19,7 @@ def test_mock_pypi(mock_metadata, mock_pypi):
 
     metadata, cached = mock_pypi.get_candidate(pkg_resources.Requirement.parse('test'))
     assert metadata.name == 'test'
-    assert metadata.version == qer.utils.parse_version('1.0.0')
+    assert metadata.version == req_compile.utils.parse_version('1.0.0')
 
 
 def _real_outputs(results):
@@ -43,7 +43,7 @@ def perform_compile(mock_metadata, mock_pypi):
             reqs = {'test_reqs': reqs}
 
         input_reqs = {key: [pkg_resources.Requirement.parse(req) for req in value] for key, value in reqs.items()}
-        return _real_outputs(qer.compile.perform_compile(
+        return _real_outputs(req_compile.compile.perform_compile(
             input_reqs,
             mock_pypi,
             constraint_reqs=constraint_reqs))
@@ -92,7 +92,7 @@ def test_simple_compile(perform_compile, scenario, index, reqs, constraints, res
         ('multi', ['x==1.0.0', 'x==0.9.0', 'y==5.0.0', 'y==4.0.0'], ['y==5'], ['x>1'])
     ])
 def test_no_candidate(perform_compile, scenario, index, reqs, constraints):
-    with pytest.raises(qer.repos.repository.NoCandidateException):
+    with pytest.raises(req_compile.repos.repository.NoCandidateException):
         perform_compile(scenario, index, reqs, constraint_reqs=constraints)
 
 
@@ -111,17 +111,17 @@ def local_tree():
 
 
 def test_compile_source_user1(local_tree):
-    results = qer.compile.perform_compile({'test': [pkg_resources.Requirement.parse('user1')]}, local_tree)
+    results = req_compile.compile.perform_compile({'test': [pkg_resources.Requirement.parse('user1')]}, local_tree)
     assert _real_outputs(results) == ['framework==1.0.1', 'user1==2.0.0']
 
 
 def test_compile_source_user2(local_tree):
-    results = qer.compile.perform_compile({'test': [pkg_resources.Requirement.parse('user-2')]}, local_tree)
+    results = req_compile.compile.perform_compile({'test': [pkg_resources.Requirement.parse('user-2')]}, local_tree)
     assert _real_outputs(results) == ['framework==1.0.1', 'user-2==1.1.0', 'util==8.0.0']
 
 
 def test_compile_source_user2_recursive_root():
     base_dir = os.path.join(os.path.dirname(__file__), 'local-tree')
     repo = SourceRepository(base_dir)
-    results = qer.compile.perform_compile({'test': [pkg_resources.Requirement.parse('user-2')]}, repo)
+    results = req_compile.compile.perform_compile({'test': [pkg_resources.Requirement.parse('user-2')]}, repo)
     assert _real_outputs(results) == ['framework==1.0.1', 'user-2==1.1.0', 'util==8.0.0']

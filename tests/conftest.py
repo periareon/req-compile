@@ -1,26 +1,24 @@
 import collections
-import logging
 import os
 from zipfile import ZipFile
 
-import pkg_resources
 import pytest
 
 import tarfile
 import tempfile
 
-import qer.metadata
-import qer.utils
-from qer.repos.repository import RequiresPython
-from qer.repos.repository import Repository, Candidate
-from qer.repos.solution import load_from_file
+import req_compile.metadata
+import req_compile.utils
+from req_compile.repos.repository import RequiresPython
+from req_compile.repos.repository import Repository, Candidate
+from req_compile.repos.solution import load_from_file
 
 
 @pytest.fixture(scope='function', autouse=True)
 def clear_caches():
     """Fixture to automatically clear the LRU cache for
     the requirement parsing cache"""
-    qer.utils.parse_requirement.cache_clear()
+    req_compile.utils.parse_requirement.cache_clear()
 
 
 @pytest.fixture
@@ -28,7 +26,7 @@ def metadata_provider():
     def _parse_metadata(filename, origin=None, extras=()):
         full_name = filename if os.path.isabs(filename) else os.path.join(os.path.dirname(__file__), filename)
         with open(full_name, 'r') as handle:
-            return qer.metadata._parse_flat_metadata(handle.read())
+            return req_compile.metadata._parse_flat_metadata(handle.read())
     return _parse_metadata
 
 
@@ -62,7 +60,7 @@ class MockRepository(Repository):
         path = _to_path(self.scenario, req)
         full_name = path if os.path.isabs(path) else os.path.join(os.path.dirname(__file__), path)
         with open(full_name, 'r') as handle:
-            metadata = qer.metadata._parse_flat_metadata(handle.read())
+            metadata = req_compile.metadata._parse_flat_metadata(handle.read())
 
         return Candidate(req.project_name,
                          path,
@@ -76,7 +74,7 @@ class MockRepository(Repository):
             return [self._build_candidate(req) for req in avail]
 
     def resolve_candidate(self, candidate):
-        return qer.metadata.extract_metadata(candidate.filename, origin=self), False
+        return req_compile.metadata.extract_metadata(candidate.filename, origin=self), False
 
     def close(self):
         pass
@@ -89,7 +87,7 @@ def mock_pypi():
 
 @pytest.fixture
 def mock_metadata(mocker, metadata_provider):
-    mocker.patch('qer.metadata.extract_metadata', side_effect=metadata_provider)
+    mocker.patch('req_compile.metadata.extract_metadata', side_effect=metadata_provider)
 
 
 @pytest.yield_fixture

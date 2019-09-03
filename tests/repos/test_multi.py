@@ -2,10 +2,10 @@ import mock
 import pkg_resources
 import pytest
 
-from qer.dists import DistInfo
-from qer.repos import Repository
-from qer.repos.multi import MultiRepository
-from qer.repos.repository import NoCandidateException, Candidate, RequiresPython
+from req_compile.dists import DistInfo
+from req_compile.repos import Repository
+from req_compile.repos.multi import MultiRepository
+from req_compile.repos.repository import NoCandidateException, Candidate, RequiresPython
 
 
 class FakeRepository(Repository):

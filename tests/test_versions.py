@@ -1,7 +1,7 @@
 import pkg_resources
 import pytest
 
-from qer.versions import is_possible, _offset_minor_version
+from req_compile.versions import is_possible, _offset_minor_version
 
 parse_req = pkg_resources.Requirement.parse
 

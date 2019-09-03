@@ -3,7 +3,7 @@ import os
 import pkg_resources
 import pytest
 
-from qer.repos.source import SourceRepository
+from req_compile.repos.source import SourceRepository
 
 
 @pytest.fixture
