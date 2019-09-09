@@ -6,6 +6,7 @@ import pytest
 
 import req_compile.compile
 from req_compile.dists import DistInfo
+from req_compile.repos import RepositoryInitializationError
 
 from req_compile.repos.solution import SolutionRepository, load_from_file
 
@@ -19,6 +20,11 @@ def test_solution_repo():
 
 def _get_node_strs(nodes):
     return set(node.key for node in nodes)
+
+
+def test_load_bad_solution(load_solution):
+    with pytest.raises(RepositoryInitializationError):
+        load_solution('bad_solutionfile.txt')
 
 
 def test_load_solution(load_solution):
@@ -88,7 +94,8 @@ def test_load_remove_root_removes_all(load_solution):
 def test_round_trip(scenario, roots, mock_metadata, mock_pypi):
     mock_pypi.load_scenario('normal')
 
-    results, nodes = req_compile.compile.perform_compile({'test': pkg_resources.parse_requirements(roots)}, mock_pypi)
+    results, nodes = req_compile.compile.perform_compile(
+        [DistInfo('test', None, pkg_resources.parse_requirements(roots), meta=True)], mock_pypi)
 
     fd, name = tempfile.mkstemp()
     for line in results.generate_lines(nodes):
@@ -97,5 +104,5 @@ def test_round_trip(scenario, roots, mock_metadata, mock_pypi):
 
     solution_result = load_from_file(name)
     for node in results:
-        if isinstance(node.metadata, DistInfo):
+        if isinstance(node.metadata, DistInfo) and node.key != 'test':
             assert node.key in solution_result

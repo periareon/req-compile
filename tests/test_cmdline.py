@@ -61,5 +61,4 @@ def test_source_dirs_dont_hit_pypi(mocker, basic_compile_mock):
 
     compile_main(['source/myproj'])
     perform_compile_args = basic_compile_mock.mock_calls[0][1]
-    assert (perform_compile_args[0] ==
-            {'source/myproj': [utils.parse_requirement('myproj==1.0')]})
+    assert perform_compile_args[0][0].name == 'myproj'

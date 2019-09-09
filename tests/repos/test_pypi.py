@@ -4,7 +4,9 @@ import pkg_resources
 import responses
 import pytest
 
-from req_compile.repos.pypi import PyPIRepository
+from req_compile.repos.repository import Candidate, WheelVersionTags, DistributionType
+import req_compile.repos.pypi
+from req_compile.repos.pypi import PyPIRepository, check_python_compatibility
 
 INDEX_URL = 'https://pypi.org'
 
@@ -81,11 +83,8 @@ def test_resolve_new_numpy(mocked_responses, tmpdir, read_contents, mocker):
     'https://pypi.org/numpy-1.16.3-cp37-cp37m-manylinux1_x86_64.whl#sha256=HASH',
     'https://pypi.org/numpy-1.16.3.zip#sha256=HASH'
 ])
-def test_python_requires(mocker, mocked_responses, tmpdir, read_contents, url_to_check):
-    mocker.patch('req_compile.repos.repository.RequiresPython.SYS_PY_VERSION', pkg_resources.parse_version('3.7.12'))
-    mocker.patch('req_compile.repos.repository.RequiresPython.SYS_PY_MAJOR', pkg_resources.parse_version('3'))
-    mocker.patch('req_compile.repos.repository.RequiresPython.SYS_PY_MAJOR_MINOR', pkg_resources.parse_version('3.7'))
-    mocker.patch('req_compile.repos.repository.RequiresPython.WHEEL_VERSION_TAGS', ('py3', 'cp37', 'py37'))
+def test_python_requires_wheel_tags(mocked_responses, tmpdir, mock_py_version, read_contents, url_to_check):
+    mock_py_version('3.7.12')
 
     wheeldir = str(tmpdir)
     mocked_responses.add(
@@ -95,5 +94,80 @@ def test_python_requires(mocker, mocked_responses, tmpdir, read_contents, url_to
     repo = PyPIRepository(INDEX_URL, wheeldir)
     candidate = [candidate for candidate in repo.get_candidates(pkg_resources.Requirement.parse('numpy'))
                  if candidate.link[1] == url_to_check][0]
-    assert candidate.py_version
-    assert candidate.py_version.check_compatibility()
+    if candidate.py_version:
+        assert candidate.py_version.check_compatibility()
+
+
+@pytest.mark.parametrize('sys_py_version, py_requires', [
+    ('2.7.15', '>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*'),
+    ('3.6.4', '>=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*'),
+    ('3.5.0', '==3.5'),
+    ('3.2.17', '>=2.7, ==3.*'),
+])
+def test_requires_python_compatible(mock_py_version, sys_py_version, py_requires):
+    mock_py_version(sys_py_version)
+    assert check_python_compatibility(py_requires)
+
+
+@pytest.mark.parametrize('sys_py_version, py_requires', [
+    ('2.6.2', '>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*'),
+    ('3.2.17', '>=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*'),
+    ('3.2.17', '>=2.7, !=3.*'),
+])
+def test_requires_python_incompatible(mock_py_version, sys_py_version, py_requires):
+    mock_py_version(sys_py_version)
+    assert not check_python_compatibility(py_requires)
+
+
+def test_links_parser_wheel():
+    filename = 'pytest-4.3.0-py2.py3-none-any.whl'
+    url = 'https://url'
+    lp = req_compile.repos.pypi.LinksHTMLParser(url)
+    lp.active_link = url, filename
+    lp.handle_data(filename)
+    assert lp.dists == [Candidate('pytest', filename, pkg_resources.parse_version('4.3.0'),
+                                  WheelVersionTags(('py2', 'py3')), 'any', (url, filename), DistributionType.WHEEL)]
+
+
+def test_links_py3_wheel():
+    filename = 'PyVISA-1.9.1-py3-none-any.whl'
+    url = 'https://url'
+    lp = req_compile.repos.pypi.LinksHTMLParser(url)
+    lp.active_link = url, filename
+    lp.handle_data(filename)
+    assert lp.dists == [Candidate('PyVISA', filename, pkg_resources.parse_version('1.9.1'), WheelVersionTags(('py3',)), 'any', (url, filename), DistributionType.WHEEL)]
+
+
+def test_links_parser_tar_gz_hyph():
+    filename = 'PyVISA-py-0.3.1.tar.gz'
+    url = 'https://url'
+    lp = req_compile.repos.pypi.LinksHTMLParser(url)
+    lp.active_link = url, filename
+    lp.handle_data(filename)
+    assert lp.dists == [Candidate('PyVISA-py', filename, pkg_resources.parse_version('0.3.1'), None, 'any', (url, filename), DistributionType.SDIST)]
+
+
+def test_tar_gz_dot():
+    filename = 'backports.html-1.1.0.tar.gz'
+    candidate = req_compile.repos.repository._tar_gz_candidate('test', filename)
+
+    assert candidate == \
+        Candidate('backports.html', filename, pkg_resources.parse_version('1.1.0'), None, 'any', 'test', DistributionType.SDIST)
+
+
+def test_wheel_dot():
+    filename = 'backports.html-1.1.0-py2.py3-none-any.whl'
+    candidate = req_compile.repos.repository._wheel_candidate('test', filename)
+
+    assert candidate == \
+        Candidate('backports.html', filename,
+                           pkg_resources.parse_version('1.1.0'), WheelVersionTags(('py2', 'py3')), 'any', 'test', DistributionType.WHEEL)
+
+
+def test_wheel_platform_specific_tags():
+    filename = 'pywin32-224-cp27-cp27m-win_amd64.whl'
+    candidate = req_compile.repos.repository._wheel_candidate('test', filename)
+
+    assert candidate == \
+        Candidate('pywin32', filename,
+                           pkg_resources.parse_version('224'), WheelVersionTags(('cp27',)), 'win_amd64', 'test', DistributionType.WHEEL)

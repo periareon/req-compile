@@ -2,7 +2,7 @@ import os
 
 from req_compile import utils
 import req_compile.repos.repository
-from req_compile.repos.repository import Repository
+from req_compile.repos import Repository, RepositoryInitializationError
 import req_compile.metadata
 
 
@@ -25,6 +25,8 @@ class FindLinksRepository(Repository):
         return hash('findlinks') ^ hash(self.path)
 
     def _find_all_links(self):
+        if not os.path.exists(self.path):
+            raise RepositoryInitializationError(FindLinksRepository, 'Directory {} not found.'.format(self.path))
         for filename in os.listdir(self.path):
             candidate = req_compile.repos.repository.process_distribution(None, filename)
             if candidate is not None:

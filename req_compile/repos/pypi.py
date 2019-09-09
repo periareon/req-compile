@@ -1,11 +1,14 @@
 """Repository to handle pulling packages from online package indexes"""
 import logging
 import os
+import re
+import sys
 from hashlib import sha256
-
 import requests
+
 from six.moves import html_parser
 from six.moves import urllib
+import pkg_resources
 
 try:
     from functools32 import lru_cache
@@ -19,28 +22,65 @@ from req_compile.metadata import extract_metadata, MetadataError
 LOG = logging.getLogger('req_compile.pypi')
 
 
+SYS_PY_VERSION = pkg_resources.parse_version(sys.version.split(' ')[0].replace('+', ''))
+SYS_PY_MAJOR = pkg_resources.parse_version('{}'.format(sys.version_info.major))
+SYS_PY_MAJOR_MINOR = pkg_resources.parse_version('{}.{}'.format(sys.version_info.major,
+                                                                sys.version_info.minor))
+
+OPS = {
+    '<': lambda x, y: x < y,
+    '>': lambda x, y: x > y,
+    '==': lambda x, y: x == y,
+    '!=': lambda x, y: x != y,
+    '>=': lambda x, y: x >= y,
+    '<=': lambda x, y: x <= y
+}
+
+
+def check_python_compatibility(requires_python):
+    if requires_python is None:
+        return True
+    return all(_check_py_constraint(part) for part in requires_python.split(','))
+
+
+def _check_py_constraint(version_constraint):
+    ref_version = SYS_PY_VERSION
+
+    version_part = re.split('[!=<>~]', version_constraint)[-1].strip()
+    operator = version_constraint.replace(version_part, '').strip()
+    if version_part.endswith('.*'):
+        version_part = version_part.replace('.*', '')
+        dotted_parts = len(version_part.split('.'))
+        if dotted_parts == 2:
+            ref_version = SYS_PY_MAJOR_MINOR
+        if dotted_parts == 1:
+            ref_version = SYS_PY_MAJOR
+    version = pkg_resources.parse_version(version_part)
+    return OPS[operator](ref_version, version)
+
+
 class LinksHTMLParser(html_parser.HTMLParser):
     def __init__(self, url):
         html_parser.HTMLParser.__init__(self)
         self.url = url
         self.dists = []
         self.active_link = None
-        self.active_requires_python = None
+        self.active_skip = False
 
     def handle_starttag(self, tag, attrs):
         self.active_link = None
         if tag == 'a':
-            self.active_requires_python = None
+            self.active_skip = False
             for attr in attrs:
                 if attr[0] == 'href':
                     self.active_link = self.url, attr[1]
                 elif attr[0] == 'metadata-requires-python' or attr[0] == 'data-requires-python':
-                    self.active_requires_python = attr[1] or None
+                    self.active_skip = not check_python_compatibility(attr[1])
 
     def handle_data(self, data):
         if self.active_link is None:
             return
-        candidate = process_distribution(self.active_link, data, self.active_requires_python)
+        candidate = process_distribution(self.active_link, data)
         if candidate is not None:
             self.dists.append(candidate)
 

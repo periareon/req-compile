@@ -82,7 +82,7 @@ class DistributionCollection(object):
 
         Args:
             metadata (RequirementContainer|str): Distribution info to add
-            source (DependencyNode, optional): The source of the distribution, e.g. a filename
+            source (DependencyNode, optional): The source of the distribution
             reason (pkg_resources.Requirement, optional):
         """
         if reason is not None and len(reason.extras) > 1:
@@ -134,7 +134,7 @@ class DistributionCollection(object):
         return nodes if has_metadata else set()
 
     def _discard_metadata_if_necessary(self, base_node, reason, req_name):
-        if base_node.metadata is not None and reason is not None:
+        if base_node.metadata is not None and not base_node.metadata.meta and reason is not None:
             if not reason.specifier.contains(base_node.metadata.version,
                                              prereleases=True):
                 # Discard the metadata
@@ -264,12 +264,17 @@ class DistributionCollection(object):
 
 
 class RequirementContainer(object):
+    """A container for a list of requirements"""
     def __init__(self, name, meta=False):
         self.name = name
         self.origin = None
         self.meta = meta
 
     def requires(self, extra=None):
+        """Return requirements optionally filtered by extra
+
+        Returns:
+            (list[Requirement]) list of requirements"""
         raise NotImplementedError()
 
     def to_definition(self, extras):
@@ -322,20 +327,6 @@ class DistInfo(RequirementContainer):
 
     def __str__(self):
         return '{}=={}'.format(*self.to_definition(None))
-
-    def __getstate__(self):
-        return {
-            'name': self.name,
-            'meta': self.meta,
-            'version': str(self.version),
-            'reqs': [str(req) for req in self.reqs]
-        }
-
-    def __setstate__(self, state):
-        self.name = state['name']
-        self.version = utils.parse_version(state['version'])
-        self.meta = bool(state['meta'])
-        self.reqs = list(utils.parse_requirements(state['reqs']))
 
     def to_definition(self, extras):
         req_expr = '{}{}'.format(

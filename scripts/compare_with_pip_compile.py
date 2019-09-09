@@ -33,7 +33,7 @@ if __name__ == '__main__':
 
     parsed_args = parser.parse_args()
 
-    print('Compiling with Qer...', end='')
+    print('Compiling with Req-Compile...', end='')
     sys.stdout.flush()
     start = time.time()
     qer_output_file = run_qer_compile(parsed_args.requirements_file)

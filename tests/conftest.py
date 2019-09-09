@@ -2,6 +2,7 @@ import collections
 import os
 from zipfile import ZipFile
 
+import pkg_resources
 import pytest
 
 import tarfile
@@ -9,7 +10,6 @@ import tempfile
 
 import req_compile.metadata
 import req_compile.utils
-from req_compile.repos.repository import RequiresPython
 from req_compile.repos.repository import Repository, Candidate
 from req_compile.repos.solution import load_from_file
 
@@ -65,7 +65,7 @@ class MockRepository(Repository):
         return Candidate(req.project_name,
                          path,
                          metadata.version,
-                         RequiresPython(None), 'any', None)
+                         None, 'any', None)
 
     def get_candidates(self, req):
             if self.index_map is None:
@@ -153,3 +153,19 @@ def load_solution():
     def _load(filename):
         return load_from_file(os.path.join(os.path.dirname(__file__), filename))
     return _load
+
+
+@pytest.fixture
+def mock_py_version(mocker):
+    def _mock_version(version):
+        major_version = version.split('.')[0]
+        minor_version = version.split('.')[1]
+        mocker.patch('req_compile.repos.pypi.SYS_PY_VERSION',
+                     pkg_resources.parse_version(version))
+        mocker.patch('req_compile.repos.pypi.SYS_PY_MAJOR',
+                     pkg_resources.parse_version(major_version))
+        mocker.patch('req_compile.repos.pypi.SYS_PY_MAJOR_MINOR',
+                     pkg_resources.parse_version('.'.join(version.split('.')[:2])))
+        mocker.patch('req_compile.repos.repository.WheelVersionTags.WHEEL_VERSION_TAGS',
+                     ('py' + major_version, 'py' + major_version + minor_version, 'cp' + major_version + minor_version))
+    return _mock_version

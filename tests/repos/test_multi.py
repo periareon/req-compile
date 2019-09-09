@@ -5,7 +5,7 @@ import pytest
 from req_compile.dists import DistInfo
 from req_compile.repos import Repository
 from req_compile.repos.multi import MultiRepository
-from req_compile.repos.repository import NoCandidateException, Candidate, RequiresPython
+from req_compile.repos.repository import NoCandidateException, Candidate
 
 
 class FakeRepository(Repository):
@@ -69,7 +69,7 @@ def test_fetch_in_order():
     repo3 = FakeRepository('3')
 
     repo3.get_candidates.side_effect = lambda req: [Candidate('nonsense', '.', pkg_resources.parse_version('1.0'),
-                                                              RequiresPython(()), 'any', '')]
+                                                              None, 'any', '')]
     multi = MultiRepository(repo1, repo2, repo3)
 
     result = multi.get_candidate(pkg_resources.Requirement('nonsense'))

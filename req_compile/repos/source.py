@@ -45,7 +45,7 @@ class SourceRepository(Repository):
                             result.name,
                             root,
                             result.version,
-                            req_compile.repos.repository.RequiresPython(None),
+                            None,
                             'any',
                             None,
                             req_compile.repos.repository.DistributionType.SOURCE)

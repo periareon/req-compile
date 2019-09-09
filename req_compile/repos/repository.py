@@ -4,7 +4,6 @@ import logging
 import struct
 import enum
 import platform
-import re
 import sys
 import six
 
@@ -45,25 +44,26 @@ PLATFORM_TAGS = _get_platform_tags()
 EXTENSIONS = ('.whl', '.tar.gz', '.tgz', '.zip')
 
 
-class DistributionType(enum.Enum):
+class RepositoryInitializationError(ValueError):
+    """Failure to initialize a repository"""
+    def __init__(self, repo_type, message):
+        super(RepositoryInitializationError, self).__init__(message)
+        self.type = repo_type
+
+
+class DistributionType(enum.IntEnum):
     SOURCE = 2
     WHEEL = 1
     SDIST = 0
 
 
-class RequiresPython(object):
-    OPS = {
-        '<': lambda x, y: x < y,
-        '>': lambda x, y: x > y,
-        '==': lambda x, y: x == y,
-        '!=': lambda x, y: x != y,
-        '>=': lambda x, y: x >= y,
-        '<=': lambda x, y: x <= y
-    }
-    SYS_PY_VERSION = pkg_resources.parse_version(sys.version.split(' ')[0].replace('+', ''))
-    SYS_PY_MAJOR = pkg_resources.parse_version('{}'.format(sys.version_info.major))
-    SYS_PY_MAJOR_MINOR = pkg_resources.parse_version('{}.{}'.format(sys.version_info.major,
-                                                                    sys.version_info.minor))
+class PythonVersionRequirement(object):
+
+    def check_compatibility(self):
+        raise NotImplementedError
+
+
+class WheelVersionTags(PythonVersionRequirement):
     WHEEL_VERSION_TAGS = ('py2' if six.PY2 else 'py3',
                           INTERPRETER_TAG + PY_VERSION_NUM,
                           'py' + PY_VERSION_NUM)
@@ -72,37 +72,25 @@ class RequiresPython(object):
         self.py_version = py_version
 
     def check_compatibility(self):
-        if self.py_version is None or self.py_version == ():
+        if not self.py_version:
             return True
-        if isinstance(self.py_version, tuple):
-            return any(version in RequiresPython.WHEEL_VERSION_TAGS
-                       for version in self.py_version)
+        return any(version in WheelVersionTags.WHEEL_VERSION_TAGS
+                   for version in self.py_version)
 
-        return all(self._check_py_constraint(part) for part in self.py_version.split(','))
+    def __str__(self):
+        if self.py_version is None or self.py_version == ():
+            return 'any'
 
-    @classmethod
-    def _check_py_constraint(cls, version_constraint):
-        ref_version = cls.SYS_PY_VERSION
+        return '.'.join(sorted(self.py_version))
 
-        version_part = re.split('[!=<>~]', version_constraint)[-1].strip()
-        operator = version_constraint.replace(version_part, '').strip()
-        if version_part.endswith('.*'):
-            version_part = version_part.replace('.*', '')
-            dotted_parts = len(version_part.split('.'))
-            if dotted_parts == 2:
-                ref_version = cls.SYS_PY_MAJOR_MINOR
-            if dotted_parts == 1:
-                ref_version = cls.SYS_PY_MAJOR
-        version = pkg_resources.parse_version(version_part)
-        return cls.OPS[operator](ref_version, version)
+    def __eq__(self, other):
+        return self.py_version == other.py_version
 
     @property
     def tag_score(self):
         result = 100
         version_val = None
-        if not isinstance(self.py_version, tuple):
-            version_val = self.py_version
-        elif len(self.py_version) == 1:
+        if len(self.py_version) == 1:
             version_val = self.py_version[0]
 
         if version_val is not None:
@@ -114,19 +102,6 @@ class RequiresPython(object):
                 pass
 
         return result
-
-    def __eq__(self, other):
-        return self.py_version == other.py_version
-
-    def __str__(self):
-        if self.py_version is None or self.py_version == ():
-            return 'any'
-
-        if isinstance(self.py_version, tuple):
-            return '.'.join(sorted(self.py_version))
-
-
-        return ''
 
 
 class Candidate(object):  # pylint: disable=too-many-instance-attributes
@@ -141,7 +116,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
             py_version (RequiresPython): Python version
             plat (str):
             link:
-            type:
+            candidate_type:
         """
         self.name = name
         self.filename = filename
@@ -157,16 +132,9 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
 
         self.preparsed = None
 
-    def _calculate_tag_score(self):
-        tag_score = self.py_version.tag_score
-        if platform != 'any':
-            tag_score += 1000
-
-        return tag_score
-
     @property
     def tag_score(self):
-        result = self.py_version.tag_score
+        result = self.py_version.tag_score if self.py_version is not None else 0
         if platform != 'any':
             result += 1000
 
@@ -209,25 +177,22 @@ class NoCandidateException(Exception):
         return 'NoCandidateException - no candidates found for "{}"'.format(self.req.name)
 
 
-def process_distribution(source, filename, py_version=None):
+def process_distribution(source, filename):
     candidate = None
     if '.whl' in filename:
-        candidate = _wheel_candidate(source, filename, py_version=py_version)
+        candidate = _wheel_candidate(source, filename)
     elif '.tar.gz' in filename or '.tgz' in filename or '.zip' in filename:
-        candidate = _tar_gz_candidate(source, filename, py_version=py_version)
+        candidate = _tar_gz_candidate(source, filename)
     return candidate
 
 
-def _wheel_candidate(source, filename, py_version=None):
+def _wheel_candidate(source, filename):
     data_parts = filename.split('-')
     name = data_parts[0]
     version = pkg_resources.parse_version(data_parts[1])
     plat = data_parts[4].split('.')[0]
 
-    if py_version is not None:
-        requires_python = RequiresPython(py_version)
-    else:
-        requires_python = RequiresPython(tuple(data_parts[2].split('.')))
+    requires_python = WheelVersionTags(tuple(data_parts[2].split('.')))
 
     return Candidate(name,
                      filename,
@@ -238,9 +203,9 @@ def _wheel_candidate(source, filename, py_version=None):
                      candidate_type=DistributionType.WHEEL)
 
 
-def _tar_gz_candidate(source, filename, py_version=None):
+def _tar_gz_candidate(source, filename):
     name, version = req_compile.metadata.parse_source_filename(filename)
-    return Candidate(name, filename, version, RequiresPython(py_version), 'any',
+    return Candidate(name, filename, version, None, 'any',
                      source, candidate_type=DistributionType.SDIST)
 
 
@@ -324,7 +289,7 @@ class Repository(BaseRepository):
 
             for candidate in candidates:
                 check_level += 1
-                if not candidate.py_version.check_compatibility():
+                if candidate.py_version is not None and not candidate.py_version.check_compatibility():
                     continue
 
                 check_level += 1

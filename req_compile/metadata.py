@@ -248,6 +248,8 @@ def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many
 
             if setup_file is None and info_name.endswith('setup.py') and info_name.count('/') <= 1:
                 setup_file = info_name
+                if extractor_type is NonExtractor:
+                    break
 
         results = None
 

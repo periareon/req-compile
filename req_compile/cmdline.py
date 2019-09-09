@@ -22,11 +22,13 @@ from req_compile.compile import perform_compile
 from req_compile.config import read_pip_default_index
 from req_compile.repos.findlinks import FindLinksRepository
 from req_compile.repos.pypi import PyPIRepository
-from req_compile.repos.repository import CantUseReason, sort_candidates, NoCandidateException
+from req_compile.repos.repository import CantUseReason, sort_candidates, NoCandidateException, \
+    RepositoryInitializationError
 from req_compile.repos.multi import MultiRepository
 from req_compile.repos.solution import SolutionRepository
 from req_compile.repos.source import SourceRepository
 from req_compile.versions import is_possible
+from req_compile.dists import RequirementsFile, DistInfo
 
 # Blacklist of requirements that will be filtered out of the output
 BLACKLIST = [
@@ -40,7 +42,7 @@ def _cantusereason_to_text(reason):
         return 'platform mismatch {}'.format(req_compile.repos.repository.PLATFORM_TAGS)
     if reason == CantUseReason.WRONG_PYTHON_VERSION:
         return 'python version/interpreter mismatch ({})'.format(', '.join(
-            req_compile.repos.repository.RequiresPython.WHEEL_VERSION_TAGS))
+            req_compile.repos.repository.WheelVersionTags.WHEEL_VERSION_TAGS))
     if reason == CantUseReason.IS_PRERELEASE:
         return 'prereleases not used'
 
@@ -84,12 +86,13 @@ def _generate_no_candidate_display(req, repo, dists, failure):
 
     paths = _find_paths_to_root(failing_node)
     for path in paths:
+        print('  ', end='')
         for idx, node in enumerate(path[:-1]):
             if idx > 0:
                 if node.metadata is path[idx - 1].metadata:
                     continue
             node_str = node.metadata.to_definition((node.extra,) if node.extra else None)[0]
-            print('  ' + node_str + ' → ', end='', file=sys.stderr)
+            print(node_str + ' -> ', end='', file=sys.stderr)
         print(path[-2].dependencies[failing_node], file=sys.stderr)
 
     if can_satisfy:
@@ -129,7 +132,7 @@ def _dump_repo_candidates(req, repos):
             print('  No candidates found', file=sys.stderr)
 
 
-def _create_req_from_path(path, extras, extra_source_repos):
+def _create_req_from_path(path):
     """
 
     Args:
@@ -138,45 +141,31 @@ def _create_req_from_path(path, extras, extra_source_repos):
     Returns:
 
     """
-    # Check if any extras were specified
-    if '[' in path and path[-1] == ']':
-        extra_idx = path.index('[')
-        extras = extras or []
-        extras += extras + [s.strip() for s in path[extra_idx + 1:-1].split(',')]
-        path = path[:extra_idx]
-
     dist = req_compile.metadata.extract_metadata(path)
+    dist.meta = True
     if dist is None:
         raise ValueError(
             'Input arg "{}" is not directory containing setup.py or requirements file'.format(path))
-    source_dist_name = dist.name
-    if extras:
-        source_dist_name += '[{}]'.format(','.join(extras))
-    if extra_source_repos is not None:
-        extra_source_repos.append(path)
-    return [utils.parse_requirement('{}=={}'.format(source_dist_name, dist.version))]
+    return dist
 
 
-def _create_input_reqs(input_arg, extras=None, extra_source_repos=None):
+def _create_input_reqs(input_arg):
     input_arg = input_arg.strip()
     if input_arg == '-':
         stdin_contents = sys.stdin.readlines()
 
         def _create_stdin_input_req(line):
             try:
-                return _create_input_reqs(line, extras=extras,
-                                          extra_source_repos=extra_source_repos)
+                return _create_input_reqs(line)
             except ValueError:
                 return (utils.parse_requirement(line),)
 
-        return list(itertools.chain(*[_create_stdin_input_req(line)
-                                      for line in stdin_contents]))
+        return DistInfo('-', None, list(itertools.chain(*[_create_stdin_input_req(line)
+                                                          for line in stdin_contents])), meta=True)
 
-    if os.path.isdir(input_arg):
-        return _create_req_from_path(input_arg, extras, extra_source_repos)
     if os.path.isfile(input_arg):
-        return utils.reqs_from_files([input_arg])
-    return _create_req_from_path(input_arg, extras, extra_source_repos)
+        return RequirementsFile.from_file(input_arg)
+    return _create_req_from_path(input_arg)
 
 
 # pylint: disable=too-many-locals,too-many-branches
@@ -200,26 +189,20 @@ def run_compile(input_args,
     """
     extra_sources = []
     if not input_args:
+        # Check to see whether stdin is hooked up to piped data or the console
         if not sys.stdin.isatty():
             input_args = ('-',)
         else:
             input_args = ('.',)
 
-    input_reqs = {
-        input_arg: _create_input_reqs(input_arg, extras, extra_sources)
-        for input_arg in input_args
-    }
+    input_reqs = [_create_input_reqs(input_arg) for input_arg in input_args]
     if extra_sources:
-        # remove_source = True
         # Add the sources provided to the search repos
         repo = MultiRepository(*([SourceRepository(source) for source in extra_sources] + [repo]))
 
-    constraint_reqs = {}
+    constraint_reqs = None
     if constraint_files is not None:
-        constraint_reqs = {
-            input_arg: _create_input_reqs(input_arg, extras, extra_sources)
-            for input_arg in constraint_files
-        }
+        constraint_reqs = [_create_input_reqs(input_arg) for input_arg in constraint_files]
 
     try:
         results, roots = perform_compile(input_reqs, repo, extras=extras,
@@ -248,7 +231,7 @@ def run_compile(input_args,
             fmt += '  # {annotation}{constraints}'
 
         if annotate_source:
-            repo_mapping = _annotate(input_reqs, repo)
+            repo_mapping = _generate_repo_header(input_reqs, repo)
         if lines:
             # left_column_len = max(len(x[0][0]) + len(x[0][1]) + 2 for x in lines)
             annotation = ''
@@ -269,20 +252,27 @@ def run_compile(input_args,
         sys.exit(1)
 
 
-def _annotate(input_reqs, repos):
+def _generate_repo_header(input_reqs, repos):
+    """Generate the header used in --annotate mode. Produces a mapping from repo to integer to mark
+    each line
+
+    Args:
+        input_reqs (list[RequirementsContainer]): Input
+
+    """
     repo_mapping = {}
     qer_req = pkg_resources.working_set.find(pkg_resources.Requirement.parse('req_compile'))
-    print('# Compiled by Qer Requirements Compiler ({}) on {} UTC'.format(
+    print('# Compiled by Req-Compile Requirements Compiler ({}) on {} UTC'.format(
         qer_req.version if qer_req else 'dev',
         datetime.datetime.utcnow()))
     print('#')
     print('# Inputs:')
     for input_arg in input_reqs:
-        input_to_print = input_arg
+        input_to_print = input_arg.name
         if input_arg == '-':
-            input_to_print = list(input_reqs[input_arg])
-        elif os.path.exists(input_arg):
-            input_to_print = os.path.abspath(input_arg)
+            input_to_print = list(input_arg.reqs)
+        elif os.path.exists(input_arg.name):
+            input_to_print = os.path.abspath(input_arg.name)
         print('# {}'.format(input_to_print))
     print('#')
     print('# Repositories (this annotation produced by --annotate):')
@@ -326,6 +316,7 @@ def build_repo(solutions, upgrade_packages,
 
 
 class IndentFilter(logging.Filter):
+    """A filter to indent to a level specified by the depth attribute of a logging record"""
     def filter(self, record):
         depth = getattr(record, 'depth', 0)
         record.msg = (' ' * depth) + record.msg
@@ -335,7 +326,7 @@ class IndentFilter(logging.Filter):
 def compile_main(args=None):
     logging.basicConfig(level=logging.ERROR)
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description='Req-Compile: Python requirements compiler')
     group = parser.add_argument_group('requirement compilation')
     group.add_argument('requirement_files', nargs='*',
                        metavar='requirements_file',
@@ -365,11 +356,15 @@ def compile_main(args=None):
     add_repo_args(parser)
 
     args = parser.parse_args(args=args)
+    logger = logging.getLogger('req_compile')
+
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG, stream=sys.stderr)
-        logging.getLogger('req_compile').setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
 
-        logging.getLogger('req_compile.compile').addFilter(IndentFilter())
+        logger.getChild('compile').addFilter(IndentFilter())
+    else:
+        logger.setLevel(logging.CRITICAL)
 
     wheeldir = args.wheel_dir
     if wheeldir:
@@ -397,6 +392,11 @@ def compile_main(args=None):
                     args.annotate,
                     args.no_comments,
                     args.no_pins)
+    except RepositoryInitializationError as ex:
+        logger.exception('Error initialization repository')
+        print('Error initializing {}: {}'.format(
+            ex.type.__name__, ex
+        ), file=sys.stderr)
     finally:
         if delete_wheeldir:
             shutil.rmtree(wheeldir)

@@ -7,6 +7,7 @@ import pkg_resources
 
 from req_compile.cmdline import add_repo_args, build_repo
 from req_compile.repos.pypi import PyPIRepository
+from req_compile.repos.repository import sort_candidates
 from req_compile.repos.source import SourceRepository
 
 
@@ -37,7 +38,7 @@ def candidates_main():
         req = None
         if args.project_name:
             req = pkg_resources.Requirement.parse(args.project_name)
-        candidates = repo.get_candidates(req)
+        candidates = sort_candidates(repo.get_candidates(req))
         for candidate in candidates:
             if args.paths or args.paths_only:
                 print(candidate.filename, end='')

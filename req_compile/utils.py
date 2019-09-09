@@ -47,7 +47,18 @@ def reqs_from_files(requirements_files):
 
 @lru_cache(maxsize=None)
 def parse_requirement(req_text):
-    if not req_text.strip():
+    """
+    Parse a string into a Requirement object
+
+    Args:
+        req_text (str): The pkg_resources style requirement string,
+            e.g. flask==1.1 ; python_version >= '3.0'
+
+    Returns:
+        (pkg_resources.Requirement) The parsed requirement
+    """
+    req_text = req_text.strip()
+    if not req_text:
         return None
     if req_text[0] == '#':
         return None
@@ -75,7 +86,7 @@ def merge_extras(extras1, extras2):
         return extras2
     if not extras2:
         return extras1
-    return tuple(sorted(list(set(extras1) | set(extras2))))
+    return tuple(sorted(set(extras1) | set(extras2)))
 
 
 def merge_requirements(req1, req2):

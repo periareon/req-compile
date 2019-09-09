@@ -17,7 +17,7 @@ Req-Compile is a Python work-in-progress requirements compiler geared toward lar
 * Produce an output file consisting of fully constrained exact versions of your requirements
 * Identify sources of constraints on your requirements
 * Constrain your output requirements using requirements that will not be included in the output
-* Save distributions that are downloaded while compiling
+* Save distributions that are downloaded while compiling in a configurable location
 * Use a current solution as a source of requirements. In other words, you can easily compile a subset from an existing solution.
 
 Why use it?
@@ -26,7 +26,8 @@ Why use it?
 
 * Does not allow you to use constraints that are not included in the final output
 * Provides no tools to track down where conflicting constraints originate
-* Cannot treat source directories recursively as package sources
+* Cannot treat source directories recursively as project sources
+* Does not allow you to configure a storage location for downloaded distributions
 
 Req-Compile has these features, making it an effective tool for large Python projects.
 
@@ -37,7 +38,7 @@ to produce a fully constrained output of ``requirements.txt`` to use to deploy y
 compile ``requirements.txt``. However, if your test requirements will in any way constrain packages you need,
 even those needed transitively, it means you will have tested with different versions than you'll ship.
 
-For this reason, you can user Req-Compile to compile ``requirements.txt`` using ``test-requirements.txt`` as constraints.
+For this reason, you can use Req-Compile to compile ``requirements.txt`` using ``test-requirements.txt`` as constraints.
 
 The Basics
 ----------
@@ -50,8 +51,8 @@ Req-Compile can be simply installed by running::
 
 Two entrypoint scripts are provided::
 
-    req-compile <input reqfile1> ... <input_reqfileN> [--constraints constraint_file] [--index-url https://...]
-    req-hash <input reqfile1> ... <input_reqfileN>
+    req-compile <input reqfile1> ... <input_reqfileN> [--constraints constraint_file] [repositories, such as --index-url https://...]
+    req-candidates [requirement] [repositories, such as --index-url https://...]
 
 Producing output requirements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -79,7 +80,7 @@ Output is always emitted to stdout. Possible inputs include::
     > req-compile .
     # Compiles the current directory (looks for a setup.py)
 
-    > req-compile .[test]
+    > req-compile . --extra test
     # Compiles the current directory with the extra "test"
 
     > req-compile subdir/project
@@ -134,14 +135,6 @@ Why did I just get version 1.11.0 of ``six``? Find out by examining the output::
 
     six==1.11.0  # astroid, pathlib2, pymodbus (==1.11.0), pytest (>=1.10.0), more_itertools (<2.0.0,>=1.0.0)
 
-Hashing input requirements
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-Hash input requirements by allowing Req-Compile to parse, combine, and hash a single list. This will allow
-multiple input files to be logically combined so irrelevant changes don't cause recompilations. For example,
-adding ``tenacity`` to a nested requirements file when ``tenacity`` is already included elsewhere.::
-
-    > req-hash projectreqs.txt
-    dc2f25c1b28226b25961a5320e25c339e630342d0ce700b126a5857eeeb9ba12
 
 Constraining output
 ~~~~~~~~~~~~~~~~~~~
@@ -155,7 +148,7 @@ passed::
     pylint<1.6
 
     > req-compile requirements.txt --constraints test-requirements.txt
-    astroid==1.4.9                          # (via constraints: pylint (<1.5.0,>=1.4.5))
+    astroid==1.4.9                          # pylint (<1.5.0,>=1.4.5)
     lazy-object-proxy==1.3.1                # astroid
     six==1.12.0                             # astroid
     wrapt==1.11.1                           # astroid
@@ -189,9 +182,9 @@ Conflicts will automatically print the source of each conflicting requirement::
     pylint>=1.5
 
     > req-compile projectreqs.txt
-    No version of astroid could satisfy the following requirements:
-       projectreqs.txt requires astroid<1.6
-       pylint 1.9.4 (via projectreqs.txt (>=1.5)) requires astroid<2.0,>=1.6
+    No version could possibly satisfy the following requirements:
+      projectreqs.txt -> astroid<1.6
+      projectreqs.txt -> pylint -> astroid<2.2.0,>=2.0
 
 Saving distributions
 ~~~~~~~~~~~~~~~~~~~~

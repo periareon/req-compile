@@ -8,7 +8,8 @@ from six.moves import map as imap
 
 import req_compile.dists
 import req_compile.utils
-from req_compile.repos.repository import Repository, Candidate, DistributionType, RequiresPython
+from req_compile.repos import RepositoryInitializationError
+from req_compile.repos.repository import Repository, Candidate, DistributionType
 
 
 def _candidate_from_node(node):
@@ -16,7 +17,7 @@ def _candidate_from_node(node):
         node.key,
         node.metadata,
         node.metadata.version,
-        RequiresPython(None),
+        None,
         'any',
         None,
         DistributionType.SOURCE)
@@ -71,7 +72,57 @@ class SolutionRepository(Repository):
         pass
 
 
-def load_from_file(filename, origin=None):  # pylint: disable=too-many-locals
+def _parse_line(result, line, filename, origin):
+    req_part, _, source_part = line.partition('#')
+    req_part = req_part.strip()
+    if not req_part:
+        return
+
+    req = req_compile.utils.parse_requirement(req_part)
+    source_part = source_part.strip()
+
+    if not source_part:
+        raise RepositoryInitializationError(
+            SolutionRepository,
+            'Solution file {} is not fully annotated and cannot be used. Consider'
+            ' compiling the solution against a remote index to add annotations.'.format(
+                filename
+            ))
+
+    if source_part[0] == '[':
+        _, _, source_part = source_part.partition('] ')
+    sources = source_part.split(', ')
+
+    _add_sources(req, sources, result, origin)
+
+
+def _add_sources(req, sources, result, origin):
+    pkg_names = imap(lambda x: x.split(' ')[0], sources)
+    constraints = imap(lambda x: x.split(' ')[1].replace('(', '').replace(')', '') if '(' in x else None, sources)
+    version = req_compile.utils.parse_version(list(req.specifier)[0].version)
+    metadata = req_compile.dists.DistInfo(req.name, version, [])
+    metadata.origin = origin
+    result.add_dist(metadata, None, req)
+    for name, constraints in zip(pkg_names, constraints):
+        if name and not (name.endswith('.txt') or name.endswith('.out') or '\\' in name or '/' in name):
+            constraint_req = req_compile.utils.parse_requirement(name)
+            result.add_dist(constraint_req.name, None, constraint_req)
+            reverse_dep = result[name]
+        else:
+            reverse_dep = None
+        result.add_dist(metadata.name, reverse_dep,
+                        _create_metadata_req(req, metadata, constraints))
+
+
+def _create_metadata_req(req, metadata, constraints):
+    return req_compile.utils.parse_requirement('{}{}{}'.format(
+        metadata.name,
+        ('[' + ','.join(
+            req.extras) + ']') if req.extras else '',
+        constraints if constraints else ''))
+
+
+def load_from_file(filename, origin=None):
     result = req_compile.dists.DistributionCollection()
 
     if filename == '-':
@@ -79,44 +130,12 @@ def load_from_file(filename, origin=None):  # pylint: disable=too-many-locals
     else:
         reqfile = open(filename)
 
-    for line in reqfile.readlines():
-        req_part, _, source_part = line.partition('#')
-        req_part = req_part.strip()
-        if not req_part:
-            continue
-
-        req = req_compile.utils.parse_requirement(req_part)
-        source_part = source_part.strip()
-
-        if source_part[0] == '[':
-            _, _, source_part = source_part.partition('] ')
-        sources = source_part.split(', ')
-
-        pkg_names = imap(lambda x: x.split(' ')[0], sources)
-        constraints = imap(lambda x: x.split(' ')[1].replace('(', '').replace(')', '') if '(' in x else None, sources)
-
-        version = req_compile.utils.parse_version(list(req.specifier)[0].version)
-        metadata = req_compile.dists.DistInfo(req.name, version, [])
-        metadata.origin = origin
-
-        result.add_dist(metadata, None, req)
-
-        for name, constraints in zip(pkg_names, constraints):
-            if name and not (name.endswith('.txt') or name.endswith('.out') or '\\' in name or '/' in name):
-                constraint_req = req_compile.utils.parse_requirement(name)
-                result.add_dist(constraint_req.name, None, constraint_req)
-                reverse_dep = result[name]
-            else:
-                reverse_dep = None
-            result.add_dist(metadata.name, reverse_dep,
-                            req_compile.utils.parse_requirement('{}{}{}'.format(
-                                metadata.name,
-                                ('[' + ','.join(
-                                    req.extras) + ']') if req.extras else '',
-                                constraints if constraints else '')))
-
-    if reqfile is not sys.stdin:
-        reqfile.close()
+    try:
+        for line in reqfile.readlines():
+            _parse_line(result, line, filename, origin)
+    finally:
+        if reqfile is not sys.stdin:
+            reqfile.close()
 
     _remove_nodes(result)
     return result

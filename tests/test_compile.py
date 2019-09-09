@@ -8,6 +8,7 @@ import req_compile.compile
 import req_compile.repos.pypi
 import req_compile.repos.repository
 import req_compile.utils
+from req_compile.dists import DistInfo
 from req_compile.repos.multi import MultiRepository
 from req_compile.repos.source import SourceRepository
 
@@ -35,14 +36,14 @@ def perform_compile(mock_metadata, mock_pypi):
             index = [pkg_resources.Requirement.parse(req) for req in index]
         mock_pypi.load_scenario(scenario, index)
         if constraint_reqs is not None:
-            constraint_reqs = {'test_constraints': [pkg_resources.Requirement.parse(req) for req in constraint_reqs]}
-        else:
-            constraint_reqs = {}
+            constraint_reqs = [DistInfo('test_constraints', None, [pkg_resources.Requirement.parse(req)
+                                                                   for req in constraint_reqs])]
 
         if isinstance(reqs, list):
             reqs = {'test_reqs': reqs}
 
-        input_reqs = {key: [pkg_resources.Requirement.parse(req) for req in value] for key, value in reqs.items()}
+        input_reqs = [DistInfo(key, None, [pkg_resources.Requirement.parse(req) for req in value], meta=True)
+                      for key, value in reqs.items()]
         return _real_outputs(req_compile.compile.perform_compile(
             input_reqs,
             mock_pypi,
@@ -111,17 +112,23 @@ def local_tree():
 
 
 def test_compile_source_user1(local_tree):
-    results = req_compile.compile.perform_compile({'test': [pkg_resources.Requirement.parse('user1')]}, local_tree)
+    results = req_compile.compile.perform_compile([DistInfo('test', None,
+                                                            [pkg_resources.Requirement.parse('user1')], meta=True)],
+                                                  local_tree)
     assert _real_outputs(results) == ['framework==1.0.1', 'user1==2.0.0']
 
 
 def test_compile_source_user2(local_tree):
-    results = req_compile.compile.perform_compile({'test': [pkg_resources.Requirement.parse('user-2')]}, local_tree)
+    results = req_compile.compile.perform_compile([DistInfo('test', None,
+                                                            [pkg_resources.Requirement.parse('user-2')], meta=True)],
+                                                  local_tree)
     assert _real_outputs(results) == ['framework==1.0.1', 'user-2==1.1.0', 'util==8.0.0']
 
 
 def test_compile_source_user2_recursive_root():
     base_dir = os.path.join(os.path.dirname(__file__), 'local-tree')
     repo = SourceRepository(base_dir)
-    results = req_compile.compile.perform_compile({'test': [pkg_resources.Requirement.parse('user-2')]}, repo)
+    results = req_compile.compile.perform_compile([DistInfo('test', None,
+                                                            [pkg_resources.Requirement.parse('user-2')], meta=True)],
+                                                  repo)
     assert _real_outputs(results) == ['framework==1.0.1', 'user-2==1.1.0', 'util==8.0.0']

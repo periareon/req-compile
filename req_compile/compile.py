@@ -3,6 +3,7 @@ import logging
 import sys
 
 import six
+import pkg_resources
 
 import req_compile.dists
 import req_compile.metadata
@@ -12,7 +13,6 @@ from req_compile.repos.source import SourceRepository
 from req_compile.utils import parse_requirement, merge_requirements
 import req_compile.repos.repository
 
-from req_compile.dists import RequirementsFile
 from req_compile.repos.repository import NoCandidateException
 
 MAX_DOWNGRADE = 3
@@ -127,13 +127,13 @@ def perform_compile(input_reqs, repo, extras=None, constraint_reqs=None):
     Perform a compilation using the given inputs and constraints
 
     Args:
-        input_reqs (dict[str, list[pkg_resources.Requirement]]):
+        input_reqs (list[RequirementsContainer]):
             List of mapping of input requirements. If provided a mapping,
             requirements will be kept separate during compilation for better
             insight into the resolved requirements
         repo (req_compile.repos.Repository): Repository to use as a source of
             Python packages.
-        constraint_reqs (dict[str, list[pkg_resources.Requirement]] or None): Constraints to use
+        constraint_reqs (list[RequirementsContainer] or None): Constraints to use
             when compiling
     Returns:
         tuple[DistributionCollection, set[DependencyNode], set[DependencyNode]],
@@ -146,13 +146,20 @@ def perform_compile(input_reqs, repo, extras=None, constraint_reqs=None):
     nodes = set()
     if constraint_reqs is not None:
         for constraint_source in constraint_reqs:
-            constraint_node = results.add_dist(RequirementsFile(constraint_source, constraint_reqs[constraint_source]),
-                                               None, None)
+            constraint_node = results.add_dist(constraint_source, None, None)
             constraint_nodes |= constraint_node
             nodes |= constraint_node
 
     for req_source in input_reqs:
-        nodes |= results.add_dist(RequirementsFile(req_source, input_reqs[req_source]), None, None)
+        reason = None
+        source_dist_name = req_source.name
+        if extras:
+            source_dist_name += '[{}]'.format(','.join(extras))
+        try:
+            reason = pkg_resources.Requirement.parse(source_dist_name)
+        except pkg_resources.RequirementParseError:
+            pass
+        nodes |= results.add_dist(req_source, None, reason)
 
     try:
         for node in nodes:
