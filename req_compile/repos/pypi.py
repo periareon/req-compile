@@ -4,11 +4,11 @@ import os
 import re
 import sys
 from hashlib import sha256
-import requests
 
+import pkg_resources
+import requests
 from six.moves import html_parser
 from six.moves import urllib
-import pkg_resources
 
 try:
     from functools32 import lru_cache
@@ -40,7 +40,10 @@ OPS = {
 def check_python_compatibility(requires_python):
     if requires_python is None:
         return True
-    return all(_check_py_constraint(part) for part in requires_python.split(','))
+    try:
+        return all(_check_py_constraint(part) for part in requires_python.split(','))
+    except ValueError:
+        raise ValueError('Unable to parse requires python expression: {}'.format(requires_python))
 
 
 def _check_py_constraint(version_constraint):
@@ -56,7 +59,10 @@ def _check_py_constraint(version_constraint):
         if dotted_parts == 1:
             ref_version = SYS_PY_MAJOR
     version = pkg_resources.parse_version(version_part)
-    return OPS[operator](ref_version, version)
+    try:
+        return OPS[operator](ref_version, version)
+    except KeyError:
+        raise ValueError('Unable to parse constraint {}'.format(version_constraint))
 
 
 class LinksHTMLParser(html_parser.HTMLParser):
@@ -71,14 +77,23 @@ class LinksHTMLParser(html_parser.HTMLParser):
         self.active_link = None
         if tag == 'a':
             self.active_skip = False
+            requires_python = None
             for attr in attrs:
                 if attr[0] == 'href':
                     self.active_link = self.url, attr[1]
                 elif attr[0] == 'metadata-requires-python' or attr[0] == 'data-requires-python':
-                    self.active_skip = not check_python_compatibility(attr[1])
+                    requires_python = attr[1]
+
+            if requires_python:
+                try:
+                    self.active_skip = not check_python_compatibility(requires_python)
+                except ValueError:
+                    raise ValueError('Failed to parse requires expression "{}" for requirement'.format(
+                        requires_python, self.active_link
+                    ))
 
     def handle_data(self, data):
-        if self.active_link is None:
+        if self.active_link is None or self.active_skip:
             return
         candidate = process_distribution(self.active_link, data)
         if candidate is not None:

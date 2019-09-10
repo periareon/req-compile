@@ -271,7 +271,7 @@ def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many
                     subprocess.check_call([
                         sys.executable,
                         '-m', 'pip', 'wheel',
-                        source_file, '--no-deps', '--no-index', '--wheel-dir', temp_wheeldir
+                        source_file, '--no-deps', '--wheel-dir', temp_wheeldir
                     ])
                     wheel_file = os.path.join(temp_wheeldir, os.listdir(temp_wheeldir)[0])
                     results = _fetch_from_wheel(wheel_file)
