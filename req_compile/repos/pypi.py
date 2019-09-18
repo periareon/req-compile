@@ -4,11 +4,11 @@ import os
 import re
 import sys
 from hashlib import sha256
-
-import pkg_resources
 import requests
+
 from six.moves import html_parser
 from six.moves import urllib
+import pkg_resources
 
 try:
     from functools32 import lru_cache
@@ -88,7 +88,7 @@ class LinksHTMLParser(html_parser.HTMLParser):
                 try:
                     self.active_skip = not check_python_compatibility(requires_python)
                 except ValueError:
-                    raise ValueError('Failed to parse requires expression "{}" for requirement'.format(
+                    raise ValueError('Failed to parse requires expression "{}" for requirement {}'.format(
                         requires_python, self.active_link
                     ))
 
