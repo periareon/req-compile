@@ -225,15 +225,17 @@ def run_compile(input_args,
                        key=lambda x: x[0][0].lower())
 
         fmt = '{key}'
+        line_len = lambda x: len(x[0][0])
         if not no_pins:
             fmt += '=={version}'
+            line_len = lambda x: len(x[0][0]) + len(str(x[0][1]))
         if not no_comments:
-            fmt += '  # {annotation}{constraints}'
+            fmt += '{padding}# {annotation}{constraints}'
 
         if annotate_source:
             repo_mapping = _generate_repo_header(input_reqs, repo)
         if lines:
-            # left_column_len = max(len(x[0][0]) + len(x[0][1]) + 2 for x in lines)
+            left_column_len = max(line_len(x) + 2 for x in lines)
             annotation = ''
             for line in lines:
                 if annotate_source:
@@ -245,7 +247,9 @@ def run_compile(input_args,
                     else:
                         annotation = '[{}] '.format(repo_mapping[source])
 
+                padding = ' ' * (left_column_len - line_len(line))
                 print(fmt.format(key=line[0][0], version=line[0][1],
+                                 padding=padding,
                                  annotation=annotation, constraints=line[1]))
     except (req_compile.repos.repository.NoCandidateException, req_compile.metadata.MetadataError) as ex:
         _generate_no_candidate_display(ex.req, repo, ex.results, ex)

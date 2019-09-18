@@ -36,7 +36,7 @@ class SolutionRepository(Repository):
         if os.path.exists(filename) or filename == '-':
             self.solution = load_from_file(self.filename, origin=self)
         else:
-            print('Solution file {} not found'.format(filename))
+            print('Solution file {} not found'.format(filename), file=sys.stderr)
             self.solution = {}
 
     def __repr__(self):
