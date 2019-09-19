@@ -258,7 +258,9 @@ def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many
         elif metadata_file:
             results = _parse_flat_metadata(extractor.open(metadata_file, encoding='utf-8').read())
 
-        if results is None:
+        # If no metadata exists or the resulting requirements from parsing metadata was empty,
+        # re-parse using setup.py.  Some projects don't produce valid source distributions
+        if results is None or not results.reqs:
             if setup_file is None:
                 raise ValueError('Could not find a setup.py in {}'.format(os.path.basename(source_file)))
             try:
