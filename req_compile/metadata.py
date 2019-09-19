@@ -469,14 +469,14 @@ def get_include():
 
 class FakeNumpyModule(ModuleType):
     def __init__(self, name):
-        ModuleType.__init__(self, name)
+        ModuleType.__init__(self, name)  # pylint: disable=non-parent-init-called,no-member
 
         self.get_include = get_include
 
 
 class FakeCython(ModuleType):
     def __init__(self, name):
-        ModuleType.__init__(self, name)
+        ModuleType.__init__(self, name)  # pylint: disable=non-parent-init-called,no-member
 
     def __call__(self, *args, **kwargs):
         return None

@@ -158,13 +158,13 @@ def test_et_xmlfile(mock_targz):
     assert metadata.version == pkg_resources.parse_version('1.0.1')
 
 
-# def test_compound(mock_targz):
-#     """Test one tar after another directly that have failed in the passed"""
-#     archive = mock_targz('et_xmlfile-1.0.1')
-#     req_compile.metadata.extract_metadata(archive)
-#
-#     archive = mock_targz('ed-1.4')
-#     req_compile.metadata.extract_metadata(archive)
+def test_compound(mock_targz):
+    """Test one tar after another directly that have failed in the passed"""
+    archive = mock_targz('et_xmlfile-1.0.1')
+    req_compile.metadata.extract_metadata(archive)
+
+    archive = mock_targz('ed-1.4')
+    req_compile.metadata.extract_metadata(archive)
 
 
 def test_noname(mock_targz):
@@ -174,12 +174,12 @@ def test_noname(mock_targz):
     assert metadata.version == pkg_resources.parse_version('1.0')
 
 
-# def test_ed(mock_targz):
-#     archive = mock_targz('ed-1.4')
-#
-#     metadata = req_compile.metadata.extract_metadata(archive)
-#     assert metadata.name == 'ed'
-#     assert metadata.version == pkg_resources.parse_version('1.5')
+def test_ed(mock_targz):
+    archive = mock_targz('ed-1.4')
+
+    metadata = req_compile.metadata.extract_metadata(archive)
+    assert metadata.name == 'ed'
+    assert metadata.version == pkg_resources.parse_version('1.5')
 
 
 def test_pyyaml(mock_targz):
