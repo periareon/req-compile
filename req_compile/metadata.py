@@ -469,14 +469,14 @@ def get_include():
 
 class FakeNumpyModule(ModuleType):
     def __init__(self, name):
-        super(FakeNumpyModule, self).__init__(name)
+        ModuleType.__init__(self, name)
 
         self.get_include = get_include
 
 
 class FakeCython(ModuleType):
-    def __init__(self, name):  # pylint: disable=useless-super-delegation
-        super(FakeCython, self).__init__(name)
+    def __init__(self, name):
+        ModuleType.__init__(self, name)
 
     def __call__(self, *args, **kwargs):
         return None
@@ -485,6 +485,8 @@ class FakeCython(ModuleType):
         return iter([])
 
     def __getattr__(self, item):
+        if item == '__path__':
+            return []
         return FakeCython(item)
 
 
@@ -510,7 +512,10 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
     import setuptools.command.sdist
     import setuptools.command.test
     import setuptools.extern  # Extern performs some weird module manipulation we can't handle
-    import importlib.util
+    try:
+        import importlib.util
+    except ImportError:
+        pass
 
     if 'numpy' not in sys.modules:
         sys.modules['numpy'] = FakeNumpyModule('numpy')
@@ -574,9 +579,9 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
         def fake_module_from_spec(spec):
             return import_contents(spec.name, spec.path, spec.contents)
 
-        spec_from_file_location_patch = begin_patch(importlib.util,
+        spec_from_file_location_patch = begin_patch('importlib.util',
                                                     'spec_from_file_location', fake_spec_from_file_location)
-        module_from_spec_patch = begin_patch(importlib.util,
+        module_from_spec_patch = begin_patch('importlib.util',
                                              'module_from_spec', fake_module_from_spec)
         py2_import = begin_patch('builtins', '__import__', fake_import)
         py3_import = begin_patch('__builtin__', '__import__', fake_import)

@@ -32,28 +32,21 @@ from distutils.command.bdist_rpm import bdist_rpm as _bdist_rpm
 from distutils.errors import DistutilsError, CompileError, LinkError, DistutilsPlatformError
 
 if 'setuptools.extension' in sys.modules:
-    print('SETUPTOOLS EXTENSION IS IN BOYS!')
     _Extension = sys.modules['setuptools.extension']._Extension
     sys.modules['distutils.core'].Extension = _Extension
     sys.modules['distutils.extension'].Extension = _Extension
     sys.modules['distutils.command.build_ext'].Extension = _Extension
-else:
-    print('NOT IN OK!')
 with_cython = False
 if 'sdist' in sys.argv:
     # we need cython here
     with_cython = True
 try:
-    print('importing _extension')
     from Cython.Distutils.extension import Extension as _Extension
-    print('import _build_ext')
     from Cython.Distutils import build_ext as _build_ext
     with_cython = True
-    print('WITH CYTHON yes')
 except ImportError:
     if with_cython:
         raise
-    print('NO CYTHON')
 
 try:
     from wheel.bdist_wheel import bdist_wheel
