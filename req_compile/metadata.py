@@ -13,6 +13,7 @@ import tarfile
 import tempfile
 import zipfile
 import functools
+from types import ModuleType
 
 import six
 from six.moves import StringIO
@@ -263,22 +264,36 @@ def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many
         if results is None or not results.reqs:
             if setup_file is None:
                 raise ValueError('Could not find a setup.py in {}'.format(os.path.basename(source_file)))
+
+            # Attempt a set of executions to obtain metadata from the setup.py without having to build
+            # a wheel.  First attempt without mocking __import__ at all. This means that projects
+            # which import a package inside of themselves will not succeed, but all other simple
+            # source distributions will. If this fails, allow mocking of __import__ to extract from
+            # tar files and zip files.  Imports will trigger files to be extracted an executed.  If
+            # this fails, due to true build prerequisites not being satisfied or the mocks being
+            # insufficient, build the wheel and extract the metadata from it.
             try:
                 opener = extractor.relative_opener(fake_setupdir, os.path.dirname(setup_file))
-                results = _parse_setup_py(name, fake_setupdir, opener)
+                results = _parse_setup_py(name, fake_setupdir, opener, False)
             except Exception:  # pylint: disable=broad-except
-                temp_wheeldir = tempfile.mkdtemp()
                 try:
+                    results = _parse_setup_py(name, fake_setupdir, opener, True)
+                except Exception:  # pylint: disable=broad-except
+                    temp_wheeldir = tempfile.mkdtemp()
                     LOG.info('Building wheel file for %s', source_file)
-                    subprocess.check_call([
-                        sys.executable,
-                        '-m', 'pip', 'wheel',
-                        source_file, '--no-deps', '--wheel-dir', temp_wheeldir
-                    ])
-                    wheel_file = os.path.join(temp_wheeldir, os.listdir(temp_wheeldir)[0])
-                    results = _fetch_from_wheel(wheel_file)
-                finally:
-                    shutil.rmtree(temp_wheeldir)
+                    try:
+                        subprocess.check_output([
+                            sys.executable,
+                            '-m', 'pip', 'wheel',
+                            source_file, '--no-deps', '--wheel-dir', temp_wheeldir
+                        ], stderr=subprocess.STDOUT, universal_newlines=True)
+                        wheel_file = os.path.join(temp_wheeldir, os.listdir(temp_wheeldir)[0])
+                        results = _fetch_from_wheel(wheel_file)
+                    except subprocess.CalledProcessError as ex:
+                        raise MetadataError(name, None, ValueError(
+                            'Pip wheel exited with code {}:\n'.format(ex.returncode) + ex.output))
+                    finally:
+                        shutil.rmtree(temp_wheeldir)
         elif egg_info:
             requires_contents = ''
             try:
@@ -408,15 +423,11 @@ def setup(results, *_, **kwargs):
     return FakeResult()
 
 
-@contextlib.contextmanager
-def patch(module, member, new_value, conditional=True):
-    if not conditional:
-        yield
-        return
+def begin_patch(module, member, new_value):
+
     if isinstance(module, str):
         if module not in sys.modules:
-            yield
-            return
+            return None
 
         module = sys.modules[module]
 
@@ -425,16 +436,56 @@ def patch(module, member, new_value, conditional=True):
     else:
         old_member = getattr(module, member)
     setattr(module, member, new_value)
+    return module, member, old_member
+
+
+def end_patch(token):
+    if token is None:
+        return
+
+    module, member, old_member = token
+    if old_member is None:
+        delattr(module, member)
+    else:
+        setattr(module, member, old_member)
+
+
+@contextlib.contextmanager
+def patch(module, member, new_value, conditional=True):
+    if not conditional:
+        yield
+        return
+
+    token = begin_patch(module, member, new_value)
     try:
         yield
     finally:
-        if old_member is None:
-            delattr(module, member)
-        else:
-            setattr(module, member, old_member)
+        end_patch(token)
 
 
-def _parse_setup_py(name, fake_setupdir, opener):  # pylint: disable=too-many-locals,too-many-statements
+def get_include():
+    return ''
+
+
+class FakeNumpyModule(ModuleType):
+    def __init__(self, name):
+        super(FakeNumpyModule, self).__init__(name)
+
+        self.get_include = get_include
+
+
+class FakeCython(ModuleType):
+    def __call__(self, *args, **kwargs):
+        return None
+
+    def __iter__(self):
+        return iter([])
+
+    def __getattr__(self, item):
+        return FakeCython(item)
+
+
+def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disable=too-many-locals,too-many-statements
     # pylint: disable=no-name-in-module,no-member
     # Capture warnings.warn, which is sometimes used in setup.py files
 
@@ -456,6 +507,10 @@ def _parse_setup_py(name, fake_setupdir, opener):  # pylint: disable=too-many-lo
     import setuptools.command.sdist
     import setuptools.command.test
     import setuptools.extern  # Extern performs some weird module manipulation we can't handle
+    import importlib.util
+
+    if 'numpy' not in sys.modules:
+        sys.modules['numpy'] = FakeNumpyModule('numpy')
 
     old_dir = os.getcwd()
 
@@ -487,13 +542,41 @@ def _parse_setup_py(name, fake_setupdir, opener):  # pylint: disable=too-many-lo
         old_cythonize = Cython.Build.cythonize
         Cython.Build.cythonize = lambda *args, **kwargs: ''
     except ImportError:
-        pass
+        sys.modules['Cython'] = FakeCython('Cython')
+        sys.modules['Cython.Build'] = FakeCython('Build')
 
-    fake_import = functools.partial(import_hook, opener)
+    if mock_import:
+        fake_import = functools.partial(import_hook, opener)
 
-    def fake_load_source(modname, filename, filehandle=None):  # pylint: disable=unused-argument
-        with opener(filename) as handle:
-            return import_contents(modname, filename, handle.read())
+        class FakeSpec(object):
+            class Loader(object):
+                def exec_module(self, module):
+                    pass
+
+            def __init__(self, modname, path):
+                self.loader = FakeSpec.Loader()
+                self.name = modname
+                self.path = path
+                with opener(path) as handle:
+                    self.contents = handle.read()
+
+        def fake_load_source(modname, filename, filehandle=None):  # pylint: disable=unused-argument
+            with opener(filename) as handle:
+                return import_contents(modname, filename, handle.read())
+
+        def fake_spec_from_file_location(modname, path, submodule_search_locations=None):
+            return FakeSpec(modname, path)
+
+        def fake_module_from_spec(spec):
+            return import_contents(spec.name, spec.path, spec.contents)
+
+        spec_from_file_location_patch = begin_patch(importlib.util,
+                                                    'spec_from_file_location', fake_spec_from_file_location)
+        module_from_spec_patch = begin_patch(importlib.util,
+                                             'module_from_spec', fake_module_from_spec)
+        py2_import = begin_patch('builtins', '__import__', fake_import)
+        py3_import = begin_patch('__builtin__', '__import__', fake_import)
+        load_source_patch = begin_patch(imp, 'load_source', fake_load_source)
 
     with \
          patch(sys, 'exit', lambda code: None), \
@@ -501,8 +584,6 @@ def _parse_setup_py(name, fake_setupdir, opener):  # pylint: disable=too-many-lo
          patch(sys, 'stdout', StringIO()), \
          patch('builtins', 'open', opener), \
          patch('__builtin__', 'open', opener), \
-         patch('builtins', '__import__', fake_import), \
-         patch('__builtin__', '__import__', fake_import), \
          patch('__builtin__', 'execfile', lambda filename: None), \
          patch(os, 'listdir', lambda path: []), \
          patch(os.path, 'exists', _fake_exists), \
@@ -510,7 +591,6 @@ def _parse_setup_py(name, fake_setupdir, opener):  # pylint: disable=too-many-lo
          patch(io, 'open', opener), \
          patch(codecs, 'open', opener), \
          patch(setuptools, 'setup', setup_with_results), \
-         patch(imp, 'load_source', fake_load_source), \
          patch(distutils.core, 'setup', setup_with_results):
 
         contents = opener('setup.py', encoding='utf-8').read()
@@ -527,6 +607,17 @@ def _parse_setup_py(name, fake_setupdir, opener):  # pylint: disable=too-many-lo
             if old_cythonize is not None:
                 Cython.Build.cythonize = old_cythonize
             sys.path.remove(fake_setupdir)
+
+            if mock_import:
+                end_patch(load_source_patch)
+                end_patch(spec_from_file_location_patch)
+                end_patch(module_from_spec_patch)
+                end_patch(py2_import)
+                end_patch(py3_import)
+
+            for module in list(sys.modules.keys()):
+                if isinstance(module, (FakeCython, FakeNumpyModule)):
+                    del sys.modules[module]
 
     if not results:
         raise ValueError('Distutils/setuptools setup() was not ever '

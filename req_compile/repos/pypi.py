@@ -172,7 +172,10 @@ class PyPIRepository(Repository):
         if index_url.endswith('/'):
             index_url = index_url[:-1]
         self.index_url = index_url
-        self.wheeldir = wheeldir
+        if wheeldir is not None:
+            self.wheeldir = os.path.abspath(wheeldir)
+        else:
+            self.wheeldir = None
         self.allow_prerelease = allow_prerelease
 
         self.session = requests.Session()

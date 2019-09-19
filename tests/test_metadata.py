@@ -223,12 +223,20 @@ def test_billiards(mock_targz):
     assert metadata.version == pkg_resources.parse_version('3.6.0.0')
 
 
-# def test_setup_with_tenacity(mock_targz):
-#     archive = mock_targz('setup-with-tenacity-1.0')
-#
-#     metadata = req_compile.metadata.extract_metadata(archive)
-#     assert metadata.name == 'setup-with-tenacity'
-#     assert metadata.version == pkg_resources.parse_version('1.0')
+def test_setup_with_tenacity(mock_targz):
+    archive = mock_targz('setup-with-tenacity-1.0')
+
+    metadata = req_compile.metadata.extract_metadata(archive)
+    assert metadata.name == 'setup-with-tenacity'
+    assert metadata.version == pkg_resources.parse_version('1.0')
+
+
+def test_setup_with_tenacity_tornado(mock_targz):
+    archive = mock_targz('setup-with-tenacity-tornado-1.0')
+
+    metadata = req_compile.metadata.extract_metadata(archive)
+    assert metadata.name == 'setup-with-tenacity-tornado'
+    assert metadata.version == pkg_resources.parse_version('1.0')
 
 
 def test_non_extractor():
@@ -245,12 +253,12 @@ def test_non_extractor():
     }
 
 
-# def test_pkg_with_cython(mock_source):
-#     path = mock_source('pkg-with-cython-1.0')
-#
-#     metadata = req_compile.metadata.extract_metadata(path)
-#     assert metadata.name == 'pkg-with-cython'
-#     assert metadata.version == pkg_resources.parse_version('1.0')
+def test_pkg_with_cython(mock_source):
+    path = mock_source('pkg-with-cython-1.0')
+
+    metadata = req_compile.metadata.extract_metadata(path)
+    assert metadata.name == 'pkg-with-cython'
+    assert metadata.version == pkg_resources.parse_version('1.0')
 
 
 def test_comtypes_as_source(mock_source):
