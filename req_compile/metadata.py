@@ -475,6 +475,9 @@ class FakeNumpyModule(ModuleType):
 
 
 class FakeCython(ModuleType):
+    def __init__(self, name):  # pylint: disable=useless-super-delegation
+        super(FakeCython, self).__init__(name)
+
     def __call__(self, *args, **kwargs):
         return None
 
@@ -560,7 +563,8 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
                 with opener(path) as handle:
                     self.contents = handle.read()
 
-        def fake_load_source(modname, filename, filehandle=None):  # pylint: disable=unused-argument
+        # pylint: disable=unused-argument
+        def fake_load_source(modname, filename, filehandle=None):
             with opener(filename) as handle:
                 return import_contents(modname, filename, handle.read())
 
