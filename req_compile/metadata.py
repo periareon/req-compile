@@ -276,9 +276,12 @@ def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many
                 opener = extractor.relative_opener(fake_setupdir, os.path.dirname(setup_file))
                 results = _parse_setup_py(name, fake_setupdir, opener, False)
             except Exception:  # pylint: disable=broad-except
+                LOG.warning('Failed to parse %s without import mocks', name, exc_info=True)
                 try:
                     results = _parse_setup_py(name, fake_setupdir, opener, True)
                 except Exception:  # pylint: disable=broad-except
+                    LOG.warning('Failed to parse %s with import mocks', name, exc_info=True)
+
                     temp_wheeldir = tempfile.mkdtemp()
                     LOG.info('Building wheel file for %s', source_file)
                     try:
