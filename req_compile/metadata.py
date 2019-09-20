@@ -630,6 +630,8 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
             for module in list(sys.modules.keys()):
                 if isinstance(module, (FakeCython, FakeNumpyModule)):
                     del sys.modules[module]
+            if 'versioneer' in sys.modules:
+                del sys.modules['versioneer']
 
     if not results:
         raise ValueError('Distutils/setuptools setup() was not ever '
