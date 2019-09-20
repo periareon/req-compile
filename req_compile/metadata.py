@@ -560,7 +560,7 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
     if mock_import:
         fake_import = functools.partial(import_hook, opener)
 
-        class FakeSpec(object):
+        class FakeSpec(object):  # pylint: disable=too-many-instance-attributes
             class Loader(object):
                 def exec_module(self, module):
                     pass
