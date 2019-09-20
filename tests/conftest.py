@@ -1,4 +1,5 @@
 import collections
+import logging
 import os
 from zipfile import ZipFile
 
@@ -15,10 +16,17 @@ from req_compile.repos.solution import load_from_file
 
 
 @pytest.fixture(scope='function', autouse=True)
+def setup_logging(caplog):
+    caplog.set_level(logging.DEBUG, logger="req_compile")
+
+
+@pytest.fixture(scope='function', autouse=True)
 def clear_caches():
     """Fixture to automatically clear the LRU cache for
     the requirement parsing cache"""
     req_compile.utils.parse_requirement.cache_clear()
+    logging.getLogger().debug('HELLO ROOT')
+    logging.getLogger('req_compile').debug('HELLO')
 
 
 @pytest.fixture

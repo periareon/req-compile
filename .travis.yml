@@ -25,4 +25,4 @@ install:
 - python setup.py -q install
 script:
 - pylint -rn req_compile
-- pytest tests -v --log-cli-level DEBUG
+- pytest tests
