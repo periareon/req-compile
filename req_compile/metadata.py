@@ -572,6 +572,9 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
                 self.submodule_search_locations = None
                 self.has_location = True
                 self.origin = path
+                self.cached = False
+                self.parent = None
+                self.loader = None
 
                 with opener(path) as handle:
                     self.contents = handle.read()
