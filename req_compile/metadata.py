@@ -80,7 +80,7 @@ def parse_source_filename(full_filename):
     dash_parts = filename.split('-')
     version_start = None
     for idx, part in enumerate(dash_parts):
-        if part[0].isdigit() and idx != 0:
+        if idx != 0 and (part[0].isdigit() or (len(part) > 1 and part[0].lower() == 'v' and part[1].isdigit())):
             version_start = idx
             break
 
@@ -272,7 +272,8 @@ def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many
         # package has no requirements (or they are correctly resolved from the pkg info files, it is
         # not necessary to proceed into the setup.py).
         if setup_file is None:
-            raise ValueError('Could not find a setup.py in {}'.format(os.path.basename(source_file)))
+            LOG.warning('Could not find a setup.py in {}'.format(os.path.basename(source_file)))
+            return None
 
         source_results = None
 
@@ -319,7 +320,8 @@ def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many
                 source_results.version = results.version
 
             if results and results.version and results.version != source_results.version:
-                LOG.debug("Source version didn't match, not using source")
+                LOG.debug("Source version didn't match, not using source (source=%s, other=%s)",
+                          source_results.version, results.version)
             else:
                 results = source_results
 
@@ -432,6 +434,12 @@ def setup(results, *_, **kwargs):
         reqs = [reqs]
     all_reqs = list(utils.parse_requirements(reqs))
     for extra, extra_req_strs in extra_reqs.items():
+        extra = extra.strip()
+        if not extra:
+            continue
+        if extra.startswith(':'):
+            LOG.debug('Unsupported extra: %s', extra)
+            continue
         try:
             if isinstance(extra_req_strs, six.string_types):
                 extra_req_strs = [extra_req_strs]

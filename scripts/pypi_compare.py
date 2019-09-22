@@ -15,10 +15,15 @@ WHITELIST = {
     'acrylamid',  # Adds an install_req at runtime that's not in the dist info
     'adversarial-robustness-toolbox',  # agree to disagree, weird project
     'aegeantools',  # declares its versions wrong
+    'ageliaco-rd',  # DocumentTemplate.  I think pip-tools is wrong about this
+    'ageliaco-rd2',  # DocumentTemplate.  I think pip-tools is wrong about this
+    'flask-apiform',  # wrong metadata in the package
+    'flask-async',  # Source version is different from metadata
 }
 
 
-START_WITH = 'affinitic-zamqp'
+#START_WITH = 'aiida-core'
+START_WITH = 'flaskbb-plugin-conversations'
 
 # Python 2.7
 # Kinda bad:
@@ -29,6 +34,7 @@ START_WITH = 'affinitic-zamqp'
 # zope, documenttemplate betas are not always selected correctly
 # adzuki specified < prerelease condition, this caused req-compile to take a prerelease
 # aegeantools 2.0.2.post1 sorted incorrectly
+# africastalking-python had a None candidate (uses a v prefix for versions)
 
 
 class LinksHTMLParser(html_parser.HTMLParser):

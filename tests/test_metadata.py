@@ -333,6 +333,14 @@ def test_scapy(mock_targz):
     assert metadata.version == pkg_resources.parse_version('2.4.0')
 
 
+def test_invalid_extra(mock_targz):
+    archive = mock_targz('invalid-extra-1.0')
+
+    metadata = req_compile.metadata.extract_metadata(archive)
+    assert metadata.name == 'WTForms'
+    assert metadata.version == pkg_resources.parse_version('2.1')
+
+
 # def test_cerberus(mock_targz):
 #     archive = mock_targz('cerberus-1.1')
 #
