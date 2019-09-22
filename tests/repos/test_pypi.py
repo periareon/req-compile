@@ -103,6 +103,8 @@ def test_python_requires_wheel_tags(mocked_responses, tmpdir, mock_py_version, r
     ('3.6.4', '>=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*'),
     ('3.5.0', '==3.5'),
     ('3.2.17', '>=2.7, ==3.*'),
+    ('3.5.4', '~=3.5'),
+    ('3.7', '~=3'),
 ])
 def test_requires_python_compatible(mock_py_version, sys_py_version, py_requires):
     mock_py_version(sys_py_version)
@@ -113,6 +115,9 @@ def test_requires_python_compatible(mock_py_version, sys_py_version, py_requires
     ('2.6.2', '>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*'),
     ('3.2.17', '>=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*'),
     ('3.2.17', '>=2.7, !=3.*'),
+    ('4.1.0', '~=3.5'),
+    ('2.7.2', '~=3.3'),
+    ('2.7.2', '>=3.3,<4')
 ])
 def test_requires_python_incompatible(mock_py_version, sys_py_version, py_requires):
     mock_py_version(sys_py_version)

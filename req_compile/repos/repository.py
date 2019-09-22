@@ -41,7 +41,6 @@ INTERPRETER_TAG = INTERPRETER_TAGS.get(platform.python_implementation(), 'cp')
 PY_VERSION_NUM = str(sys.version_info.major) + str(sys.version_info.minor)
 
 PLATFORM_TAGS = _get_platform_tags()
-EXTENSIONS = ('.whl', '.tar.gz', '.tgz', '.zip')
 
 
 class RepositoryInitializationError(ValueError):
@@ -181,13 +180,17 @@ def process_distribution(source, filename):
     candidate = None
     if '.whl' in filename:
         candidate = _wheel_candidate(source, filename)
-    elif '.tar.gz' in filename or '.tgz' in filename or '.zip' in filename:
+    elif '.tar.gz' in filename or '.tgz' in filename or '.zip' in filename or '.tar.bz2':
         candidate = _tar_gz_candidate(source, filename)
     return candidate
 
 
 def _wheel_candidate(source, filename):
     data_parts = filename.split('-')
+    if len(data_parts) < 5:
+        logging.getLogger('req_compile.repository').debug('Unable to use %s, improper filename', filename)
+        return None
+
     name = data_parts[0]
     version = pkg_resources.parse_version(data_parts[1])
     plat = data_parts[4].split('.')[0]
@@ -281,13 +284,17 @@ class Repository(BaseRepository):
         candidates = self.get_candidates(req)
         return self.do_get_candidate(req, candidates)
 
-    def do_get_candidate(self, req, candidates):
+    def do_get_candidate(self, req, candidates, force_allow_prerelase=False):
         check_level = 1
+        all_prereleases = True
+        allow_prereleases = force_allow_prerelase or self.allow_prerelease or req_compile.utils.has_prerelease(req)
         if candidates:
             candidates = sort_candidates(candidates)
             has_equality = req_compile.utils.is_pinned_requirement(req)
 
             for candidate in candidates:
+                all_prereleases = all_prereleases and candidate.version.is_prerelease
+
                 check_level += 1
                 if candidate.py_version is not None and not candidate.py_version.check_compatibility():
                     continue
@@ -297,18 +304,21 @@ class Repository(BaseRepository):
                     continue
 
                 check_level += 1
-                if not has_equality and not self.allow_prerelease and candidate.version.is_prerelease:
+                if not has_equality and not allow_prereleases and candidate.version.is_prerelease:
                     continue
 
                 check_level += 1
                 if not req.specifier.contains(candidate.version,
-                                              prereleases=has_equality or self.allow_prerelease):
+                                              prereleases=has_equality or allow_prereleases):
                     continue
 
                 check_level += 1
                 if candidate.type == DistributionType.SDIST:
                     self.logger.warning('Considering source distribution for %s', candidate.name)
                 return self.resolve_candidate(candidate)
+
+        if all_prereleases and not allow_prereleases:
+            return self.do_get_candidate(req, candidates, force_allow_prerelase=True)
 
         ex = NoCandidateException(req)
         ex.check_level = check_level

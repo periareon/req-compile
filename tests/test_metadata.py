@@ -14,6 +14,12 @@ def test_a_with_no_extra(metadata_provider):
     assert list(info.requires()) == []
 
 
+def test_parse_flat_metadata_extra_space():
+    results = req_compile.metadata._parse_flat_metadata(open(os.path.join(os.path.dirname(__file__),
+                                                                          'METADATA-extra-space')).read())
+    assert results.requires() == [pkg_resources.Requirement.parse('django')]
+
+
 def test_a_with_extra(metadata_provider):
     info = metadata_provider('normal/a.METADATA')
     assert info.name == 'a'

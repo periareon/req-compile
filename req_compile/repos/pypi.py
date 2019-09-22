@@ -41,7 +41,7 @@ def check_python_compatibility(requires_python):
     if requires_python is None:
         return True
     try:
-        return all(_check_py_constraint(part) for part in requires_python.split(','))
+        return all(_check_py_constraint(part) for part in requires_python.split(',') if part.strip())
     except ValueError:
         raise ValueError('Unable to parse requires python expression: {}'.format(requires_python))
 
@@ -51,6 +51,7 @@ def _check_py_constraint(version_constraint):
 
     version_part = re.split('[!=<>~]', version_constraint)[-1].strip()
     operator = version_constraint.replace(version_part, '').strip()
+
     if version_part.endswith('.*'):
         version_part = version_part.replace('.*', '')
         dotted_parts = len(version_part.split('.'))
@@ -58,7 +59,14 @@ def _check_py_constraint(version_constraint):
             ref_version = SYS_PY_MAJOR_MINOR
         if dotted_parts == 1:
             ref_version = SYS_PY_MAJOR
+
     version = pkg_resources.parse_version(version_part)
+    if operator == '~=':
+        # Convert ~= to the >=, < equivalent check
+        # See: https://packaging.python.org/guides/distributing-packages-using-setuptools/#python-requires
+        major_num = int(str(version_part).split('.')[0])
+        equivalent_check = '>={},<{}'.format(version_part, major_num + 1)
+        return check_python_compatibility(equivalent_check)
     try:
         return OPS[operator](ref_version, version)
     except KeyError:

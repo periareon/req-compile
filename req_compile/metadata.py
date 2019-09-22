@@ -73,13 +73,13 @@ class Extractor(object):
 def parse_source_filename(full_filename):
     filename = full_filename
     filename = filename.replace('.tar.gz', '')
+    filename = filename.replace('.tar.bz2', '')
     filename = filename.replace('.zip', '')
-    filename = filename.replace('.tgz', '')
 
     dash_parts = filename.split('-')
     version_start = None
     for idx, part in enumerate(dash_parts):
-        if part[0].isdigit():
+        if part[0].isdigit() and idx != 0:
             version_start = idx
             break
 
@@ -120,8 +120,8 @@ class NonExtractor(Extractor):
 
 
 class TarExtractor(Extractor):
-    def __init__(self, filename):
-        self.tar = tarfile.open(filename, 'r:gz')
+    def __init__(self, ext, filename):
+        self.tar = tarfile.open(filename, 'r:' + ext)
         self.io_open = io.open
 
     def names(self):
@@ -197,9 +197,9 @@ def extract_metadata(filename, origin=None):
     elif ext == '.zip':
         LOG.debug('Extracting from a zipped source package')
         result = _fetch_from_source(filename, ZipExtractor)
-    elif ext in ('.gz', '.tgz'):
-        LOG.debug('Extracting from a tar gz package')
-        result = _fetch_from_source(os.path.abspath(filename), TarExtractor)
+    elif ext in ('.gz', '.bz2'):
+        LOG.debug('Extracting from a tar package')
+        result = _fetch_from_source(os.path.abspath(filename), functools.partial(TarExtractor, ext.replace('.', '')))
     else:
         LOG.debug('Extracting directly from a source directory')
         result = _fetch_from_source(os.path.abspath(filename), NonExtractor)
@@ -254,50 +254,70 @@ def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many
 
         results = None
 
-        if pkg_info_file:
-            results = _parse_flat_metadata(extractor.open(pkg_info_file, encoding='utf-8').read())
-        elif metadata_file:
+        if metadata_file:
             results = _parse_flat_metadata(extractor.open(metadata_file, encoding='utf-8').read())
+        elif pkg_info_file:
+            results = _parse_flat_metadata(extractor.open(pkg_info_file, encoding='utf-8').read())
 
         # If no metadata exists or the resulting requirements from parsing metadata was empty,
         # re-parse using setup.py.  Some projects don't produce valid source distributions
-        if results is None or not results.reqs:
-            if setup_file is None:
-                raise ValueError('Could not find a setup.py in {}'.format(os.path.basename(source_file)))
 
-            # Attempt a set of executions to obtain metadata from the setup.py without having to build
-            # a wheel.  First attempt without mocking __import__ at all. This means that projects
-            # which import a package inside of themselves will not succeed, but all other simple
-            # source distributions will. If this fails, allow mocking of __import__ to extract from
-            # tar files and zip files.  Imports will trigger files to be extracted an executed.  If
-            # this fails, due to true build prerequisites not being satisfied or the mocks being
-            # insufficient, build the wheel and extract the metadata from it.
+        # Requests project is a requirement of req-compile and interferes with resolution. Since this
+        # package has no requirements (or they are correctly resolved from the pkg info files, it is
+        # not necessary to proceed into the setup.py).
+        if setup_file is None:
+            raise ValueError('Could not find a setup.py in {}'.format(os.path.basename(source_file)))
+
+        source_results = None
+
+        # Attempt a set of executions to obtain metadata from the setup.py without having to build
+        # a wheel.  First attempt without mocking __import__ at all. This means that projects
+        # which import a package inside of themselves will not succeed, but all other simple
+        # source distributions will. If this fails, allow mocking of __import__ to extract from
+        # tar files and zip files.  Imports will trigger files to be extracted an executed.  If
+        # this fails, due to true build prerequisites not being satisfied or the mocks being
+        # insufficient, build the wheel and extract the metadata from it.
+        opener = extractor.relative_opener(fake_setupdir, os.path.dirname(setup_file))
+        try:
+            source_results = _parse_setup_py(name, fake_setupdir, opener, False)
+        except Exception:  # pylint: disable=broad-except
+            LOG.warning('Failed to parse %s without import mocks', name, exc_info=True)
             try:
-                opener = extractor.relative_opener(fake_setupdir, os.path.dirname(setup_file))
-                results = _parse_setup_py(name, fake_setupdir, opener, False)
+                source_results = _parse_setup_py(name, fake_setupdir, opener, True)
             except Exception:  # pylint: disable=broad-except
-                LOG.warning('Failed to parse %s without import mocks', name, exc_info=True)
-                try:
-                    results = _parse_setup_py(name, fake_setupdir, opener, True)
-                except Exception:  # pylint: disable=broad-except
-                    LOG.warning('Failed to parse %s with import mocks', name, exc_info=True)
+                LOG.warning('Failed to parse %s with import mocks', name, exc_info=True)
 
-                    temp_wheeldir = tempfile.mkdtemp()
-                    LOG.info('Building wheel file for %s', source_file)
-                    try:
-                        subprocess.check_output([
-                            sys.executable,
-                            '-m', 'pip', 'wheel',
-                            source_file, '--no-deps', '--wheel-dir', temp_wheeldir
-                        ], stderr=subprocess.STDOUT, universal_newlines=True)
-                        wheel_file = os.path.join(temp_wheeldir, os.listdir(temp_wheeldir)[0])
-                        results = _fetch_from_wheel(wheel_file)
-                    except subprocess.CalledProcessError as ex:
-                        raise MetadataError(name, None, ValueError(
-                            'Pip wheel exited with code {}:\n'.format(ex.returncode) + ex.output))
-                    finally:
-                        shutil.rmtree(temp_wheeldir)
-        elif egg_info:
+                temp_wheeldir = tempfile.mkdtemp()
+                LOG.info('Building wheel file for %s', source_file)
+                try:
+                    subprocess.check_output([
+                        sys.executable,
+                        '-m', 'pip', 'wheel',
+                        source_file, '--no-deps', '--wheel-dir', temp_wheeldir
+                    ], stderr=subprocess.STDOUT, universal_newlines=True)
+                    wheel_file = os.path.join(temp_wheeldir, os.listdir(temp_wheeldir)[0])
+                    source_results = _fetch_from_wheel(wheel_file)
+                except subprocess.CalledProcessError as ex:
+                    LOG.warning('Failed to build wheel for %s: %s', name, ex.output, exc_info=True)
+                finally:
+                    shutil.rmtree(temp_wheeldir)
+
+        if source_results is None:
+            LOG.debug('Could not obtain metadata via setup.py')
+        elif source_results.name is None and source_results.version is None:
+            LOG.debug('Source results did not call setup() with valid args. Not using')
+        else:
+            # If the setup.py didn't produce a valid version, use the pkg info one
+            # if present
+            if results and not source_results.version and results.version:
+                source_results.version = results.version
+
+            if results and results.version and results.version != source_results.version:
+                LOG.debug("Source version didn't match, not using source")
+            else:
+                results = source_results
+
+        if egg_info and results and not results.reqs:
             requires_contents = ''
             try:
                 requires_contents = extractor.open(egg_info, encoding='utf-8').read()
@@ -306,6 +326,9 @@ def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many
             results = _parse_requires_file(requires_contents,
                                            results.name,
                                            results.version)
+
+        if results.version is None:
+            results.version = utils.parse_version('0.0.0')
         return results
 
 
@@ -332,9 +355,6 @@ def _parse_flat_metadata(contents):
     raw_reqs = []
 
     for line in contents.split('\n'):
-        if not line.strip():
-            break
-
         if line.lower().startswith('name:'):
             name = line.split(':')[1].strip()
         if line.lower().startswith('version:'):
@@ -353,7 +373,7 @@ class WithDecoding(object):
     def read(self):
         results = self.file.read()
         if self.encoding:
-            results = results.decode(self.encoding)
+            results = results.decode(self.encoding, 'ignore')
         if six.PY2:
             results = str(''.join([i if ord(i) < 128 else ' ' for i in results]))
         return results
@@ -361,13 +381,13 @@ class WithDecoding(object):
     def readline(self):
         results = self.file.readline()
         if self.encoding:
-            results = results.decode(self.encoding)
+            results = results.decode(self.encoding, 'ignore')
         return results
 
     def readlines(self):
         results = self.file.readlines()
         if self.encoding:
-            results = [result.decode(self.encoding) for result in results]
+            results = [result.decode(self.encoding, 'ignore') for result in results]
         return results
 
     def write(self, *args, **kwargs):
@@ -388,14 +408,16 @@ class WithDecoding(object):
         pass
 
 
+def parse_req_with_extra(req_str, extra):
+    return utils.parse_requirement(req_str + ' and extra=="{}"'.format(extra) if ';' in req_str else
+                                   req_str + '; extra=="{}"'.format(extra))
+
+
 def setup(results, *_, **kwargs):
     name = kwargs.get('name', None)
-    version = kwargs.get('version', '0.0.0')
+    version = kwargs.get('version', None)
     reqs = kwargs.get('install_requires', [])
     extra_reqs = kwargs.get('extras_require', {})
-
-    if version is None:
-        version = '0.0.0'
 
     if version is not None and version != '':
         version = pkg_resources.parse_version(str(version))
@@ -409,8 +431,7 @@ def setup(results, *_, **kwargs):
                 extra_req_strs = [extra_req_strs]
             cur_reqs = utils.parse_requirements(extra_req_strs)
             reqs_with_extra_marker = [
-                utils.parse_requirement(str(cur_req) + ' and extra=="{}"'.format(extra) if ';' in str(cur_req) else
-                                        str(cur_req) + '; extra=="{}"'.format(extra))
+                parse_req_with_extra(str(cur_req), extra)
                 for cur_req in cur_reqs]
             all_reqs.extend(reqs_with_extra_marker)
         except pkg_resources.RequirementParseError as ex:
@@ -418,6 +439,7 @@ def setup(results, *_, **kwargs):
                   'from the set:\n{}'.format(str(ex), extra_reqs), file=sys.stderr)
             raise
 
+    name = name.replace(' ', '-')
     results.append(DistInfo(name, version, all_reqs))
 
     class FakeResult(object):
@@ -557,6 +579,12 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
         sys.modules['Cython'] = FakeCython('Cython')
         sys.modules['Cython.Build'] = FakeCython('Build')
 
+    def no_op_call(*args, **kwargs):
+        pass
+
+    def os_error_call(*args, **kwargs):
+        raise OSError('Popen not permitted')
+
     if mock_import:
         fake_import = functools.partial(import_hook, opener)
 
@@ -605,6 +633,9 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
          patch('builtins', 'open', opener), \
          patch('__builtin__', 'open', opener), \
          patch('__builtin__', 'execfile', lambda filename: None), \
+         patch(subprocess, 'check_call', os_error_call), \
+         patch(subprocess, 'check_output', os_error_call), \
+         patch(subprocess, 'Popen', os_error_call), \
          patch(os, 'listdir', lambda path: []), \
          patch(os.path, 'exists', _fake_exists), \
          patch(os, 'chdir', _fake_chdir), \
@@ -653,8 +684,11 @@ def _parse_requires_file(contents, name, version):
     for section in sections:
         if section[0] is None:
             reqs.extend(utils.parse_requirements(section[1]))
-        elif section[0].startswith(':python_version'):
+        elif section[0].startswith(':') or section[0].startswith('python_version'):
             for req in section[1]:
-                reqs.append(utils.parse_requirement(req + ' ' + section[0].replace(':', ';')))
+                reqs.append(utils.parse_requirement(req + ' ; ' + section[0].replace(':', '')))
+        else:
+            for req in section[1]:
+                reqs.append(parse_req_with_extra(req, section[0].strip()))
 
     return DistInfo(name, version, reqs)

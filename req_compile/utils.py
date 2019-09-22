@@ -128,7 +128,7 @@ NAME_CACHE = {}
 def normalize_project_name(project_name):
     if project_name in NAME_CACHE:
         return NAME_CACHE[project_name]
-    value = project_name.lower().replace('-', '_') #.replace('.', '_')
+    value = project_name.lower().replace('-', '_') .replace('.', '_').replace(' ', '_')
     NAME_CACHE[project_name] = value
     return value
 
@@ -160,4 +160,12 @@ def is_pinned_requirement(req):
     """
 
     return any((spec.operator == '==' or spec.operator == '===') and not spec.version.endswith('.*')
+               for spec in req.specifier)
+
+
+def has_prerelease(req):
+    """
+    Returns whether an InstallRequirement has a prerelease specifier
+    """
+    return any(parse_version(spec.version).is_prerelease
                for spec in req.specifier)

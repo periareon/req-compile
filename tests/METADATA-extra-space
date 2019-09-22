@@ -1,0 +1,24 @@
+Metadata-Version: 2.1
+Name: xxxx
+Version: 1.0.1
+Summary: xxxx
+
+Home-page: https://xxx
+Author: xxxx
+Author-email: xxxx
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU General Public License v2 (GPLv2)
+Classifier: License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Framework :: Django
+Description-Content-Type: text/markdown
+Requires-Dist: Django
+
+# XXXX
+
+xxxx

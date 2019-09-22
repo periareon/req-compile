@@ -121,7 +121,7 @@ class DistributionCollection(object):
 
             # Apply the same metadata to all extras
             for reverse_node in base_node.reverse_deps:
-                if reverse_node.req_name == req_name:
+                if utils.normalize_project_name(reverse_node.req_name) == utils.normalize_project_name(req_name):
                     self.update_dists(reverse_node, metadata)
                     nodes.add(reverse_node)
 
@@ -239,7 +239,8 @@ class DistributionCollection(object):
                 for reverse_dep in node.reverse_deps:
                     if reverse_dep.metadata.name == node.metadata.name:
                         if reverse_dep.extra is None:
-                            print('Reverse dep with none extra: {}'.format(reverse_dep))
+                            # print('Reverse dep with none extra: {}'.format(reverse_dep))
+                            pass
                         else:
                             extras.append(reverse_dep.extra)
                         constraints.extend(_build_constraints(reverse_dep))
