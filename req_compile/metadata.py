@@ -75,6 +75,7 @@ def parse_source_filename(full_filename):
     filename = filename.replace('.tar.gz', '')
     filename = filename.replace('.tar.bz2', '')
     filename = filename.replace('.zip', '')
+    filename = filename.replace('.tgz', '')
 
     dash_parts = filename.split('-')
     version_start = None
@@ -90,7 +91,7 @@ def parse_source_filename(full_filename):
         raise ValueError('Package name missing: {}'.format(full_filename))
 
     pkg_name = '-'.join(dash_parts[:version_start])
-    version = utils.parse_version('-'.join(dash_parts[version_start:]))
+    version = utils.parse_version('-'.join(dash_parts[version_start:]).replace('_', '-'))
 
     return pkg_name, version
 
@@ -197,9 +198,14 @@ def extract_metadata(filename, origin=None):
     elif ext == '.zip':
         LOG.debug('Extracting from a zipped source package')
         result = _fetch_from_source(filename, ZipExtractor)
-    elif ext in ('.gz', '.bz2'):
+    elif ext in ('.gz', '.bz2', '.tgz'):
         LOG.debug('Extracting from a tar package')
+        if ext == '.tgz':
+            ext = 'gz'
         result = _fetch_from_source(os.path.abspath(filename), functools.partial(TarExtractor, ext.replace('.', '')))
+    elif ext in ('.egg',):
+        LOG.debug('Attempted to resolve an unsupported format')
+        return None
     else:
         LOG.debug('Extracting directly from a source directory')
         result = _fetch_from_source(os.path.abspath(filename), NonExtractor)

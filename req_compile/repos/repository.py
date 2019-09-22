@@ -178,6 +178,8 @@ class NoCandidateException(Exception):
 
 def process_distribution(source, filename):
     candidate = None
+    if filename.endswith('.egg'):
+        return None
     if '.whl' in filename:
         candidate = _wheel_candidate(source, filename)
     elif '.tar.gz' in filename or '.tgz' in filename or '.zip' in filename or '.tar.bz2':
@@ -192,7 +194,8 @@ def _wheel_candidate(source, filename):
         return None
 
     name = data_parts[0]
-    version = pkg_resources.parse_version(data_parts[1])
+    #  Convert old-style post-versions to new style so it will sort correctly
+    version = pkg_resources.parse_version(data_parts[1].replace('_', '-'))
     plat = data_parts[4].split('.')[0]
 
     requires_python = WheelVersionTags(tuple(data_parts[2].split('.')))
@@ -287,7 +290,7 @@ class Repository(BaseRepository):
     def do_get_candidate(self, req, candidates, force_allow_prerelase=False):
         check_level = 1
         all_prereleases = True
-        allow_prereleases = force_allow_prerelase or self.allow_prerelease or req_compile.utils.has_prerelease(req)
+        allow_prereleases = force_allow_prerelase or self.allow_prerelease
         if candidates:
             candidates = sort_candidates(candidates)
             has_equality = req_compile.utils.is_pinned_requirement(req)
@@ -317,7 +320,7 @@ class Repository(BaseRepository):
                     self.logger.warning('Considering source distribution for %s', candidate.name)
                 return self.resolve_candidate(candidate)
 
-        if all_prereleases and not allow_prereleases:
+        if (all_prereleases or req_compile.utils.has_prerelease(req)) and not allow_prereleases:
             return self.do_get_candidate(req, candidates, force_allow_prerelase=True)
 
         ex = NoCandidateException(req)

@@ -14,10 +14,11 @@ WHITELIST = {
     'accepts',  # extraordinarily broken tar file
     'acrylamid',  # Adds an install_req at runtime that's not in the dist info
     'adversarial-robustness-toolbox',  # agree to disagree, weird project
+    'aegeantools',  # declares its versions wrong
 }
 
 
-START_WITH = 'adzuki'
+START_WITH = 'affinitic-zamqp'
 
 # Python 2.7
 # Kinda bad:
@@ -27,6 +28,7 @@ START_WITH = 'adzuki'
 # adapter, ValueError: Failed to parse requires expression "~=3.6" for requirement
 # zope, documenttemplate betas are not always selected correctly
 # adzuki specified < prerelease condition, this caused req-compile to take a prerelease
+# aegeantools 2.0.2.post1 sorted incorrectly
 
 
 class LinksHTMLParser(html_parser.HTMLParser):
