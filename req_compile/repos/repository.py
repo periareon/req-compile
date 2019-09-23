@@ -238,6 +238,7 @@ class CantUseReason(enum.Enum):
     WRONG_PLATFORM = 3
     IS_PRERELEASE = 4
     VERSION_NO_SATISFY = 5
+    BAD_METADATA = 6
 
 
 def sort_candidates(candidates):

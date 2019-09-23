@@ -23,11 +23,16 @@ WHITELIST = {
     'pytestmetadata',
     'pytest-molecule',  # req-compile chooses the right non-prerelease version
     'pytest-reana',  # same
+    'pytest-zafira',  # pip-compile is WRONG.  1.0.3 is not compatible with py2
+    'pytgbot',  # pip-compile apparently didn't notice requests[security]
+    'python-active-directory',  # relies on pyldap to be installed.  It's not?
+    'python-afl', 'python-afl-ph4',  # questionable cython practice
+    'python-axolotl',  # non-prerelease
+    'python-bean',  # pip-compile did not deal with incomplete dist correctly. missing requirements.txt
 }
 
 
-#START_WITH = 'aiida-core'
-START_WITH = 'pytest-ui'
+START_WITH = 'python-bean'
 
 # Python 2.7
 # Kinda bad:
@@ -39,6 +44,7 @@ START_WITH = 'pytest-ui'
 # adzuki specified < prerelease condition, this caused req-compile to take a prerelease
 # aegeantools 2.0.2.post1 sorted incorrectly
 # africastalking-python had a None candidate (uses a v prefix for versions)
+# python-conio, 6 is not a valid cantusereason
 
 
 class LinksHTMLParser(html_parser.HTMLParser):

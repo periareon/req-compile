@@ -45,7 +45,8 @@ def _cantusereason_to_text(reason):
             req_compile.repos.repository.WheelVersionTags.WHEEL_VERSION_TAGS))
     if reason == CantUseReason.IS_PRERELEASE:
         return 'prereleases not used'
-
+    if reason == CantUseReason.BAD_METADATA:
+        return 'bad metadata'
     return 'unknown'
 
 
