@@ -3,6 +3,8 @@ from __future__ import print_function
 import collections
 import copy
 import itertools
+import logging
+
 import six
 
 from req_compile import utils
@@ -71,6 +73,7 @@ def _build_constraints(root_node, exclude=None):
 class DistributionCollection(object):
     def __init__(self):
         self.nodes = {}  # Dict[str, DependencyNode]
+        self.logger = logging.getLogger('req_compile.dists')
 
     @staticmethod
     def _build_key(name, extra=None):
@@ -85,7 +88,10 @@ class DistributionCollection(object):
             source (DependencyNode, optional): The source of the distribution
             reason (pkg_resources.Requirement, optional):
         """
+        self.logger.debug('Adding dist: %s %s %s', metadata, source, reason)
+
         if reason is not None and len(reason.extras) > 1:
+            self.logger.debug('There reason this dist as included had extras')
             result = None
             for extra in reason.extras:
                 new_req = copy.copy(reason)
@@ -127,9 +133,12 @@ class DistributionCollection(object):
 
         self._discard_metadata_if_necessary(base_node, reason, req_name)
 
-        if source is not None:
+        if source is not None and source.key in self.nodes:
             node.reverse_deps.add(source)
             source.dependencies[node] = reason
+
+        if base_node.key not in self.nodes:
+            raise ValueError('The node {} is gone, while adding'.format(base_node.key))
 
         return nodes if has_metadata else set()
 
@@ -137,6 +146,7 @@ class DistributionCollection(object):
         if base_node.metadata is not None and not base_node.metadata.meta and reason is not None:
             if not reason.specifier.contains(base_node.metadata.version,
                                              prereleases=True):
+                self.logger.debug('Existing solution (%s) invalidated by %s', base_node.metadata, reason)
                 # Discard the metadata
                 self.remove_dists(base_node, remove_upstream=False)
 
@@ -162,6 +172,8 @@ class DistributionCollection(object):
             self.add_dist(req.name, node, req)
 
     def remove_dists(self, node, remove_upstream=True):
+        self.logger.debug('Removing dist(s): %s (upstream = %s)', node, remove_upstream)
+
         if isinstance(node, collections.Iterable):
             for single_node in node:
                 self.remove_dists(single_node)

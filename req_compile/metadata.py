@@ -261,7 +261,10 @@ def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many
         results = None
 
         if metadata_file:
-            results = _parse_flat_metadata(extractor.open(metadata_file, encoding='utf-8').read())
+            try:
+                results = _parse_flat_metadata(extractor.open(metadata_file, encoding='utf-8').read())
+            except OSError:
+                LOG.debug('Could not parse metadata file %s', metadata_file)
         elif pkg_info_file:
             results = _parse_flat_metadata(extractor.open(pkg_info_file, encoding='utf-8').read())
 
@@ -375,6 +378,8 @@ def _parse_flat_metadata(contents):
 
 class WithDecoding(object):
     def __init__(self, wrap, encoding):
+        if wrap is None:
+            raise OSError('File not found: {}'.format(wrap))
         self.file = wrap
         self.encoding = encoding
 

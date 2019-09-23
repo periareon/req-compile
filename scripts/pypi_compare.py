@@ -19,11 +19,13 @@ WHITELIST = {
     'ageliaco-rd2',  # DocumentTemplate.  I think pip-tools is wrong about this
     'flask-apiform',  # wrong metadata in the package
     'flask-async',  # Source version is different from metadata
+    'flaskbb-plugin-conversations',  # unsupported circular dep
+    'pytestmetadata',
 }
 
 
 #START_WITH = 'aiida-core'
-START_WITH = 'flaskbb-plugin-conversations'
+START_WITH = 'pytestmetadata'
 
 # Python 2.7
 # Kinda bad:

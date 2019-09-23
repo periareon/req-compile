@@ -32,7 +32,7 @@ class FakeRepository(Repository):
         raise NoCandidateException(req)
 
     def resolve_candidate(self, candidate):
-        return DistInfo(candidate.name, candidate.version, [])
+        return DistInfo(candidate.name, candidate.version, []), False
 
     def close(self):
         pass
@@ -72,7 +72,7 @@ def test_fetch_in_order():
                                                               None, 'any', '')]
     multi = MultiRepository(repo1, repo2, repo3)
 
-    result = multi.get_candidate(pkg_resources.Requirement('nonsense'))
+    result, cached = multi.get_candidate(pkg_resources.Requirement('nonsense'))
 
     assert repo1.get_candidates.called
     assert repo2.get_candidates.called

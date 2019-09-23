@@ -35,7 +35,7 @@ def test_successful_numpy(mocked_responses, tmpdir, read_contents):
     candidates = repo.get_candidates(pkg_resources.Requirement.parse('numpy'))
 
     # The total is the total number of links - exe links, which we do not support
-    assert len(candidates) == 1127 - 34
+    assert len(candidates) == 1127 # - 34
     assert len(mocked_responses.calls) == 1
 
 
