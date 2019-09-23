@@ -285,6 +285,7 @@ class Repository(BaseRepository):
 
     def get_candidate(self, req):
         candidates = self.get_candidates(req)
+
         return self.do_get_candidate(req, candidates)
 
     def do_get_candidate(self, req, candidates, force_allow_prerelase=False):

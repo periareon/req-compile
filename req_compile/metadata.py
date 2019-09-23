@@ -91,8 +91,17 @@ def parse_source_filename(full_filename):
         raise ValueError('Package name missing: {}'.format(full_filename))
 
     pkg_name = '-'.join(dash_parts[:version_start])
-    version = utils.parse_version('-'.join(dash_parts[version_start:]).replace('_', '-'))
 
+    version_str = '-'.join(dash_parts[version_start:]).replace('_', '-')
+    version_parts = version_str.split('.')
+    for idx, part in enumerate(version_parts):
+        if idx != 0 and (part.startswith('linux') or
+                         part.startswith('windows') or
+                         part.startswith('macos')):
+            version_parts = version_parts[:idx]
+            break
+
+    version = utils.parse_version('.'.join(version_parts))
     return pkg_name, version
 
 
@@ -421,9 +430,9 @@ class WithDecoding(object):
         pass
 
 
-def parse_req_with_extra(req_str, extra):
-    return utils.parse_requirement(req_str + ' and extra=="{}"'.format(extra) if ';' in req_str else
-                                   req_str + '; extra=="{}"'.format(extra))
+def parse_req_with_marker(req_str, marker):
+    return utils.parse_requirement(req_str + ' and {}'.format(marker) if ';' in req_str else
+                                   req_str + '; {}'.format(marker))
 
 
 def setup(results, *_, **kwargs):
@@ -442,17 +451,19 @@ def setup(results, *_, **kwargs):
         extra = extra.strip()
         if not extra:
             continue
-        if extra.startswith(':'):
-            LOG.debug('Unsupported extra: %s', extra)
-            continue
         try:
             if isinstance(extra_req_strs, six.string_types):
                 extra_req_strs = [extra_req_strs]
             cur_reqs = utils.parse_requirements(extra_req_strs)
-            reqs_with_extra_marker = [
-                parse_req_with_extra(str(cur_req), extra)
-                for cur_req in cur_reqs]
-            all_reqs.extend(reqs_with_extra_marker)
+            if extra.startswith(':'):
+                req_with_marker = [
+                    parse_req_with_marker(str(cur_req), extra[1:])
+                    for cur_req in cur_reqs]
+            else:
+                req_with_marker = [
+                    parse_req_with_marker(str(cur_req), 'extra=="{}"'.format(extra))
+                    for cur_req in cur_reqs]
+            all_reqs.extend(req_with_marker)
         except pkg_resources.RequirementParseError as ex:
             print('Failed to parse extra requirement ({}) '
                   'from the set:\n{}'.format(str(ex), extra_reqs), file=sys.stderr)

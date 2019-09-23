@@ -78,6 +78,11 @@ def test_parse_source_post_version():
     assert result == ('post', pkg_resources.parse_version('2.3.1-2'))
 
 
+def test_parse_source_linux_platform():
+    result = req_compile.metadata.parse_source_filename('pytest-ui-0.3b0.linux-x86_64.tar.gz')
+    assert result == ('pytest-ui', pkg_resources.parse_version('0.3beta0'))
+
+
 def test_parse_source_dash_package_name():
     result = req_compile.metadata.parse_source_filename('backports-thing-1.0.1.tar.gz')
     assert result == ('backports-thing', pkg_resources.parse_version('1.0.1'))

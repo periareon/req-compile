@@ -21,11 +21,13 @@ WHITELIST = {
     'flask-async',  # Source version is different from metadata
     'flaskbb-plugin-conversations',  # unsupported circular dep
     'pytestmetadata',
+    'pytest-molecule',  # req-compile chooses the right non-prerelease version
+    'pytest-reana',  # same
 }
 
 
 #START_WITH = 'aiida-core'
-START_WITH = 'pytestmetadata'
+START_WITH = 'pytest-ui'
 
 # Python 2.7
 # Kinda bad:
