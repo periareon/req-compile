@@ -33,7 +33,7 @@ def run_pip_compile(reqfile, index_url=None):
 
 def filter_out_blacklist(req_set):
     return {req for req in req_set
-            if req.name.lower() not in ('setuptools', 'pip', 'distutils', 'distribute', 'documenttemplate')}
+            if req.name.lower() not in ('setuptools', 'pip', 'distutils', 'distribute', 'documenttemplate', 'cython')}
 
 
 def normalize_reqs(req_set):

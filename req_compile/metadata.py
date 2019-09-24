@@ -211,7 +211,8 @@ def extract_metadata(filename, origin=None):
         LOG.debug('Extracting from a tar package')
         if ext == '.tgz':
             ext = 'gz'
-        result = _fetch_from_source(os.path.abspath(filename), functools.partial(TarExtractor, ext.replace('.', '')))
+        result = _fetch_from_source(os.path.abspath(filename),
+                                    functools.partial(TarExtractor, ext.replace('.', '')))
     elif ext in ('.egg',):
         LOG.debug('Attempted to resolve an unsupported format')
         return None
@@ -719,6 +720,6 @@ def _parse_requires_file(contents, name, version):
                 reqs.append(utils.parse_requirement(req + ' ; ' + section[0].replace(':', '')))
         else:
             for req in section[1]:
-                reqs.append(parse_req_with_extra(req, section[0].strip()))
+                reqs.append(parse_req_with_marker(req, 'extra="{}"'.format(section[0].strip())))
 
     return DistInfo(name, version, reqs)
