@@ -402,6 +402,7 @@ def compile_main(args=None):
         print('Error initializing {}: {}'.format(
             ex.type.__name__, ex
         ), file=sys.stderr)
+        sys.exit(1)
     finally:
         if delete_wheeldir:
             shutil.rmtree(wheeldir)

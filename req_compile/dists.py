@@ -79,7 +79,7 @@ class DistributionCollection(object):
     def _build_key(name, extra=None):
         return utils.normalize_project_name(name) + (('[' + extra + ']') if extra else '')
 
-    def add_dist(self, metadata, source, reason):
+    def add_dist(self, metadata, source, reason):  # pylint: disable=too-many-branches
         """
         Add a distribution
 
@@ -319,15 +319,15 @@ class RequirementsFile(RequirementContainer):
 
 
 class DistInfo(RequirementContainer):
-    FORMAT_STRING = '{name}{extras}=={version}'
+    """Metadata describing a distribution of a project"""
 
     def __init__(self, name, version, reqs, meta=False):
         """
         Args:
-            name:
-            version:
-            reqs:
-            meta:
+            name (str): The project name
+            version (pkg_resources.Version): Parsed version of the project
+            reqs (Iterable): The list of requirements for the project
+            meta (bool): Whether or not hte requirement is a meta-requirement
         """
         super(DistInfo, self).__init__(name, meta=meta)
         self.reqs = list(reqs)

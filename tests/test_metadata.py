@@ -4,6 +4,8 @@ import sys
 import six
 
 import pkg_resources
+
+import req_compile.extractor
 import req_compile.metadata
 
 
@@ -190,7 +192,6 @@ def test_ed(mock_targz):
 
     metadata = req_compile.metadata.extract_metadata(archive)
     assert metadata.name == 'ed'
-    assert metadata.version == pkg_resources.parse_version('1.5')
 
 
 def test_pyyaml(mock_targz):
@@ -254,7 +255,7 @@ def test_non_extractor():
     this_path = os.path.dirname(__file__)
     source_path = os.path.join(this_path, 'source-packages', 'comtypes-1.1.7')
 
-    extractor = req_compile.metadata.NonExtractor(source_path)
+    extractor = req_compile.extractor.NonExtractor(source_path)
     all_names = set(extractor.names())
     assert all_names == {
         'comtypes-1.1.7/README',
@@ -339,7 +340,7 @@ def test_scapy(mock_targz):
 
 
 def test_invalid_extra(mock_targz):
-    archive = mock_targz('invalid-extra-1.0')
+    archive = mock_targz('invalid-extra-2.1')
 
     metadata = req_compile.metadata.extract_metadata(archive)
     assert metadata.name == 'WTForms'

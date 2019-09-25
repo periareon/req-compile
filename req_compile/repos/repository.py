@@ -323,8 +323,6 @@ class Repository(BaseRepository):
                 candidate, cached = self.resolve_candidate(candidate)
                 if candidate is not None:
                     return candidate, cached
-                else:
-                    continue
 
         if (all_prereleases or req_compile.utils.has_prerelease(req)) and not allow_prereleases:
             return self.do_get_candidate(req, candidates, force_allow_prerelase=True)

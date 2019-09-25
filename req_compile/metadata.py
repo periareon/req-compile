@@ -9,7 +9,6 @@ import io
 import logging
 import os
 import sys
-import tarfile
 import tempfile
 import zipfile
 import functools
@@ -21,6 +20,7 @@ import pkg_resources
 
 from req_compile import utils
 from req_compile.dists import DistInfo
+from req_compile.extractor import NonExtractor, TarExtractor, ZipExtractor
 from req_compile.importhook import import_hook, import_contents, remove_encoding_lines
 
 LOG = logging.getLogger('req_compile.metadata')
@@ -36,38 +36,6 @@ class MetadataError(Exception):
     def __str__(self):
         return 'Failed to parse metadata for package {} ({}) - {}: {}'.format(
             self.name, self.version, self.ex.__class__.__name__, str(self.ex))
-
-
-class Extractor(object):
-    def names(self):
-        pass
-
-    def open(self, filename, mode='r', encoding=None, errors=None, buffering=False, newline=False):
-        pass
-
-    def close(self):
-        pass
-
-    def relative_opener(self, fake_root, directory):
-        def inner_opener(filename, *args, **kwargs):
-            archive_path = filename
-            if isinstance(filename, int):
-                return self.open(filename, *args, **kwargs)
-            if os.path.isabs(filename):
-                if filename.startswith(fake_root):
-                    archive_path = os.path.relpath(filename, fake_root)
-                else:
-                    return self.open(filename, *args, **kwargs)
-            else:
-                cur = os.getcwd()
-                if cur != fake_root:
-                    archive_path = os.path.relpath(cur, fake_root) + '/' + archive_path
-
-            return self.open(directory + '/' + archive_path, *args, **kwargs)
-        return inner_opener
-
-    def contents(self, name):
-        return self.open(name, encoding='utf-8').read()
 
 
 def parse_source_filename(full_filename):
@@ -103,86 +71,6 @@ def parse_source_filename(full_filename):
 
     version = utils.parse_version('.'.join(version_parts))
     return pkg_name, version
-
-
-class NonExtractor(Extractor):
-    def __init__(self, path):
-        self.path = path
-        self.io_open = io.open
-
-    def names(self):
-        parent_dir = os.path.abspath(os.path.join(self.path, '..'))
-        for root, _, files in os.walk(self.path):
-            rel_root = os.path.relpath(root, parent_dir).replace('\\', '/')
-            for filename in files:
-                yield rel_root + '/' + filename
-
-    def open(self, filename, mode='r', encoding='utf-8', errors=None, buffering=False, newline=False):
-        if not os.path.isabs(filename):
-            parent_dir = os.path.abspath(os.path.join(self.path, '..'))
-            return self.io_open(os.path.join(parent_dir, filename), mode=mode, encoding=encoding)
-        if 'b' in mode:
-            return self.io_open(filename, mode=mode)
-        return self.io_open(filename, mode=mode, encoding=encoding)
-
-    def close(self):
-        pass
-
-
-class TarExtractor(Extractor):
-    def __init__(self, ext, filename):
-        self.tar = tarfile.open(filename, 'r:' + ext)
-        self.io_open = io.open
-
-    def names(self):
-        return (info.name for info in self.tar.getmembers())
-
-    def open(self, filename, mode='r', encoding='utf-8', errors=None, buffering=False, newline=False):
-        if isinstance(filename, int):
-            return self.io_open(filename, mode=mode, encoding=encoding)
-        filename = filename.replace('\\', '/').replace('./', '')
-        if not os.path.isabs(filename):
-            try:
-                handle = self.tar.extractfile(filename)
-                return WithDecoding(handle, encoding=encoding if mode != 'rb' else None)
-            except KeyError:
-                raise IOError('Not found in archive: {}'.format(filename))
-        else:
-            kwargs = {}
-            if 'b' not in mode:
-                kwargs = {'encoding': encoding}
-            return self.io_open(filename, mode=mode, **kwargs)
-
-    def close(self):
-        self.tar.close()
-
-
-class ZipExtractor(Extractor):
-    def __init__(self, filename):
-        self.zfile = zipfile.ZipFile(os.path.abspath(filename), 'r')
-        self.io_open = io.open
-
-    def names(self):
-        return self.zfile.namelist()
-
-    def open(self, filename, mode='r', encoding='utf-8', errors=None, buffering=False, newline=False):
-        if isinstance(filename, int):
-            return self.io_open(filename, mode=mode, encoding=encoding)
-        filename = filename.replace('\\', '/').replace('./', '')
-        if not os.path.isabs(filename):
-            try:
-                output = WithDecoding(StringIO(self.zfile.read(filename).decode(encoding)), None)
-                return output
-            except KeyError:
-                raise IOError('Not found in archive: {}'.format(filename))
-        else:
-            kwargs = {}
-            if 'b' not in mode:
-                kwargs = {'encoding': encoding}
-            return self.io_open(filename, mode=mode, **kwargs)
-
-    def close(self):
-        self.zfile.close()
 
 
 def extract_metadata(filename, origin=None):
@@ -225,7 +113,14 @@ def extract_metadata(filename, origin=None):
     return result
 
 
-def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many-branches,too-many-locals,too-many-statements
+def find_in_archive(extractor, filename, max_depth=None):
+    for info_name in extractor.names():
+        if info_name.lower().endswith(filename) and (max_depth is None or info_name.count('/') <= max_depth):
+            return info_name
+    return None
+
+
+def _fetch_from_source(source_file, extractor_type):
     """
 
     Args:
@@ -238,136 +133,118 @@ def _fetch_from_source(source_file, extractor_type):  # pylint: disable=too-many
     if not os.path.exists(source_file):
         raise ValueError('Source file/path {} does not exist'.format(source_file))
 
-    filename = os.path.basename(source_file)
-    name, _ = parse_source_filename(filename)
+    name, version = parse_source_filename(os.path.basename(source_file))
 
-    if extractor_type is NonExtractor:
+    extractor = extractor_type(source_file)
+    with closing(extractor):
+        results = _fetch_from_setup_py(source_file, name, version, extractor)
+        if results is not None:
+            return results
+
+        metadata_file = find_in_archive(extractor, 'metadata', max_depth=1)
+        if metadata_file is not None:
+            try:
+                return _parse_flat_metadata(extractor.open(metadata_file, encoding='utf-8').read())
+            except OSError:
+                LOG.warning('Could not parse metadata file %s', metadata_file)
+
+        egg_requires_file = find_in_archive(extractor, '.egg-info/requires.txt')
+        if egg_requires_file is not None:
+            requires_contents = extractor.open(egg_requires_file, encoding='utf-8').read()
+            return _parse_requires_file(requires_contents,
+                                        name,
+                                        version)
+
+        return DistInfo(name, version, [])
+
+
+def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disable=too-many-branches
+    """Attempt a set of executions to obtain metadata from the setup.py without having to build
+    a wheel.  First attempt without mocking __import__ at all. This means that projects
+    which import a package inside of themselves will not succeed, but all other simple
+    source distributions will. If this fails, allow mocking of __import__ to extract from
+    tar files and zip files.  Imports will trigger files to be extracted and executed.  If
+    this fails, due to true build prerequisites not being satisfied or the mocks being
+    insufficient, build the wheel and extract the metadata from it.
+
+    Args:
+        source_file (str): The source archive or directory
+        name (str): The project name. Use if it cannot be determined from the archive
+        extractor (Extractor): The extractor to use to obtain files from the archive
+
+    Returns:
+        (DistInfo) The resulting distribution metadata
+    """
+    setup_file = find_in_archive(extractor, 'setup.py', max_depth=1)
+
+    if name == 'setuptools':
+        LOG.debug('Not running setup.py for setuptools')
+        return None
+
+    if setup_file is None:
+        LOG.warning('Could not find a setup.py in %s', os.path.basename(source_file))
+        return None
+
+    if isinstance(extractor, NonExtractor):
         fake_setupdir = source_file
     else:
         fake_setupdir = tempfile.mkdtemp()
         if six.PY2:
             os.mkdir(os.path.join(fake_setupdir, name))
 
-    extractor = extractor_type(source_file)
-    with closing(extractor):
-        metadata_file = None
-        pkg_info_file = None
-        egg_info = None
-        setup_file = None
-
-        for info_name in extractor.names():
-            if info_name.lower().endswith('pkg-info') and info_name.count('/') <= 1:
-                pkg_info_file = info_name
-            elif info_name.endswith('.egg-info/requires.txt'):
-                egg_info = info_name
-            elif info_name.endswith('metadata') and info_name.count('/') <= 1:
-                metadata_file = info_name
-
-            if setup_file is None and info_name.endswith('setup.py') and info_name.count('/') <= 1:
-                setup_file = info_name
-                if extractor_type is NonExtractor:
-                    break
-
-        results = None
-
-        if metadata_file:
-            try:
-                results = _parse_flat_metadata(extractor.open(metadata_file, encoding='utf-8').read())
-            except OSError:
-                LOG.debug('Could not parse metadata file %s', metadata_file)
-        elif pkg_info_file:
-            results = _parse_flat_metadata(extractor.open(pkg_info_file, encoding='utf-8').read())
-
-        # If no metadata exists or the resulting requirements from parsing metadata was empty,
-        # re-parse using setup.py.  Some projects don't produce valid source distributions
-
-        # Requests project is a requirement of req-compile and interferes with resolution. Since this
-        # package has no requirements (or they are correctly resolved from the pkg info files, it is
-        # not necessary to proceed into the setup.py).
-        if setup_file is None:
-            LOG.warning('Could not find a setup.py in {}'.format(os.path.basename(source_file)))
-            return None
-
-        source_results = None
-
-        # Attempt a set of executions to obtain metadata from the setup.py without having to build
-        # a wheel.  First attempt without mocking __import__ at all. This means that projects
-        # which import a package inside of themselves will not succeed, but all other simple
-        # source distributions will. If this fails, allow mocking of __import__ to extract from
-        # tar files and zip files.  Imports will trigger files to be extracted an executed.  If
-        # this fails, due to true build prerequisites not being satisfied or the mocks being
-        # insufficient, build the wheel and extract the metadata from it.
-        opener = extractor.relative_opener(fake_setupdir, os.path.dirname(setup_file))
+    results = None
+    opener = extractor.relative_opener(fake_setupdir, os.path.dirname(setup_file))
+    try:
+        results = _parse_setup_py(name, fake_setupdir, opener, False)
+    except Exception:  # pylint: disable=broad-except
+        LOG.warning('Failed to parse %s without import mocks', name, exc_info=True)
         try:
-            source_results = _parse_setup_py(name, fake_setupdir, opener, False)
+            results = _parse_setup_py(name, fake_setupdir, opener, True)
         except Exception:  # pylint: disable=broad-except
-            LOG.warning('Failed to parse %s without import mocks', name, exc_info=True)
+            LOG.warning('Failed to parse %s with import mocks', name, exc_info=True)
+
+            temp_wheeldir = tempfile.mkdtemp()
+            LOG.info('Building wheel file for %s', source_file)
             try:
-                source_results = _parse_setup_py(name, fake_setupdir, opener, True)
-            except Exception:  # pylint: disable=broad-except
-                LOG.warning('Failed to parse %s with import mocks', name, exc_info=True)
+                subprocess.check_output([
+                    sys.executable,
+                    '-m', 'pip', 'wheel',
+                    source_file, '--no-deps', '--wheel-dir', temp_wheeldir
+                ], stderr=subprocess.STDOUT, universal_newlines=True)
+                wheel_file = os.path.join(temp_wheeldir, os.listdir(temp_wheeldir)[0])
+                results = _fetch_from_wheel(wheel_file)
+            except subprocess.CalledProcessError as ex:
+                LOG.warning('Failed to build wheel for %s: %s', name, ex.output, exc_info=True)
+            finally:
+                shutil.rmtree(temp_wheeldir)
+    finally:
+        if fake_setupdir != source_file:
+            shutil.rmtree(fake_setupdir)
 
-                temp_wheeldir = tempfile.mkdtemp()
-                LOG.info('Building wheel file for %s', source_file)
-                try:
-                    subprocess.check_output([
-                        sys.executable,
-                        '-m', 'pip', 'wheel',
-                        source_file, '--no-deps', '--wheel-dir', temp_wheeldir
-                    ], stderr=subprocess.STDOUT, universal_newlines=True)
-                    wheel_file = os.path.join(temp_wheeldir, os.listdir(temp_wheeldir)[0])
-                    source_results = _fetch_from_wheel(wheel_file)
-                except subprocess.CalledProcessError as ex:
-                    LOG.warning('Failed to build wheel for %s: %s', name, ex.output, exc_info=True)
-                finally:
-                    shutil.rmtree(temp_wheeldir)
+    if results is None or (results.name is None and results.version is None):
+        return None
 
-        if source_results is None:
-            LOG.debug('Could not obtain metadata via setup.py')
-        elif source_results.name is None and source_results.version is None:
-            LOG.debug('Source results did not call setup() with valid args. Not using')
-        else:
-            # If the setup.py didn't produce a valid version, use the pkg info one
-            # if present
-            if results and not source_results.version and results.version:
-                source_results.version = results.version
-
-            if results and results.version and results.version != source_results.version:
-                LOG.debug("Source version didn't match, not using source (source=%s, other=%s)",
-                          source_results.version, results.version)
-            else:
-                results = source_results
-
-        if egg_info and results and not results.reqs:
-            requires_contents = ''
-            try:
-                requires_contents = extractor.open(egg_info, encoding='utf-8').read()
-            except KeyError:
-                pass
-            results = _parse_requires_file(requires_contents,
-                                           results.name,
-                                           results.version)
-
-        if results.version is None:
-            results.version = utils.parse_version('0.0.0')
-        return results
+    if results.name is None:
+        results.name = name
+    if results.version is None or (version and results.version != version):
+        results.version = version or utils.parse_version('0.0.0')
+    return results
 
 
 def _fetch_from_wheel(wheel):
     zfile = zipfile.ZipFile(wheel, 'r')
-    try:
+    with closing(zfile):
         metadata_file = None
         infos = zfile.namelist()
         for info in infos:
-            if info.lower().endswith('metadata') and info.count('/') <= 1:
+            if info.endswith('.dist-info/METADATA'):
                 metadata_file = info
+                break
 
         if metadata_file:
             return _parse_flat_metadata(zfile.read(metadata_file).decode('utf-8'))
 
         return None
-    finally:
-        zfile.close()
 
 
 def _parse_flat_metadata(contents):
@@ -386,51 +263,6 @@ def _parse_flat_metadata(contents):
     return DistInfo(name, version, list(utils.parse_requirements(raw_reqs)))
 
 
-class WithDecoding(object):
-    def __init__(self, wrap, encoding):
-        if wrap is None:
-            raise OSError('File not found: {}'.format(wrap))
-        self.file = wrap
-        self.encoding = encoding
-
-    def read(self):
-        results = self.file.read()
-        if self.encoding:
-            results = results.decode(self.encoding, 'ignore')
-        if six.PY2:
-            results = str(''.join([i if ord(i) < 128 else ' ' for i in results]))
-        return results
-
-    def readline(self):
-        results = self.file.readline()
-        if self.encoding:
-            results = results.decode(self.encoding, 'ignore')
-        return results
-
-    def readlines(self):
-        results = self.file.readlines()
-        if self.encoding:
-            results = [result.decode(self.encoding, 'ignore') for result in results]
-        return results
-
-    def write(self, *args, **kwargs):
-        pass
-
-    def __iter__(self):
-        if self.encoding:
-            return (line.decode(self.encoding) for line in self.file)
-        return iter(self.file)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
-
-    def close(self):
-        pass
-
-
 def parse_req_with_marker(req_str, marker):
     return utils.parse_requirement(req_str + ' and {}'.format(marker) if ';' in req_str else
                                    req_str + '; {}'.format(marker))
@@ -442,7 +274,11 @@ def setup(results, *_, **kwargs):
     reqs = kwargs.get('install_requires', [])
     extra_reqs = kwargs.get('extras_require', {})
 
-    if version is not None and version != '':
+    # pbr uses a dangerous pattern that only works when you build using setuptools
+    if 'pbr' in kwargs:
+        return None
+
+    if version is not None:
         version = pkg_resources.parse_version(str(version))
 
     if isinstance(reqs, str):
@@ -470,9 +306,11 @@ def setup(results, *_, **kwargs):
                   'from the set:\n{}'.format(str(ex), extra_reqs), file=sys.stderr)
             raise
 
-    name = name.replace(' ', '-')
+    if name is not None:
+        name = name.replace(' ', '-')
     results.append(DistInfo(name, version, all_reqs))
 
+    # Some projects inspect the setup() result
     class FakeResult(object):
         def __getattr__(self, item):
             return None
@@ -480,7 +318,6 @@ def setup(results, *_, **kwargs):
 
 
 def begin_patch(module, member, new_value):
-
     if isinstance(module, str):
         if module not in sys.modules:
             return None
@@ -508,6 +345,7 @@ def end_patch(token):
 
 @contextlib.contextmanager
 def patch(module, member, new_value, conditional=True):
+    """Manager a patch in a contextmanager"""
     if not conditional:
         yield
         return
@@ -519,18 +357,20 @@ def patch(module, member, new_value, conditional=True):
         end_patch(token)
 
 
-def get_include():
+def _get_include():
     return ''
 
 
 class FakeNumpyModule(ModuleType):
+    """A module simulating numpy"""
     def __init__(self, name):
         ModuleType.__init__(self, name)  # pylint: disable=non-parent-init-called,no-member
 
-        self.get_include = get_include
+        self.get_include = _get_include
 
 
 class FakeCython(ModuleType):
+    """A module simulating cython"""
     def __init__(self, name):
         ModuleType.__init__(self, name)  # pylint: disable=non-parent-init-called,no-member
 
@@ -565,9 +405,6 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
     # pylint: disable=unused-import,unused-variable
     import codecs
     import distutils.core
-    import setuptools.extension
-    import setuptools.command.sdist
-    import setuptools.command.test
     import setuptools.extern  # Extern performs some weird module manipulation we can't handle
     try:
         import importlib.util
@@ -610,10 +447,10 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
         sys.modules['Cython'] = FakeCython('Cython')
         sys.modules['Cython.Build'] = FakeCython('Build')
 
-    def no_op_call(*args, **kwargs):
+    def no_op_call(*_args, **_kwargs):
         pass
 
-    def os_error_call(*args, **kwargs):
+    def os_error_call(*_args, **_kwargs):
         raise OSError('Popen not permitted')
 
     if mock_import:
@@ -715,11 +552,18 @@ def _parse_requires_file(contents, name, version):
     for section in sections:
         if section[0] is None:
             reqs.extend(utils.parse_requirements(section[1]))
-        elif section[0].startswith(':') or section[0].startswith('python_version'):
-            for req in section[1]:
-                reqs.append(utils.parse_requirement(req + ' ; ' + section[0].replace(':', '')))
         else:
+            extra, _, marker = section[0].partition(':')
             for req in section[1]:
-                reqs.append(parse_req_with_marker(req, 'extra="{}"'.format(section[0].strip())))
+                req = req.strip()
+                if not req:
+                    continue
+
+                if extra:
+                    req = parse_req_with_marker(req, 'extra=="{}"'.format(extra))
+                if marker:
+                    req = parse_req_with_marker(str(req), marker)
+                if req:
+                    reqs.append(req)
 
     return DistInfo(name, version, reqs)
