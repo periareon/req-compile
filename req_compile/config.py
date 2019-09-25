@@ -7,7 +7,7 @@ from six.moves import configparser
 
 def _get_config_paths():
     # Try user specific config file first
-    if sys.platform.startswith('linux2'):
+    if sys.platform.startswith('linux'):
         home = expanduser("~")
         user_config = os.path.join(home, '.config', 'pip', 'pip.conf')
         site_config = '/etc/pip.conf'
