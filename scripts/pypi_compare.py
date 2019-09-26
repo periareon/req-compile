@@ -33,7 +33,7 @@ WHITELIST = {
 }
 
 
-START_WITH = 'python-pyqt5-hexview'
+START_WITH = 'python-readme-generator'
 
 # Python 2.7
 # Kinda bad:
@@ -46,6 +46,7 @@ START_WITH = 'python-pyqt5-hexview'
 # aegeantools 2.0.2.post1 sorted incorrectly
 # africastalking-python had a None candidate (uses a v prefix for versions)
 # python-conio, 6 is not a valid cantusereason
+# python-readme-generator - uses setup.cfg to populate its setup call
 
 
 class LinksHTMLParser(html_parser.HTMLParser):

@@ -268,7 +268,10 @@ def parse_req_with_marker(req_str, marker):
                                    req_str + '; {}'.format(marker))
 
 
-def setup(results, *_, **kwargs):
+def setup(results, *args, **kwargs):
+    if not args and not kwargs:
+        raise ValueError('Must build wheel to parse empty setup()')
+
     name = kwargs.get('name', None)
     version = kwargs.get('version', None)
     reqs = kwargs.get('install_requires', [])
