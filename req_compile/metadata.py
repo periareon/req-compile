@@ -388,7 +388,7 @@ class FakeCython(ModuleType):
 
 # pylint: disable=too-many-branches
 def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disable=too-many-locals,too-many-statements
-    # pylint: disable=no-name-in-module,no-member
+    # pylint: disable=no-name-in-module,no-member,import-outside-toplevel
     # Capture warnings.warn, which is sometimes used in setup.py files
 
     logging.captureWarnings(True)

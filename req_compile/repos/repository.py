@@ -298,6 +298,10 @@ class Repository(BaseRepository):
             has_equality = req_compile.utils.is_pinned_requirement(req)
 
             for candidate in candidates:
+                if candidate.version is None:
+                    self.logger.warning('Found candidate with no version: %s', candidate)
+                    continue
+
                 all_prereleases = all_prereleases and candidate.version.is_prerelease
 
                 check_level += 1
