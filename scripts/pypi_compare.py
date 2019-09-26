@@ -33,7 +33,7 @@ WHITELIST = {
 }
 
 
-START_WITH = 'python-readme-generator'
+START_WITH = 'python-redfish'
 
 # Python 2.7
 # Kinda bad:
