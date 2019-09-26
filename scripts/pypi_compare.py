@@ -29,10 +29,11 @@ WHITELIST = {
     'python-afl', 'python-afl-ph4',  # questionable cython practice
     'python-axolotl',  # non-prerelease
     'python-bean',  # pip-compile did not deal with incomplete dist correctly. missing requirements.txt
+    'python-ping',  # several of the version numbers look like prereleases.  Not sure how pip-compile handles this
 }
 
 
-START_WITH = 'python-package-experiment-acme'
+START_WITH = 'python-pyqt5-hexview'
 
 # Python 2.7
 # Kinda bad:

@@ -33,7 +33,7 @@ class Extractor(object):
                 if cur != fake_root:
                     archive_path = os.path.relpath(cur, fake_root) + '/' + archive_path
 
-            return self.open(directory + '/' + archive_path, *args, **kwargs)
+            return self.open(((directory + '/') if directory else '') + archive_path, *args, **kwargs)
         return inner_opener
 
     def contents(self, name):
@@ -106,7 +106,7 @@ class ZipExtractor(Extractor):
         filename = filename.replace('\\', '/').replace('./', '')
         if not os.path.isabs(filename):
             try:
-                output = WithDecoding(StringIO(self.zfile.read(filename).decode(encoding)), None)
+                output = WithDecoding(StringIO(self.zfile.read(filename).decode(encoding, errors='ignore')), None)
                 return output
             except KeyError:
                 raise IOError('Not found in archive: {}'.format(filename))

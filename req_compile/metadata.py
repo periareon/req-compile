@@ -188,7 +188,7 @@ def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disa
     if isinstance(extractor, NonExtractor):
         fake_setupdir = source_file
     else:
-        fake_setupdir = tempfile.mkdtemp()
+        fake_setupdir = tempfile.mkdtemp(suffix=name)
         if six.PY2:
             os.mkdir(os.path.join(fake_setupdir, name))
 
@@ -512,8 +512,8 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
          patch(setuptools, 'setup', setup_with_results), \
          patch(distutils.core, 'setup', setup_with_results):
 
-        contents = opener('setup.py', encoding='utf-8').read()
         try:
+            contents = opener('setup.py', encoding='utf-8').read()
             if six.PY2:
                 contents = remove_encoding_lines(contents)
 
