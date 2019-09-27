@@ -1,5 +1,6 @@
 import os
 import pkg_resources
+import requests
 
 import responses
 import pytest
@@ -35,7 +36,7 @@ def test_successful_numpy(mocked_responses, tmpdir, read_contents):
     candidates = repo.get_candidates(pkg_resources.Requirement.parse('numpy'))
 
     # The total is the total number of links - exe links, which we do not support
-    assert len(candidates) == 1127 # - 34
+    assert len(candidates) == 1127 - 34
     assert len(mocked_responses.calls) == 1
 
 
@@ -48,6 +49,15 @@ def test_no_candidates(mocked_responses, tmpdir):
 
     assert candidates == []
     assert len(mocked_responses.calls) == 1
+
+
+def test_pypi_500(mocked_responses, tmpdir):
+    wheeldir = str(tmpdir)
+    mocked_responses.add(responses.GET, INDEX_URL + '/numpy/', status=500)
+    repo = PyPIRepository(INDEX_URL, wheeldir)
+
+    with pytest.raises(requests.HTTPError):
+        repo.get_candidates(pkg_resources.Requirement.parse('numpy'))
 
 
 def test_resolve_new_numpy(mocked_responses, tmpdir, read_contents, mocker):

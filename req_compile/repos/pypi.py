@@ -129,6 +129,8 @@ def _scan_page_links(index_url, project_name, session):
         session = requests
     response = session.get(url + '/')
 
+    response.raise_for_status()
+
     parser = LinksHTMLParser(response.url)
     parser.feed(response.content.decode('utf-8'))
 

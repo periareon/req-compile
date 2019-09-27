@@ -43,7 +43,7 @@ WHITELIST = {
 }
 
 
-START_WITH = 'python-spresso'
+START_WITH = 'python-trivia-api'
 
 # Python 2.7
 # Kinda bad:

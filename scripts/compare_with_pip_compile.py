@@ -19,7 +19,7 @@ def run_qer_compile(reqfile, index_url=None):
     error_file, error_name = tempfile.mkstemp()
     try:
         subprocess.check_call([sys.executable, '-m', 'req_compile', reqfile,
-                               '--wheel-dir', '.wheeldir'],
+                               '--wheel-dir', '.wheeldir', '--verbose'],
                               stdout=output_file, stderr=error_file)
         os.lseek(output_file, 0, os.SEEK_SET)
         print('\n' + os.read(output_file, 128000).decode('utf-8') + '\n', file=sys.stderr)
