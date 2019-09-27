@@ -43,7 +43,7 @@ WHITELIST = {
 }
 
 
-START_WITH = 'python-ultimate-guitar'
+START_WITH = 'pytiles'
 
 # Python 2.7
 # Kinda bad:

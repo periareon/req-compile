@@ -177,13 +177,6 @@ def test_compound(mock_targz):
     req_compile.metadata.extract_metadata(archive)
 
 
-def test_noname(mock_targz):
-    archive = mock_targz('noname-1.0')
-
-    metadata = req_compile.metadata.extract_metadata(archive)
-    assert metadata.version == pkg_resources.parse_version('1.0')
-
-
 def test_ed(mock_targz):
     archive = mock_targz('ed-1.4')
 

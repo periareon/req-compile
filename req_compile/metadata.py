@@ -25,6 +25,8 @@ from req_compile.importhook import import_hook, import_contents, remove_encoding
 
 LOG = logging.getLogger('req_compile.metadata')
 
+failed_builds = set()
+
 
 class MetadataError(Exception):
     def __init__(self, name, version, ex):
@@ -138,6 +140,9 @@ def _fetch_from_source(source_file, extractor_type):
 
     name, version = parse_source_filename(os.path.basename(source_file))
 
+    if source_file in failed_builds:
+        raise MetadataError(name, version, Exception('Build has already failed before'))
+
     extractor = extractor_type(source_file)
     with closing(extractor):
         LOG.info('Attempting to fetch metadata from setup.py')
@@ -165,6 +170,7 @@ def _fetch_from_source(source_file, extractor_type):
                 LOG.warning('Failed to load requires.txt')
 
         LOG.warning('No metadata source could be found for the source dist %s', source_file)
+        failed_builds.add(source_file)
         raise MetadataError(name, version, Exception('Invalid project distribution'))
 
 
@@ -422,6 +428,11 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
     import codecs
     import distutils.core
     import setuptools.extern  # Extern performs some weird module manipulation we can't handle
+
+    # A few package we have trouble importing with the importhook
+    import setuptools.command
+    import setuptools.command.sdist
+
     try:
         import importlib.util
     except ImportError:
@@ -511,7 +522,6 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
         load_source_patch = begin_patch(imp, 'load_source', fake_load_source)
 
     with \
-         patch(sys, 'exit', lambda code: None), \
          patch(sys, 'stderr', StringIO()), \
          patch(sys, 'stdout', StringIO()), \
          patch('builtins', 'open', opener), \
@@ -539,7 +549,7 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
             contents = contents.replace('print ', '')
             exec(contents, spy_globals, spy_globals)
         except SystemExit:
-            LOG.warning('setup.py raise SystemExit')
+            LOG.warning('setup.py raised SystemExit')
         finally:
             orig_chdir(old_dir)
             if old_cythonize is not None:

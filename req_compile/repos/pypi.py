@@ -129,7 +129,9 @@ def _scan_page_links(index_url, project_name, session):
         session = requests
     response = session.get(url + '/')
 
-    response.raise_for_status()
+    # Raise for any error status that's not 404
+    if response.status_code != 404:
+        response.raise_for_status()
 
     parser = LinksHTMLParser(response.url)
     parser.feed(response.content.decode('utf-8'))
