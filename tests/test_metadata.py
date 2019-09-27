@@ -1,6 +1,7 @@
 import os
 import sys
 
+import pytest
 import six
 
 import pkg_resources
@@ -75,24 +76,17 @@ def test_pylint_python(metadata_provider):
     assert set(info.requires()) == set(pkg_resources.parse_requirements(expected_reqs))
 
 
-def test_parse_source_post_version():
-    result = req_compile.metadata.parse_source_filename('post-2.3.1-2.tar.gz')
-    assert result == ('post', pkg_resources.parse_version('2.3.1-2'))
-
-
-def test_parse_source_linux_platform():
-    result = req_compile.metadata.parse_source_filename('pytest-ui-0.3b0.linux-x86_64.tar.gz')
-    assert result == ('pytest-ui', pkg_resources.parse_version('0.3beta0'))
-
-
-def test_parse_source_dash_package_name():
-    result = req_compile.metadata.parse_source_filename('backports-thing-1.0.1.tar.gz')
-    assert result == ('backports-thing', pkg_resources.parse_version('1.0.1'))
-
-
-def test_parse_source_dot_package_name():
-    result = req_compile.metadata.parse_source_filename('backports.thing-1.0.1')
-    assert result == ('backports.thing', pkg_resources.parse_version('1.0.1'))
+@pytest.mark.parametrize('filename,result_name,result_version', [
+                         ['post-2.3.1-2.tar.gz', 'post', '2.3.1-2'],
+                         ['pytest-ui-0.3b0.linux-x86_64.tar.gz', 'pytest-ui', '0.3beta0'],
+                         ['backports-thing-1.0.1.tar.gz', 'backports-thing', '1.0.1'],
+                         ['backports-thing-1.0.1.tar.gz', 'backports-thing', '1.0.1'],
+                         ['project-v1.0.tar.gz', 'project', '1.0'],
+                         ['python-project-v2-0.1.1.tar.gz', 'python-project-v2', '0.1.1'],
+])
+def test_parse_source_filename(filename, result_name, result_version):
+    result = req_compile.metadata.parse_source_filename(filename)
+    assert result == (result_name, pkg_resources.parse_version(result_version))
 
 
 def test_extract_tar(mock_targz):

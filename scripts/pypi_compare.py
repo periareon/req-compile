@@ -33,7 +33,7 @@ WHITELIST = {
 }
 
 
-START_WITH = 'python-rqueue'
+START_WITH = 'python-simple-hipchat-v2'
 
 # Python 2.7
 # Kinda bad:
@@ -47,6 +47,7 @@ START_WITH = 'python-rqueue'
 # africastalking-python had a None candidate (uses a v prefix for versions)
 # python-conio, 6 is not a valid cantusereason
 # python-readme-generator - uses setup.cfg to populate its setup call
+# pythonruntimediagnostics - seems very slow (appears to be due to bokeh)
 
 
 class LinksHTMLParser(html_parser.HTMLParser):

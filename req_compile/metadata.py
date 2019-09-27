@@ -48,7 +48,10 @@ def parse_source_filename(full_filename):
     dash_parts = filename.split('-')
     version_start = None
     for idx, part in enumerate(dash_parts):
-        if idx != 0 and (part[0].isdigit() or (len(part) > 1 and part[0].lower() == 'v' and part[1].isdigit())):
+        if idx != 0 and (part[0].isdigit() or
+                         (len(part) > 1 and part[0].lower() == 'v' and part[1].isdigit() and (
+                             idx == len(dash_parts) - 1
+                         ))):
             version_start = idx
             break
 
