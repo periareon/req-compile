@@ -159,7 +159,7 @@ def _fetch_from_source(source_file, extractor_type):
                                         version)
 
         LOG.warning('No metadata source could be found for the source dist %s', source_file)
-        return DistInfo(name, version, [])
+        raise MetadataError(name, version, Exception('Invalid project distribution'))
 
 
 def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disable=too-many-branches

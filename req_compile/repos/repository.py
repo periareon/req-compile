@@ -182,7 +182,7 @@ def process_distribution(source, filename):
         return None
     if '.whl' in filename:
         candidate = _wheel_candidate(source, filename)
-    elif '.tar.gz' in filename or '.tgz' in filename or '.zip' in filename or '.tar.bz2':
+    elif '.tar.gz' in filename or '.tgz' in filename or '.zip' in filename or '.tar.bz2' in filename:
         candidate = _tar_gz_candidate(source, filename)
     return candidate
 

@@ -33,7 +33,7 @@ WHITELIST = {
 }
 
 
-START_WITH = 'python-redfish'
+START_WITH = 'python-rqueue'
 
 # Python 2.7
 # Kinda bad:
