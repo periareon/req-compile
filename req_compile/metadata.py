@@ -137,6 +137,7 @@ def _fetch_from_source(source_file, extractor_type):
 
     extractor = extractor_type(source_file)
     with closing(extractor):
+        LOG.info('Attempting to fetch metadata from setup.py')
         results = _fetch_from_setup_py(source_file, name, version, extractor)
         if results is not None:
             return results
@@ -144,17 +145,20 @@ def _fetch_from_source(source_file, extractor_type):
         metadata_file = find_in_archive(extractor, 'metadata', max_depth=1)
         if metadata_file is not None:
             try:
+                LOG.info('Attempting to fetch metadata from %s', metadata_file)
                 return _parse_flat_metadata(extractor.open(metadata_file, encoding='utf-8').read())
             except OSError:
                 LOG.warning('Could not parse metadata file %s', metadata_file)
 
         egg_requires_file = find_in_archive(extractor, '.egg-info/requires.txt')
         if egg_requires_file is not None:
+            LOG.info('Attempting to fetch metadata from %s', egg_requires_file)
             requires_contents = extractor.open(egg_requires_file, encoding='utf-8').read()
             return _parse_requires_file(requires_contents,
                                         name,
                                         version)
 
+        LOG.warning('No metadata source could be found for the source dist %s', source_file)
         return DistInfo(name, version, [])
 
 
@@ -195,10 +199,14 @@ def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disa
     results = None
     opener = extractor.relative_opener(fake_setupdir, os.path.dirname(setup_file))
     try:
+        LOG.info('Parsing setup.py %s', setup_file)
         results = _parse_setup_py(name, fake_setupdir, opener, False)
+    except SystemExit:
+        LOG.exception('Somehow setup.py raised SystemExit')
     except Exception:  # pylint: disable=broad-except
         LOG.warning('Failed to parse %s without import mocks', name, exc_info=True)
         try:
+            LOG.info('Parsing setup.py %s with archive mocks', setup_file)
             results = _parse_setup_py(name, fake_setupdir, opener, True)
         except Exception:  # pylint: disable=broad-except
             LOG.warning('Failed to parse %s with import mocks', name, exc_info=True)
@@ -271,15 +279,14 @@ def parse_req_with_marker(req_str, marker):
 def setup(results, *args, **kwargs):
     if not args and not kwargs:
         raise ValueError('Must build wheel to parse empty setup()')
+    # pbr uses a dangerous pattern that only works when you build using setuptools
+    if 'pbr' in kwargs:
+        raise ValueError('Must build wheel if pbr is used')
 
     name = kwargs.get('name', None)
     version = kwargs.get('version', None)
     reqs = kwargs.get('install_requires', [])
     extra_reqs = kwargs.get('extras_require', {})
-
-    # pbr uses a dangerous pattern that only works when you build using setuptools
-    if 'pbr' in kwargs:
-        return None
 
     if version is not None:
         version = pkg_resources.parse_version(str(version))
@@ -513,7 +520,8 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
          patch(io, 'open', opener), \
          patch(codecs, 'open', opener), \
          patch(setuptools, 'setup', setup_with_results), \
-         patch(distutils.core, 'setup', setup_with_results):
+         patch(distutils.core, 'setup', setup_with_results), \
+         patch(sys, 'argv', ['setup.py', 'install']):
 
         try:
             contents = opener('setup.py', encoding='utf-8').read()
@@ -524,6 +532,8 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
             # pylint: disable=exec-used
             contents = contents.replace('print ', '')
             exec(contents, spy_globals, spy_globals)
+        except SystemExit:
+            LOG.warning('setup.py raise SystemExit')
         finally:
             orig_chdir(old_dir)
             if old_cythonize is not None:

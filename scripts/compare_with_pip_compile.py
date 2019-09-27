@@ -16,11 +16,21 @@ from req_compile.utils import reqs_from_files, normalize_project_name
 
 def run_qer_compile(reqfile, index_url=None):
     output_file, name = tempfile.mkstemp()
-    subprocess.check_call([sys.executable, '-m', 'req_compile.cmdline', reqfile, '--wheel-dir', '.wheeldir'], stdout=output_file)
-    os.lseek(output_file, 0, os.SEEK_SET)
-    print('\n' + os.read(output_file, 128000).decode('utf-8') + '\n', file=sys.stderr)
-    os.close(output_file)
-    return name
+    error_file, error_name = tempfile.mkstemp()
+    try:
+        subprocess.check_call([sys.executable, '-m', 'req_compile', reqfile,
+                               '--wheel-dir', '.wheeldir'],
+                              stdout=output_file, stderr=error_file)
+        os.lseek(output_file, 0, os.SEEK_SET)
+        print('\n' + os.read(output_file, 128000).decode('utf-8') + '\n', file=sys.stderr)
+        return name
+    except subprocess.CalledProcessError:
+        os.lseek(error_file, 0, os.SEEK_SET)
+        print('\n' + os.read(error_file, 128000).decode('utf-8') + '\n', file=sys.stderr)
+        raise
+    finally:
+        os.close(output_file)
+        os.close(error_file)
 
 
 def run_pip_compile(reqfile, index_url=None):
