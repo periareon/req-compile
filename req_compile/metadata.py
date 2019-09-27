@@ -156,10 +156,13 @@ def _fetch_from_source(source_file, extractor_type):
         egg_requires_file = find_in_archive(extractor, '.egg-info/requires.txt')
         if egg_requires_file is not None:
             LOG.info('Attempting to fetch metadata from %s', egg_requires_file)
-            requires_contents = extractor.open(egg_requires_file, encoding='utf-8').read()
-            return _parse_requires_file(requires_contents,
-                                        name,
-                                        version)
+            try:
+                requires_contents = extractor.open(egg_requires_file, encoding='utf-8').read()
+                return _parse_requires_file(requires_contents,
+                                            name,
+                                            version)
+            except IOError:
+                LOG.warning('Failed to load requires.txt')
 
         LOG.warning('No metadata source could be found for the source dist %s', source_file)
         raise MetadataError(name, version, Exception('Invalid project distribution'))

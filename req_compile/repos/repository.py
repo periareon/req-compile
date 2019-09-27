@@ -183,6 +183,9 @@ def process_distribution(source, filename):
     if '.whl' in filename:
         candidate = _wheel_candidate(source, filename)
     elif '.tar.gz' in filename or '.tgz' in filename or '.zip' in filename or '.tar.bz2' in filename:
+        # Best effort skip of dumb binary distributions
+        if '.linux-' in filename or '.win-' in filename or '.macosx-' in filename:
+            return None
         candidate = _tar_gz_candidate(source, filename)
     return candidate
 
@@ -289,10 +292,10 @@ class Repository(BaseRepository):
 
         return self.do_get_candidate(req, candidates)
 
-    def do_get_candidate(self, req, candidates, force_allow_prerelase=False):
+    def do_get_candidate(self, req, candidates, force_allow_prerelease=False):
         check_level = 1
         all_prereleases = True
-        allow_prereleases = force_allow_prerelase or self.allow_prerelease
+        allow_prereleases = force_allow_prerelease or self.allow_prerelease
         if candidates:
             candidates = sort_candidates(candidates)
             has_equality = req_compile.utils.is_pinned_requirement(req)
@@ -329,7 +332,7 @@ class Repository(BaseRepository):
                     return candidate, cached
 
         if (all_prereleases or req_compile.utils.has_prerelease(req)) and not allow_prereleases:
-            return self.do_get_candidate(req, candidates, force_allow_prerelase=True)
+            return self.do_get_candidate(req, candidates, force_allow_prerelease=True)
 
         ex = NoCandidateException(req)
         ex.check_level = check_level

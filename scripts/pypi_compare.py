@@ -43,7 +43,7 @@ WHITELIST = {
 }
 
 
-START_WITH = 'python-trivia-api'
+START_WITH = 'python-ultimate-guitar'
 
 # Python 2.7
 # Kinda bad:
