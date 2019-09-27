@@ -50,7 +50,7 @@ def parse_source_filename(full_filename):
     for idx, part in enumerate(dash_parts):
         if idx != 0 and (part[0].isdigit() or
                          (len(part) > 1 and part[0].lower() == 'v' and part[1].isdigit())):
-            if idx != len(dash_parts) - 1 and '.' in dash_parts[idx + 1]:
+            if idx != len(dash_parts) - 1 and '.' in dash_parts[idx + 1] and '.' not in dash_parts[idx]:
                 continue
             version_start = idx
             break

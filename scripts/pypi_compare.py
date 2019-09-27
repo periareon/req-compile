@@ -60,6 +60,9 @@ START_WITH = 'python-ultimate-guitar'
 # pythonruntimediagnostics - seems very slow (appears to be due to bokeh)
 
 
+# Good projects
+# python-watcher - substantial number of reqs
+
 class LinksHTMLParser(html_parser.HTMLParser):
     def __init__(self, url):
         html_parser.HTMLParser.__init__(self)
