@@ -82,6 +82,7 @@ def test_pylint_python(metadata_provider):
                          ['backports-thing-1.0.1.tar.gz', 'backports-thing', '1.0.1'],
                          ['backports-thing-1.0.1.tar.gz', 'backports-thing', '1.0.1'],
                          ['project-v1.0.tar.gz', 'project', '1.0'],
+                         ['python-project-3-0.0.1.tar.gz', 'python-project-3', '0.0.1'],
                          ['python-project-v2-0.1.1.tar.gz', 'python-project-v2', '0.1.1'],
 ])
 def test_parse_source_filename(filename, result_name, result_version):

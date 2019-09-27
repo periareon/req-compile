@@ -30,10 +30,20 @@ WHITELIST = {
     'python-axolotl',  # non-prerelease
     'python-bean',  # pip-compile did not deal with incomplete dist correctly. missing requirements.txt
     'python-ping',  # several of the version numbers look like prereleases.  Not sure how pip-compile handles this
+    'python-slimta',  # non-prerelease
+    'python-slimta-celeryqueue',  # non-prerelease
+    'python-slimta-cloudstorage',  # non-prerelease
+    'python-slimta-diskstorage',
+    'python-slimta-lookup',
+    'python-slimta-maildrop',
+    'python-slimta-piperelay',
+    'python-slimta-redisstorage',
+    'python-slimta-spf',
+    'python-spresso',  # requests[socks]
 }
 
 
-START_WITH = 'python-simple-hipchat-v2'
+START_WITH = 'python-spresso'
 
 # Python 2.7
 # Kinda bad:
