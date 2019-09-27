@@ -25,7 +25,7 @@ from req_compile.importhook import import_hook, import_contents, remove_encoding
 
 LOG = logging.getLogger('req_compile.metadata')
 
-failed_builds = set()
+FAILED_BUILDS = set()
 
 
 class MetadataError(Exception):
@@ -140,7 +140,7 @@ def _fetch_from_source(source_file, extractor_type):
 
     name, version = parse_source_filename(os.path.basename(source_file))
 
-    if source_file in failed_builds:
+    if source_file in FAILED_BUILDS:
         raise MetadataError(name, version, Exception('Build has already failed before'))
 
     extractor = extractor_type(source_file)
@@ -170,7 +170,7 @@ def _fetch_from_source(source_file, extractor_type):
                 LOG.warning('Failed to load requires.txt')
 
         LOG.warning('No metadata source could be found for the source dist %s', source_file)
-        failed_builds.add(source_file)
+        FAILED_BUILDS.add(source_file)
         raise MetadataError(name, version, Exception('Invalid project distribution'))
 
 
