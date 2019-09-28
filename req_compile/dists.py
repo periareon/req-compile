@@ -8,7 +8,7 @@ import logging
 import six
 
 from req_compile import utils
-from req_compile.utils import normalize_project_name, merge_requirements, filter_req
+from req_compile.utils import normalize_project_name, merge_requirements, filter_req, reduce_requirements
 
 
 class DependencyNode(object):
@@ -278,17 +278,15 @@ class DistributionCollection(object):
 
 class RequirementContainer(object):
     """A container for a list of requirements"""
-    def __init__(self, name, meta=False):
+    def __init__(self, name, reqs, meta=False):
         self.name = name
+        self.reqs = list(reqs)
         self.origin = None
         self.meta = meta
 
     def requires(self, extra=None):
-        """Return requirements optionally filtered by extra
-
-        Returns:
-            (list[Requirement]) list of requirements"""
-        raise NotImplementedError()
+        return reduce_requirements(req for req in self.reqs
+                                   if filter_req(req, extra))
 
     def to_definition(self, extras):
         raise NotImplementedError()
@@ -296,8 +294,7 @@ class RequirementContainer(object):
 
 class RequirementsFile(RequirementContainer):
     def __init__(self, filename, reqs):
-        super(RequirementsFile, self).__init__(filename, meta=True)
-        self.reqs = list(reqs)
+        super(RequirementsFile, self).__init__(filename, reqs, meta=True)
 
     def __repr__(self):
         return 'RequirementsFile({})'.format(self.name)
@@ -309,10 +306,6 @@ class RequirementsFile(RequirementContainer):
 
     def __str__(self):
         return self.name
-
-    def requires(self, extra=None):
-        return [req for req in self.reqs
-                if filter_req(req, extra)]
 
     def to_definition(self, extras):
         return self.name, None
@@ -329,14 +322,9 @@ class DistInfo(RequirementContainer):
             reqs (Iterable): The list of requirements for the project
             meta (bool): Whether or not hte requirement is a meta-requirement
         """
-        super(DistInfo, self).__init__(name, meta=meta)
-        self.reqs = list(reqs)
+        super(DistInfo, self).__init__(name, reqs, meta=meta)
         self.version = version
         self.source = None
-
-    def requires(self, extra=None):
-        return [req for req in self.reqs
-                if filter_req(req, extra)]
 
     def __str__(self):
         return '{}=={}'.format(*self.to_definition(None))

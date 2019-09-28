@@ -1,6 +1,7 @@
 import itertools
 import os
 import logging
+from collections import defaultdict
 
 try:
     from functools32 import lru_cache
@@ -43,6 +44,15 @@ def reqs_from_files(requirements_files):
         raw_reqs = itertools.chain(raw_reqs, _req_iter_from_file(reqfile_name))
 
     return list(raw_reqs)
+
+
+def reduce_requirements(raw_reqs):
+    """Reduce a list of requirements to a minimal list by combining requirements with the same key"""
+    reqs = defaultdict(lambda: None)
+    for req in raw_reqs:
+        reqs[req.name] = merge_requirements(reqs[req.name], req)
+
+    return list(reqs.values())
 
 
 @lru_cache(maxsize=None)

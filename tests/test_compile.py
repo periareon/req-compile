@@ -26,7 +26,7 @@ def test_mock_pypi(mock_metadata, mock_pypi):
 def _real_outputs(results):
     outputs = results[0].build(results[1])
     outputs = sorted(outputs, key=lambda x: x.name)
-    return [str(req) for req in outputs]
+    return set(str(req) for req in outputs)
 
 
 @fixture
@@ -70,6 +70,8 @@ def perform_compile(mock_metadata, mock_pypi):
         ('multi', ['x==1.0.0', 'x==0.9.0', 'y==5.0.0', 'y==4.0.0'], {'a.txt': ['x', 'y'], 'b.txt': ['y<5']}, None, ['x==0.9.0', 'y==4.0.0']),
         ('multi', ['x==1.0.0', 'x==0.9.0'], ['x'], ['x<1'], ['x==0.9.0']),
         ('multi', ['x==1.0.0', 'x==0.9.0', 'y==5.0.0', 'y==4.0.0'], ['x==1'], ['y==5'], ['x==1.0.0']),
+        # Check that metadata that declares to requirements on the same dependency is processed correctly
+        ('multi', ['x==1.0.0', 'x==0.9.0', 'y==5.0.0', 'y==4.0.0', 'z==1.0.0'], ['z'], None, ['z==1.0.0', 'y==4.0.0', 'x==0.9.0']),
 
         ('walk-back', ['a==4.0', 'a==3.6', 'b==1.1', 'b==1.0'], ['a<3.7', 'b'], None, ['a==3.6', 'b==1.0']),
 
@@ -81,7 +83,7 @@ def perform_compile(mock_metadata, mock_pypi):
         ('repeat-violated', ['a==5.0.0', 'x==1.2.0', 'x==1.1.0', 'x==0.9.0', 'y==4.0.0'], ['a', 'x', 'y'], None, ['a==5.0.0', 'x==0.9.0', 'y==4.0.0']),
     ])
 def test_simple_compile(perform_compile, scenario, index, reqs, constraints, results):
-    assert perform_compile(scenario, index, reqs, constraint_reqs=constraints) == results
+    assert perform_compile(scenario, index, reqs, constraint_reqs=constraints) == set(results)
 
 
 @pytest.mark.parametrize(
@@ -115,14 +117,14 @@ def test_compile_source_user1(local_tree):
     results = req_compile.compile.perform_compile([DistInfo('test', None,
                                                             [pkg_resources.Requirement.parse('user1')], meta=True)],
                                                   local_tree)
-    assert _real_outputs(results) == ['framework==1.0.1', 'user1==2.0.0']
+    assert _real_outputs(results) == {'framework==1.0.1', 'user1==2.0.0'}
 
 
 def test_compile_source_user2(local_tree):
     results = req_compile.compile.perform_compile([DistInfo('test', None,
                                                             [pkg_resources.Requirement.parse('user-2')], meta=True)],
                                                   local_tree)
-    assert _real_outputs(results) == ['framework==1.0.1', 'user-2==1.1.0', 'util==8.0.0']
+    assert _real_outputs(results) == {'framework==1.0.1', 'user-2==1.1.0', 'util==8.0.0'}
 
 
 def test_compile_source_user2_recursive_root():
@@ -131,4 +133,4 @@ def test_compile_source_user2_recursive_root():
     results = req_compile.compile.perform_compile([DistInfo('test', None,
                                                             [pkg_resources.Requirement.parse('user-2')], meta=True)],
                                                   repo)
-    assert _real_outputs(results) == ['framework==1.0.1', 'user-2==1.1.0', 'util==8.0.0']
+    assert _real_outputs(results) == {'framework==1.0.1', 'user-2==1.1.0', 'util==8.0.0'}
