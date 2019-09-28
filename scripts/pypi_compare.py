@@ -34,10 +34,13 @@ WHITELIST = {
     'python-spresso',  # requests[socks]
     'mb-confy',  # totally broken package. req-compile seems slightly righter
     'mdfreader',  # messes with requirements based on cython succeeding, but not toml
+    'pyhgnc',  # uses flasgger which pip-compile gets wrong. Duplicate req entries
+    'flasgger',  # refers to jsonscehema twice
+    'pyhrf',  # Package is pretty bad and depends on an older version of pip. req-compile gets it kinda right
 }
 
 
-START_WITH = 'pyheattransfer'
+START_WITH = 'pyjdb'
 
 # Python 2.7
 # Kinda bad:

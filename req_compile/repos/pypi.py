@@ -19,7 +19,7 @@ from req_compile.repos.repository import Repository, process_distribution
 from req_compile.metadata import extract_metadata, MetadataError
 
 
-LOG = logging.getLogger('req_compile.pypi')
+LOG = logging.getLogger('req_compile.repository.pypi')
 
 
 SYS_PY_VERSION = pkg_resources.parse_version(sys.version.split(' ')[0].replace('+', ''))

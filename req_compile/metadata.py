@@ -270,7 +270,7 @@ def _fetch_from_wheel(wheel):
                 break
 
         if metadata_file:
-            return _parse_flat_metadata(zfile.read(metadata_file).decode('utf-8'))
+            return _parse_flat_metadata(zfile.read(metadata_file).decode('utf-8', 'ignore'))
 
         return None
 
