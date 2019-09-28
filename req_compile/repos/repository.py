@@ -137,6 +137,9 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
         if platform != 'any':
             result += 1000
 
+        # Spaces in source dist filenames penalize them in the search order
+        if ' ' in self.filename:
+            result -= 100
         return result
 
     def __eq__(self, other):

@@ -111,6 +111,11 @@ class LinksHTMLParser(html_parser.HTMLParser):
         raise RuntimeError(message)
 
 
+def normalize(name):
+    """Normalize per PEP-0503"""
+    return re.sub(r'(\s|[-_.])+', '-', name).lower()
+
+
 @lru_cache(maxsize=None)
 def _scan_page_links(index_url, project_name, session):
     """
@@ -123,8 +128,9 @@ def _scan_page_links(index_url, project_name, session):
     Returns:
         (list[Candidate])
     """
-    url = '{index_url}/{project_name}'.format(index_url=index_url, project_name=project_name)
-    logging.getLogger('req_compile.net.pypi').info('Fetching versions for %s', project_name)
+
+    url = '{index_url}/{project_name}'.format(index_url=index_url, project_name=normalize(project_name))
+    LOG.info('Fetching versions for %s from %s', project_name, url)
     if session is None:
         session = requests
     response = session.get(url + '/')

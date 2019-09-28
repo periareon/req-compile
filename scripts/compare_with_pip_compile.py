@@ -11,7 +11,7 @@ from argparse import ArgumentParser
 
 import pkg_resources
 
-from req_compile.utils import reqs_from_files, normalize_project_name
+from req_compile.utils import reqs_from_files, normalize_project_name, has_prerelease
 
 
 def run_qer_compile(reqfile, index_url=None):
@@ -107,15 +107,16 @@ def main():
                 raise ValueError('Req-Compile failed but pip-tools did not')
 
         if not (qer_failed or pip_failed):
-            qer_line = None
-            pip_line = None
-
             failed = False
             qer_reqs = filter_out_blacklist(set(reqs_from_files([qer_output_file])))
             pip_reqs = filter_out_blacklist(set(reqs_from_files([pip_output_file])))
 
             qer_reqs = normalize_reqs(qer_reqs)
             pip_reqs = normalize_reqs(pip_reqs)
+
+            if any(has_prerelease(req) for req in pip_reqs):
+                print('Skipping because pip-compile resolved a pre-release')
+                sys.exit(0)
 
             if qer_reqs != pip_reqs:
                 print('Reqs do not match!')

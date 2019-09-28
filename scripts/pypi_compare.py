@@ -31,21 +31,13 @@ WHITELIST = {
     'python-bean',  # pip-compile did not deal with incomplete dist correctly. missing requirements.txt
     'python-ping',  # several of the version numbers look like prereleases.  Not sure how pip-compile handles this
     'python-slimta',  # non-prerelease
-    'python-slimta-celeryqueue',  # non-prerelease
-    'python-slimta-cloudstorage',  # non-prerelease
-    'python-slimta-diskstorage',
-    'python-slimta-lookup',
-    'python-slimta-maildrop',
-    'python-slimta-piperelay',
-    'python-slimta-redisstorage',
-    'python-slimta-spf',
     'python-spresso',  # requests[socks]
     'mb-confy',  # totally broken package. req-compile seems slightly righter
     'mdfreader',  # messes with requirements based on cython succeeding, but not toml
 }
 
 
-START_WITH = 'meerkathi'
+START_WITH = 'pyheattransfer'
 
 # Python 2.7
 # Kinda bad:
@@ -81,12 +73,12 @@ class LinksHTMLParser(html_parser.HTMLParser):
                     url_part = attr[1]
                     project_name = url_part.split('/')[-2]
                     self.active_link = self.url, attr[1]
-                    print('Handle lib {}'.format(project_name))
                     if not self.started:
                         if project_name == START_WITH:
                             self.started = True
                         else:
                             continue
+                    print('Handle lib {}'.format(project_name))
 
                     if project_name in WHITELIST:
                         print('Whitelisted, not running')
