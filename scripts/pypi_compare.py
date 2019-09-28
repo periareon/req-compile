@@ -41,10 +41,11 @@ WHITELIST = {
     'python-slimta-spf',
     'python-spresso',  # requests[socks]
     'mb-confy',  # totally broken package. req-compile seems slightly righter
+    'mdfreader',  # messes with requirements based on cython succeeding, but not toml
 }
 
 
-START_WITH = 'mb-confy'
+START_WITH = 'me2'
 
 # Python 2.7
 # Kinda bad:

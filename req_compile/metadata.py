@@ -532,6 +532,7 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
     with \
          patch(sys, 'stderr', StringIO()), \
          patch(sys, 'stdout', StringIO()), \
+         patch(os, '_exit', lambda code: sys.exit(code)), \
          patch('builtins', 'open', opener), \
          patch('__builtin__', 'open', opener), \
          patch('__builtin__', 'execfile', lambda filename: None), \
