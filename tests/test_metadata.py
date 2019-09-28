@@ -23,6 +23,18 @@ def test_parse_flat_metadata_extra_space():
     assert results.requires() == [pkg_resources.Requirement.parse('django')]
 
 
+def test_parse_flat_metadata_two_names():
+    results = req_compile.metadata._parse_flat_metadata(open(os.path.join(os.path.dirname(__file__),
+                                                                          'METADATA-two-names')).read())
+    assert results.name == 'fabio'
+
+
+def test_parse_flat_metadata_complex_marker():
+    results = req_compile.metadata._parse_flat_metadata(open(os.path.join(os.path.dirname(__file__),
+                                                                          'METADATA-implementation-marker')).read())
+    assert {req.name for req in results.requires()} == {'ordereddict', 'yaml.clib'}
+
+
 def test_a_with_extra(metadata_provider):
     info = metadata_provider('normal/a.METADATA')
     assert info.name == 'a'

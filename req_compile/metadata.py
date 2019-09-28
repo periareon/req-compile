@@ -281,11 +281,12 @@ def _parse_flat_metadata(contents):
     raw_reqs = []
 
     for line in contents.split('\n'):
-        if line.lower().startswith('name:'):
+        lower_line = line.lower()
+        if name is None and lower_line.startswith('name:'):
             name = line.split(':')[1].strip()
-        if line.lower().startswith('version:'):
+        elif version is None and lower_line.startswith('version:'):
             version = utils.parse_version(line.split(':')[1].strip())
-        if line.lower().startswith('requires-dist:'):
+        elif lower_line.startswith('requires-dist:'):
             raw_reqs.append(line.split(':')[1].strip())
 
     return DistInfo(name, version, list(utils.parse_requirements(raw_reqs)))

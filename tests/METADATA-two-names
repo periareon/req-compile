@@ -1,0 +1,25 @@
+Metadata-Version: 2.1
+Name: fabio
+Version: 0.9.0
+Summary: Image IO for fable
+Home-page: http://github.com/silx-kit/fabio
+Author: Henning Sorensen, Erik Knudsen, Jon Wright, Regis Perdreau, Jérôme Kieffer, Gael Goret, Brian Pauw, Valentin Valls
+Author-email: fable-talk@lists.sourceforge.net
+License: MIT
+Download-URL: https://github.com/silx-kit/fabio/releases
+Platform: UNKNOWN
+Requires-Dist: numpy (>=1.10.4)
+Requires-Dist: setuptools
+
+FabIO: Fable Input/Output library
+=================================
+
+Design Specifications
+---------------------
+Name: Fabio = Fable Input/Output
+
+Idea:
+.....
+Have a base class for all our 2D diffraction greyscale images.
+This consists of a 2D array (numpy ndarray)
+and a python dictionary (actually an ordered dict) of header information in (string key, string value) pairs.

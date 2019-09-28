@@ -45,7 +45,7 @@ WHITELIST = {
 }
 
 
-START_WITH = 'me2'
+START_WITH = 'meerkathi'
 
 # Python 2.7
 # Kinda bad:
