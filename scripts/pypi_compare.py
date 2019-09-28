@@ -43,7 +43,7 @@ WHITELIST = {
 }
 
 
-START_WITH = 'pytiles'
+START_WITH = 'matscipy'
 
 # Python 2.7
 # Kinda bad:

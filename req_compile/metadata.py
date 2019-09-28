@@ -169,6 +169,14 @@ def _fetch_from_source(source_file, extractor_type):
             except IOError:
                 LOG.warning('Failed to load requires.txt')
 
+        pkg_info_file = find_in_archive(extractor, 'pkg-info')
+        if pkg_info_file is not None:
+            try:
+                LOG.info('Attempting to fetch metadata from %s', pkg_info_file)
+                return _parse_flat_metadata(extractor.open(pkg_info_file, encoding='utf-8').read())
+            except OSError:
+                LOG.warning('Could not parse metadata file %s', pkg_info_file)
+
         LOG.warning('No metadata source could be found for the source dist %s', source_file)
         FAILED_BUILDS.add(source_file)
         raise MetadataError(name, version, Exception('Invalid project distribution'))
