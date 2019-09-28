@@ -40,10 +40,11 @@ WHITELIST = {
     'python-slimta-redisstorage',
     'python-slimta-spf',
     'python-spresso',  # requests[socks]
+    'mb-confy',  # totally broken package. req-compile seems slightly righter
 }
 
 
-START_WITH = 'matscipy'
+START_WITH = 'mb-confy'
 
 # Python 2.7
 # Kinda bad:
