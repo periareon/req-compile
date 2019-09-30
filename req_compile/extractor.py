@@ -29,7 +29,6 @@ class Extractor(object):
 
     def open(self, filename, mode='r', encoding=None, **_kwargs):
         """Open a real file or a file within the archive"""
-        self.logger.debug('Raw %s', filename)
         filename = self.to_relative(filename)
         if isinstance(filename, int) or not self.contains_path(filename):
             return self.io_open(filename, mode=mode, encoding=encoding)

@@ -15,7 +15,7 @@ import functools
 from types import ModuleType
 
 import six
-from six.moves import StringIO
+from six.moves import StringIO, configparser
 import pkg_resources
 
 from req_compile import utils
@@ -301,16 +301,17 @@ def parse_req_with_marker(req_str, marker):
 
 
 def setup(results, *args, **kwargs):
-    if not args and not kwargs:
-        raise ValueError('Must build wheel to parse empty setup()')
     # pbr uses a dangerous pattern that only works when you build using setuptools
     if 'pbr' in kwargs:
         raise ValueError('Must build wheel if pbr is used')
 
-    name = kwargs.get('name', None)
-    version = kwargs.get('version', None)
-    reqs = kwargs.get('install_requires', [])
-    extra_reqs = kwargs.get('extras_require', {})
+    if not args and not kwargs or 'name' not in kwargs:
+        name, version, reqs, extra_reqs = _parse_setup_cfg(**kwargs)
+    else:
+        name = kwargs.get('name', None)
+        version = kwargs.get('version', None)
+        reqs = kwargs.get('install_requires', [])
+        extra_reqs = kwargs.get('extras_require', {})
 
     if version is not None:
         version = pkg_resources.parse_version(str(version))
@@ -418,6 +419,24 @@ class FakeCython(ModuleType):
         if item == '__path__':
             return []
         return FakeCython(item)
+
+
+def _parse_setup_cfg(**kwargs):
+    LOG.info('Parsing from setup.cfg')
+
+    parser = configparser.ConfigParser()
+    parser.read('setup.cfg')
+
+    install_requires = kwargs.get('install_requires', [])
+    if parser.has_option('options', 'install_requires'):
+        install_requires.extend(parser.get('options', 'install_requires').split('\n'))
+
+    extras_require = kwargs.get('extras_require', {})
+    if parser.has_section('options.extras_require'):
+        for extra, req_str in parser.items('options.extras_require'):
+            extras_require[extra] = req_str.split('\n')
+
+    return parser.get('metadata', 'name'), parser.get('metadata', 'version'), install_requires, extras_require
 
 
 # pylint: disable=too-many-branches
@@ -545,12 +564,9 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor, mock_import):  #
             if setup_dir:
                 os.chdir(setup_dir)
 
-            LOG.debug('New __file__ = %s', os.path.join(fake_setupdir, setup_file))
             spy_globals = {'__file__': os.path.join(fake_setupdir, setup_file),
                            '__name__': '__main__',
                            'setup': setup_with_results}
-
-            LOG.debug('Globals %s', spy_globals)
 
             contents = extractor.contents(os.path.basename(setup_file))
             if six.PY2:
@@ -562,7 +578,6 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor, mock_import):  #
         except SystemExit:
             LOG.warning('setup.py raised SystemExit')
         finally:
-            LOG.debug('Switching directory back to %s', old_dir)
             orig_chdir(old_dir)
             if old_cythonize is not None:
                 Cython.Build.cythonize = old_cythonize

@@ -159,6 +159,18 @@ def test_compound(mock_targz):
     ['tar-utf8-1.1.0', 'tar-utf8', '1.1.0', None],
     ['tar-1.0.0', 'tar', '1.0.0', None],
     ['et_xmlfile-1.0.1', 'et_xmlfile', '1.0.1', None],
+    ['setup-cfg-0.2.0', 'setup-cfg', '0.2.0', [
+        'beautifulsoup4',
+        'requests',
+        'wheel ; extra=="dev"',
+        'sphinx ; extra=="dev"',
+        'tox ; extra=="dev"',
+        'zest.releaser[recommended] ; extra=="dev"',
+        'prospector[with_pyroma] ; extra=="dev"',
+        'pytest ; extra=="tests"',
+        'pytest-cov ; extra=="tests"',
+        'pytest-mock ; extra=="tests"',
+    ]]
 ])
 def test_source_dist(archive_fixture, directory, name, version, reqs, mock_targz, mock_zip, mocker):
     mock_build = mocker.patch('req_compile.metadata._build_wheel')
@@ -177,7 +189,7 @@ def test_source_dist(archive_fixture, directory, name, version, reqs, mock_targz
     if version is not None:
         assert metadata.version == pkg_resources.parse_version(version)
     if reqs is not None:
-        assert set(metadata.requires()) == set(pkg_resources.parse_requirements(reqs))
+        assert set(metadata.reqs) == set(pkg_resources.parse_requirements(reqs))
 
 
 def test_setup_with_tenacity(mock_targz):

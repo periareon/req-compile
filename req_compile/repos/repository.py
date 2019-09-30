@@ -295,8 +295,45 @@ class Repository(BaseRepository):
 
         return self.do_get_candidate(req, candidates)
 
+    def _try_candidate(self, specifier, candidate, has_equality=None, allow_prereleases=False):
+        if candidate.version is None:
+            self.logger.warning('Found candidate with no version: %s', candidate)
+            return None, CantUseReason.BAD_METADATA
+
+        if candidate.py_version is not None and not candidate.py_version.check_compatibility():
+            return None, CantUseReason.WRONG_PYTHON_VERSION
+
+        if not _check_platform_compatibility(candidate.platform):
+            return None, CantUseReason.WRONG_PLATFORM
+
+        if not has_equality and not allow_prereleases and candidate.version.is_prerelease:
+            return None, CantUseReason.IS_PRERELEASE
+
+        if not specifier.contains(candidate.version,
+                                  prereleases=has_equality or allow_prereleases):
+            return None, CantUseReason.VERSION_NO_SATISFY
+
+        if candidate.type == DistributionType.SDIST:
+            self.logger.warning('Considering source distribution for %s', candidate.name)
+
+        try:
+            candidate, cached = self.resolve_candidate(candidate)
+            if candidate is not None:
+                return candidate, cached
+        except req_compile.metadata.MetadataError as ex:
+            self.logger.warning('Could not use candidate %s - %s', candidate, ex)
+            return None, CantUseReason.BAD_METADATA
+
     def do_get_candidate(self, req, candidates, force_allow_prerelease=False):
-        check_level = 1
+        """
+
+        Args:
+            req (pkg_resources.Requirement): Requirement to fetch candidate for
+            candidates (list[Candidate]): Available candidates (any versions, unsorted)
+            force_allow_prerelease (bool): Override the allow prerelease setting
+        Returns:
+
+        """
         all_prereleases = True
         allow_prereleases = force_allow_prerelease or self.allow_prerelease
         if candidates:
@@ -304,46 +341,21 @@ class Repository(BaseRepository):
             has_equality = req_compile.utils.is_pinned_requirement(req)
 
             for candidate in candidates:
-                if candidate.version is None:
-                    self.logger.warning('Found candidate with no version: %s', candidate)
-                    continue
-
-                all_prereleases = all_prereleases and candidate.version.is_prerelease
-
-                check_level += 1
-                if candidate.py_version is not None and not candidate.py_version.check_compatibility():
-                    continue
-
-                check_level += 1
-                if not _check_platform_compatibility(candidate.platform):
-                    continue
-
-                check_level += 1
-                if not has_equality and not allow_prereleases and candidate.version.is_prerelease:
-                    continue
-
-                check_level += 1
-                if not req.specifier.contains(candidate.version,
-                                              prereleases=has_equality or allow_prereleases):
-                    continue
-
-                check_level += 1
-                if candidate.type == DistributionType.SDIST:
-                    self.logger.warning('Considering source distribution for %s', candidate.name)
-                candidate, cached = self.resolve_candidate(candidate)
+                all_prereleases = all_prereleases and (candidate.version is None or candidate.version.is_prerelease)
+                candidate, cached = self._try_candidate(req.specifier, candidate,
+                                                        has_equality=has_equality, allow_prereleases=allow_prereleases)
                 if candidate is not None:
                     return candidate, cached
 
         if (all_prereleases or req_compile.utils.has_prerelease(req)) and not allow_prereleases:
             return self.do_get_candidate(req, candidates, force_allow_prerelease=True)
 
-        ex = NoCandidateException(req)
-        ex.check_level = check_level
-        raise ex
+        raise NoCandidateException(req)
 
     def why_cant_I_use(self, req, candidate):  # pylint: disable=invalid-name
-        try:
-            self.do_get_candidate(req, (candidate,))
-            raise ValueError('This requirement can be used')
-        except NoCandidateException as ex:
-            return CantUseReason(ex.check_level)
+        has_equality = req_compile.utils.is_pinned_requirement(req)
+        candidate, reason = self._try_candidate(req.specifier, candidate,
+                                                has_equality=has_equality, allow_prereleases=self.allow_prerelease)
+        if candidate is not None:
+            return CantUseReason.U_CAN_USE
+        return reason
