@@ -40,22 +40,17 @@ WHITELIST = {
 }
 
 
-START_WITH = 'pymask'
+START_WITH = 'pymc'
 
 # Python 2.7
 # Kinda bad:
 # 2keys
 # abeona  .... failed but weirdly
-# abstraction, reverse dep with none extra
 # adapter, ValueError: Failed to parse requires expression "~=3.6" for requirement
 # zope, documenttemplate betas are not always selected correctly
-# adzuki specified < prerelease condition, this caused req-compile to take a prerelease
 # aegeantools 2.0.2.post1 sorted incorrectly
-# africastalking-python had a None candidate (uses a v prefix for versions)
-# python-conio, 6 is not a valid cantusereason
 # pythonruntimediagnostics - seems very slow (appears to be due to bokeh)
-# pylzma - packaged easy setup
-# gdal - failure
+# pymc - failed hard
 
 # Good projects
 # python-watcher - substantial number of reqs

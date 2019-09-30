@@ -14,6 +14,7 @@ import zipfile
 import functools
 from types import ModuleType
 
+import setuptools
 import six
 from six.moves import StringIO, configparser
 import pkg_resources
@@ -306,7 +307,7 @@ def setup(results, *args, **kwargs):
     if 'pbr' in kwargs:
         raise ValueError('Must build wheel if pbr is used')
 
-    if not args and not kwargs or 'name' not in kwargs:
+    if (not args and not kwargs) or ('name' not in kwargs and os.path.exists('setup.cfg')):
         name, version, reqs, extra_reqs = _parse_setup_cfg(**kwargs)
     else:
         name = kwargs.get('name', None)
@@ -406,13 +407,13 @@ class FakeNumpyModule(ModuleType):
         self.get_include = _get_include
 
 
-class FakeCython(ModuleType):
+class FakeModule(ModuleType):
     """A module simulating cython"""
     def __init__(self, name):
         ModuleType.__init__(self, name)  # pylint: disable=non-parent-init-called,no-member
 
     def __call__(self, *args, **kwargs):
-        return None
+        return FakeModule('')
 
     def __iter__(self):
         return iter([])
@@ -420,7 +421,9 @@ class FakeCython(ModuleType):
     def __getattr__(self, item):
         if item == '__path__':
             return []
-        return FakeCython(item)
+        if item == 'setup':
+            return setuptools.setup
+        return FakeModule(item)
 
 
 def _parse_setup_cfg(**kwargs):
@@ -473,6 +476,10 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor, mock_import):  #
 
     if 'numpy' not in sys.modules:
         sys.modules['numpy'] = FakeNumpyModule('numpy')
+        sys.modules['numpy.distutils'] = FakeModule('distutils')
+        sys.modules['numpy.distutils.core'] = FakeModule('core')
+        sys.modules['numpy.distutils.misc_util'] = FakeModule('misc_util')
+        sys.modules['numpy.distutils.system_info'] = FakeModule('system_info')
 
     old_dir = os.getcwd()
 
@@ -502,11 +509,11 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor, mock_import):  #
         old_cythonize = Cython.Build.cythonize
         Cython.Build.cythonize = lambda *args, **kwargs: ''
     except ImportError:
-        sys.modules['Cython'] = FakeCython('Cython')
-        sys.modules['Cython.Build'] = FakeCython('Build')
-        sys.modules['Cython.Distutils'] = FakeCython('Distutils')
-        sys.modules['Cython.Compiler'] = FakeCython('Compiler')
-        sys.modules['Cython.Compiler.Main'] = FakeCython('Main')
+        sys.modules['Cython'] = FakeModule('Cython')
+        sys.modules['Cython.Build'] = FakeModule('Build')
+        sys.modules['Cython.Distutils'] = FakeModule('Distutils')
+        sys.modules['Cython.Compiler'] = FakeModule('Compiler')
+        sys.modules['Cython.Compiler.Main'] = FakeModule('Main')
 
     def os_error_call(*_args, **_kwargs):
         raise OSError('Popen not permitted')
@@ -604,7 +611,7 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor, mock_import):  #
                     continue
                 if 'version' in module_name and module_name not in ('pluggy._version', '_pytest_mock_version', 'pkg_resources.extern.packaging.version', '_pytest._version', 'packaging.version', 'setuptools.version', 'distutils.version', 'funcsigs.version','setuptools.extern.packaging.version', 'py._version', 'pkg_resources._vendor.packaging.version', 'setuptools._vendor.packaging.version'):
                     pass
-                if isinstance(module, (FakeCython, FakeNumpyModule)):
+                if isinstance(module, (FakeModule, FakeNumpyModule)):
                     del sys.modules[module_name]
                 elif hasattr(module, '__file__') and extractor.contains_path(module.__file__):
                     del sys.modules[module_name]
