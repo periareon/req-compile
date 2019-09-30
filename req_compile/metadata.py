@@ -379,17 +379,18 @@ def end_patch(token):
 
 
 @contextlib.contextmanager
-def patch(module, member, new_value, conditional=True):
+def patch(*args):
     """Manager a patch in a contextmanager"""
-    if not conditional:
-        yield
-        return
-
-    token = begin_patch(module, member, new_value)
+    tokens = []
+    for idx in range(0, len(args), 3):
+        module, member, new_value = args[idx:idx + 3]
+        tokens.append(begin_patch(module, member, new_value))
+        
     try:
         yield
     finally:
-        end_patch(token)
+        for token in tokens[::-1]:
+            end_patch(token)
 
 
 def _get_include():
@@ -502,6 +503,9 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor, mock_import):  #
     except ImportError:
         sys.modules['Cython'] = FakeCython('Cython')
         sys.modules['Cython.Build'] = FakeCython('Build')
+        sys.modules['Cython.Distutils'] = FakeCython('Distutils')
+        sys.modules['Cython.Compiler'] = FakeCython('Compiler')
+        sys.modules['Cython.Compiler.Main'] = FakeCython('Main')
 
     def os_error_call(*_args, **_kwargs):
         raise OSError('Popen not permitted')
@@ -545,25 +549,25 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor, mock_import):  #
         py3_import = begin_patch('__builtin__', '__import__', fake_import)
         load_source_patch = begin_patch(imp, 'load_source', fake_load_source)
 
-    with \
-         patch(sys, 'stderr', StringIO()), \
-         patch(sys, 'stdout', StringIO()), \
-         patch(os, '_exit', sys.exit), \
-         patch(os, 'symlink', lambda *_: None), \
-         patch('builtins', 'open', extractor.open), \
-         patch('__builtin__', 'open', extractor.open), \
-         patch('__builtin__', 'execfile', _fake_execfile), \
-         patch(subprocess, 'check_call', os_error_call), \
-         patch(subprocess, 'check_output', os_error_call), \
-         patch(subprocess, 'Popen', os_error_call), \
-         patch(os, 'listdir', lambda path: []), \
-         patch(os.path, 'exists', _fake_exists), \
-         patch(os, 'chdir', _fake_chdir), \
-         patch(io, 'open', extractor.open), \
-         patch(codecs, 'open', extractor.open), \
-         patch(setuptools, 'setup', setup_with_results), \
-         patch(distutils.core, 'setup', setup_with_results), \
-         patch(sys, 'argv', ['setup.py', 'egg_info']):
+    with patch(sys, 'stderr', StringIO(),
+               sys, 'stdout', StringIO(),
+               os, '_exit', sys.exit,
+               os, 'symlink', lambda *_: None,
+               'builtins', 'open', extractor.open,
+               '__builtin__', 'open', extractor.open,
+               '__builtin__', 'execfile', _fake_execfile,
+               subprocess, 'check_call', os_error_call,
+               subprocess, 'check_output', os_error_call,
+               subprocess, 'Popen', os_error_call,
+               os, 'listdir', lambda path: [],
+               os.path, 'exists', _fake_exists,
+               os.path, 'isfile', _fake_exists,
+               os, 'chdir', _fake_chdir,
+               io, 'open', extractor.open,
+               codecs, 'open', extractor.open,
+               setuptools, 'setup', setup_with_results,
+               distutils.core, 'setup', setup_with_results,
+               sys, 'argv', ['setup.py', 'egg_info']):
 
         try:
             setup_dir = os.path.dirname(setup_file)

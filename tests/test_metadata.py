@@ -133,7 +133,11 @@ def test_compound(mock_targz):
 #     assert metadata.name == 'pyusb'
 #     assert metadata.version == pkg_resources.parse_version('1.0.2')
 
-@pytest.mark.parametrize('archive_fixture', ['mock_targz', 'mock_zip', 'mock_fs'])
+@pytest.mark.parametrize('archive_fixture', [
+    'mock_targz',
+    'mock_zip',
+    'mock_fs'
+])
 @pytest.mark.parametrize('directory,name,version,reqs', [
     ['dir-exists-1.0', 'dir-exists', '1.0', ['msgpack-python']],
     ['svn-0.3.46', 'svn', '0.3.46', ['python-dateutil>=2.2', 'nose']],
@@ -171,7 +175,8 @@ def test_compound(mock_targz):
         'pytest ; extra=="tests"',
         'pytest-cov ; extra=="tests"',
         'pytest-mock ; extra=="tests"',
-    ]]
+    ]],
+    ['cython-check-1.0', 'cython-check', '1.0', ['simplejson']],
 ])
 def test_source_dist(archive_fixture, directory, name, version, reqs, mock_targz, mock_zip, mocker):
     mock_build = mocker.patch('req_compile.metadata._build_wheel')
