@@ -49,6 +49,9 @@ def test_extractor(archive_fixture, tmpdir, mock_targz, mock_zip):
             }
 
             assert extractor.contents(prefix + 'README') == 'README CONTENTS'
+            with extractor.open(prefix + 'README') as handle:
+                assert handle.read(2) == 'RE'
+            assert extractor.contents(prefix + 'README') == 'README CONTENTS'
             assert extractor.exists(prefix + 'test')
             assert extractor.exists(prefix + 'test/setup.py')
             assert not extractor.exists(prefix + 'test/setup2.py')

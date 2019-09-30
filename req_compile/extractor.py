@@ -187,8 +187,8 @@ class WithDecoding(object):
         self.file = wrap
         self.encoding = encoding
 
-    def read(self):
-        results = self.file.read()
+    def read(self, nbytes=None):
+        results = self.file.read(nbytes)
         if six.PY3 and self.encoding:
             results = results.decode(self.encoding, 'ignore')
         if six.PY2:
