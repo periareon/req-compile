@@ -40,7 +40,7 @@ WHITELIST = {
 }
 
 
-START_WITH = 'pyler'
+START_WITH = 'pylivetrader'
 
 # Python 2.7
 # Kinda bad:
@@ -54,8 +54,8 @@ START_WITH = 'pyler'
 # africastalking-python had a None candidate (uses a v prefix for versions)
 # python-conio, 6 is not a valid cantusereason
 # pythonruntimediagnostics - seems very slow (appears to be due to bokeh)
-# pylibcklb - very slow (appears to be due to Owlready2)
-# pylibsass - could not find __version__
+# pylivetrader - slow, py2 tried every version ever
+# pylognorm
 
 # Good projects
 # python-watcher - substantial number of reqs

@@ -1,5 +1,6 @@
 from __future__ import print_function
 
+import collections
 import logging
 import struct
 import enum
@@ -290,16 +291,12 @@ class Repository(BaseRepository):
     def close(self):
         raise NotImplementedError()
 
-    def get_candidate(self, req):
+    def get_candidate(self, req, max_downgrade=None):
         candidates = self.get_candidates(req)
 
-        return self.do_get_candidate(req, candidates)
+        return self.do_get_candidate(req, candidates, max_downgrade=max_downgrade)
 
     def _try_candidate(self, specifier, candidate, has_equality=None, allow_prereleases=False):
-        if candidate.version is None:
-            self.logger.warning('Found candidate with no version: %s', candidate)
-            return None, CantUseReason.BAD_METADATA
-
         if candidate.py_version is not None and not candidate.py_version.check_compatibility():
             return None, CantUseReason.WRONG_PYTHON_VERSION
 
@@ -324,15 +321,17 @@ class Repository(BaseRepository):
             self.logger.warning('Could not use candidate %s - %s', candidate, ex)
             return None, CantUseReason.BAD_METADATA
 
-    def do_get_candidate(self, req, candidates, force_allow_prerelease=False):
+    def do_get_candidate(self, req, candidates, force_allow_prerelease=False, max_downgrade=None):
         """
 
         Args:
             req (pkg_resources.Requirement): Requirement to fetch candidate for
             candidates (list[Candidate]): Available candidates (any versions, unsorted)
             force_allow_prerelease (bool): Override the allow prerelease setting
+            max_downgrade (int, optional): Number of different versions to try. Does not limit number of candidates
+                per version nor make any judgements about the semver
         Returns:
-
+            (DistInfo, bool): The distribution and whether or not it was cached
         """
         all_prereleases = True
         allow_prereleases = force_allow_prerelease or self.allow_prerelease
@@ -340,15 +339,25 @@ class Repository(BaseRepository):
             candidates = sort_candidates(candidates)
             has_equality = req_compile.utils.is_pinned_requirement(req)
 
+            tried_versions = set()
+
             for candidate in candidates:
-                all_prereleases = all_prereleases and (candidate.version is None or candidate.version.is_prerelease)
-                candidate, cached = self._try_candidate(req.specifier, candidate,
+                if candidate.version is None:
+                    self.logger.warning('Found candidate with no version: %s', candidate)
+                    continue
+
+                all_prereleases = all_prereleases and candidate.version.is_prerelease
+                result, cached = self._try_candidate(req.specifier, candidate,
                                                         has_equality=has_equality, allow_prereleases=allow_prereleases)
-                if candidate is not None:
-                    return candidate, cached
+                if result is not None:
+                    return result, cached
+
+                tried_versions.add(candidate.version)
+                if max_downgrade is not None and len(tried_versions) >= max_downgrade:
+                    break
 
         if (all_prereleases or req_compile.utils.has_prerelease(req)) and not allow_prereleases:
-            return self.do_get_candidate(req, candidates, force_allow_prerelease=True)
+            return self.do_get_candidate(req, candidates, force_allow_prerelease=True, max_downgrade=max_downgrade)
 
         raise NoCandidateException(req)
 

@@ -118,7 +118,7 @@ def _dump_repo_candidates(req, repos):
             attempted_versions = set()
             for num, candidate in enumerate(sort_candidates(candidates)):
                 attempted_versions.add(candidate.version)
-                if len(attempted_versions) > 3:
+                if len(attempted_versions) > req_compile.compile.MAX_DOWNGRADE:
                     print('  -- Attempts stopped here ({} versions too '
                           'old to try)'.format(len(candidates) - num - 1), file=sys.stderr)
                     break

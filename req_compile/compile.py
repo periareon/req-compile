@@ -59,19 +59,13 @@ def compile_roots(node, source, repo, dists, depth=1, extras=None):  # pylint: d
             metadata = None
 
             try:
-                metadata, cached = walkback_repo.get_candidate(spec_req)
+                metadata, cached = walkback_repo.get_candidate(spec_req, max_downgrade=MAX_DOWNGRADE)
                 # If the package was discovered in a source repository, it can be walked back
                 # but only within the repository
                 if isinstance(metadata.origin, SourceRepository):
                     walkback_repo = metadata.origin
                 logger.debug('Acquired candidate %s [%s] (%s)',
                              metadata, metadata.origin, 'cached' if cached else 'download')
-            except req_compile.metadata.MetadataError as meta_error:
-                logger.warning('The metadata could not be processed for %s (%s)', node.key, meta_error)
-                meta_error.req = original_spec_req
-                ex = sys.exc_info()
-                spec_req = merge_requirements(spec_req,
-                                              parse_requirement('{}!={}'.format(meta_error.name, meta_error.version)))
             except NoCandidateException as no_candidate_ex:
                 no_candidate_ex.req = original_spec_req
                 if attempt == 0:
@@ -95,7 +89,7 @@ def compile_roots(node, source, repo, dists, depth=1, extras=None):  # pylint: d
                                 compile_roots(req, recurse_node, repo, dists, depth=depth + 1, extras=extras)
                     first_failure = None
                     break
-                except (req_compile.metadata.MetadataError, NoCandidateException) as no_candidate_ex:
+                except NoCandidateException as no_candidate_ex:
                     logger.error('Could not use %s because some of its dependencies could not be satisfied (%s)',
                                  node,
                                  no_candidate_ex)

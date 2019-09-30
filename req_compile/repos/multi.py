@@ -18,11 +18,11 @@ class MultiRepository(BaseRepository):
     def __hash__(self):
         return hash(self.repositories)
 
-    def get_candidate(self, req):
+    def get_candidate(self, req, max_downgrade=None):
         last_ex = NoCandidateException(req)
         for repo in self.repositories:
             try:
-                return repo.get_candidate(req)
+                return repo.get_candidate(req, max_downgrade=max_downgrade)
             except NoCandidateException as ex:
                 last_ex = ex
         raise last_ex
