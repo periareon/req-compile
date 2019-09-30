@@ -451,6 +451,10 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor, mock_import):  #
 
     import os.path  # pylint: disable=redefined-outer-name
 
+    spy_globals = {'__file__': os.path.join(fake_setupdir, setup_file),
+                   '__name__': '__main__',
+                   'setup': setup_with_results}
+
     # pylint: disable=unused-import,unused-variable
     import codecs
     import distutils.core
@@ -472,6 +476,9 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor, mock_import):  #
 
     def _fake_exists(path):
         return extractor.exists(path)
+
+    def _fake_execfile(path):
+        exec(extractor.contents(path), spy_globals, spy_globals)
 
     os.chdir(fake_setupdir)
     orig_chdir = os.chdir
@@ -545,7 +552,7 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor, mock_import):  #
          patch(os, 'symlink', lambda *_: None), \
          patch('builtins', 'open', extractor.open), \
          patch('__builtin__', 'open', extractor.open), \
-         patch('__builtin__', 'execfile', lambda filename: None), \
+         patch('__builtin__', 'execfile', _fake_execfile), \
          patch(subprocess, 'check_call', os_error_call), \
          patch(subprocess, 'check_output', os_error_call), \
          patch(subprocess, 'Popen', os_error_call), \
@@ -563,10 +570,6 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor, mock_import):  #
             sys.path.insert(0, os.path.abspath(setup_dir))
             if setup_dir:
                 os.chdir(setup_dir)
-
-            spy_globals = {'__file__': os.path.join(fake_setupdir, setup_file),
-                           '__name__': '__main__',
-                           'setup': setup_with_results}
 
             contents = extractor.contents(os.path.basename(setup_file))
             if six.PY2:

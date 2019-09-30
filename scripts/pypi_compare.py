@@ -53,12 +53,13 @@ START_WITH = 'pyler'
 # aegeantools 2.0.2.post1 sorted incorrectly
 # africastalking-python had a None candidate (uses a v prefix for versions)
 # python-conio, 6 is not a valid cantusereason
-# python-readme-generator - uses setup.cfg to populate its setup call
 # pythonruntimediagnostics - seems very slow (appears to be due to bokeh)
-
+# pylibcklb - very slow (appears to be due to Owlready2)
+# pylibsass - could not find __version__
 
 # Good projects
 # python-watcher - substantial number of reqs
+
 
 class LinksHTMLParser(html_parser.HTMLParser):
     def __init__(self, url):
