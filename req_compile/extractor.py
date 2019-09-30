@@ -36,7 +36,7 @@ class Extractor(object):
         kwargs = {}
         if 'b' not in mode:
             kwargs = {'encoding': encoding}
-        handle = self._open_handle(filename.replace('\\', '/'))
+        handle = self._open_handle(filename)
         return WithDecoding(handle, **kwargs)
 
     def names(self):
@@ -67,6 +67,8 @@ class Extractor(object):
         if isinstance(filename, int):
             return filename
 
+        if filename.replace('\\', '/').startswith('./'):
+            filename = filename[2:]
         result = filename
         if os.path.isabs(filename):
             if self.contains_path(filename):

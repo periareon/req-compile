@@ -159,6 +159,7 @@ def test_compound(mock_targz):
     ['tar-utf8-1.1.0', 'tar-utf8', '1.1.0', None],
     ['tar-1.0.0', 'tar', '1.0.0', None],
     ['et_xmlfile-1.0.1', 'et_xmlfile', '1.0.1', None],
+    ['dot-slash-dir-1.0', 'dot-slash-dir', '1.0', []],
     ['setup-cfg-0.2.0', 'setup-cfg', '0.2.0', [
         'beautifulsoup4',
         'requests',
