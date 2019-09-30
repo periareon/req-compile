@@ -121,6 +121,8 @@ def extract_metadata(filename, origin=None):
 def find_in_archive(extractor, filename, max_depth=None):
     for info_name in extractor.names():
         if info_name.lower().endswith(filename) and (max_depth is None or info_name.count('/') <= max_depth):
+            if '/' not in filename and info_name.rsplit('/')[-1] != filename:
+                continue
             return info_name
     return None
 
@@ -199,7 +201,6 @@ def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disa
     Returns:
         (DistInfo) The resulting distribution metadata
     """
-    LOG.debug('Starting with directory %s', os.getcwd())
     setup_file = find_in_archive(extractor, 'setup.py', max_depth=1)
 
     if name == 'setuptools':
@@ -585,7 +586,6 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor, mock_import):  #
         except SystemExit:
             LOG.warning('setup.py raised SystemExit')
         finally:
-            orig_chdir(old_dir)
             if old_cythonize is not None:
                 Cython.Build.cythonize = old_cythonize
             if fake_setupdir in sys.path:
@@ -602,10 +602,14 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor, mock_import):  #
                 module = sys.modules[module_name]
                 if module is None:
                     continue
+                if 'version' in module_name and module_name not in ('pluggy._version', '_pytest_mock_version', 'pkg_resources.extern.packaging.version', '_pytest._version', 'packaging.version', 'setuptools.version', 'distutils.version', 'funcsigs.version','setuptools.extern.packaging.version', 'py._version', 'pkg_resources._vendor.packaging.version', 'setuptools._vendor.packaging.version'):
+                    pass
                 if isinstance(module, (FakeCython, FakeNumpyModule)):
                     del sys.modules[module_name]
                 elif hasattr(module, '__file__') and extractor.contains_path(module.__file__):
                     del sys.modules[module_name]
+
+            orig_chdir(old_dir)
 
     if not results:
         raise ValueError('Distutils/setuptools setup() was not ever '

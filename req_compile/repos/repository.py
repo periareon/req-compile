@@ -347,14 +347,15 @@ class Repository(BaseRepository):
                     continue
 
                 all_prereleases = all_prereleases and candidate.version.is_prerelease
-                result, cached = self._try_candidate(req.specifier, candidate,
-                                                        has_equality=has_equality, allow_prereleases=allow_prereleases)
+                result, reason = self._try_candidate(req.specifier, candidate,
+                                                     has_equality=has_equality, allow_prereleases=allow_prereleases)
                 if result is not None:
-                    return result, cached
+                    return result, reason
 
-                tried_versions.add(candidate.version)
-                if max_downgrade is not None and len(tried_versions) >= max_downgrade:
-                    break
+                if reason == CantUseReason.BAD_METADATA:
+                    tried_versions.add(candidate.version)
+                    if max_downgrade is not None and len(tried_versions) >= max_downgrade:
+                        break
 
         if (all_prereleases or req_compile.utils.has_prerelease(req)) and not allow_prereleases:
             return self.do_get_candidate(req, candidates, force_allow_prerelease=True, max_downgrade=max_downgrade)

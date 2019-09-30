@@ -117,7 +117,7 @@ def _do_import(opener, modname, paths):
         for filename in (os.path.join(path, modname.replace('.', '/') + '.py'),
                          os.path.join(path, modname.replace('.', '/'), '__init__.py')):
             try:
-                with opener(filename) as src:
+                with opener(filename, encoding='utf-8') as src:
                     contents = src.read()
                     module = import_contents(modname, filename, contents)
                     return module

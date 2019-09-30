@@ -115,7 +115,7 @@ class NonExtractor(Extractor):
 
     def _open_handle(self, filename):
         try:
-            return self.io_open(os.path.join(self.path, filename))
+            return self.io_open(os.path.join(self.path, filename), encoding='utf-8', errors='ignore')
         except KeyError:
             raise IOError('Could not find {}'.format(filename))
 

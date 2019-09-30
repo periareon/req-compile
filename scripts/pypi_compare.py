@@ -40,7 +40,7 @@ WHITELIST = {
 }
 
 
-START_WITH = 'pylivetrader'
+START_WITH = 'pylzma'
 
 # Python 2.7
 # Kinda bad:
@@ -54,8 +54,7 @@ START_WITH = 'pylivetrader'
 # africastalking-python had a None candidate (uses a v prefix for versions)
 # python-conio, 6 is not a valid cantusereason
 # pythonruntimediagnostics - seems very slow (appears to be due to bokeh)
-# pylivetrader - slow, py2 tried every version ever
-# pylognorm
+# pylzma - packaged easy setup
 
 # Good projects
 # python-watcher - substantial number of reqs
