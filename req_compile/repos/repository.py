@@ -138,7 +138,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
             result += 1000
 
         # Spaces in source dist filenames penalize them in the search order
-        if ' ' in self.filename:
+        if isinstance(self.filename, six.string_types) and ' ' in self.filename:
             result -= 100
         return result
 

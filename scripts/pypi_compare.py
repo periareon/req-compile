@@ -40,7 +40,7 @@ WHITELIST = {
 }
 
 
-START_WITH = 'pyjdb'
+START_WITH = 'pylds'
 
 # Python 2.7
 # Kinda bad:

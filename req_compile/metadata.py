@@ -143,7 +143,7 @@ def _fetch_from_source(source_file, extractor_type):
     if source_file in FAILED_BUILDS:
         raise MetadataError(name, version, Exception('Build has already failed before'))
 
-    extractor = extractor_type(source_file)
+    extractor = extractor_type(source_file, source_file)
     with closing(extractor):
         LOG.info('Attempting to fetch metadata from setup.py')
         results = _fetch_from_setup_py(source_file, name, version, extractor)
@@ -155,7 +155,7 @@ def _fetch_from_source(source_file, extractor_type):
             try:
                 LOG.info('Attempting to fetch metadata from %s', metadata_file)
                 return _parse_flat_metadata(extractor.open(metadata_file, encoding='utf-8').read())
-            except OSError:
+            except IOError:
                 LOG.warning('Could not parse metadata file %s', metadata_file)
 
         egg_requires_file = find_in_archive(extractor, '.egg-info/requires.txt')
@@ -174,7 +174,7 @@ def _fetch_from_source(source_file, extractor_type):
             try:
                 LOG.info('Attempting to fetch metadata from %s', pkg_info_file)
                 return _parse_flat_metadata(extractor.open(pkg_info_file, encoding='utf-8').read())
-            except OSError:
+            except IOError:
                 LOG.warning('Could not parse metadata file %s', pkg_info_file)
 
         LOG.warning('No metadata source could be found for the source dist %s', source_file)
@@ -199,6 +199,7 @@ def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disa
     Returns:
         (DistInfo) The resulting distribution metadata
     """
+    LOG.debug('Starting with directory %s', os.getcwd())
     setup_file = find_in_archive(extractor, 'setup.py', max_depth=1)
 
     if name == 'setuptools':
@@ -209,42 +210,25 @@ def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disa
         LOG.warning('Could not find a setup.py in %s', os.path.basename(source_file))
         return None
 
-    if isinstance(extractor, NonExtractor):
-        fake_setupdir = source_file
-    else:
-        fake_setupdir = tempfile.mkdtemp(suffix=name)
-        if six.PY2:
-            os.mkdir(os.path.join(fake_setupdir, name))
+    fake_setupdir = tempfile.mkdtemp(suffix='_{}_{}'.format(extractor.__class__.__name__, name))
+    LOG.debug('Setting root to %s', fake_setupdir)
+    extractor.fake_root = fake_setupdir
 
     results = None
-    opener = extractor.relative_opener(fake_setupdir, os.path.dirname(setup_file))
     try:
         LOG.info('Parsing setup.py %s', setup_file)
-        results = _parse_setup_py(name, fake_setupdir, opener, False)
+        results = _parse_setup_py(name, fake_setupdir, setup_file, extractor, False)
     except SystemExit:
         LOG.exception('Somehow setup.py raised SystemExit')
     except Exception:  # pylint: disable=broad-except
         LOG.warning('Failed to parse %s without import mocks', name, exc_info=True)
         try:
             LOG.info('Parsing setup.py %s with archive mocks', setup_file)
-            results = _parse_setup_py(name, fake_setupdir, opener, True)
+            results = _parse_setup_py(name, fake_setupdir, setup_file, extractor, True)
         except Exception:  # pylint: disable=broad-except
             LOG.warning('Failed to parse %s with import mocks', name, exc_info=True)
 
-            temp_wheeldir = tempfile.mkdtemp()
-            LOG.info('Building wheel file for %s', source_file)
-            try:
-                subprocess.check_output([
-                    sys.executable,
-                    '-m', 'pip', 'wheel',
-                    source_file, '--no-deps', '--wheel-dir', temp_wheeldir
-                ], stderr=subprocess.STDOUT, universal_newlines=True)
-                wheel_file = os.path.join(temp_wheeldir, os.listdir(temp_wheeldir)[0])
-                results = _fetch_from_wheel(wheel_file)
-            except subprocess.CalledProcessError as ex:
-                LOG.warning('Failed to build wheel for %s: %s', name, ex.output, exc_info=True)
-            finally:
-                shutil.rmtree(temp_wheeldir)
+            results = _build_wheel(name, source_file)
     finally:
         if fake_setupdir != source_file:
             shutil.rmtree(fake_setupdir)
@@ -256,6 +240,25 @@ def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disa
         results.name = name
     if results.version is None or (version and results.version != version):
         results.version = version or utils.parse_version('0.0.0')
+    return results
+
+
+def _build_wheel(name, source_file):
+    results = None
+    temp_wheeldir = tempfile.mkdtemp()
+    LOG.info('Building wheel file for %s', source_file)
+    try:
+        subprocess.check_output([
+            sys.executable,
+            '-m', 'pip', 'wheel',
+            source_file, '--no-deps', '--wheel-dir', temp_wheeldir
+        ], stderr=subprocess.STDOUT, universal_newlines=True)
+        wheel_file = os.path.join(temp_wheeldir, os.listdir(temp_wheeldir)[0])
+        results = _fetch_from_wheel(wheel_file)
+    except subprocess.CalledProcessError as ex:
+        LOG.warning('Failed to build wheel for %s: %s', name, ex.output, exc_info=True)
+    finally:
+        shutil.rmtree(temp_wheeldir)
     return results
 
 
@@ -418,7 +421,7 @@ class FakeCython(ModuleType):
 
 
 # pylint: disable=too-many-branches
-def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disable=too-many-locals,too-many-statements
+def _parse_setup_py(name, fake_setupdir, setup_file, extractor, mock_import):  # pylint: disable=too-many-locals,too-many-statements
     # pylint: disable=bad-option-value,no-name-in-module,no-member,import-outside-toplevel
     # Capture warnings.warn, which is sometimes used in setup.py files
 
@@ -428,10 +431,6 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
     setup_with_results = functools.partial(setup, results)
 
     import os.path  # pylint: disable=redefined-outer-name
-
-    spy_globals = {'__file__': os.path.join(fake_setupdir, 'setup.py'),
-                   '__name__': '__main__',
-                   'setup': setup_with_results}
 
     # pylint: disable=unused-import,unused-variable
     import codecs
@@ -453,12 +452,7 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
     old_dir = os.getcwd()
 
     def _fake_exists(path):
-        try:
-            file_handle = opener(path, 'r')
-            file_handle.close()
-            return True
-        except IOError:
-            return False
+        return extractor.exists(path)
 
     os.chdir(fake_setupdir)
     orig_chdir = os.chdir
@@ -483,14 +477,11 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
         sys.modules['Cython'] = FakeCython('Cython')
         sys.modules['Cython.Build'] = FakeCython('Build')
 
-    def no_op_call(*_args, **_kwargs):
-        pass
-
     def os_error_call(*_args, **_kwargs):
         raise OSError('Popen not permitted')
 
     if mock_import:
-        fake_import = functools.partial(import_hook, opener)
+        fake_import = functools.partial(import_hook, extractor.open)
 
         class FakeSpec(object):  # pylint: disable=too-many-instance-attributes
             class Loader(object):
@@ -508,13 +499,11 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
                 self.parent = None
                 self.loader = None
 
-                with opener(path) as handle:
-                    self.contents = handle.read()
+                self.contents = extractor.contents(path)
 
         # pylint: disable=unused-argument
         def fake_load_source(modname, filename, filehandle=None):
-            with opener(filename) as handle:
-                return import_contents(modname, filename, handle.read())
+            return import_contents(modname, filename, extractor.contents(filename))
 
         def fake_spec_from_file_location(modname, path, submodule_search_locations=None):
             return FakeSpec(modname, path)
@@ -533,9 +522,10 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
     with \
          patch(sys, 'stderr', StringIO()), \
          patch(sys, 'stdout', StringIO()), \
-         patch(os, '_exit', lambda code: sys.exit(code)), \
-         patch('builtins', 'open', opener), \
-         patch('__builtin__', 'open', opener), \
+         patch(os, '_exit', sys.exit), \
+         patch(os, 'symlink', lambda *_: None), \
+         patch('builtins', 'open', extractor.open), \
+         patch('__builtin__', 'open', extractor.open), \
          patch('__builtin__', 'execfile', lambda filename: None), \
          patch(subprocess, 'check_call', os_error_call), \
          patch(subprocess, 'check_output', os_error_call), \
@@ -543,28 +533,41 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
          patch(os, 'listdir', lambda path: []), \
          patch(os.path, 'exists', _fake_exists), \
          patch(os, 'chdir', _fake_chdir), \
-         patch(io, 'open', opener), \
-         patch(codecs, 'open', opener), \
+         patch(io, 'open', extractor.open), \
+         patch(codecs, 'open', extractor.open), \
          patch(setuptools, 'setup', setup_with_results), \
          patch(distutils.core, 'setup', setup_with_results), \
-         patch(sys, 'argv', ['setup.py', 'install']):
+         patch(sys, 'argv', ['setup.py', 'egg_info']):
 
         try:
-            contents = opener('setup.py', encoding='utf-8').read()
+            setup_dir = os.path.dirname(setup_file)
+            sys.path.insert(0, os.path.abspath(setup_dir))
+            if setup_dir:
+                os.chdir(setup_dir)
+
+            LOG.debug('New __file__ = %s', os.path.join(fake_setupdir, setup_file))
+            spy_globals = {'__file__': os.path.join(fake_setupdir, setup_file),
+                           '__name__': '__main__',
+                           'setup': setup_with_results}
+
+            LOG.debug('Globals %s', spy_globals)
+
+            contents = extractor.contents(os.path.basename(setup_file))
             if six.PY2:
                 contents = remove_encoding_lines(contents)
 
-            sys.path.insert(0, fake_setupdir)
             # pylint: disable=exec-used
             contents = contents.replace('print ', '')
             exec(contents, spy_globals, spy_globals)
         except SystemExit:
             LOG.warning('setup.py raised SystemExit')
         finally:
+            LOG.debug('Switching directory back to %s', old_dir)
             orig_chdir(old_dir)
             if old_cythonize is not None:
                 Cython.Build.cythonize = old_cythonize
-            sys.path.remove(fake_setupdir)
+            if fake_setupdir in sys.path:
+                sys.path.remove(fake_setupdir)
 
             if mock_import:
                 end_patch(load_source_patch)
@@ -573,11 +576,14 @@ def _parse_setup_py(name, fake_setupdir, opener, mock_import):  # pylint: disabl
                 end_patch(py2_import)
                 end_patch(py3_import)
 
-            for module in list(sys.modules.keys()):
+            for module_name in list(sys.modules.keys()):
+                module = sys.modules[module_name]
+                if module is None:
+                    continue
                 if isinstance(module, (FakeCython, FakeNumpyModule)):
-                    del sys.modules[module]
-            if 'versioneer' in sys.modules:
-                del sys.modules['versioneer']
+                    del sys.modules[module_name]
+                elif hasattr(module, '__file__') and extractor.contains_path(module.__file__):
+                    del sys.modules[module_name]
 
     if not results:
         raise ValueError('Distutils/setuptools setup() was not ever '

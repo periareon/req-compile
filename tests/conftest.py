@@ -15,7 +15,7 @@ from req_compile.repos.repository import Repository, Candidate
 from req_compile.repos.solution import load_from_file
 
 
-@pytest.fixture(scope='function', autouse=True)
+@pytest.fixture(autouse=True)
 def setup_logging(caplog):
     caplog.set_level(logging.DEBUG, logger="req_compile")
 
