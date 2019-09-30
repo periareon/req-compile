@@ -178,6 +178,7 @@ def test_compound(mock_targz):
     ]],
     ['cython-check-1.0', 'cython-check', '1.0', ['simplejson']],
     ['ez-setup-test-1.0', 'ez-setup-test', '1.0', None],
+    ['gdal-3.0.1', 'GDAL', '3.0.1', []],
 ])
 def test_source_dist(archive_fixture, directory, name, version, reqs, mock_targz, mock_zip, mocker):
     mock_build = mocker.patch('req_compile.metadata._build_wheel')

@@ -402,7 +402,7 @@ class FakeNumpyModule(ModuleType):
     """A module simulating numpy"""
     def __init__(self, name):
         ModuleType.__init__(self, name)  # pylint: disable=non-parent-init-called,no-member
-
+        self.__version__ = '2.16.0'
         self.get_include = _get_include
 
 

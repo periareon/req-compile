@@ -40,7 +40,7 @@ WHITELIST = {
 }
 
 
-START_WITH = 'pylzma'
+START_WITH = 'pymask'
 
 # Python 2.7
 # Kinda bad:
@@ -55,6 +55,7 @@ START_WITH = 'pylzma'
 # python-conio, 6 is not a valid cantusereason
 # pythonruntimediagnostics - seems very slow (appears to be due to bokeh)
 # pylzma - packaged easy setup
+# gdal - failure
 
 # Good projects
 # python-watcher - substantial number of reqs

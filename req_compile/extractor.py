@@ -181,7 +181,7 @@ class ZipExtractor(Extractor):
 
 class WithDecoding(object):
     """Wrap a file object and handle decoding for Python 2 and Python 3"""
-    def __init__(self, wrap, encoding):
+    def __init__(self, wrap, encoding=None):
         if wrap is None:
             raise OSError('File not found: {}'.format(wrap))
         self.file = wrap
