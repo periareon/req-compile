@@ -275,9 +275,8 @@ def _build_egg_info(name, extractor, setup_file):
         return pkg_dist
     except subprocess.CalledProcessError as ex:
         LOG.warning('Failed to build egg-info for %s: %s', name, ex.output, exc_info=True)
-        return _build_wheel(name, os.path.dirname(extracted_setup_py))
-    finally:
         shutil.rmtree(temp_tar)
+        return _build_wheel(name, os.path.dirname(extracted_setup_py))
 
 
 def _fetch_from_wheel(wheel):

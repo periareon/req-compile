@@ -40,7 +40,7 @@ WHITELIST = {
 }
 
 
-START_WITH = 'pymnl'
+START_WITH = 'pymochad'
 
 # Python 2.7
 # Kinda bad:

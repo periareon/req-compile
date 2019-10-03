@@ -4,6 +4,7 @@ import collections
 import copy
 import itertools
 import logging
+import shutil
 
 import six
 
@@ -349,3 +350,6 @@ class PkgResourcesDistInfo(RequirementContainer):
             self.dist.project_name,
             ('[' + ','.join(sorted(extras)) + ']') if extras else '')
         return req_expr, self.version
+
+    def __del__(self):
+        shutil.rmtree(self.dist.location)
