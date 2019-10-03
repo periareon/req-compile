@@ -79,7 +79,7 @@ def parse_source_filename(full_filename):
     return pkg_name, version
 
 
-def extract_metadata(filename, origin=None):
+def extract_metadata(filename, run_setup_py=True, origin=None):
     """Extract a DistInfo from a file or directory
 
     Args:
@@ -100,19 +100,20 @@ def extract_metadata(filename, origin=None):
             raise MetadataError(os.path.basename(filename).replace('.whl', ''), '0.0', ex)
     elif ext == '.zip':
         LOG.debug('Extracting from a zipped source package')
-        result = _fetch_from_source(filename, ZipExtractor)
+        result = _fetch_from_source(filename, ZipExtractor, run_setup_py=run_setup_py)
     elif ext in ('.gz', '.bz2', '.tgz'):
         LOG.debug('Extracting from a tar package')
         if ext == '.tgz':
             ext = 'gz'
         result = _fetch_from_source(os.path.abspath(filename),
-                                    functools.partial(TarExtractor, ext.replace('.', '')))
+                                    functools.partial(TarExtractor, ext.replace('.', '')),
+                                    run_setup_py=run_setup_py)
     elif ext in ('.egg',):
         LOG.debug('Attempted to resolve an unsupported format')
         return None
     else:
         LOG.debug('Extracting directly from a source directory')
-        result = _fetch_from_source(os.path.abspath(filename), NonExtractor)
+        result = _fetch_from_source(os.path.abspath(filename), NonExtractor, run_setup_py=run_setup_py)
 
     if result is not None:
         result.origin = origin
@@ -128,7 +129,7 @@ def find_in_archive(extractor, filename, max_depth=None):
     return None
 
 
-def _fetch_from_source(source_file, extractor_type):
+def _fetch_from_source(source_file, extractor_type, run_setup_py=True):
     """
 
     Args:
@@ -148,10 +149,13 @@ def _fetch_from_source(source_file, extractor_type):
 
     extractor = extractor_type(source_file, source_file)
     with closing(extractor):
-        LOG.info('Attempting to fetch metadata from setup.py')
-        results = _fetch_from_setup_py(source_file, name, version, extractor)
-        if results is not None:
-            return results
+        if run_setup_py:
+            LOG.info('Attempting to fetch metadata from setup.py')
+            results = _fetch_from_setup_py(source_file, name, version, extractor)
+            if results is not None:
+                return results
+        else:
+            extractor.fake_root = None
 
         metadata_file = find_in_archive(extractor, 'metadata', max_depth=1)
         if metadata_file is not None:
@@ -172,7 +176,7 @@ def _fetch_from_source(source_file, extractor_type):
             except IOError:
                 LOG.warning('Failed to load requires.txt')
 
-        pkg_info_file = find_in_archive(extractor, 'pkg-info')
+        pkg_info_file = find_in_archive(extractor, '.egg-info/pkg-info')
         if pkg_info_file is not None:
             try:
                 LOG.info('Attempting to fetch metadata from %s', pkg_info_file)
@@ -220,17 +224,16 @@ def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disa
     try:
         LOG.info('Parsing setup.py %s', setup_file)
         results = _parse_setup_py(name, fake_setupdir, setup_file, extractor, False)
-    except SystemExit:
-        LOG.exception('Somehow setup.py raised SystemExit')
     except Exception:  # pylint: disable=broad-except
         LOG.warning('Failed to parse %s without import mocks', name, exc_info=True)
         try:
             LOG.info('Parsing setup.py %s with archive mocks', setup_file)
             results = _parse_setup_py(name, fake_setupdir, setup_file, extractor, True)
-        except Exception:  # pylint: disable=broad-except
+        except (Exception, RuntimeError, ImportError):  # pylint: disable=broad-except
             LOG.warning('Failed to parse %s with import mocks', name, exc_info=True)
 
-            results = _build_wheel(name, source_file)
+            # results = _build_wheel(name, source_file)
+            results = _build_egg_info(name, extractor, setup_file)
     finally:
         if fake_setupdir != source_file:
             shutil.rmtree(fake_setupdir)
@@ -261,6 +264,28 @@ def _build_wheel(name, source_file):
         LOG.warning('Failed to build wheel for %s: %s', name, ex.output, exc_info=True)
     finally:
         shutil.rmtree(temp_wheeldir)
+    return results
+
+
+def _build_egg_info(name, extractor, setup_file):
+    results = None
+    temp_tar = tempfile.mkdtemp()
+
+    extractor.extract(temp_tar)
+
+    extracted_setup_py = os.path.join(temp_tar, setup_file)
+    LOG.info('Building egg info for %s [%s]', extracted_setup_py, list(os.listdir(temp_tar)))
+    try:
+        subprocess.check_output([
+            sys.executable, extracted_setup_py, 'egg_info'
+        ], cwd=os.path.dirname(extracted_setup_py), stderr=subprocess.STDOUT, universal_newlines=True)
+        LOG.info('Build egg info successfully: [%s]',  list(os.listdir(os.path.dirname(extracted_setup_py))))
+        return extract_metadata(os.path.dirname(extracted_setup_py), run_setup_py=False)
+    except subprocess.CalledProcessError as ex:
+        LOG.warning('Failed to build egg-info for %s: %s', name, ex.output, exc_info=True)
+        return _build_wheel(name, os.path.dirname(extracted_setup_py))
+    finally:
+        shutil.rmtree(temp_tar)
     return results
 
 

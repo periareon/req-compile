@@ -64,7 +64,7 @@ class Extractor(object):
         Returns:
             (str) The path to use to open the file or check existence
         """
-        if isinstance(filename, int):
+        if isinstance(filename, int) or self.fake_root is None:
             return filename
 
         if filename.replace('\\', '/').startswith('./'):
@@ -140,6 +140,14 @@ class TarExtractor(Extractor):
             return True
         except KeyError:
             return False
+
+    def extract(self, target_dir):
+        old_dir = os.getcwd()
+        os.chdir(target_dir)
+        try:
+            self.tar.extractall()
+        finally:
+            os.chdir(old_dir)
 
     def _open_handle(self, filename):
         try:
