@@ -32,7 +32,7 @@ def test_parse_flat_metadata_two_names():
 def test_parse_flat_metadata_complex_marker():
     results = req_compile.metadata._parse_flat_metadata(open(os.path.join(os.path.dirname(__file__),
                                                                           'METADATA-implementation-marker')).read())
-    assert {req.name for req in results.requires()} == {'ordereddict', 'yaml.clib'}
+    assert {req.name for req in results.requires()} == {'ordereddict', 'yaml.clib'} if six.PY2 else {'yaml.clib'}
 
 
 def test_a_with_extra(metadata_provider):
@@ -54,7 +54,6 @@ def test_pylint_python(metadata_provider):
     assert info.name == 'pylint'
     assert info.version == pkg_resources.parse_version('1.9.4')
 
-    expected_reqs = set()
     if six.PY2:
         if sys.platform == 'win32':
             expected_reqs = ['astroid (<2.0,>=1.6)',
@@ -112,26 +111,6 @@ def test_compound(mock_targz):
     archive = mock_targz('ed-1.4')
     req_compile.metadata.extract_metadata(archive)
 
-#     archive = mock_targz('future-0.17.4')
-#
-#     metadata = req_compile.metadata.extract_metadata(archive)
-#     assert metadata.name == 'future'
-#     assert metadata.version == pkg_resources.parse_version('0.17.4')
-
-# def test_cerberus(mock_targz):
-#     archive = mock_targz('cerberus-1.1')
-#
-#     metadata = req_compile.metadata.extract_metadata(archive)
-#     assert metadata.name == 'Cerberus'
-#     assert metadata.version == pkg_resources.parse_version('1.1')
-
-
-# def test_pyusb(mock_targz):
-#     archive = mock_targz('pyusb-1.0.2')
-#
-#     metadata = req_compile.metadata.extract_metadata(archive)
-#     assert metadata.name == 'pyusb'
-#     assert metadata.version == pkg_resources.parse_version('1.0.2')
 
 @pytest.mark.parametrize('archive_fixture', [
     'mock_targz',
@@ -139,8 +118,8 @@ def test_compound(mock_targz):
     'mock_fs'
 ])
 @pytest.mark.parametrize('directory,name,version,reqs', [
-    ['dir-exists-1.0', 'dir-exists', '1.0', ['msgpack-python']],
     ['svn-0.3.46', 'svn', '0.3.46', ['python-dateutil>=2.2', 'nose']],
+    ['dir-exists-1.0', 'dir-exists', '1.0', ['msgpack-python']],
     ['invalid-extra-2.1', 'WTForms', '2.1', None],
     ['scapy-2.4.0', 'scapy', '2.4.0', None],
     ['dill-0.3.0', 'dill', '0.3.0', None],
@@ -150,7 +129,6 @@ def test_compound(mock_targz):
     ['pkg-with-cython-1.0', 'pkg-with-cython', '1.0', None],
     ['billiard-3.6.0.0', 'billiard', '3.6.0.0', None],
     ['ptl-2015.11.4', 'ptl', '2015.11.4', ['pytest>=2.8.1']],
-    ['psutil-5.6.2', 'psutil', '5.6.2', None],
     ['reloader-1.0', 'reloader', '1.0', None],
     ['PyYAML-5.1', 'PyYAML', '5.1', None],
     ['ed-1.4', 'ed', None, None],
@@ -180,6 +158,8 @@ def test_compound(mock_targz):
     ['ez-setup-test-1.0', 'ez-setup-test', '1.0', None],
     ['gdal-3.0.1', 'GDAL', '3.0.1', []],
     ['pymc-2.3.6', 'pymc', '2.3.6', []],  # Arguably this may require numpy
+    ['file-iter-7.2.0', 'file-iter', '7.2.0', None],
+    ['psutil-5.6.2', 'psutil', '5.6.2', None],
 ])
 def test_source_dist(archive_fixture, directory, name, version, reqs, mock_targz, mock_zip, mocker):
     mock_build = mocker.patch('req_compile.metadata._build_wheel')

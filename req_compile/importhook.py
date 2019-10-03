@@ -138,7 +138,7 @@ def import_module(opener, partname, fqname, parent):
         m = imp.load_module(fqname, fp, pathname, stuff)
     except AttributeError:
         raise ImportError(partname)
-    except ImportError:
+    except (IOError, ImportError):
         m = _do_import(opener, fqname, parent and parent.__path__)
     finally:
         if fp is not None:

@@ -6,7 +6,7 @@ import tarfile
 import zipfile
 
 import six
-from six import StringIO
+from six import BytesIO
 
 LOG = logging.getLogger('req_compile.extractor')
 
@@ -35,7 +35,7 @@ class Extractor(object):
 
         kwargs = {}
         if 'b' not in mode:
-            kwargs = {'encoding': encoding}
+            kwargs = {'encoding': encoding or 'ascii'}
         handle = self._open_handle(filename)
         return WithDecoding(handle, **kwargs)
 
@@ -115,7 +115,7 @@ class NonExtractor(Extractor):
 
     def _open_handle(self, filename):
         try:
-            return self.io_open(os.path.join(self.path, filename), encoding='utf-8', errors='ignore')
+            return self.io_open(os.path.join(self.path, filename), 'rb')
         except KeyError:
             raise IOError('Could not find {}'.format(filename))
 
@@ -132,7 +132,7 @@ class TarExtractor(Extractor):
 
     def names(self):
         return (info.name for info in self.tar.getmembers()
-                if info.type != '5')
+                if info.type != b'5')
 
     def exists(self, filename):
         try:
@@ -177,9 +177,17 @@ class ZipExtractor(Extractor):
         except KeyError:
             return any(name.startswith(filename + '/') for name in self.names())
 
+    def extract(self, target_dir):
+        old_dir = os.getcwd()
+        os.chdir(target_dir)
+        try:
+            self.zfile.extractall()
+        finally:
+            os.chdir(old_dir)
+
     def _open_handle(self, filename):
         try:
-            return StringIO(self.zfile.read(filename).decode('utf-8', errors='ignore'))
+            return BytesIO(self.zfile.read(filename))
         except KeyError:
             raise IOError('Could not find {}'.format(filename))
 
@@ -191,37 +199,43 @@ class WithDecoding(object):
     """Wrap a file object and handle decoding for Python 2 and Python 3"""
     def __init__(self, wrap, encoding=None):
         if wrap is None:
-            raise OSError('File not found: {}'.format(wrap))
+            raise IOError('File not found')
         self.file = wrap
         self.encoding = encoding
+        self.iter = iter(self)
 
-    def read(self, nbytes=None):
-        results = self.file.read(nbytes)
-        if six.PY3 and self.encoding:
+    def _do_decode(self, results):
+        if six.PY3 and self.encoding and isinstance(results, bytes):
             results = results.decode(self.encoding, 'ignore')
         if six.PY2:
             results = str(''.join([i if ord(i) < 128 else ' ' for i in results]))
         return results
 
+    def read(self, nbytes=None):
+        results = self.file.read(nbytes)
+        return self._do_decode(results)
+
     def readline(self):
         results = self.file.readline()
-        if self.encoding:
-            results = results.decode(self.encoding, 'ignore')
-        return results
+        return self._do_decode(results)
 
     def readlines(self):
         results = self.file.readlines()
-        if self.encoding:
-            results = [result.decode(self.encoding, 'ignore') for result in results]
-        return results
+        return [self._do_decode(result) for result in results]
 
     def write(self, *args, **kwargs):
         pass
 
     def __iter__(self):
         if self.encoding:
-            return (line.decode(self.encoding) for line in self.file)
+            return (self._do_decode(line) for line in self.file)
         return iter(self.file)
+
+    def __next__(self):
+        return next(self.iter)
+
+    def next(self):
+        return next(self.iter)
 
     def __enter__(self):
         return self

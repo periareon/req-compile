@@ -213,8 +213,8 @@ class DistributionCollection(object):
             if node in _visited:
                 continue
 
-            yield node
             _visited.add(node)
+            yield node
 
             if max_depth is None or _cur_depth < max_depth - 1:
                 results = self.visit_nodes([node], reverse=reverse, max_depth=max_depth,
@@ -234,18 +234,10 @@ class DistributionCollection(object):
             (list[str]) List of rendered node entries in the form of
                 reqname==version   # reasons
         """
-        if _visited is None:
-            _visited = set()
         req_filter = req_filter or (lambda _: True)
-
         results = []
-        for node in itertools.chain(*[root.dependencies.keys() for root in roots]):
-            if node in _visited:
-                continue
-
-            _visited.add(node)
-
-            if isinstance(node.metadata, DistInfo) and not node.extra:
+        for node in self.visit_nodes(roots):
+            if not node.extra:
                 extras = []
                 constraints = _build_constraints(node, exclude=node.metadata.name)
                 for reverse_dep in node.reverse_deps:
@@ -261,9 +253,6 @@ class DistributionCollection(object):
                 constraint_text = ', '.join(sorted(constraints))
                 if not node.metadata.meta and req_filter(node):
                     results.append((req_expr, constraint_text))
-
-            results.extend(self.generate_lines([node], req_filter=req_filter, _visited=_visited))
-
         return results
 
     def __contains__(self, project_name):
@@ -280,7 +269,7 @@ class RequirementContainer(object):
     """A container for a list of requirements"""
     def __init__(self, name, reqs, meta=False):
         self.name = name
-        self.reqs = list(reqs)
+        self.reqs = list(reqs) if reqs else reqs
         self.origin = None
         self.meta = meta
 
@@ -337,3 +326,26 @@ class DistInfo(RequirementContainer):
 
     def __repr__(self):
         return self.name + ' ' + str(self.version) + '\n' + '\n'.join([str(req) for req in self.reqs])
+
+
+class PkgResourcesDistInfo(RequirementContainer):
+    def __init__(self, dist):
+        """
+        Args:
+            dist (pkg_resources.Distribution): The distribution to wrap
+        """
+        super(PkgResourcesDistInfo, self).__init__(dist.project_name, None)
+        self.dist = dist
+        self.version = dist.parsed_version
+
+    def __str__(self):
+        return '{}=={}'.format(*self.to_definition(None))
+
+    def requires(self, extras=None):
+        return self.dist.requires(extras=extras or ())
+
+    def to_definition(self, extras):
+        req_expr = '{}{}'.format(
+            self.dist.project_name,
+            ('[' + ','.join(sorted(extras)) + ']') if extras else '')
+        return req_expr, self.version

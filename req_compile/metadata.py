@@ -20,7 +20,7 @@ from six.moves import StringIO, configparser
 import pkg_resources
 
 from req_compile import utils
-from req_compile.dists import DistInfo
+from req_compile.dists import DistInfo, PkgResourcesDistInfo
 from req_compile.extractor import NonExtractor, TarExtractor, ZipExtractor
 from req_compile.importhook import import_hook, import_contents, remove_encoding_lines
 
@@ -157,33 +157,6 @@ def _fetch_from_source(source_file, extractor_type, run_setup_py=True):
         else:
             extractor.fake_root = None
 
-        metadata_file = find_in_archive(extractor, 'metadata', max_depth=1)
-        if metadata_file is not None:
-            try:
-                LOG.info('Attempting to fetch metadata from %s', metadata_file)
-                return _parse_flat_metadata(extractor.open(metadata_file, encoding='utf-8').read())
-            except IOError:
-                LOG.warning('Could not parse metadata file %s', metadata_file)
-
-        egg_requires_file = find_in_archive(extractor, '.egg-info/requires.txt')
-        if egg_requires_file is not None:
-            LOG.info('Attempting to fetch metadata from %s', egg_requires_file)
-            try:
-                requires_contents = extractor.open(egg_requires_file, encoding='utf-8').read()
-                return _parse_requires_file(requires_contents,
-                                            name,
-                                            version)
-            except IOError:
-                LOG.warning('Failed to load requires.txt')
-
-        pkg_info_file = find_in_archive(extractor, '.egg-info/pkg-info')
-        if pkg_info_file is not None:
-            try:
-                LOG.info('Attempting to fetch metadata from %s', pkg_info_file)
-                return _parse_flat_metadata(extractor.open(pkg_info_file, encoding='utf-8').read())
-            except IOError:
-                LOG.warning('Could not parse metadata file %s', pkg_info_file)
-
         LOG.warning('No metadata source could be found for the source dist %s', source_file)
         FAILED_BUILDS.add(source_file)
         raise MetadataError(name, version, Exception('Invalid project distribution'))
@@ -220,7 +193,6 @@ def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disa
     LOG.debug('Setting root to %s', fake_setupdir)
     extractor.fake_root = fake_setupdir
 
-    results = None
     try:
         LOG.info('Parsing setup.py %s', setup_file)
         results = _parse_setup_py(name, fake_setupdir, setup_file, extractor, False)
@@ -232,7 +204,6 @@ def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disa
         except (Exception, RuntimeError, ImportError):  # pylint: disable=broad-except
             LOG.warning('Failed to parse %s with import mocks', name, exc_info=True)
 
-            # results = _build_wheel(name, source_file)
             results = _build_egg_info(name, extractor, setup_file)
     finally:
         if fake_setupdir != source_file:
@@ -267,40 +238,55 @@ def _build_wheel(name, source_file):
     return results
 
 
+# Shim to wrap setup.py invocation with an import of setuptools
+SETUPTOOLS_SHIM = (
+    "import setuptools, tokenize;"
+    "__file__=%r;"
+    "f = getattr(tokenize, 'open', open)(__file__);"
+    "code = f.read().replace('\\r\\n', '\\n');"
+    "f.close();"
+    "exec(compile(code, __file__, 'exec'))"
+)
+
+
 def _build_egg_info(name, extractor, setup_file):
-    results = None
     temp_tar = tempfile.mkdtemp()
 
     extractor.extract(temp_tar)
 
     extracted_setup_py = os.path.join(temp_tar, setup_file)
-    LOG.info('Building egg info for %s [%s]', extracted_setup_py, list(os.listdir(temp_tar)))
+    LOG.info('Building egg info for %s', extracted_setup_py)
     try:
-        subprocess.check_output([
-            sys.executable, extracted_setup_py, 'egg_info'
-        ], cwd=os.path.dirname(extracted_setup_py), stderr=subprocess.STDOUT, universal_newlines=True)
-        LOG.info('Build egg info successfully: [%s]',  list(os.listdir(os.path.dirname(extracted_setup_py))))
-        return extract_metadata(os.path.dirname(extracted_setup_py), run_setup_py=False)
+        setup_dir = os.path.dirname(extracted_setup_py)
+        output = subprocess.check_output([
+            sys.executable, '-c', SETUPTOOLS_SHIM % extracted_setup_py, 'egg_info',
+            '--egg-base', setup_dir
+        ], cwd=setup_dir, stderr=subprocess.STDOUT, universal_newlines=True)
+
+        try:
+            egg_info_dir = [egg_info for egg_info in os.listdir(setup_dir)
+                            if egg_info.endswith('.egg-info')][0]
+        except IndexError:
+            LOG.error('Failed to build .egg-info %s:\n%s', list(os.listdir(setup_dir)), output)
+            raise
+
+        metadata = pkg_resources.PathMetadata(setup_dir, os.path.join(setup_dir, egg_info_dir))
+        pkg_dist = PkgResourcesDistInfo(pkg_resources.Distribution(setup_dir, project_name=name, metadata=metadata))
+        return pkg_dist
     except subprocess.CalledProcessError as ex:
         LOG.warning('Failed to build egg-info for %s: %s', name, ex.output, exc_info=True)
         return _build_wheel(name, os.path.dirname(extracted_setup_py))
     finally:
         shutil.rmtree(temp_tar)
-    return results
 
 
 def _fetch_from_wheel(wheel):
     zfile = zipfile.ZipFile(wheel, 'r')
     with closing(zfile):
-        metadata_file = None
         infos = zfile.namelist()
         for info in infos:
             if info.endswith('.dist-info/METADATA'):
-                metadata_file = info
-                break
-
-        if metadata_file:
-            return _parse_flat_metadata(zfile.read(metadata_file).decode('utf-8', 'ignore'))
+                return _parse_flat_metadata(zfile.read(info).decode('utf-8', 'ignore'))
 
         return None
 
@@ -330,15 +316,15 @@ def parse_req_with_marker(req_str, marker):
 def setup(results, *args, **kwargs):
     # pbr uses a dangerous pattern that only works when you build using setuptools
     if 'pbr' in kwargs:
-        raise ValueError('Must build wheel if pbr is used')
+        raise ValueError('Must run egg-info if pbr is used')
 
-    if (not args and not kwargs) or ('name' not in kwargs and os.path.exists('setup.cfg')):
-        name, version, reqs, extra_reqs = _parse_setup_cfg(**kwargs)
-    else:
-        name = kwargs.get('name', None)
-        version = kwargs.get('version', None)
-        reqs = kwargs.get('install_requires', [])
-        extra_reqs = kwargs.get('extras_require', {})
+    if os.path.exists('setup.cfg'):
+        _add_setup_cfg_kwargs(kwargs)
+
+    name = kwargs.get('name', None)
+    version = kwargs.get('version', None)
+    reqs = kwargs.get('install_requires', [])
+    extra_reqs = kwargs.get('extras_require', {})
 
     if version is not None:
         version = pkg_resources.parse_version(str(version))
@@ -451,7 +437,7 @@ class FakeModule(ModuleType):
         return FakeModule(item)
 
 
-def _parse_setup_cfg(**kwargs):
+def _add_setup_cfg_kwargs(kwargs):
     LOG.info('Parsing from setup.cfg')
 
     parser = configparser.ConfigParser()
@@ -460,13 +446,19 @@ def _parse_setup_cfg(**kwargs):
     install_requires = kwargs.get('install_requires', [])
     if parser.has_option('options', 'install_requires'):
         install_requires.extend(parser.get('options', 'install_requires').split('\n'))
+        kwargs['install_requires'] = install_requires
 
     extras_require = kwargs.get('extras_require', {})
     if parser.has_section('options.extras_require'):
         for extra, req_str in parser.items('options.extras_require'):
             extras_require[extra] = req_str.split('\n')
+        kwargs['extras_require'] = extras_require
 
-    return parser.get('metadata', 'name'), parser.get('metadata', 'version'), install_requires, extras_require
+    if parser.has_option('metadata', 'name'):
+        kwargs['name'] = parser.get('metadata', 'name')
+
+    if parser.has_option('metadata', 'version'):
+        kwargs['version'] = parser.get('metadata', 'version')
 
 
 # pylint: disable=too-many-branches
@@ -647,26 +639,3 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor, mock_import):  #
         raise ValueError('Distutils/setuptools setup() was not ever '
                          'called on "{}". Is this a valid project?'.format(name))
     return results[0]
-
-
-def _parse_requires_file(contents, name, version):
-    reqs = []
-    sections = list(pkg_resources.split_sections(contents))
-    for section in sections:
-        if section[0] is None:
-            reqs.extend(utils.parse_requirements(section[1]))
-        else:
-            extra, _, marker = section[0].partition(':')
-            for req in section[1]:
-                req = req.strip()
-                if not req:
-                    continue
-
-                if extra:
-                    req = parse_req_with_marker(req, 'extra=="{}"'.format(extra))
-                if marker:
-                    req = parse_req_with_marker(str(req), marker)
-                if req:
-                    reqs.append(req)
-
-    return DistInfo(name, version, reqs)

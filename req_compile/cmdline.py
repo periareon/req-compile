@@ -92,7 +92,7 @@ def _generate_no_candidate_display(req, repo, dists, failure):
             if idx > 0:
                 if node.metadata is path[idx - 1].metadata:
                     continue
-            node_str = node.metadata.to_definition((node.extra,) if node.extra else None)[0]
+            node_str = node.metadata.name + ('[{}]'.format(node.extra) if node.extra else '')
             print(node_str + ' -> ', end='', file=sys.stderr)
         print(path[-2].dependencies[failing_node], file=sys.stderr)
 
