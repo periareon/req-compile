@@ -189,6 +189,20 @@ def test_setup_with_tenacity(mock_targz):
     assert metadata.version == pkg_resources.parse_version('1.0')
 
 
+def test_relative_import(mock_targz):
+    archive = mock_targz('relative-import-1.0')
+
+    metadata = req_compile.metadata.extract_metadata(archive)
+    assert metadata.name == 'relative-import'
+    assert metadata.version == pkg_resources.parse_version('1.0')
+
+
+def test_extern_import(mock_targz):
+    archive = mock_targz('extern-importer-1.0')
+
+    metadata = req_compile.metadata.extract_metadata(archive)
+
+
 def test_setup_with_tenacity_tornado(mock_targz):
     archive = mock_targz('setup-with-tenacity-tornado-1.0')
 

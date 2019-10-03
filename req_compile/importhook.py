@@ -42,7 +42,10 @@ def find_head_package(opener, parent, name):
         head = name
         tail = ""
     if parent:
-        qname = "%s.%s" % (parent.__name__, head)
+        if not head:
+            qname = parent.__name__
+        else:
+            qname = "%s.%s" % (parent.__name__, head)
     else:
         qname = head
     q = import_module(opener, head, qname, parent)
@@ -133,9 +136,17 @@ def import_module(opener, partname, fqname, parent):
         pass
     fp = None
     try:
-        fp, pathname, stuff = imp.find_module(partname,
-                                              parent and parent.__path__)
-        m = imp.load_module(fqname, fp, pathname, stuff)
+        m = None
+        for finder in sys.meta_path:
+            loader = finder.find_module(fqname,
+                                        parent and parent.__path__)
+            if loader is not None:
+                m = loader.load_module(fqname)
+
+        if m is None:
+            fp, pathname, stuff = imp.find_module(partname,
+                                                  parent and parent.__path__)
+            m = imp.load_module(fqname, fp, pathname, stuff)
     except AttributeError:
         raise ImportError(partname)
     except (IOError, ImportError):

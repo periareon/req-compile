@@ -4,6 +4,7 @@ import collections
 import copy
 import itertools
 import logging
+import os
 import shutil
 
 import six
@@ -352,4 +353,7 @@ class PkgResourcesDistInfo(RequirementContainer):
         return req_expr, self.version
 
     def __del__(self):
-        shutil.rmtree(self.dist.location)
+        try:
+            shutil.rmtree(os.path.join(self.dist.location, '..'))
+        except EnvironmentError:
+            pass

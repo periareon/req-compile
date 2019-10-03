@@ -37,10 +37,12 @@ WHITELIST = {
     'pyhgnc',  # uses flasgger which pip-compile gets wrong. Duplicate req entries
     'flasgger',  # refers to jsonscehema twice
     'pyhrf',  # Package is pretty bad and depends on an older version of pip. req-compile gets it kinda right
+    'pynfdump',  # Very old, hard to parse package. Works if you pass --pre
+    'pyobjc',
 }
 
 
-START_WITH = 'pymochad'
+START_WITH = 'chardet'
 
 # Python 2.7
 # Kinda bad:
@@ -51,6 +53,8 @@ START_WITH = 'pymochad'
 # aegeantools 2.0.2.post1 sorted incorrectly
 # pythonruntimediagnostics - seems very slow (appears to be due to bokeh)
 # pymc - failed hard
+# pyobjc - hung. Seems bad
+# chargebee-byte - failed to find an obvious archive file
 
 # Good projects
 # python-watcher - substantial number of reqs

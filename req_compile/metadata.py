@@ -204,7 +204,7 @@ def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disa
         except (Exception, RuntimeError, ImportError):  # pylint: disable=broad-except
             LOG.warning('Failed to parse %s with import mocks', name, exc_info=True)
 
-            results = _build_egg_info(name, extractor, setup_file)
+            raise  # results = _build_egg_info(name, extractor, setup_file)
     finally:
         if fake_setupdir != source_file:
             shutil.rmtree(fake_setupdir)
@@ -258,7 +258,7 @@ def _build_egg_info(name, extractor, setup_file):
     LOG.info('Building egg info for %s', extracted_setup_py)
     try:
         setup_dir = os.path.dirname(extracted_setup_py)
-        output = subprocess.check_output([
+        output = subprocess.check_call([
             sys.executable, '-c', SETUPTOOLS_SHIM % extracted_setup_py, 'egg_info',
             '--egg-base', setup_dir
         ], cwd=setup_dir, stderr=subprocess.STDOUT, universal_newlines=True)
@@ -573,25 +573,26 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor, mock_import):  #
         py3_import = begin_patch('__builtin__', '__import__', fake_import)
         load_source_patch = begin_patch(imp, 'load_source', fake_load_source)
 
-    with patch(sys, 'stderr', StringIO(),
-               sys, 'stdout', StringIO(),
-               os, '_exit', sys.exit,
-               os, 'symlink', lambda *_: None,
-               'builtins', 'open', extractor.open,
-               '__builtin__', 'open', extractor.open,
-               '__builtin__', 'execfile', _fake_execfile,
-               subprocess, 'check_call', os_error_call,
-               subprocess, 'check_output', os_error_call,
-               subprocess, 'Popen', os_error_call,
-               os, 'listdir', lambda path: [],
-               os.path, 'exists', _fake_exists,
-               os.path, 'isfile', _fake_exists,
-               os, 'chdir', _fake_chdir,
-               io, 'open', extractor.open,
-               codecs, 'open', extractor.open,
-               setuptools, 'setup', setup_with_results,
-               distutils.core, 'setup', setup_with_results,
-               sys, 'argv', ['setup.py', 'egg_info']):
+    with patch(
+            sys, 'stderr', StringIO(),
+            sys, 'stdout', StringIO(),
+            os, '_exit', sys.exit,
+            os, 'symlink', lambda *_: None,
+            'builtins', 'open', extractor.open,
+            '__builtin__', 'open', extractor.open,
+            '__builtin__', 'execfile', _fake_execfile,
+            subprocess, 'check_call', os_error_call,
+            subprocess, 'check_output', os_error_call,
+            subprocess, 'Popen', os_error_call,
+            os, 'listdir', lambda path: [],
+            os.path, 'exists', _fake_exists,
+            os.path, 'isfile', _fake_exists,
+            os, 'chdir', _fake_chdir,
+            io, 'open', extractor.open,
+            codecs, 'open', extractor.open,
+            setuptools, 'setup', setup_with_results,
+            distutils.core, 'setup', setup_with_results,
+            sys, 'argv', ['setup.py', 'egg_info']):
 
         try:
             setup_dir = os.path.dirname(setup_file)
