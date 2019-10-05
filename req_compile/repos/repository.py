@@ -90,7 +90,7 @@ class WheelVersionTags(PythonVersionRequirement):
 class Candidate(object):  # pylint: disable=too-many-instance-attributes
     def __init__(self, name, filename, version, py_version, plat, link,
                  candidate_type=DistributionType.SDIST,
-                 extra_sort_info=None):
+                 extra_sort_info=''):
         """
 
         Args:
@@ -104,7 +104,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
         """
         self.name = name
         self.filename = filename
-        self.version = version
+        self.version = version or pkg_resources.parse_version('0.0.0')
         self.py_version = py_version
         self.platform = plat
         self.link = link
@@ -112,7 +112,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
 
         # Sort based on tags to make sure the most specific distributions
         # are matched first
-        self.sortkey = (version, extra_sort_info, candidate_type.value, self.tag_score)
+        self.sortkey = (self.version, extra_sort_info, candidate_type.value, self.tag_score)
 
         self.preparsed = None
 
@@ -185,7 +185,7 @@ def _wheel_candidate(source, filename):
         return None
 
     has_build_tag = len(data_parts) == 6
-    build_tag = None
+    build_tag = ''
     if has_build_tag:
         build_tag = data_parts.pop(2)
     name = data_parts[0]

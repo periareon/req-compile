@@ -58,7 +58,7 @@ def parse_source_filename(full_filename):
             break
 
     if version_start is None:
-        return os.path.basename(full_filename), None
+        return os.path.basename(filename), None
 
     if version_start == 0:
         raise ValueError('Package name missing: {}'.format(full_filename))
@@ -252,7 +252,7 @@ def _build_egg_info(name, extractor, setup_file):
     LOG.info('Building egg info for %s', extracted_setup_py)
     try:
         setup_dir = os.path.dirname(extracted_setup_py)
-        output = subprocess.check_call([
+        output = subprocess.check_output([
             sys.executable, '-c', SETUPTOOLS_SHIM % extracted_setup_py, 'egg_info',
             '--egg-base', setup_dir
         ], cwd=setup_dir, stderr=subprocess.STDOUT, universal_newlines=True)
