@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import collections
+import distutils.util
 import logging
 import struct
 import enum
@@ -20,28 +21,10 @@ INTERPRETER_TAGS = {
     'Jython': 'jy',
 }
 
-
-def _get_platform_tags():
-    is_32 = struct.calcsize("P") == 4
-    if sys.platform == 'win32':
-        if is_32:
-            tag = ('win32',)
-        else:
-            tag = ('win_amd64',)
-    elif sys.platform.startswith('linux'):
-        if is_32:
-            tag = ('manylinux1_' + platform.machine(), 'linux_' + platform.machine())
-        else:
-            tag = ('manylinux1_x86_64', 'linux_x86_64')
-    else:
-        raise ValueError('Unsupported platform: {}'.format(sys.platform))
-    return tag
-
-
 INTERPRETER_TAG = INTERPRETER_TAGS.get(platform.python_implementation(), 'cp')
 PY_VERSION_NUM = str(sys.version_info.major) + str(sys.version_info.minor)
 
-PLATFORM_TAGS = _get_platform_tags()
+PLATFORM_TAGS = distutils.util.get_platform().replace('-', '_')
 
 
 class RepositoryInitializationError(ValueError):
@@ -106,7 +89,8 @@ class WheelVersionTags(PythonVersionRequirement):
 
 class Candidate(object):  # pylint: disable=too-many-instance-attributes
     def __init__(self, name, filename, version, py_version, plat, link,
-                 candidate_type=DistributionType.SDIST):
+                 candidate_type=DistributionType.SDIST,
+                 extra_sort_info=None):
         """
 
         Args:
@@ -128,7 +112,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
 
         # Sort based on tags to make sure the most specific distributions
         # are matched first
-        self.sortkey = (version, candidate_type.value, self.tag_score)
+        self.sortkey = (version, extra_sort_info, candidate_type.value, self.tag_score)
 
         self.preparsed = None
 
@@ -200,6 +184,10 @@ def _wheel_candidate(source, filename):
         logging.getLogger('req_compile.repository').debug('Unable to use %s, improper filename', filename)
         return None
 
+    has_build_tag = len(data_parts) == 6
+    build_tag = None
+    if has_build_tag:
+        build_tag = data_parts.pop(2)
     name = data_parts[0]
     #  Convert old-style post-versions to new style so it will sort correctly
     version = pkg_resources.parse_version(data_parts[1].replace('_', '-'))
@@ -213,7 +201,8 @@ def _wheel_candidate(source, filename):
                      requires_python,
                      plat,
                      source,
-                     candidate_type=DistributionType.WHEEL)
+                     candidate_type=DistributionType.WHEEL,
+                     extra_sort_info=build_tag)
 
 
 def _tar_gz_candidate(source, filename):

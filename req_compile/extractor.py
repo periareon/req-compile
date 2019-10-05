@@ -19,6 +19,7 @@ class Extractor(object):
         self.logger = LOG.getChild(extractor_type)
         self.fake_root = fake_root
         self.io_open = io.open
+        self.renames = {}
 
     def contains_path(self, path):
         """Whether or not the archive contains the given path, based on the fake root.
@@ -26,6 +27,10 @@ class Extractor(object):
             (bool)
         """
         return os.path.abspath(path).startswith(os.path.abspath(self.fake_root))
+
+    def add_rename(self, name, new_name):
+        """Add a rename entry for a file in the archive"""
+        self.renames[self.to_relative(new_name)] = self.to_relative(name)
 
     def open(self, filename, mode='r', encoding=None, **_kwargs):
         """Open a real file or a file within the archive"""
@@ -50,9 +55,12 @@ class Extractor(object):
     def _open_handle(self, filename):
         raise NotImplementedError
 
+    def _check_exists(self, filename):
+        raise NotImplementedError
+
     def exists(self, filename):
         """Check whether a file or directory exists within the archive. Will not check non-archive files"""
-        raise NotImplementedError
+        return self._check_exists(self.to_relative(filename))
 
     def close(self):
         pass
@@ -81,6 +89,9 @@ class Extractor(object):
         result = result.replace('\\', '/')
         if result.startswith('./'):
             result = result[2:]
+
+        if result in self.renames:
+            result = self.renames[result]
         return result
 
     def contents(self, name):
@@ -110,8 +121,8 @@ class NonExtractor(Extractor):
             for filename in files:
                 yield rel_root + filename
 
-    def exists(self, filename):
-        return self.os_path_exists(os.path.join(self.path, self.to_relative(filename)))
+    def _check_exists(self, filename):
+        return self.os_path_exists(os.path.join(self.path, filename))
 
     def _open_handle(self, filename):
         try:
@@ -134,9 +145,9 @@ class TarExtractor(Extractor):
         return (info.name for info in self.tar.getmembers()
                 if info.type != b'5')
 
-    def exists(self, filename):
+    def _check_exists(self, filename):
         try:
-            self.tar.getmember(self.to_relative(filename))
+            self.tar.getmember(filename)
             return True
         except KeyError:
             return False
@@ -169,8 +180,7 @@ class ZipExtractor(Extractor):
     def names(self):
         return (name for name in self.zfile.namelist() if name[-1] != '/')
 
-    def exists(self, filename):
-        filename = self.to_relative(filename)
+    def _check_exists(self, filename):
         try:
             self.zfile.getinfo(filename)
             return True
@@ -225,6 +235,12 @@ class WithDecoding(object):
 
     def write(self, *args, **kwargs):
         pass
+
+    def fileno(self):
+        if hasattr(self.file, 'fileno'):
+            return self.file.fileno()
+        else:
+            return -1
 
     def __iter__(self):
         if self.encoding:

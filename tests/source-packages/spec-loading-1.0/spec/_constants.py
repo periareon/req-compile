@@ -1,0 +1,6 @@
+__author__ = "See AUTHORS"
+__author_email__ = "test@test.com"
+__license__ = "MIT"
+__maintainer_email__ = "test@test.com"
+__url__ = "https://github.com/test"
+__version__ = "1.0"

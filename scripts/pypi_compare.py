@@ -42,7 +42,7 @@ WHITELIST = {
 }
 
 
-START_WITH = 'chardet'
+START_WITH = 'charm-crypto'
 
 # Python 2.7
 # Kinda bad:

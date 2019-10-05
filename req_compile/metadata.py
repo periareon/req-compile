@@ -22,7 +22,6 @@ import pkg_resources
 from req_compile import utils
 from req_compile.dists import DistInfo, PkgResourcesDistInfo
 from req_compile.extractor import NonExtractor, TarExtractor, ZipExtractor
-from req_compile.importhook import import_hook, import_contents, remove_encoding_lines
 
 LOG = logging.getLogger('req_compile.metadata')
 
@@ -195,16 +194,11 @@ def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disa
 
     try:
         LOG.info('Parsing setup.py %s', setup_file)
-        results = _parse_setup_py(name, fake_setupdir, setup_file, extractor, False)
-    except Exception:  # pylint: disable=broad-except
-        LOG.warning('Failed to parse %s without import mocks', name, exc_info=True)
-        try:
-            LOG.info('Parsing setup.py %s with archive mocks', setup_file)
-            results = _parse_setup_py(name, fake_setupdir, setup_file, extractor, True)
-        except (Exception, RuntimeError, ImportError):  # pylint: disable=broad-except
-            LOG.warning('Failed to parse %s with import mocks', name, exc_info=True)
+        results = _parse_setup_py(name, fake_setupdir, setup_file, extractor)
+    except (Exception, RuntimeError, ImportError):  # pylint: disable=broad-except
+        LOG.warning('Failed to parse %s', name, exc_info=True)
 
-            raise  # results = _build_egg_info(name, extractor, setup_file)
+        results = _build_egg_info(name, extractor, setup_file)
     finally:
         if fake_setupdir != source_file:
             shutil.rmtree(fake_setupdir)
@@ -275,8 +269,10 @@ def _build_egg_info(name, extractor, setup_file):
         return pkg_dist
     except subprocess.CalledProcessError as ex:
         LOG.warning('Failed to build egg-info for %s: %s', name, ex.output, exc_info=True)
-        shutil.rmtree(temp_tar)
-        return _build_wheel(name, os.path.dirname(extracted_setup_py))
+        try:
+            return _build_wheel(name, os.path.dirname(extracted_setup_py))
+        finally:
+            shutil.rmtree(temp_tar)
 
 
 def _fetch_from_wheel(wheel):
@@ -460,8 +456,28 @@ def _add_setup_cfg_kwargs(kwargs):
         kwargs['version'] = parser.get('metadata', 'version')
 
 
+def remove_encoding_lines(contents):
+    lines = contents.split('\n')
+    lines = [line for line in lines if not (line.startswith('#') and
+                                            ('-*- coding' in line or '-*- encoding' in line or 'encoding:' in line))]
+    return '\n'.join(lines)
+
+
+def import_contents(modname, filename, contents):
+    module = imp.new_module(modname)
+    if filename.endswith('__init__.py'):
+        setattr(module, '__path__',
+                [os.path.dirname(filename)])
+    setattr(module, '__name__', modname)
+    setattr(module, '__file__', filename)
+    sys.modules[modname] = module
+    contents = remove_encoding_lines(contents)
+    exec(contents, module.__dict__)  # pylint: disable=exec-used
+    return module
+
+
 # pylint: disable=too-many-branches
-def _parse_setup_py(name, fake_setupdir, setup_file, extractor, mock_import):  # pylint: disable=too-many-locals,too-many-statements
+def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disable=too-many-locals,too-many-statements
     # pylint: disable=bad-option-value,no-name-in-module,no-member,import-outside-toplevel
     # Capture warnings.warn, which is sometimes used in setup.py files
 
@@ -480,6 +496,7 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor, mock_import):  #
     import codecs
     import distutils.core
     import setuptools.extern  # Extern performs some weird module manipulation we can't handle
+    import fileinput
 
     # A few package we have trouble importing with the importhook
     import setuptools.command
@@ -502,17 +519,23 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor, mock_import):  #
     def _fake_exists(path):
         return extractor.exists(path)
 
+    def _fake_rename(name, new_name):
+        extractor.add_rename(name, new_name)
+
     def _fake_execfile(path):
         exec(extractor.contents(path), spy_globals, spy_globals)
+
+    def _fake_file_input(path, **_kwargs):
+        return open(path, 'r')
 
     os.chdir(fake_setupdir)
     orig_chdir = os.chdir
 
     def _fake_chdir(new_dir):
         if os.path.isabs(new_dir):
-            new_dir = os.path.relpath(new_dir, fake_setupdir)
-            if new_dir != '.' and new_dir.startswith('.'):
-                raise ValueError('Cannot operate outside of setup dir ({})'.format(new_dir))
+            dir_test = os.path.relpath(new_dir, fake_setupdir)
+            if dir_test != '.' and dir_test.startswith('.'):
+                raise ValueError('Cannot operate outside of setup dir ({})'.format(dir_test))
         try:
             os.mkdir(new_dir)
         except OSError:
@@ -534,44 +557,79 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor, mock_import):  #
     def os_error_call(*_args, **_kwargs):
         raise OSError('Popen not permitted')
 
-    if mock_import:
-        fake_import = functools.partial(import_hook, extractor.open)
+    setup_dir = os.path.dirname(setup_file)
+    abs_setupdir = os.path.abspath(os.path.dirname(setup_file))
 
-        class FakeSpec(object):  # pylint: disable=too-many-instance-attributes
-            class Loader(object):
-                def exec_module(self, module):
-                    pass
+    class FakeSpec(object):  # pylint: disable=too-many-instance-attributes
+        class Loader(object):
+            def exec_module(self, module):
+                pass
 
-            def __init__(self, modname, path):
-                self.loader = FakeSpec.Loader()
-                self.name = modname
-                self.path = path
-                self.submodule_search_locations = None
-                self.has_location = True
-                self.origin = path
-                self.cached = False
-                self.parent = None
-                self.loader = None
+        def __init__(self, modname, path):
+            self.loader = FakeSpec.Loader()
+            self.name = modname
+            self.path = path
+            self.submodule_search_locations = None
+            self.has_location = True
+            self.origin = path
+            self.cached = False
+            self.parent = None
 
-                self.contents = extractor.contents(path)
+            self.contents = extractor.contents(path)
 
-        # pylint: disable=unused-argument
-        def fake_load_source(modname, filename, filehandle=None):
-            return import_contents(modname, filename, extractor.contents(filename))
+    # pylint: disable=unused-argument
+    def fake_load_source(modname, filename, filehandle=None):
+        return import_contents(modname, filename, extractor.contents(filename))
 
-        def fake_spec_from_file_location(modname, path, submodule_search_locations=None):
-            return FakeSpec(modname, path)
+    def fake_spec_from_file_location(modname, path, submodule_search_locations=None):
+        return FakeSpec(modname, path)
 
-        def fake_module_from_spec(spec):
-            return import_contents(spec.name, spec.path, spec.contents)
+    def fake_module_from_spec(spec):
+        return import_contents(spec.name, spec.path, spec.contents)
 
-        spec_from_file_location_patch = begin_patch('importlib.util',
-                                                    'spec_from_file_location', fake_spec_from_file_location)
-        module_from_spec_patch = begin_patch('importlib.util',
-                                             'module_from_spec', fake_module_from_spec)
-        py2_import = begin_patch('builtins', '__import__', fake_import)
-        py3_import = begin_patch('__builtin__', '__import__', fake_import)
-        load_source_patch = begin_patch(imp, 'load_source', fake_load_source)
+    spec_from_file_location_patch = begin_patch('importlib.util',
+                                                'spec_from_file_location', fake_spec_from_file_location)
+    module_from_spec_patch = begin_patch('importlib.util',
+                                         'module_from_spec', fake_module_from_spec)
+    load_source_patch = begin_patch(imp, 'load_source', fake_load_source)
+
+    class ArchiveMetaHook(object):
+        def __init__(self):
+            self.mod_mapping = {}
+
+        def find_module(self, full_module, path=None):
+            path_name = full_module.replace('.', '/')
+            dirs_to_search = [abs_setupdir] + (path if path is not None else [])
+            for sys_path in sys.path:
+                if extractor.contains_path(sys_path):
+                    dirs_to_search.append(sys_path)
+            for dir_to_search in dirs_to_search:
+                for archive_path in (os.path.join(dir_to_search, path_name) + '.py',
+                                     os.path.join(dir_to_search, path_name, '__init__.py')):
+                    if extractor.exists(archive_path):
+                        self.mod_mapping[full_module] = archive_path
+                        return self
+            return None
+
+        def load_module(self, fullname):
+            LOG.debug('Importing module %s from archive', fullname)
+
+            filename = self.mod_mapping[fullname]
+            code = extractor.contents(filename)
+            ispkg = filename.endswith('__init__.py')
+            mod = sys.modules.setdefault(fullname, imp.new_module(fullname))
+            mod.__file__ = filename
+            mod.__loader__ = self
+            if ispkg:
+                mod.__path__ = []
+                mod.__package__ = fullname
+            else:
+                mod.__package__ = fullname.rpartition('.')[0]
+            exec(code, mod.__dict__)
+            return mod
+
+    meta_hook = ArchiveMetaHook()
+    sys.meta_path.append(meta_hook)
 
     with patch(
             sys, 'stderr', StringIO(),
@@ -587,15 +645,16 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor, mock_import):  #
             os, 'listdir', lambda path: [],
             os.path, 'exists', _fake_exists,
             os.path, 'isfile', _fake_exists,
+            os, 'rename', _fake_rename,
             os, 'chdir', _fake_chdir,
             io, 'open', extractor.open,
             codecs, 'open', extractor.open,
             setuptools, 'setup', setup_with_results,
             distutils.core, 'setup', setup_with_results,
+            fileinput, 'input', _fake_file_input,
             sys, 'argv', ['setup.py', 'egg_info']):
 
         try:
-            setup_dir = os.path.dirname(setup_file)
             sys.path.insert(0, os.path.abspath(setup_dir))
             if setup_dir:
                 os.chdir(setup_dir)
@@ -615,12 +674,10 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor, mock_import):  #
             if fake_setupdir in sys.path:
                 sys.path.remove(fake_setupdir)
 
-            if mock_import:
-                end_patch(load_source_patch)
-                end_patch(spec_from_file_location_patch)
-                end_patch(module_from_spec_patch)
-                end_patch(py2_import)
-                end_patch(py3_import)
+            end_patch(load_source_patch)
+            end_patch(spec_from_file_location_patch)
+            end_patch(module_from_spec_patch)
+            sys.meta_path.remove(meta_hook)
 
             for module_name in list(sys.modules.keys()):
                 module = sys.modules[module_name]

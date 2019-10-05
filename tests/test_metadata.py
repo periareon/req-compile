@@ -134,7 +134,6 @@ def test_compound(mock_targz):
     ['ed-1.4', 'ed', None, None],
     ['pyreadline-2.1', 'pyreadline', '2.1', None],
     ['termcolor-1.1.0', 'termcolor', '1.1.0', None],
-    ['pt-2.0.0', 'pathtools', '2.0.0', None],
     ['wuc-0.5', 'win_unicode_console', '0.5', None],
     ['pint-0.6', 'Pint', '0.6', None],
     ['print-1.1.0b8', 'print', '1.1.0b8', None],
@@ -160,6 +159,10 @@ def test_compound(mock_targz):
     ['pymc-2.3.6', 'pymc', '2.3.6', []],  # Arguably this may require numpy
     ['file-iter-7.2.0', 'file-iter', '7.2.0', None],
     ['psutil-5.6.2', 'psutil', '5.6.2', None],
+    ['pt-2.0.0', 'pathtools', '2.0.0', None],
+    ['spec-loading-1.0', 'spec-loading', '1.0', ['et_xmlfile', 'jdcal']],
+    ['dir-changer-0.1.1', 'dir-changer', '0.1.1', ['requests']],
+    ['file-input-1.0', 'file-input', '1.0', None],
 ])
 def test_source_dist(archive_fixture, directory, name, version, reqs, mock_targz, mock_zip, mocker):
     mock_build = mocker.patch('req_compile.metadata._build_wheel')
