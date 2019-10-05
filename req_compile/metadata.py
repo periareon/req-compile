@@ -212,6 +212,10 @@ def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disa
         results.name = name
     if results.version is None or (version and results.version != version):
         results.version = version or utils.parse_version('0.0.0')
+
+    if results.name.lower() != name.lower():
+        LOG.warning('Name coming from setup.py does not match: %s', results.name)
+        results.name = name
     return results
 
 

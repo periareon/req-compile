@@ -42,11 +42,10 @@ WHITELIST = {
 }
 
 
-START_WITH = 'd2to1'
+START_WITH = 'daliuge'
 
 # Python 2.7
 # Kinda bad:
-# 2keys
 # abeona  .... failed but weirdly
 # zope, documenttemplate betas are not always selected correctly
 # aegeantools 2.0.2.post1 sorted incorrectly

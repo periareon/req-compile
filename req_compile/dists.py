@@ -241,6 +241,8 @@ class DistributionCollection(object):
         for node in self.visit_nodes(roots):
             if not node.extra:
                 extras = []
+                if node.metadata is None:
+                    pass
                 constraints = _build_constraints(node, exclude=node.metadata.name)
                 for reverse_dep in node.reverse_deps:
                     if reverse_dep.metadata.name == node.metadata.name:
