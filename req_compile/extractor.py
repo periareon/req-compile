@@ -236,11 +236,8 @@ class WithDecoding(object):
     def write(self, *args, **kwargs):
         pass
 
-    def fileno(self):
-        if hasattr(self.file, 'fileno'):
-            return self.file.fileno()
-        else:
-            return -1
+    def __getattr__(self, item):
+        return getattr(self.file, item)
 
     def __iter__(self):
         if self.encoding:

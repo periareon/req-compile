@@ -312,7 +312,7 @@ def parse_req_with_marker(req_str, marker):
 
 def setup(results, *args, **kwargs):
     # pbr uses a dangerous pattern that only works when you build using setuptools
-    if 'pbr' in kwargs:
+    if 'pbr' in kwargs or ('setup_requires' in kwargs and 'pbr' in kwargs['setup_requires']):
         raise ValueError('Must run egg-info if pbr is used')
 
     if os.path.exists('setup.cfg'):

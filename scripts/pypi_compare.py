@@ -42,13 +42,12 @@ WHITELIST = {
 }
 
 
-START_WITH = 'charm-tools'
+START_WITH = 'd2to1'
 
 # Python 2.7
 # Kinda bad:
 # 2keys
 # abeona  .... failed but weirdly
-# adapter, ValueError: Failed to parse requires expression "~=3.6" for requirement
 # zope, documenttemplate betas are not always selected correctly
 # aegeantools 2.0.2.post1 sorted incorrectly
 # pythonruntimediagnostics - seems very slow (appears to be due to bokeh)
