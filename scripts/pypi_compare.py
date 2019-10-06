@@ -41,10 +41,14 @@ WHITELIST = {
     'pyobjc',
     'dataf',  # req-compile gets it right due to flasgger
     'datagovsg-api',  # says its verison is post0, but wheel disagrees
+    'dataone-test-utilities',  # Pretty sure pip has trouble with the filter() it uses on requirements
+    'multi-mechanize',  # the root req of the failure above
+    'datastore-viewer',  # flasgger related failure
+    'dataultra-commandlines',  # pip disagrees with req-compile on whether or not this prerelease should be used
 }
 
 
-START_WITH = 'dataland'
+START_WITH = 'dataultra-commandlines'
 
 # Python 2.7
 # Kinda bad:

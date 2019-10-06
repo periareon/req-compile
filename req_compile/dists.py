@@ -14,7 +14,7 @@ from req_compile.utils import normalize_project_name, merge_requirements, filter
 
 
 class DependencyNode(object):
-    def __init__(self, key, req_name, metadata, extra=None):
+    def __init__(self, key, req_name, metadata):
         """
 
         Args:
@@ -26,7 +26,6 @@ class DependencyNode(object):
         self.key = key
         self.metadata = metadata
         self.req_name = req_name
-        self.extra = extra
         self.dependencies = {}  # Dict[DependencyNode, pkg_resources.Requirement]
         self.reverse_deps = set()  # Set[DependencyNode]
         self.repo = None
@@ -39,51 +38,40 @@ class DependencyNode(object):
             return self.key + ' [UNSOLVED]'
         if self.metadata.meta:
             return self.metadata.name
-        return '=='.join(str(x) for x in self.metadata.to_definition(
-            (self.extra,)
-            if self.extra else None))
+        return '=='.join(str(x) for x in self.metadata.to_definition(self.extras))
+
+    @property
+    def extras(self):
+        extras = set()
+        for rdep in self.reverse_deps:
+            extras |= set(rdep.dependencies[self].extras)
+        return extras
 
     def build_constraints(self):
         req = None
 
-        nodes = {self}
-        if self.extra:
-            base_node = None
-            for child in self.dependencies:
-                if utils.normalize_project_name(child.req_name) == utils.normalize_project_name(self.req_name):
-                    base_node = child
-                    break
-
-            if base_node is not None:
-                for rdep in base_node.reverse_deps:
-                    if utils.normalize_project_name(rdep.req_name) == utils.normalize_project_name(self.req_name):
-                        nodes.add(rdep)
-
-        for node in nodes:
-            for rdep_node in node.reverse_deps:
-                if self in rdep_node.dependencies:
-                    req = merge_requirements(req, rdep_node.dependencies[self])
+        for rdep_node in self.reverse_deps:
+            req = merge_requirements(req, rdep_node.dependencies[self])
 
         if req is None:
             if self.metadata is None:
                 req = utils.parse_requirement(self.key)
             else:
                 req = utils.parse_requirement(self.metadata.name)
-            if self.extra:
-                req.extras = (self.extra,)
+            if self.extras:
+                req.extras = self.extras
                 # Reparse to create a correct hash
                 req = utils.parse_requirement(str(req))
         return req
 
 
-def _build_constraints(root_node, exclude=None):
+def _build_constraints(root_node):
     constraints = []
     for node in root_node.reverse_deps:
-        if node.req_name != exclude:
-            req = node.dependencies[root_node]
-            specifics = ' (' + str(req.specifier) + ')' if req.specifier else ''
-            source = node.metadata.name + ('[' + node.extra + ']' if node.extra else '')
-            constraints += [source + specifics]
+        req = node.dependencies[root_node]
+        specifics = ' (' + str(req.specifier) + ')' if req.specifier else ''
+        source = node.metadata.name + ('[' + ','.join(sorted(node.extras)) + ']' if node.extras else '')
+        constraints += [source + specifics]
     return constraints
 
 
@@ -93,97 +81,69 @@ class DistributionCollection(object):
         self.logger = logging.getLogger('req_compile.dists')
 
     @staticmethod
-    def _build_key(name, extra=None):
-        return utils.normalize_project_name(name) + (('[' + extra + ']') if extra else '')
+    def _build_key(name):
+        return utils.normalize_project_name(name)
 
-    def add_dist(self, metadata, source, reason):  # pylint: disable=too-many-branches
+    def add_dist(self, name_or_metadata, source, reason):  # pylint: disable=too-many-branches
         """
         Add a distribution
 
         Args:
-            metadata (RequirementContainer|str): Distribution info to add
+            name_or_metadata (RequirementContainer|str): Distribution info to add
             source (DependencyNode, optional): The source of the distribution
             reason (pkg_resources.Requirement, optional):
         """
-        self.logger.debug('Adding dist: %s %s %s', metadata, source, reason)
+        self.logger.debug('Adding dist: %s %s %s', name_or_metadata, source, reason)
 
-        if reason is not None and len(reason.extras) > 1:
-            self.logger.debug('There reason this dist as included had extras')
-            result = None
-            for extra in reason.extras:
-                new_req = copy.copy(reason)
-                new_req.extras = (extra,)
-                result = self.add_dist(metadata, source, new_req)
-            return result
-
-        has_metadata = False
-        if isinstance(metadata, six.string_types):
-            req_name = metadata
+        if isinstance(name_or_metadata, six.string_types):
+            req_name = name_or_metadata
+            metadata_to_apply = None
         else:
-            has_metadata = True
-            req_name = metadata.name
+            metadata_to_apply = name_or_metadata
+            req_name = metadata_to_apply.name
 
-        extra = reason.extras[0] if reason is not None and reason.extras else None
-        key = DistributionCollection._build_key(req_name, extra)
+        key = DistributionCollection._build_key(req_name)
 
         if key in self.nodes:
             node = self.nodes[key]
         else:
-            node = DependencyNode(key, req_name, None, extra)
+            node = DependencyNode(key, req_name, metadata_to_apply)
             self.nodes[key] = node
 
-        if extra is not None:
-            # Add a reference back to the root req
-            base_node = self.add_base(node, reason, req_name)
-            if base_node.metadata:
-                has_metadata = True
-                metadata = base_node.metadata
-        else:
-            base_node = node
-
-        nodes = {base_node}
-        if has_metadata:
-            nodes |= self.update_dists(base_node, metadata)
-
-            # Apply the same metadata to all extras
-            for reverse_node in base_node.reverse_deps:
-                if utils.normalize_project_name(reverse_node.req_name) == utils.normalize_project_name(req_name):
-                    nodes |= self.update_dists(reverse_node, metadata)
-
-        self._discard_metadata_if_necessary(base_node, reason, req_name)
+        # If a new extra is being supplied, update the metadata
+        if reason and node.metadata and reason.extras and set(reason.extras) & node.extras:
+            metadata_to_apply = node.metadata
 
         if source is not None and source.key in self.nodes:
             node.reverse_deps.add(source)
             source.dependencies[node] = reason
 
-        if base_node.key not in self.nodes:
-            raise ValueError('The node {} is gone, while adding'.format(base_node.key))
+        nodes = set()
+        if metadata_to_apply is not None:
+            nodes |= self.update_dists(node, metadata_to_apply)
 
-        return nodes if has_metadata else set()
+        self._discard_metadata_if_necessary(node, reason, req_name)
 
-    def _discard_metadata_if_necessary(self, base_node, reason, req_name):
-        if base_node.metadata is not None and not base_node.metadata.meta and reason is not None:
-            if not reason.specifier.contains(base_node.metadata.version,
+        if node.key not in self.nodes:
+            raise ValueError('The node {} is gone, while adding'.format(node.key))
+
+        return nodes
+
+    def _discard_metadata_if_necessary(self, node, reason, req_name):
+        if node.metadata is not None and not node.metadata.meta and reason is not None:
+            if not reason.specifier.contains(node.metadata.version,
                                              prereleases=True):
-                self.logger.debug('Existing solution (%s) invalidated by %s', base_node.metadata, reason)
+                self.logger.debug('Existing solution (%s) invalidated by %s', node.metadata, reason)
                 # Discard the metadata
-                self.remove_dists(base_node, remove_upstream=False)
-
-                for reverse_node in base_node.reverse_deps:
-                    if reverse_node.req_name == req_name:
-                        self.remove_dists(reverse_node, remove_upstream=False)
-
-    def add_base(self, node, reason, req_name):
-        non_extra_req = utils.parse_requirement(req_name)
-        self.add_dist(req_name, node, non_extra_req)
-        return self[req_name]
+                self.remove_dists(node, remove_upstream=False)
 
     def update_dists(self, node, metadata):
         node.metadata = metadata
         add_nodes = {node}
-        for req in metadata.requires(node.extra):
-            # This adds a placeholder entry
-            add_nodes |= self.add_dist(req.name, node, req)
+        for extra in {None} | node.extras:
+            for req in metadata.requires(extra):
+                # This adds a placeholder entry
+                add_nodes |= self.add_dist(req.name, node, req)
         return add_nodes
 
     def remove_dists(self, node, remove_upstream=True):
@@ -252,24 +212,11 @@ class DistributionCollection(object):
         req_filter = req_filter or (lambda _: True)
         results = []
         for node in self.visit_nodes(roots):
-            if not node.extra:
-                extras = []
-                if node.metadata is None:
-                    pass
-                constraints = _build_constraints(node, exclude=node.metadata.name)
-                for reverse_dep in node.reverse_deps:
-                    if reverse_dep.metadata.name == node.metadata.name:
-                        if reverse_dep.extra is None:
-                            # print('Reverse dep with none extra: {}'.format(reverse_dep))
-                            pass
-                        else:
-                            extras.append(reverse_dep.extra)
-                        constraints.extend(_build_constraints(reverse_dep))
-
-                req_expr = node.metadata.to_definition(extras)
+            if not node.metadata.meta and req_filter(node):
+                constraints = _build_constraints(node)
+                req_expr = node.metadata.to_definition(node.extras)
                 constraint_text = ', '.join(sorted(constraints))
-                if not node.metadata.meta and req_filter(node):
-                    results.append((req_expr, constraint_text))
+                results.append((req_expr, constraint_text))
         return results
 
     def __contains__(self, project_name):

@@ -98,7 +98,7 @@ def _generate_no_candidate_display(req, repo, dists, failure):
                     continue
             node_str = '{}{}{}'.format(
                 node.metadata.name,
-                '[{}]'.format(node.extra) if node.extra else '',
+                '[{}]'.format(','.join(node.extras)) if node.extras else '',
                 (' ' + str(node.metadata.version)) if hasattr(node.metadata, 'version') else '')
             print(node_str + ' -> ', end='', file=sys.stderr)
         print(path[-2].dependencies[failing_node], file=sys.stderr)
