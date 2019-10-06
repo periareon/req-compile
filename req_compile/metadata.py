@@ -316,8 +316,9 @@ def parse_req_with_marker(req_str, marker):
 
 def setup(results, *args, **kwargs):
     # pbr uses a dangerous pattern that only works when you build using setuptools
-    if 'pbr' in kwargs or ('setup_requires' in kwargs and 'pbr' in kwargs['setup_requires']):
-        raise ValueError('Must run egg-info if pbr is used')
+    # d2to1 uses unknown config options in setup.cfg
+    if 'pbr' in kwargs or 'd2to1' in kwargs or ('setup_requires' in kwargs and 'pbr' in kwargs['setup_requires']):
+        raise ValueError('Must run egg-info if pbr or d2to1 is used')
 
     if os.path.exists('setup.cfg'):
         _add_setup_cfg_kwargs(kwargs)

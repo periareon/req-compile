@@ -48,7 +48,7 @@ WHITELIST = {
 }
 
 
-START_WITH = 'dataultra-commandlines'
+START_WITH = 'ddbmock'
 
 # Python 2.7
 # Kinda bad:
@@ -59,6 +59,7 @@ START_WITH = 'dataultra-commandlines'
 # pymc - failed hard
 # pyobjc - hung. Seems bad
 # chargebee-byte - failed to find an obvious archive file
+# ddbmock - missing all reqs
 
 # Good projects
 # python-watcher - substantial number of reqs
