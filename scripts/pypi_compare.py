@@ -45,10 +45,12 @@ WHITELIST = {
     'multi-mechanize',  # the root req of the failure above
     'datastore-viewer',  # flasgger related failure
     'dataultra-commandlines',  # pip disagrees with req-compile on whether or not this prerelease should be used
+    'deepspeech',  # pip is taking alphas here...
+    'deepspeech-gpu',
 }
 
 
-START_WITH = 'ddbmock'
+START_WITH = 'defcon-monitoring'
 
 # Python 2.7
 # Kinda bad:
@@ -59,7 +61,6 @@ START_WITH = 'ddbmock'
 # pymc - failed hard
 # pyobjc - hung. Seems bad
 # chargebee-byte - failed to find an obvious archive file
-# ddbmock - missing all reqs
 
 # Good projects
 # python-watcher - substantial number of reqs

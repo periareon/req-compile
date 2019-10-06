@@ -111,7 +111,7 @@ class DistributionCollection(object):
             self.nodes[key] = node
 
         # If a new extra is being supplied, update the metadata
-        if reason and node.metadata and reason.extras and set(reason.extras) & node.extras:
+        if reason and node.metadata and reason.extras and set(reason.extras) - node.extras:
             metadata_to_apply = node.metadata
 
         if source is not None and source.key in self.nodes:

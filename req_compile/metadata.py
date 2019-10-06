@@ -317,8 +317,13 @@ def parse_req_with_marker(req_str, marker):
 def setup(results, *args, **kwargs):
     # pbr uses a dangerous pattern that only works when you build using setuptools
     # d2to1 uses unknown config options in setup.cfg
-    if 'pbr' in kwargs or 'd2to1' in kwargs or ('setup_requires' in kwargs and 'pbr' in kwargs['setup_requires']):
-        raise ValueError('Must run egg-info if pbr or d2to1 is used')
+    setup_frameworks = ('pbr', 'd2to1', 'use_pyscaffold')
+    for framework in setup_frameworks:
+        if framework in kwargs:
+            raise ValueError('Must run egg-info if {} is used'.format(framework))
+
+    if 'setup_requires' in kwargs and 'pbr' in kwargs['setup_requires']:
+        raise ValueError('Must run egg-info if pbr is in setup_requires')
 
     if os.path.exists('setup.cfg'):
         _add_setup_cfg_kwargs(kwargs)
