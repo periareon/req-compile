@@ -3,6 +3,7 @@ from __future__ import print_function
 import os
 import sys
 
+import pkg_resources
 import six
 from six.moves import map as imap
 
@@ -102,12 +103,13 @@ def _add_sources(req, sources, result, origin, meta_file):
     version = req_compile.utils.parse_version(list(req.specifier)[0].version)
     metadata = req_compile.dists.DistInfo(req.name, version, [])
     metadata.origin = origin
-    result.add_dist(metadata, meta_file, req)
+    result.add_dist(metadata, None, req)
     for name, constraints in zip(pkg_names, constraints):
         if name and not (name.endswith('.txt') or name.endswith('.out') or '\\' in name or '/' in name):
             constraint_req = req_compile.utils.parse_requirement(name)
             result.add_dist(constraint_req.name, None, constraint_req)
             reverse_dep = result[name]
+            reverse_dep.metdata.reqs.append(pkg_resources.Requirement.parse(name + constraints))
         else:
             reverse_dep = None
         result.add_dist(metadata.name, reverse_dep,
@@ -130,15 +132,15 @@ def load_from_file(filename, origin=None):
     else:
         reqfile = open(filename)
 
-    meta_file = next(iter(result.add_dist(req_compile.dists.RequirementsFile(filename, []), None, None)))
+    # meta_file = next(iter(result.add_dist(req_compile.dists.RequirementsFile(filename, []), None, None)))
     try:
         for line in reqfile.readlines():
-            _parse_line(result, line, meta_file, origin)
+            _parse_line(result, line, filename, origin)
     finally:
         if reqfile is not sys.stdin:
             reqfile.close()
 
-    _remove_nodes(result)
+    # _remove_nodes(result)
     return result
 
 

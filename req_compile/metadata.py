@@ -509,6 +509,7 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
     import distutils.core
     import setuptools.extern  # Extern performs some weird module manipulation we can't handle
     import fileinput
+    import multiprocessing
 
     # A few package we have trouble importing with the importhook
     import setuptools.command
@@ -654,6 +655,8 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
             subprocess, 'check_call', os_error_call,
             subprocess, 'check_output', os_error_call,
             subprocess, 'Popen', os_error_call,
+            multiprocessing, 'Pool', os_error_call,
+            multiprocessing, 'Process', os_error_call,
             os, 'listdir', lambda path: [],
             os.path, 'exists', _fake_exists,
             os.path, 'isfile', _fake_exists,

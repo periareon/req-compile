@@ -53,7 +53,7 @@ WHITELIST = {
     'diogenes8',  # disagree on whether >3.7 should allow python 3.7
 }
 
-START_WITH = 'diogenes8'
+START_WITH = 'discoplot'
 
 
 # Python 2.7
@@ -67,6 +67,7 @@ START_WITH = 'diogenes8'
 
 # Python 3.7
 # devlfunia - had a None path
+# discoplot - hung
 
 # Good projects
 # python-watcher - substantial number of reqs

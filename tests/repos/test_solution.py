@@ -64,8 +64,15 @@ def test_load_solution_excluded_normalized(load_solution):
 def test_load_solution_extras(load_solution):
     result = load_solution('solutionfile_extras.txt')
 
-    assert _get_node_strs(result['docpkg'].reverse_deps) == {'a[docs]', 'b'}
-    assert _get_node_strs(result['pytest'].reverse_deps) == {'a[test]'}
+    # a[docs, test] == 1.0  # inputfile.txt
+    # docpkg == 2.0  # a[docs] (>1.0), b
+    # pytest == 4.0  # a[test]
+    # b == 1.0  # a (1.0)
+    assert set(result['a'].metadata.reqs) == set(pkg_resources.parse_requirements([
+        'docpkg>1 ; extra == "docs"',
+        'pytest ; extra == "test"',
+        'b==1.0'
+    ]))
 
 
 def test_load_solution_fuzzywuzzy_extras(load_solution):
