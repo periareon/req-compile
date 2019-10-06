@@ -707,4 +707,8 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
     if not results:
         raise ValueError('Distutils/setuptools setup() was not ever '
                          'called on "{}". Is this a valid project?'.format(name))
-    return results[0]
+    result = results[0]
+    if result is None or (result.name is None and result.version is None):
+        raise ValueError('Failed to fetch any metadata from setup() call. Is this numpy?')
+
+    return result
