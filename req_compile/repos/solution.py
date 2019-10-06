@@ -72,7 +72,7 @@ class SolutionRepository(Repository):
         pass
 
 
-def _parse_line(result, line, filename, origin):
+def _parse_line(result, line, meta_file, origin):
     req_part, _, source_part = line.partition('#')
     req_part = req_part.strip()
     if not req_part:
@@ -86,23 +86,23 @@ def _parse_line(result, line, filename, origin):
             SolutionRepository,
             'Solution file {} is not fully annotated and cannot be used. Consider'
             ' compiling the solution against a remote index to add annotations.'.format(
-                filename
+                meta_file
             ))
 
     if source_part[0] == '[':
         _, _, source_part = source_part.partition('] ')
     sources = source_part.split(', ')
 
-    _add_sources(req, sources, result, origin)
+    _add_sources(req, sources, result, origin, meta_file)
 
 
-def _add_sources(req, sources, result, origin):
+def _add_sources(req, sources, result, origin, meta_file):
     pkg_names = imap(lambda x: x.split(' ')[0], sources)
     constraints = imap(lambda x: x.split(' ')[1].replace('(', '').replace(')', '') if '(' in x else None, sources)
     version = req_compile.utils.parse_version(list(req.specifier)[0].version)
     metadata = req_compile.dists.DistInfo(req.name, version, [])
     metadata.origin = origin
-    result.add_dist(metadata, None, req)
+    result.add_dist(metadata, meta_file, req)
     for name, constraints in zip(pkg_names, constraints):
         if name and not (name.endswith('.txt') or name.endswith('.out') or '\\' in name or '/' in name):
             constraint_req = req_compile.utils.parse_requirement(name)
@@ -130,9 +130,10 @@ def load_from_file(filename, origin=None):
     else:
         reqfile = open(filename)
 
+    meta_file = next(iter(result.add_dist(req_compile.dists.RequirementsFile(filename, []), None, None)))
     try:
         for line in reqfile.readlines():
-            _parse_line(result, line, filename, origin)
+            _parse_line(result, line, meta_file, origin)
     finally:
         if reqfile is not sys.stdin:
             reqfile.close()
@@ -149,7 +150,7 @@ def _remove_nodes(result):
                 requirements = [value for dep_node, value in six.iteritems(node.dependencies)
                                 if dep_node.metadata is not None and dep_node.metadata.name != node.metadata.name]
                 if node.extras:
-                    requirements = [req_compile.utils.parse_requirement('{} ; extra=="{}"'.format(req, next(iter(node.extra))))
+                    requirements = [req_compile.utils.parse_requirement('{} ; extra=="{}"'.format(req, next(iter(node.extras))))
                                     for req in requirements]
                 node.metadata.reqs.extend(requirements)
             except Exception:

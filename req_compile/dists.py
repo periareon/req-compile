@@ -220,13 +220,15 @@ class DistributionCollection(object):
         return results
 
     def __contains__(self, project_name):
-        return normalize_project_name(project_name) in self.nodes
+        req_name = project_name.split('[')[0]
+        return normalize_project_name(req_name) in self.nodes
 
     def __iter__(self):
         return iter(self.nodes.values())
 
     def __getitem__(self, project_name):
-        return self.nodes[normalize_project_name(project_name)]
+        req_name = project_name.split('[')[0]
+        return self.nodes[normalize_project_name(req_name)]
 
 
 class RequirementContainer(object):

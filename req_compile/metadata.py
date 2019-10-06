@@ -566,8 +566,8 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
         sys.modules['Cython.Compiler'] = FakeModule('Compiler')
         sys.modules['Cython.Compiler.Main'] = FakeModule('Main')
 
-    def os_error_call(*_args, **_kwargs):
-        raise OSError('Popen not permitted')
+    def os_error_call(*args, **kwargs):
+        raise OSError('Popen not permitted: {} {}'.format(args, kwargs))
 
     setup_dir = os.path.dirname(setup_file)
     abs_setupdir = os.path.abspath(os.path.dirname(setup_file))

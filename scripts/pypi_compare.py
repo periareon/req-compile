@@ -49,9 +49,11 @@ WHITELIST = {
     'deepspeech-gpu',
     'demo-reader',  # archive is wrong
     'device-proxy',  # filter in requirements list again
+    'digs',  # map in requirements list
+    'diogenes8',  # disagree on whether >3.7 should allow python 3.7
 }
 
-START_WITH = 'diabric'
+START_WITH = 'diogenes8'
 
 
 # Python 2.7
