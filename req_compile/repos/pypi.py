@@ -54,13 +54,14 @@ def _check_py_constraint(version_constraint):
     if version_part and not operator:
         operator = '=='
 
+    dotted_parts = len(version_part.split('.'))
     if version_part.endswith('.*'):
         version_part = version_part.replace('.*', '')
-        dotted_parts = len(version_part.split('.'))
-        if dotted_parts == 2:
-            ref_version = SYS_PY_MAJOR_MINOR
-        if dotted_parts == 1:
-            ref_version = SYS_PY_MAJOR
+        dotted_parts -= 1
+    if dotted_parts == 2:
+        ref_version = SYS_PY_MAJOR_MINOR
+    if dotted_parts == 1:
+        ref_version = SYS_PY_MAJOR
 
     version = pkg_resources.parse_version(version_part)
     if operator == '~=':
