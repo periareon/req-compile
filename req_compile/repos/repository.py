@@ -46,10 +46,17 @@ class PythonVersionRequirement(object):
         raise NotImplementedError
 
 
+def _all_py_tags_in_major(up_to):
+    up_to = int(up_to)
+    while (up_to % 10) > 0:
+        yield 'py' + str(up_to)
+        up_to -= 1
+    yield 'py' + str(up_to)
+
+
 class WheelVersionTags(PythonVersionRequirement):
     WHEEL_VERSION_TAGS = ('py2' if six.PY2 else 'py3',
-                          INTERPRETER_TAG + PY_VERSION_NUM,
-                          'py' + PY_VERSION_NUM)
+                          INTERPRETER_TAG + PY_VERSION_NUM,) + tuple(_all_py_tags_in_major(PY_VERSION_NUM))
 
     def __init__(self, py_version):
         self.py_version = py_version
