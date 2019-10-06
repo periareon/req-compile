@@ -74,9 +74,13 @@ def _generate_no_candidate_display(req, repo, dists, failure):
     constraints = failing_node.build_constraints()
     can_satisfy = True
     if isinstance(failure, NoCandidateException):
-        can_satisfy = is_possible(constraints)
+        try:
+            can_satisfy = is_possible(constraints)
+        except (ValueError, TypeError):
+            can_satisfy = True
+
         if not can_satisfy:
-            print('No version could possibly satisfy the following requirements:',
+            print('No version could possibly satisfy the following requirements ({}):'.format(constraints),
                   file=sys.stderr)
         else:
             print('No version of {} could satisfy the following requirements ({}):'.format(req.name, constraints),
@@ -92,7 +96,10 @@ def _generate_no_candidate_display(req, repo, dists, failure):
             if idx > 0:
                 if node.metadata is path[idx - 1].metadata:
                     continue
-            node_str = node.metadata.name + ('[{}]'.format(node.extra) if node.extra else '')
+            node_str = '{}{}{}'.format(
+                node.metadata.name,
+                '[{}]'.format(node.extra) if node.extra else '',
+                (' ' + str(node.metadata.version)) if hasattr(node.metadata, 'version') else '')
             print(node_str + ' -> ', end='', file=sys.stderr)
         print(path[-2].dependencies[failing_node], file=sys.stderr)
 

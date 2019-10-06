@@ -8,7 +8,7 @@ if sys.version_info < (2, 7):
 
 
 setup(
-    name='WTForms',
+    name='invalid-extra',
     version='2.1',
     extras_require={
         'Locale': ['Babel>=1.3'],

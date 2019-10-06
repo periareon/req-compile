@@ -64,8 +64,8 @@ def compile_roots(node, source, repo, dists, depth=1, extras=None):  # pylint: d
                 # but only within the repository
                 if isinstance(metadata.origin, SourceRepository):
                     walkback_repo = metadata.origin
-                logger.debug('Acquired candidate %s [%s] (%s)',
-                             metadata, metadata.origin, 'cached' if cached else 'download')
+                logger.debug('Acquired candidate %s %s [%s] (%s)',
+                             metadata, spec_req, metadata.origin, 'cached' if cached else 'download')
             except NoCandidateException as no_candidate_ex:
                 no_candidate_ex.req = original_spec_req
                 if attempt == 0:

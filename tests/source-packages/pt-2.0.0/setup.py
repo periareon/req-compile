@@ -38,7 +38,7 @@ def read_file(filename):
     """
     return open(os.path.join(os.path.dirname(__file__), filename)).read()
 
-setup(name='pathtools',
+setup(name='pt',
       version=version.VERSION_STRING,
       long_description=read_file('README'),
       )

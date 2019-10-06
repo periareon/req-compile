@@ -34,6 +34,10 @@ def test_equals_not_equals():
     assert not is_possible(parse_req('thing==1,!=1'))
 
 
+def test_dev_version():
+    assert is_possible(parse_req('thing<1.6,<2.0dev,>=1.5,>=1.6.0'))
+
+
 def test_no_constraints():
     assert is_possible(parse_req('thing'))
 

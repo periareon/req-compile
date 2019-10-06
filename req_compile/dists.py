@@ -45,9 +45,24 @@ class DependencyNode(object):
 
     def build_constraints(self):
         req = None
-        for node in self.reverse_deps:
-            if self in node.dependencies:
-                req = merge_requirements(req, node.dependencies[self])
+
+        nodes = {self}
+        if self.extra:
+            base_node = None
+            for child in self.dependencies:
+                if utils.normalize_project_name(child.req_name) == utils.normalize_project_name(self.req_name):
+                    base_node = child
+                    break
+
+            if base_node is not None:
+                for rdep in base_node.reverse_deps:
+                    if utils.normalize_project_name(rdep.req_name) == utils.normalize_project_name(self.req_name):
+                        nodes.add(rdep)
+
+        for node in nodes:
+            for rdep_node in node.reverse_deps:
+                if self in rdep_node.dependencies:
+                    req = merge_requirements(req, rdep_node.dependencies[self])
 
         if req is None:
             if self.metadata is None:
@@ -117,21 +132,23 @@ class DistributionCollection(object):
             node = DependencyNode(key, req_name, None, extra)
             self.nodes[key] = node
 
-        if extra:
+        if extra is not None:
             # Add a reference back to the root req
             base_node = self.add_base(node, reason, req_name)
+            if base_node.metadata:
+                has_metadata = True
+                metadata = base_node.metadata
         else:
             base_node = node
 
         nodes = {base_node}
         if has_metadata:
-            self.update_dists(base_node, metadata)
+            nodes |= self.update_dists(base_node, metadata)
 
             # Apply the same metadata to all extras
             for reverse_node in base_node.reverse_deps:
                 if utils.normalize_project_name(reverse_node.req_name) == utils.normalize_project_name(req_name):
-                    self.update_dists(reverse_node, metadata)
-                    nodes.add(reverse_node)
+                    nodes |= self.update_dists(reverse_node, metadata)
 
         self._discard_metadata_if_necessary(base_node, reason, req_name)
 
@@ -157,21 +174,17 @@ class DistributionCollection(object):
                         self.remove_dists(reverse_node, remove_upstream=False)
 
     def add_base(self, node, reason, req_name):
-        if reason is not None:
-            non_extra_req = copy.copy(reason)
-            non_extra_req.extras = ()
-            non_extra_req = utils.parse_requirement(str(non_extra_req))
-        else:
-            non_extra_req = utils.parse_requirement(req_name)
-
+        non_extra_req = utils.parse_requirement(req_name)
         self.add_dist(req_name, node, non_extra_req)
         return self[req_name]
 
     def update_dists(self, node, metadata):
         node.metadata = metadata
+        add_nodes = {node}
         for req in metadata.requires(node.extra):
             # This adds a placeholder entry
-            self.add_dist(req.name, node, req)
+            add_nodes |= self.add_dist(req.name, node, req)
+        return add_nodes
 
     def remove_dists(self, node, remove_upstream=True):
         self.logger.debug('Removing dist(s): %s (upstream = %s)', node, remove_upstream)

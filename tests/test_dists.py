@@ -81,6 +81,7 @@ def test_dist_with_two_extras():
     assert {dep.key for dep in dists['a[x1]'].dependencies} == {'a', 'b'}
     assert {dep.key for dep in dists['a[x2]'].dependencies} == {'a', 'c'}
 
+
 def test_dist_with_extra_metadata_later():
     dists = DistributionCollection()
     metadata = DistInfo('a', '1.0.0', reqs=pkg_resources.parse_requirements(

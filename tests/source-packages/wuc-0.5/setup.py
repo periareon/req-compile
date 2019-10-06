@@ -15,7 +15,7 @@ VERSION = "0.5"
 README = "README.rst"
 
 setup(
-    name="win_unicode_console",
+    name="wuc",
     version=VERSION,
     long_description=read(README),
 )

@@ -35,14 +35,16 @@ WHITELIST = {
     'mb-confy',  # totally broken package. req-compile seems slightly righter
     'mdfreader',  # messes with requirements based on cython succeeding, but not toml
     'pyhgnc',  # uses flasgger which pip-compile gets wrong. Duplicate req entries
-    'flasgger',  # refers to jsonscehema twice
+    'flasgger',  # refers to jsonschema twice
     'pyhrf',  # Package is pretty bad and depends on an older version of pip. req-compile gets it kinda right
     'pynfdump',  # Very old, hard to parse package. Works if you pass --pre
     'pyobjc',
+    'dataf',  # req-compile gets it right due to flasgger
+    'datagovsg-api',  # says its verison is post0, but wheel disagrees
 }
 
 
-START_WITH = 'daliuge'
+START_WITH = 'dataland'
 
 # Python 2.7
 # Kinda bad:
