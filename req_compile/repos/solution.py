@@ -148,8 +148,8 @@ def _remove_nodes(result):
             try:
                 requirements = [value for dep_node, value in six.iteritems(node.dependencies)
                                 if dep_node.metadata is not None and dep_node.metadata.name != node.metadata.name]
-                if node.extra:
-                    requirements = [req_compile.utils.parse_requirement('{} ; extra=="{}"'.format(req, node.extra))
+                if node.extras:
+                    requirements = [req_compile.utils.parse_requirement('{} ; extra=="{}"'.format(req, next(iter(node.extra))))
                                     for req in requirements]
                 node.metadata.reqs.extend(requirements)
             except Exception:

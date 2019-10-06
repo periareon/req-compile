@@ -51,6 +51,8 @@ def _check_py_constraint(version_constraint):
 
     version_part = re.split('[!=<>~]', version_constraint)[-1].strip()
     operator = version_constraint.replace(version_part, '').strip()
+    if version_part and not operator:
+        operator = '=='
 
     if version_part.endswith('.*'):
         version_part = version_part.replace('.*', '')

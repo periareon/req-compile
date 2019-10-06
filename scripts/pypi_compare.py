@@ -47,10 +47,12 @@ WHITELIST = {
     'dataultra-commandlines',  # pip disagrees with req-compile on whether or not this prerelease should be used
     'deepspeech',  # pip is taking alphas here...
     'deepspeech-gpu',
+    'demo-reader',  # archive is wrong
+    'device-proxy',  # filter in requirements list again
 }
 
+START_WITH = 'diabric'
 
-START_WITH = 'defcon-monitoring'
 
 # Python 2.7
 # Kinda bad:
@@ -60,11 +62,13 @@ START_WITH = 'defcon-monitoring'
 # pythonruntimediagnostics - seems very slow (appears to be due to bokeh)
 # pymc - failed hard
 # pyobjc - hung. Seems bad
-# chargebee-byte - failed to find an obvious archive file
+
+# Python 3.7
+# devlfunia - had a None path
 
 # Good projects
 # python-watcher - substantial number of reqs
-
+# dexterity-localroles - huge one
 
 class LinksHTMLParser(html_parser.HTMLParser):
     def __init__(self, url):
@@ -73,6 +77,11 @@ class LinksHTMLParser(html_parser.HTMLParser):
         self.active_link = None
         self.active_skip = False
         self.started = False
+
+        self.started_with = START_WITH
+        self.total_matches = 0
+        self.total_req_succeed_pip_fail = 0
+        self.active_project = None
 
     def handle_starttag(self, tag, attrs):
         self.active_link = None
@@ -96,7 +105,21 @@ class LinksHTMLParser(html_parser.HTMLParser):
                         os.write(fd, (project_name + '\n').encode('utf-8'))
                         os.close(fd)
 
-                        subprocess.check_call([sys.executable, 'compare_with_pip_compile.py', name])
+                        self.active_project = project_name
+                        returncode = subprocess.call([sys.executable, 'compare_with_pip_compile.py', name])
+                        if returncode == 0:
+                            self.total_matches += 1
+                        elif returncode == 1:
+                            self._dump_summary()
+                        elif returncode == 2:
+                            self._dump_summary()
+                        elif returncode == 3:
+                            self.total_req_succeed_pip_fail += 1
+
+    def _dump_summary(self):
+        print('Done:\nEnded at: {}\nTotal run: {}\nReq-compile processed but pip failed:{}\n'.format(
+              self.active_project, self.total_matches, self.total_req_succeed_pip_fail))
+        sys.exit(1)
 
     def handle_data(self, data):
         pass

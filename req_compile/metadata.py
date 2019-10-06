@@ -699,7 +699,7 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
                     pass
                 if isinstance(module, (FakeModule, FakeNumpyModule)):
                     del sys.modules[module_name]
-                elif hasattr(module, '__file__') and extractor.contains_path(module.__file__):
+                elif hasattr(module, '__file__') and module.__file__ and extractor.contains_path(module.__file__):
                     del sys.modules[module_name]
 
             orig_chdir(old_dir)

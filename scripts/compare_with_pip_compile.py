@@ -104,7 +104,13 @@ def main():
 
         if qer_failed:
             if not pip_failed:
-                raise ValueError('Req-Compile failed but pip-tools did not')
+                print('Req-Compile failed but pip-tools did not')
+                sys.exit(2)
+
+        if pip_failed:
+            if not qer_failed:
+                print('Pip-compile failed but req-compile did not')
+                sys.exit(3)
 
         if not (qer_failed or pip_failed):
             failed = False
@@ -143,26 +149,16 @@ def main():
                 if qer_only or pip_only:
                     print('Qer only reqs: {}'.format(qer_only))
                     print('Pip only reqs: {}'.format(pip_only))
-                    failed = True
+                    sys.exit(1)
         else:
             sys.exit(0)
     except Exception as ex:
         print('Failed due to: {} {}'.format(ex.__class__, ex))
-        failed = True
     finally:
-        if failed:
-            if qer_output_file:
-                shutil.move(qer_output_file, 'req_compile.txt')
-            if pip_output_file:
-                shutil.move(pip_output_file, 'pip.txt')
-        else:
-            if qer_output_file:
-                os.remove(qer_output_file)
-            if pip_output_file:
-                os.remove(pip_output_file)
-
-    if failed:
-        sys.exit(1)
+        if qer_output_file:
+            os.remove(qer_output_file)
+        if pip_output_file:
+            os.remove(pip_output_file)
 
 
 if __name__ == '__main__':
