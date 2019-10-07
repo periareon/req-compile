@@ -69,7 +69,7 @@ def test_load_solution_extras(load_solution):
     # pytest == 4.0  # a[test]
     # b == 1.0  # a (1.0)
     assert set(result['a'].metadata.reqs) == set(pkg_resources.parse_requirements([
-        'docpkg>1 ; extra == "docs"',
+        'docpkg>1.0 ; extra == "docs"',
         'pytest ; extra == "test"',
         'b==1.0'
     ]))
@@ -78,7 +78,7 @@ def test_load_solution_extras(load_solution):
 def test_load_solution_fuzzywuzzy_extras(load_solution):
     result = load_solution('solutionfile_fuzzywuzzy_extras.txt')
 
-    assert _get_node_strs(result['python-Levenshtein'].reverse_deps) == {'fuzzywuzzy[speedup]'}
+    assert _get_node_strs(result['python-Levenshtein'].reverse_deps) == {'fuzzywuzzy'}
 
     assert set(result['fuzzywuzzy'].metadata.requires()) == set()
     assert set(result['fuzzywuzzy'].metadata.requires('speedup')) == {

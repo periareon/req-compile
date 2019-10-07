@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import contextlib
+import re
 from contextlib import closing
 import shutil
 import subprocess
@@ -52,9 +53,11 @@ def parse_source_filename(full_filename):
     for idx, part in enumerate(dash_parts):
         if not part:
             continue
-        if idx != 0 and (part[0].isdigit() or
-                         (len(part) > 1 and part[0].lower() == 'v' and part[1].isdigit())):
-            if idx != len(dash_parts) - 1 and '.' in dash_parts[idx + 1] and '.' not in dash_parts[idx]:
+        if (idx != 0 and idx >= len(dash_parts) - 2) and \
+                (part[0].isdigit() or
+                 (len(part) > 1 and part[0].lower() == 'v' and part[1].isdigit())):
+            if (idx == len(dash_parts) - 2 and '.' in dash_parts[idx + 1] and
+                    ('.' not in part or re.sub(r'[\d.]+', '', part))):
                 continue
             version_start = idx
             break
@@ -213,7 +216,7 @@ def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disa
     if results.version is None or (version and results.version != version):
         results.version = version or utils.parse_version('0.0.0')
 
-    if results.name.lower() != name.lower():
+    if not isinstance(extractor, NonExtractor) and utils.normalize_project_name(results.name) != utils.normalize_project_name(name):
         LOG.warning('Name coming from setup.py does not match: %s', results.name)
         results.name = name
     return results

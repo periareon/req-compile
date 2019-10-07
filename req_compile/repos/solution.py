@@ -109,19 +109,23 @@ def _add_sources(req, sources, result, origin, meta_file):
             constraint_req = req_compile.utils.parse_requirement(name)
             result.add_dist(constraint_req.name, None, constraint_req)
             reverse_dep = result[name]
-            reverse_dep.metdata.reqs.append(pkg_resources.Requirement.parse(name + constraints))
         else:
             reverse_dep = None
         result.add_dist(metadata.name, reverse_dep,
-                        _create_metadata_req(req, metadata, constraints))
+                        _create_metadata_req(req, metadata, name, constraints))
 
 
-def _create_metadata_req(req, metadata, constraints):
-    return req_compile.utils.parse_requirement('{}{}{}'.format(
+def _create_metadata_req(req, metadata, name, constraints):
+    marker = ''
+    if '[' in name:
+        extra = req_compile.utils.parse_requirement(name).extras[0]
+        marker = ' ; extra == "{}"'.format(extra)
+
+    return req_compile.utils.parse_requirement('{}{}{}{}'.format(
         metadata.name,
         ('[' + ','.join(
             req.extras) + ']') if req.extras else '',
-        constraints if constraints else ''))
+        constraints if constraints else '', marker))
 
 
 def load_from_file(filename, origin=None):
@@ -140,7 +144,7 @@ def load_from_file(filename, origin=None):
         if reqfile is not sys.stdin:
             reqfile.close()
 
-    # _remove_nodes(result)
+    _remove_nodes(result)
     return result
 
 
@@ -151,9 +155,6 @@ def _remove_nodes(result):
             try:
                 requirements = [value for dep_node, value in six.iteritems(node.dependencies)
                                 if dep_node.metadata is not None and dep_node.metadata.name != node.metadata.name]
-                if node.extras:
-                    requirements = [req_compile.utils.parse_requirement('{} ; extra=="{}"'.format(req, next(iter(node.extras))))
-                                    for req in requirements]
                 node.metadata.reqs.extend(requirements)
             except Exception:
                 print('Error while processing requirement {}'.format(node), file=sys.stderr)
