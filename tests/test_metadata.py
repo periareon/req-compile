@@ -99,6 +99,7 @@ def test_pylint_python(metadata_provider):
                          ['python-project-v2-0.1.1.tar.gz', 'python-project-v2', '0.1.1'],
                          ['divisor-1.0.0s-1.0.0.zip', 'divisor-1.0.0s', '1.0.0'],
                          ['django-1.6-fine-uploader-0.2.0.3.tar.gz', 'django-1.6-fine-uploader', '0.2.0.3'],
+                         ['selenium-2.0-dev-9429.tar.gz', 'selenium', '2.0-dev-9429'],
 ])
 def test_parse_source_filename(filename, result_name, result_version):
     result = req_compile.metadata.parse_source_filename(filename)

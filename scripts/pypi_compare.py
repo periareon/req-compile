@@ -51,9 +51,10 @@ WHITELIST = {
     'device-proxy',  # filter in requirements list again
     'digs',  # map in requirements list
     'diogenes8',  # disagree on whether >3.7 should allow python 3.7
+    'django-accounting',  # pip-compile is outright wrong about django-select2
 }
 
-START_WITH = 'django-1-6-fine-uploader'
+START_WITH = 'django-ajax-crawler'
 
 
 # Python 2.7
