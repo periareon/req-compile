@@ -33,7 +33,7 @@ def _get_platform_tags():
             tag = ('win_amd64',)
     elif sys.platform.startswith('linux'):
         if is_32:
-            tag = ('manylinux1_' + platform.machine()),
+            tag = (('manylinux1_' + platform.machine()),)
         else:
             tag = ('manylinux1_x86_64',)
     else:
