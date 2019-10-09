@@ -52,9 +52,10 @@ WHITELIST = {
     'digs',  # map in requirements list
     'diogenes8',  # disagree on whether >3.7 should allow python 3.7
     'django-accounting',  # pip-compile is outright wrong about django-select2
+    'django-cache-sweeper',  # uses "listify" which has a filter
 }
 
-START_WITH = 'django-ajax-crawler'
+START_WITH = 'django-caddstat'
 
 
 # Python 2.7

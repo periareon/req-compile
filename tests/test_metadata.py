@@ -100,6 +100,7 @@ def test_pylint_python(metadata_provider):
                          ['divisor-1.0.0s-1.0.0.zip', 'divisor-1.0.0s', '1.0.0'],
                          ['django-1.6-fine-uploader-0.2.0.3.tar.gz', 'django-1.6-fine-uploader', '0.2.0.3'],
                          ['selenium-2.0-dev-9429.tar.gz', 'selenium', '2.0-dev-9429'],
+                         ['django-ajax-forms_0.3.1.tar.gz', 'django-ajax-forms', '0.3.1'],
 ])
 def test_parse_source_filename(filename, result_name, result_version):
     result = req_compile.metadata.parse_source_filename(filename)

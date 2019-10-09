@@ -42,7 +42,7 @@ class MetadataError(Exception):
 
 
 def parse_source_filename(full_filename):
-    filename = full_filename
+    filename = full_filename.replace('_', '-')
     filename = filename.replace('.tar.gz', '')
     filename = filename.replace('.tar.bz2', '')
     filename = filename.replace('.zip', '')
