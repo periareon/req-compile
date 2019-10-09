@@ -1,6 +1,8 @@
 from __future__ import print_function
 
 import distutils
+import struct
+
 import enum
 import logging
 import platform
@@ -22,7 +24,25 @@ INTERPRETER_TAGS = {
 INTERPRETER_TAG = INTERPRETER_TAGS.get(platform.python_implementation(), 'cp')
 PY_VERSION_NUM = str(sys.version_info.major) + str(sys.version_info.minor)
 
-PLATFORM_TAGS = distutils.util.get_platform().replace('-', '_')  # pylint: disable=no-member
+
+def _get_platform_tags():
+    is_32 = struct.calcsize("P") == 4
+    if sys.platform == 'win32':
+        if is_32:
+            tag = ('win32',)
+        else:
+            tag = ('win_amd64',)
+    elif sys.platform.startswith('linux'):
+        if is_32:
+            tag = ('manylinux1_' + platform.machine()),
+        else:
+            tag = ('manylinux1_x86_64',)
+    else:
+        raise ValueError('Unsupported platform: {}'.format(sys.platform))
+    return tag
+
+
+PLATFORM_TAGS = _get_platform_tags()
 
 
 class RepositoryInitializationError(ValueError):
