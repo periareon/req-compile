@@ -53,6 +53,7 @@ WHITELIST = {
     'diogenes8',  # disagree on whether >3.7 should allow python 3.7
     'django-accounting',  # pip-compile is outright wrong about django-select2
     'django-cache-sweeper',  # uses "listify" which has a filter
+    'django-caddstat',  # pytz constraint <=2013d doesn't really make sense
 }
 
 START_WITH = 'django-caddstat'

@@ -116,12 +116,7 @@ def test_compound(mock_targz):
     req_compile.metadata.extract_metadata(archive)
 
 
-@pytest.mark.parametrize('archive_fixture', [
-    'mock_targz',
-    'mock_zip',
-    'mock_fs'
-])
-@pytest.mark.parametrize('directory,name,version,reqs', [
+sources = [
     ['svn-0.3.46', 'svn', '0.3.46', ['python-dateutil>=2.2', 'nose']],
     ['dir-exists-1.0', 'dir-exists', '1.0', ['msgpack-python']],
     ['invalid-extra-2.1', 'invalid-extra', '2.1', None],
@@ -164,10 +159,19 @@ def test_compound(mock_targz):
     ['file-iter-7.2.0', 'file-iter', '7.2.0', None],
     ['psutil-5.6.2', 'psutil', '5.6.2', None],
     ['pt-2.0.0', 'pt', '2.0.0', None],
-    ['spec-loading-1.0', 'spec-loading', '1.0', ['et_xmlfile', 'jdcal']],
     ['dir-changer-0.1.1', 'dir-changer', '0.1.1', ['requests']],
     ['file-input-1.0', 'file-input', '1.0', None],
+]
+if six.PY3:
+    sources.append(['spec-loading-1.0', 'spec-loading', '1.0', ['et_xmlfile', 'jdcal']])
+
+
+@pytest.mark.parametrize('archive_fixture', [
+    'mock_targz',
+    'mock_zip',
+    'mock_fs'
 ])
+@pytest.mark.parametrize('directory,name,version,reqs', sources)
 def test_source_dist(archive_fixture, directory, name, version, reqs, mock_targz, mock_zip, mocker):
     mock_build = mocker.patch('req_compile.metadata._build_wheel')
 

@@ -56,7 +56,7 @@ def test_sort_non_semver():
     for ver in candidate_vers:
         candidates.append(Candidate('pytz', None, pkg_resources.parse_version(ver), None, 'any', None))
 
-    reference = candidates.copy()
+    reference = list(candidates)
     random.shuffle(candidates)
 
     candidates = sort_candidates(candidates)

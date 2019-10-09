@@ -1,23 +1,24 @@
+# pylint: disable=exec-used,bad-continuation
 from __future__ import print_function
 
-import contextlib
-import re
-from contextlib import closing
-import shutil
-import subprocess
+import functools
 import imp
 import io
 import logging
 import os
+import re
+import shutil
+import subprocess
 import sys
 import tempfile
 import zipfile
-import functools
+import contextlib
+from contextlib import closing
 from types import ModuleType
 
-import setuptools
 import six
 from six.moves import StringIO, configparser
+import setuptools
 import pkg_resources
 
 from req_compile import utils
@@ -53,6 +54,7 @@ def parse_source_filename(full_filename):
     for idx, part in enumerate(dash_parts):
         if not part:
             continue
+        # pylint: disable=too-many-boolean-expressions
         if (idx != 0 and idx >= len(dash_parts) - 3) and \
                 (part[0].isdigit() or
                  (len(part) > 1 and part[0].lower() == 'v' and part[1].isdigit())):
@@ -216,7 +218,8 @@ def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disa
     if results.version is None or (version and results.version != version):
         results.version = version or utils.parse_version('0.0.0')
 
-    if not isinstance(extractor, NonExtractor) and utils.normalize_project_name(results.name) != utils.normalize_project_name(name):
+    if (not isinstance(extractor, NonExtractor) and
+            utils.normalize_project_name(results.name) != utils.normalize_project_name(name)):
         LOG.warning('Name coming from setup.py does not match: %s', results.name)
         results.name = name
     return results
@@ -261,7 +264,7 @@ def _build_egg_info(name, extractor, setup_file):
     LOG.info('Building egg info for %s', extracted_setup_py)
     try:
         setup_dir = os.path.dirname(extracted_setup_py)
-        output = subprocess.check_output([
+        output = subprocess.check_output([  # pylint: disable=unexpected-keyword-arg
             sys.executable, '-c', SETUPTOOLS_SHIM % extracted_setup_py, 'egg_info',
             '--egg-base', setup_dir
         ], cwd=setup_dir, stderr=subprocess.STDOUT, universal_newlines=True)
@@ -317,7 +320,7 @@ def parse_req_with_marker(req_str, marker):
                                    req_str + '; {}'.format(marker))
 
 
-def setup(results, *args, **kwargs):
+def setup(results, *_args, **kwargs):  # pylint: disable=too-many-branches,too-many-locals
     # pbr uses a dangerous pattern that only works when you build using setuptools
     # d2to1 uses unknown config options in setup.cfg
     setup_frameworks = ('pbr', 'd2to1', 'use_pyscaffold')
@@ -408,7 +411,7 @@ def patch(*args):
     for idx in range(0, len(args), 3):
         module, member, new_value = args[idx:idx + 3]
         tokens.append(begin_patch(module, member, new_value))
-        
+
     try:
         yield
     finally:
@@ -510,13 +513,8 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
     # pylint: disable=unused-import,unused-variable
     import codecs
     import distutils.core
-    import setuptools.extern  # Extern performs some weird module manipulation we can't handle
     import fileinput
     import multiprocessing
-
-    # A few package we have trouble importing with the importhook
-    import setuptools.command
-    import setuptools.command.sdist
 
     try:
         import importlib.util
@@ -701,8 +699,6 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
                 module = sys.modules[module_name]
                 if module is None:
                     continue
-                if 'version' in module_name and module_name not in ('pluggy._version', '_pytest_mock_version', 'pkg_resources.extern.packaging.version', '_pytest._version', 'packaging.version', 'setuptools.version', 'distutils.version', 'funcsigs.version','setuptools.extern.packaging.version', 'py._version', 'pkg_resources._vendor.packaging.version', 'setuptools._vendor.packaging.version'):
-                    pass
                 if isinstance(module, (FakeModule, FakeNumpyModule)):
                     del sys.modules[module_name]
                 elif hasattr(module, '__file__') and module.__file__ and extractor.contains_path(module.__file__):

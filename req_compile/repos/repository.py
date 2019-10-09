@@ -1,14 +1,12 @@
 from __future__ import print_function
 
-import collections
-import distutils.util
-import logging
-import struct
+import distutils
 import enum
+import logging
 import platform
 import sys
-import six
 
+import six
 import pkg_resources
 
 import req_compile.metadata
@@ -24,7 +22,7 @@ INTERPRETER_TAGS = {
 INTERPRETER_TAG = INTERPRETER_TAGS.get(platform.python_implementation(), 'cp')
 PY_VERSION_NUM = str(sys.version_info.major) + str(sys.version_info.minor)
 
-PLATFORM_TAGS = distutils.util.get_platform().replace('-', '_')
+PLATFORM_TAGS = distutils.util.get_platform().replace('-', '_')  # pylint: disable=no-member
 
 
 class RepositoryInitializationError(ValueError):
@@ -223,11 +221,13 @@ def _check_platform_compatibility(py_platform):
 
 
 class BaseRepository(object):
-    def get_candidate(self, req):
+    def get_candidate(self, req, max_downgrade=None):
         """Fetch the best matching candidate for the given requirement
 
         Args:
             req (pkg_resources.Requirement): Requirement to find a match for
+            max_downgrade (int, optional): Maximum number of different versions to try if
+                metadata parsing fails
 
         Returns:
             (Candidate) The best matching candidate
@@ -292,6 +292,7 @@ class Repository(BaseRepository):
         candidates = self.get_candidates(req)
         return self.do_get_candidate(req, candidates, max_downgrade=max_downgrade)
 
+    # pylint: disable=too-many-return-statements
     def _try_candidate(self, specifier, candidate, has_equality=None, allow_prereleases=False):
         if candidate.py_version is not None and not candidate.py_version.check_compatibility():
             return None, CantUseReason.WRONG_PYTHON_VERSION
@@ -313,6 +314,8 @@ class Repository(BaseRepository):
             candidate, cached = self.resolve_candidate(candidate)
             if candidate is not None:
                 return candidate, cached
+
+            return None, CantUseReason.BAD_METADATA
         except req_compile.metadata.MetadataError as ex:
             self.logger.warning('Could not use candidate %s - %s', candidate, ex)
             return None, CantUseReason.BAD_METADATA

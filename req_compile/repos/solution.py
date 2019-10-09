@@ -3,7 +3,6 @@ from __future__ import print_function
 import os
 import sys
 
-import pkg_resources
 import six
 from six.moves import map as imap
 
@@ -94,10 +93,10 @@ def _parse_line(result, line, meta_file, origin):
         _, _, source_part = source_part.partition('] ')
     sources = source_part.split(', ')
 
-    _add_sources(req, sources, result, origin, meta_file)
+    _add_sources(req, sources, result, origin)
 
 
-def _add_sources(req, sources, result, origin, meta_file):
+def _add_sources(req, sources, result, origin):
     pkg_names = imap(lambda x: x.split(' ')[0], sources)
     constraints = imap(lambda x: x.split(' ')[1].replace('(', '').replace(')', '') if '(' in x else None, sources)
     version = req_compile.utils.parse_version(list(req.specifier)[0].version)
@@ -136,7 +135,6 @@ def load_from_file(filename, origin=None):
     else:
         reqfile = open(filename)
 
-    # meta_file = next(iter(result.add_dist(req_compile.dists.RequirementsFile(filename, []), None, None)))
     try:
         for line in reqfile.readlines():
             _parse_line(result, line, filename, origin)

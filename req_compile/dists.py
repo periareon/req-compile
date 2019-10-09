@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import collections
-import copy
 import itertools
 import logging
 import os
@@ -122,14 +121,14 @@ class DistributionCollection(object):
         if metadata_to_apply is not None:
             nodes |= self.update_dists(node, metadata_to_apply)
 
-        self._discard_metadata_if_necessary(node, reason, req_name)
+        self._discard_metadata_if_necessary(node, reason)
 
         if node.key not in self.nodes:
             raise ValueError('The node {} is gone, while adding'.format(node.key))
 
         return nodes
 
-    def _discard_metadata_if_necessary(self, node, reason, req_name):
+    def _discard_metadata_if_necessary(self, node, reason):
         if node.metadata is not None and not node.metadata.meta and reason is not None:
             if not reason.specifier.contains(node.metadata.version,
                                              prereleases=True):
@@ -307,8 +306,8 @@ class PkgResourcesDistInfo(RequirementContainer):
     def __str__(self):
         return '{}=={}'.format(*self.to_definition(None))
 
-    def requires(self, extras=None):
-        return self.dist.requires(extras=extras or ())
+    def requires(self, extra=None):
+        return self.dist.requires(extras=extra or ())
 
     def to_definition(self, extras):
         req_expr = '{}{}'.format(
