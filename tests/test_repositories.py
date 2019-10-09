@@ -1,6 +1,9 @@
+import random
+
+import pkg_resources
 import pytest
 
-from req_compile.repos.repository import WheelVersionTags
+from req_compile.repos.repository import WheelVersionTags, Candidate, sort_candidates
 
 
 @pytest.mark.parametrize('sys_py_version, py_requires', [
@@ -33,3 +36,28 @@ def test_version_incompatible(mock_py_version, sys_py_version, py_requires):
 ])
 def test_version_str(py_requires, expected):
     assert str(WheelVersionTags(py_requires)) == expected
+
+
+def test_sort_non_semver():
+    # This is the order that pip chooses
+    candidate_vers = (
+        '2019.3',
+        '2017.2',
+        '2015.6',
+        '2013.6',
+        '2013b0',
+        '2012rc0',
+        '2012b0',
+        '2009r',
+        '2013d',
+        '2011k',
+    )
+    candidates = []
+    for ver in candidate_vers:
+        candidates.append(Candidate('pytz', None, pkg_resources.parse_version(ver), None, 'any', None))
+
+    reference = candidates.copy()
+    random.shuffle(candidates)
+
+    candidates = sort_candidates(candidates)
+    assert reference == candidates

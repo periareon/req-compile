@@ -288,8 +288,8 @@ class Repository(BaseRepository):
         raise NotImplementedError()
 
     def get_candidate(self, req, max_downgrade=None):
+        self.logger.info('Getting candidate for %s', req)
         candidates = self.get_candidates(req)
-
         return self.do_get_candidate(req, candidates, max_downgrade=max_downgrade)
 
     def _try_candidate(self, specifier, candidate, has_equality=None, allow_prereleases=False):
