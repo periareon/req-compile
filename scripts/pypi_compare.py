@@ -54,9 +54,10 @@ WHITELIST = {
     'django-accounting',  # pip-compile is outright wrong about django-select2
     'django-cache-sweeper',  # uses "listify" which has a filter
     'django-caddstat',  # pytz constraint <=2013d doesn't really make sense
+    'django-chatterbox',  # pins requests to 2 exact, different versions
 }
 
-START_WITH = 'django-caddstat'
+START_WITH = 'django-chatterbox'
 
 
 # Python 2.7
