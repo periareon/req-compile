@@ -180,7 +180,7 @@ def test_source_dist(archive_fixture, directory, name, version, reqs, mock_targz
     elif archive_fixture == 'mock_zip':
         archive = mock_zip(directory)
     else:
-        archive = os.path.join('source-packages', directory)
+        archive = os.path.join('tests', 'source-packages', directory)
 
     metadata = req_compile.metadata.extract_metadata(archive)
     assert not mock_build.called
