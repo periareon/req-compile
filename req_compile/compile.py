@@ -1,8 +1,10 @@
 """Logic for compiling requirements"""
+from __future__ import print_function
 import logging
+import operator
 import sys
+from collections import defaultdict
 
-import six
 import pkg_resources
 
 import req_compile.dists
@@ -14,13 +16,14 @@ from req_compile.utils import parse_requirement, merge_requirements
 import req_compile.repos.repository
 
 from req_compile.repos.repository import NoCandidateException
+from req_compile.versions import is_possible
 
 MAX_DOWNGRADE = 3
 
 LOG = logging.getLogger('req_compile.compile')
 
 
-def compile_roots(node, source, repo, dists, depth=1, extras=None):  # pylint: disable=too-many-statements,too-many-locals,too-many-branches
+def compile_roots(node, source, repo, dists, depth=1, max_downgrade=MAX_DOWNGRADE, extras=None):  # pylint: disable=too-many-statements,too-many-locals,too-many-branches
     """
 
     Args:
@@ -37,83 +40,96 @@ def compile_roots(node, source, repo, dists, depth=1, extras=None):  # pylint: d
     logger.debug('Processing node %s', node)
 
     if node.metadata is not None:
-
         if node.metadata.meta:
-            for req in list(node.dependencies):
-                compile_roots(req, node, repo, dists, depth=depth + 1, extras=extras)
+            can_reuse = False
+        else:
+            can_reuse = all(dep.metadata is not None for dep in node.dependencies)
+
+        if not can_reuse:
+            try:
+                for req in list(node.dependencies):
+                    compile_roots(req, node, repo, dists, depth=depth + 1, max_downgrade=max_downgrade, extras=extras)
+            except NoCandidateException:
+                if max_downgrade == 0:
+                    raise
+                compile_roots(node, source, repo, dists, depth=depth, max_downgrade=0, extras=extras)
         else:
             logger.info('Reusing dist %s %s', node.metadata.name, node.metadata.version)
     else:
         spec_req = node.build_constraints()
-        original_spec_req = spec_req
-        first_failure = None
-        original_metadata = None
 
-        attempt = 0
-        ex = None
-        nodes_to_recurse = set()
+        try:
+            metadata, cached = repo.get_candidate(spec_req, max_downgrade=max_downgrade)
+            logger.debug('Acquired candidate %s %s [%s] (%s)',
+                         metadata, spec_req, metadata.origin, 'cached' if cached else 'download')
+            reason = None
+            if source is not None:
+                reason = source.dependencies[node]
+                if extras and isinstance(metadata.origin, SourceRepository):
+                    reason = merge_requirements(reason,
+                                                parse_requirement(reason.name + '[' + ','.join(extras) + ']'))
+            nodes_to_recurse = dists.add_dist(metadata, source, reason)
+            for recurse_node in sorted(nodes_to_recurse):
+                for child_node in sorted(recurse_node.dependencies):
+                    if child_node in dists.nodes.values():
+                        compile_roots(child_node, recurse_node, repo, dists,
+                                      depth=depth + 1, max_downgrade=max_downgrade, extras=extras)
+        except NoCandidateException as ex:
+            if max_downgrade == 0:
+                raise
 
-        walkback_repo = repo
+            nodes = sorted(node.reverse_deps)
 
-        for attempt in range(MAX_DOWNGRADE):
-            metadata = None
+            violate_score = defaultdict(int)
+            for idx, revnode in enumerate(nodes):
+                for next_node in nodes[idx + 1:]:
+                    if not is_possible(merge_requirements(revnode.dependencies[node], next_node.dependencies[node])):
+                        logger.error('Violating pair: {} {}'.format(revnode, next_node))
+                        violate_score[revnode] += 1
+                        violate_score[next_node] += 1
 
-            try:
-                metadata, cached = walkback_repo.get_candidate(spec_req, max_downgrade=MAX_DOWNGRADE)
-                # If the package was discovered in a source repository, it can be walked back
-                # but only within the repository
-                if isinstance(metadata.origin, SourceRepository):
-                    walkback_repo = metadata.origin
-                logger.debug('Acquired candidate %s %s [%s] (%s)',
-                             metadata, spec_req, metadata.origin, 'cached' if cached else 'download')
-            except NoCandidateException as no_candidate_ex:
-                no_candidate_ex.req = original_spec_req
-                if attempt == 0:
-                    raise
-                break
+            bad_nodes = {node for node, _ in sorted(violate_score.items(), key=operator.itemgetter(1))
+                         if not node.metadata.meta}
 
-            if metadata is not None:
-                if nodes_to_recurse:
-                    for child_node in nodes_to_recurse:
-                        dists.remove_dists(child_node, remove_upstream=False)
+            if not bad_nodes:
+                raise
 
-                try:
-                    reason = source.dependencies[node]
-                    if extras and isinstance(metadata.origin, SourceRepository):
-                        reason = merge_requirements(reason,
-                                                    parse_requirement(reason.name + '[' + ','.join(extras) + ']'))
-                    nodes_to_recurse = dists.add_dist(metadata, source, reason)
-                    if nodes_to_recurse:
-                        for recurse_node in nodes_to_recurse:
-                            for req in list(recurse_node.dependencies):
-                                compile_roots(req, recurse_node, repo, dists, depth=depth + 1, extras=extras)
-                    first_failure = None
+            accumulated_constraints = []
+            for allowed_downgrade in range(max_downgrade):
+                round_constraints = list(accumulated_constraints)
+                for bad_node in sorted(bad_nodes):
+                    new_constraints = []
+                    if bad_node.metadata is not None:
+                        new_constraints = [parse_requirement('{}!={}'.format(
+                            bad_node.metadata.name, bad_node.metadata.version))]
+                        accumulated_constraints.extend(new_constraints)
+
+                    bad_constraint = req_compile.dists.DistInfo('#bad#-{}-{}'.format(bad_node, depth), None,
+                                                                round_constraints + new_constraints,
+                                                                meta=True)
+
+                    bad_constraints = dists.add_dist(bad_constraint, None, None)
+                    try:
+                        all_successful = True
+                        for node in sorted(bad_nodes):
+                            try:
+                                compile_roots(node, None, repo, dists,
+                                              depth=depth + 1, max_downgrade=0, extras=extras)
+                            except NoCandidateException:
+                                dists.remove_dists(node, remove_upstream=False)
+                                all_successful = False
+
+                        if all_successful:
+                            print('Could not accept {} - pin to see why'.format(bad_node.build_constraints()), file=sys.stderr)
+                            return
+                    finally:
+                        dists.remove_dists(bad_constraints, remove_upstream=True)
+
+                if round_constraints == accumulated_constraints:
                     break
-                except NoCandidateException as no_candidate_ex:
-                    logger.error('Could not use %s because some of its dependencies could not be satisfied (%s)',
-                                 node,
-                                 no_candidate_ex)
-                    ex = sys.exc_info()
-                    spec_req = merge_requirements(spec_req,
-                                                  parse_requirement('{}!={}'.format(metadata.name, metadata.version)))
 
-            if first_failure is None:
-                first_failure = ex
-
-        if first_failure is None and metadata is not None:
-            if attempt > 0:
-                logger.error('Walked back %d version%s from %s',
-                             attempt,
-                             '' if attempt == 1 else 's',
-                             original_spec_req)
-        else:
-            if original_metadata is not None:
-                nodes_to_recurse = dists.add_dist(original_metadata, source, source.dependencies[node])
-                if nodes_to_recurse:
-                    for recurse_node in nodes_to_recurse:
-                        for req in list(recurse_node.dependencies):
-                            compile_roots(req, recurse_node, repo, dists, depth=depth + 1, extras=extras)
-            six.reraise(*first_failure)
+            dists.remove_dists(bad_nodes, remove_upstream=False)
+            raise
 
 
 def perform_compile(input_reqs, repo, extras=None, constraint_reqs=None):
@@ -156,7 +172,7 @@ def perform_compile(input_reqs, repo, extras=None, constraint_reqs=None):
         nodes |= results.add_dist(req_source, None, reason)
 
     try:
-        for node in nodes:
+        for node in sorted(nodes):
             compile_roots(node, None, repo, dists=results, extras=extras)
     except (NoCandidateException, req_compile.metadata.MetadataError) as ex:
         ex.results = results

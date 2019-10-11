@@ -13,18 +13,15 @@ from req_compile.utils import normalize_project_name, merge_requirements, filter
 
 
 class DependencyNode(object):
-    def __init__(self, key, req_name, metadata):
+    def __init__(self, key, metadata):
         """
 
         Args:
             key:
-            req_name:
             metadata (RequirementContainer):
-            extra:
         """
         self.key = key
         self.metadata = metadata
-        self.req_name = req_name
         self.dependencies = {}  # Dict[DependencyNode, pkg_resources.Requirement]
         self.reverse_deps = set()  # Set[DependencyNode]
         self.repo = None
@@ -38,6 +35,9 @@ class DependencyNode(object):
         if self.metadata.meta:
             return self.metadata.name
         return '=='.join(str(x) for x in self.metadata.to_definition(self.extras))
+
+    def __lt__(self, other):
+        return self.key < other.key
 
     @property
     def extras(self):
@@ -106,7 +106,7 @@ class DistributionCollection(object):
         if key in self.nodes:
             node = self.nodes[key]
         else:
-            node = DependencyNode(key, req_name, metadata_to_apply)
+            node = DependencyNode(key, metadata_to_apply)
             self.nodes[key] = node
 
         # If a new extra is being supplied, update the metadata
@@ -146,14 +146,15 @@ class DistributionCollection(object):
         return add_nodes
 
     def remove_dists(self, node, remove_upstream=True):
-        self.logger.debug('Removing dist(s): %s (upstream = %s)', node, remove_upstream)
-
         if isinstance(node, collections.Iterable):
             for single_node in node:
-                self.remove_dists(single_node)
+                self.remove_dists(single_node, remove_upstream=remove_upstream)
             return
 
+        self.logger.info('Removing dist(s): %s (upstream = %s)', node, remove_upstream)
+
         if node.key not in self.nodes:
+            self.logger.debug('Node %s was already removed', node.key)
             return
 
         if remove_upstream:
@@ -162,7 +163,7 @@ class DistributionCollection(object):
                 del reverse_dep.dependencies[node]
 
         for dep in node.dependencies:
-            if remove_upstream or dep.req_name != node.req_name:
+            if remove_upstream or dep.key != node.key:
                 dep.reverse_deps.remove(node)
                 if not dep.reverse_deps:
                     self.remove_dists(dep)
@@ -211,6 +212,8 @@ class DistributionCollection(object):
         req_filter = req_filter or (lambda _: True)
         results = []
         for node in self.visit_nodes(roots):
+            if node.metadata is None:
+                pass
             if not node.metadata.meta and req_filter(node):
                 constraints = _build_constraints(node)
                 req_expr = node.metadata.to_definition(node.extras)

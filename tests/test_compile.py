@@ -72,9 +72,7 @@ def perform_compile(mock_metadata, mock_pypi):
         ('multi', ['x==1.0.0', 'x==0.9.0', 'y==5.0.0', 'y==4.0.0'], ['x==1'], ['y==5'], ['x==1.0.0']),
         # Check that metadata that declares to requirements on the same dependency is processed correctly
         ('multi', ['x==1.0.0', 'x==0.9.0', 'y==5.0.0', 'y==4.0.0', 'z==1.0.0'], ['z'], None, ['z==1.0.0', 'y==4.0.0', 'x==0.9.0']),
-
         ('walk-back', ['a==4.0', 'a==3.6', 'b==1.1', 'b==1.0'], ['a<3.7', 'b'], None, ['a==3.6', 'b==1.0']),
-
         ('early-violated', ['a==5.0.0', 'x==0.9.0', 'x==1.1.0', 'y==4.0.0', 'z==1.0.0'], ['a', 'y'], None, ['a==5.0.0', 'x==0.9.0', 'y==4.0.0', 'z==1.0.0']),
 
         ('extra-violated', ['a==5.0.0', 'b==4.0.0', 'x==0.9.0', 'x==1.1.0', 'y==4.0.0', 'z==1.0.0'], ['a', 'y'], None, ['a==5.0.0', 'b==4.0.0', 'x[test]==0.9.0', 'y==4.0.0', 'z==1.0.0']),

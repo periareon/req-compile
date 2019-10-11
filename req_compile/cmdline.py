@@ -90,18 +90,22 @@ def _generate_no_candidate_display(req, repo, dists, failure):
               "{failure}".format(name=req.name, failure=failure), file=sys.stderr)
 
     paths = _find_paths_to_root(failing_node)
+    nodes_visited = set()
     for path in paths:
-        print('  ', end='')
-        for idx, node in enumerate(path[:-1]):
-            if idx > 0:
-                if node.metadata is path[idx - 1].metadata:
-                    continue
-            node_str = '{}{}{}'.format(
-                node.metadata.name,
-                '[{}]'.format(','.join(node.extras)) if node.extras else '',
-                (' ' + str(node.metadata.version)) if hasattr(node.metadata, 'version') else '')
-            print(node_str + ' -> ', end='', file=sys.stderr)
-        print(path[-2].dependencies[failing_node], file=sys.stderr)
+        if path[-2].dependencies[failing_node].specifier:
+            if path[-2] in nodes_visited:
+                continue
+
+            nodes_visited.add(path[-2])
+
+            print('  ', end='', file=sys.stderr)
+            for node in path[:-1]:
+                node_str = '{}{}{}'.format(
+                    node.metadata.name,
+                    '[{}]'.format(','.join(node.extras)) if node.extras else '',
+                    (' ' + str(node.metadata.version)) if hasattr(node.metadata, 'version') else '')
+                print(node_str + ' -> ', end='', file=sys.stderr)
+            print(path[-2].dependencies[failing_node], file=sys.stderr)
 
     if can_satisfy:
         all_candidates = {repo: repo.get_candidates(req) for repo in repo}
@@ -126,8 +130,10 @@ def _dump_repo_candidates(req, repos):
             for num, candidate in enumerate(sort_candidates(candidates)):
                 attempted_versions.add(candidate.version)
                 if len(attempted_versions) > req_compile.compile.MAX_DOWNGRADE:
-                    print('  -- Attempts stopped here ({} versions too '
-                          'old to try)'.format(len(candidates) - num - 1), file=sys.stderr)
+                    too_old_count = len(candidates) - num
+                    if too_old_count:
+                        print('  -- Attempts stopped here ({} versions too '
+                              'old to try)'.format(too_old_count), file=sys.stderr)
                     break
                 try:
                     print('  {}: {}'.format(candidate,
