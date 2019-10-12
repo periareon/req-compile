@@ -72,6 +72,9 @@ START_WITH = 'scipy'
 # Python 3.7
 # devlfunia - had a None path
 # discoplot - hung
+# screenshot - hung HARD
+# scylla - comes out with None type
+# seleniumframework - Setup.py -- capital S, wow!
 
 # Good projects
 # python-watcher - substantial number of reqs

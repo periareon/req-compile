@@ -129,7 +129,7 @@ def extract_metadata(filename, run_setup_py=True, origin=None):
 def find_in_archive(extractor, filename, max_depth=None):
     for info_name in extractor.names():
         if info_name.lower().endswith(filename) and (max_depth is None or info_name.count('/') <= max_depth):
-            if '/' not in filename and info_name.rsplit('/')[-1] != filename:
+            if '/' not in filename and info_name.lower().rsplit('/')[-1] != filename:
                 continue
             return info_name
     return None
