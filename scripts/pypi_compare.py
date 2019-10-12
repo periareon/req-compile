@@ -15,7 +15,7 @@ WHITELIST = {
     'acrylamid',  # Adds an install_req at runtime that's not in the dist info
     'adversarial-robustness-toolbox',  # agree to disagree, weird project
     'aegeantools',  # declares its versions wrong
-    'ageliaco-rd',  # DocumentTemplate.  I think pip-tools is wrong about this
+    # 'ageliaco-rd',  # DocumentTemplate.  I think pip-tools is wrong about this
     'ageliaco-rd2',  # DocumentTemplate.  I think pip-tools is wrong about this
     'flask-apiform',  # wrong metadata in the package
     'flask-async',  # Source version is different from metadata
@@ -57,7 +57,7 @@ WHITELIST = {
     'django-chatterbox',  # pins requests to 2 exact, different versions
 }
 
-START_WITH = 'django-chatterbox'
+START_WITH = 'scipy'
 
 
 # Python 2.7

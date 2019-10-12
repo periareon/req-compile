@@ -46,9 +46,12 @@ def compile_roots(node, source, repo, dists, depth=1, max_downgrade=MAX_DOWNGRAD
             can_reuse = all(dep.metadata is not None for dep in node.dependencies)
 
         if not can_reuse:
+            if depth > 40:
+                raise ValueError('Recursion too deep')
             try:
                 for req in list(node.dependencies):
-                    compile_roots(req, node, repo, dists, depth=depth + 1, max_downgrade=max_downgrade, extras=extras)
+                    if req.metadata is None:
+                        compile_roots(req, node, repo, dists, depth=depth + 1, max_downgrade=max_downgrade, extras=extras)
             except NoCandidateException:
                 if max_downgrade == 0:
                     raise
