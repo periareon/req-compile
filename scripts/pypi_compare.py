@@ -57,7 +57,7 @@ WHITELIST = {
     'django-chatterbox',  # pins requests to 2 exact, different versions
 }
 
-START_WITH = 'scipy'
+START_WITH = 'seleniumframework'
 
 
 # Python 2.7
@@ -74,7 +74,7 @@ START_WITH = 'scipy'
 # discoplot - hung
 # screenshot - hung HARD
 # scylla - comes out with None type
-# seleniumframework - Setup.py -- capital S, wow!
+# sentimental-skk - hung
 
 # Good projects
 # python-watcher - substantial number of reqs

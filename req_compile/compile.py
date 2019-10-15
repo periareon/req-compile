@@ -71,12 +71,20 @@ def compile_roots(node, source, repo, dists, depth=1, max_downgrade=MAX_DOWNGRAD
                 if extras and isinstance(metadata.origin, SourceRepository):
                     reason = merge_requirements(reason,
                                                 parse_requirement(reason.name + '[' + ','.join(extras) + ']'))
+
             nodes_to_recurse = dists.add_dist(metadata, source, reason)
-            for recurse_node in sorted(nodes_to_recurse):
-                for child_node in sorted(recurse_node.dependencies):
-                    if child_node in dists.nodes.values():
-                        compile_roots(child_node, recurse_node, repo, dists,
-                                      depth=depth + 1, max_downgrade=max_downgrade, extras=extras)
+            try:
+                for recurse_node in sorted(nodes_to_recurse):
+                    for child_node in sorted(recurse_node.dependencies):
+                        if child_node in dists.nodes.values():
+                            compile_roots(child_node, recurse_node, repo, dists,
+                                          depth=depth + 1, max_downgrade=max_downgrade, extras=extras)
+            except NoCandidateException as ex:
+                logger.info('Candidate %s cannot be used because a dependency (%s) could not be satisfied',
+                            metadata, ex.req)
+                if max_downgrade != 0:
+                    dists.remove_dists(nodes_to_recurse, remove_upstream=False)
+                raise
         except NoCandidateException as ex:
             if max_downgrade == 0:
                 raise
