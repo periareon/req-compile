@@ -328,8 +328,9 @@ def setup(results, *_args, **kwargs):  # pylint: disable=too-many-branches,too-m
         if framework in kwargs:
             raise ValueError('Must run egg-info if {} is used'.format(framework))
 
-    if 'setup_requires' in kwargs and 'pbr' in kwargs['setup_requires']:
-        raise ValueError('Must run egg-info if pbr is in setup_requires')
+    if 'setup_requires' in kwargs and ('pbr' in kwargs['setup_requires'] or
+                                       'setupmeta' in kwargs['setup_requires']):
+        raise ValueError('Must run egg-info if pbr/setupmeta is in setup_requires')
 
     if os.path.exists('setup.cfg'):
         _add_setup_cfg_kwargs(kwargs)

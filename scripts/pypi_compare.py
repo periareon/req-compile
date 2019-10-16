@@ -57,10 +57,11 @@ WHITELIST = {
     'django-chatterbox',  # pins requests to 2 exact, different versions
     'servocenter-3-1',  # pretty impossible to parse the version for this
     'shadow-auth',  # disagree whether 3.7 is greater >3 and <4
-
+    'sib-api-v3-sdk',  # the package calls itself 'sib-api'
+    'sibis',  # pip-compile misses the requests[security] extra
 }
 
-START_WITH = 'shyml'
+START_WITH = 'sibis'
 
 
 # Python 2.7
@@ -73,10 +74,8 @@ START_WITH = 'shyml'
 # pyobjc - hung. Seems bad
 
 # Python 3.7
-# devlfunia - had a None path
 # discoplot - hung
 # screenshot - hung HARD
-# scylla - comes out with None type
 # sentimental-skk - hung
 # PySide - Fails due to attempting to import from utils
 # shyml - missing some requirements
