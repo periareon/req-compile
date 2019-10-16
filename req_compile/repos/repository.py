@@ -12,6 +12,7 @@ import pkg_resources
 
 import req_compile.metadata
 import req_compile.utils
+from req_compile.utils import normalize_project_name
 
 INTERPRETER_TAGS = {
     'CPython': 'cp',
@@ -261,6 +262,7 @@ class CantUseReason(enum.Enum):
     IS_PRERELEASE = 4
     VERSION_NO_SATISFY = 5
     BAD_METADATA = 6
+    NAME_DOESNT_MATCH = 7
 
 
 def sort_candidates(candidates):
@@ -312,7 +314,7 @@ class Repository(BaseRepository):
         return self.do_get_candidate(req, candidates, max_downgrade=max_downgrade)
 
     # pylint: disable=too-many-return-statements
-    def _try_candidate(self, specifier, candidate, has_equality=None, allow_prereleases=False):
+    def _try_candidate(self, req, candidate, has_equality=None, allow_prereleases=False):
         if candidate.py_version is not None and not candidate.py_version.check_compatibility():
             return None, CantUseReason.WRONG_PYTHON_VERSION
 
@@ -322,8 +324,8 @@ class Repository(BaseRepository):
         if not has_equality and not allow_prereleases and candidate.version.is_prerelease:
             return None, CantUseReason.IS_PRERELEASE
 
-        if not specifier.contains(candidate.version,
-                                  prereleases=has_equality or allow_prereleases):
+        if not req.specifier.contains(candidate.version,
+                                      prereleases=has_equality or allow_prereleases):
             return None, CantUseReason.VERSION_NO_SATISFY
 
         if candidate.type == DistributionType.SDIST:
@@ -332,6 +334,8 @@ class Repository(BaseRepository):
         try:
             candidate, cached = self.resolve_candidate(candidate)
             if candidate is not None:
+                if normalize_project_name(candidate.name) != normalize_project_name(req.name):
+                    return None, CantUseReason.NAME_DOESNT_MATCH
                 return candidate, cached
 
             return None, CantUseReason.BAD_METADATA
@@ -365,7 +369,7 @@ class Repository(BaseRepository):
                     continue
 
                 all_prereleases = all_prereleases and candidate.version.is_prerelease
-                result, reason = self._try_candidate(req.specifier, candidate,
+                result, reason = self._try_candidate(req, candidate,
                                                      has_equality=has_equality, allow_prereleases=allow_prereleases)
                 if result is not None:
                     return result, reason
@@ -382,7 +386,7 @@ class Repository(BaseRepository):
 
     def why_cant_I_use(self, req, candidate):  # pylint: disable=invalid-name
         has_equality = req_compile.utils.is_pinned_requirement(req)
-        candidate, reason = self._try_candidate(req.specifier, candidate,
+        candidate, reason = self._try_candidate(req, candidate,
                                                 has_equality=has_equality, allow_prereleases=self.allow_prerelease)
         if candidate is not None:
             return CantUseReason.U_CAN_USE

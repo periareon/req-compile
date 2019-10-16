@@ -47,6 +47,8 @@ def _cantusereason_to_text(reason):
         return 'prereleases not used'
     if reason == CantUseReason.BAD_METADATA:
         return 'bad metadata'
+    if reason == CantUseReason.NAME_DOESNT_MATCH:
+        return "name doesn't match"
     return 'unknown'
 
 
