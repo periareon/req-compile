@@ -127,7 +127,7 @@ def test_repo_with_extra():
     dists.add_dist(metadata_c, root_a, pkg_resources.Requirement.parse('a'))
 
     lines = dists.generate_lines({root})
-    assert lines == [
+    assert sorted(lines) == [
         (('a[test]', '1.0.0'), 'root'),
         (('b', '2.0.0'), 'a[test]'),
         (('c', '2.0.0'), 'a'),
