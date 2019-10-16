@@ -335,6 +335,8 @@ class Repository(BaseRepository):
             candidate, cached = self.resolve_candidate(candidate)
             if candidate is not None:
                 if normalize_project_name(candidate.name) != normalize_project_name(req.name):
+                    self.logger.warning('The candidate name %s does not match what the requirement requested',
+                                        candidate.name)
                     return None, CantUseReason.NAME_DOESNT_MATCH
                 return candidate, cached
 

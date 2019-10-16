@@ -35,7 +35,7 @@ BLACKLIST = [
 ]
 
 
-def _cantusereason_to_text(reason):
+def _cantusereason_to_text(reason):  # pylint: disable=too-many-return-statements
     if reason == CantUseReason.VERSION_NO_SATISFY:
         return 'version mismatch'
     if reason == CantUseReason.WRONG_PLATFORM:

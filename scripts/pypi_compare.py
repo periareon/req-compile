@@ -55,9 +55,12 @@ WHITELIST = {
     'django-cache-sweeper',  # uses "listify" which has a filter
     'django-caddstat',  # pytz constraint <=2013d doesn't really make sense
     'django-chatterbox',  # pins requests to 2 exact, different versions
+    'servocenter-3-1',  # pretty impossible to parse the version for this
+    'shadow-auth',  # disagree whether 3.7 is greater >3 and <4
+
 }
 
-START_WITH = 'seleniumframework'
+START_WITH = 'shyml'
 
 
 # Python 2.7
@@ -75,6 +78,8 @@ START_WITH = 'seleniumframework'
 # screenshot - hung HARD
 # scylla - comes out with None type
 # sentimental-skk - hung
+# PySide - Fails due to attempting to import from utils
+# shyml - missing some requirements
 
 # Good projects
 # python-watcher - substantial number of reqs

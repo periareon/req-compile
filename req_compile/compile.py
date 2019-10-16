@@ -51,7 +51,8 @@ def compile_roots(node, source, repo, dists, depth=1, max_downgrade=MAX_DOWNGRAD
             try:
                 for req in list(node.dependencies):
                     if req.metadata is None:
-                        compile_roots(req, node, repo, dists, depth=depth + 1, max_downgrade=max_downgrade, extras=extras)
+                        compile_roots(req, node, repo, dists,
+                                      depth=depth + 1, max_downgrade=max_downgrade, extras=extras)
             except NoCandidateException:
                 if max_downgrade == 0:
                     raise
@@ -106,7 +107,7 @@ def compile_roots(node, source, repo, dists, depth=1, max_downgrade=MAX_DOWNGRAD
                 raise
 
             accumulated_constraints = []
-            for allowed_downgrade in range(max_downgrade):
+            for _ in range(max_downgrade):
                 round_constraints = list(accumulated_constraints)
                 for bad_node in sorted(bad_nodes):
                     new_constraints = []
@@ -122,16 +123,17 @@ def compile_roots(node, source, repo, dists, depth=1, max_downgrade=MAX_DOWNGRAD
                     bad_constraints = dists.add_dist(bad_constraint, None, None)
                     try:
                         all_successful = True
-                        for node in sorted(bad_nodes):
+                        for other_bad_node in sorted(bad_nodes):
                             try:
-                                compile_roots(node, None, repo, dists,
+                                compile_roots(other_bad_node, None, repo, dists,
                                               depth=depth + 1, max_downgrade=0, extras=extras)
                             except NoCandidateException:
-                                dists.remove_dists(node, remove_upstream=False)
+                                dists.remove_dists(other_bad_node, remove_upstream=False)
                                 all_successful = False
 
                         if all_successful:
-                            print('Could not accept {} - pin to see why'.format(bad_node.build_constraints()), file=sys.stderr)
+                            print('Forced to pin {} - pin to this version to see why'.format(
+                                bad_node.build_constraints()), file=sys.stderr)
                             return
                     finally:
                         dists.remove_dists(bad_constraints, remove_upstream=True)

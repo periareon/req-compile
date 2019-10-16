@@ -111,10 +111,24 @@ def test_metadata_transitive_violated():
     assert dists.nodes['a'].metadata is None
 
 
-# def test_repo_with_extra():
-#     dists = DistributionCollection()
-#     metadata_a = DistInfo('a', '1.0.0', [])
-#     metadata_a_extra = DistInfo('a[extra]', '1.0.0', [])
-#
-#     dists.add_dist(metadata_a, None, None, repo=)
-#     dists.add_dist(metadata_b, None, None)
+def test_repo_with_extra():
+    dists = DistributionCollection()
+    root = DistInfo('root', '1.0', pkg_resources.parse_requirements(['a[test]']))
+    metadata_a = DistInfo('a', '1.0.0', pkg_resources.parse_requirements(
+                                ['b ; extra=="test"',
+                                 'c']
+                            ))
+    metadata_b = DistInfo('b', '2.0.0', [])
+    metadata_c = DistInfo('c', '2.0.0', [])
+
+    root = next(iter(dists.add_dist(root, None, None)))
+    root_a = next(iter(dists.add_dist(metadata_a, None, pkg_resources.Requirement.parse('a[test]'))))
+    dists.add_dist(metadata_b, root_a, pkg_resources.Requirement.parse('b ; extra=="test"'))
+    dists.add_dist(metadata_c, root_a, pkg_resources.Requirement.parse('a'))
+
+    lines = dists.generate_lines({root})
+    assert lines == [
+        (('a[test]', '1.0.0'), 'root'),
+        (('b', '2.0.0'), 'a[test]'),
+        (('c', '2.0.0'), 'a'),
+    ]

@@ -69,7 +69,12 @@ def _build_constraints(root_node):
     for node in root_node.reverse_deps:
         req = node.dependencies[root_node]
         specifics = ' (' + str(req.specifier) + ')' if req.specifier else ''
-        source = node.metadata.name + ('[' + ','.join(sorted(node.extras)) + ']' if node.extras else '')
+        extra = None
+        if req.marker:
+            for marker in req.marker._markers:  # pylint: disable=protected-access
+                if isinstance(marker, tuple) and marker[0].value == 'extra' and marker[1].value == '==':
+                    extra = marker[2].value
+        source = node.metadata.name + (('[' + extra + ']') if extra else '')
         constraints += [source + specifics]
     return constraints
 
@@ -212,8 +217,6 @@ class DistributionCollection(object):
         req_filter = req_filter or (lambda _: True)
         results = []
         for node in self.visit_nodes(roots):
-            if node.metadata is None:
-                pass
             if not node.metadata.meta and req_filter(node):
                 constraints = _build_constraints(node)
                 req_expr = node.metadata.to_definition(node.extras)
