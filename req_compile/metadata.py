@@ -11,6 +11,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import zipfile
 import contextlib
 from contextlib import closing
@@ -18,6 +20,8 @@ from types import ModuleType
 
 import six
 from six.moves import StringIO, configparser
+from six import BytesIO
+
 import setuptools
 import pkg_resources
 
@@ -28,6 +32,10 @@ from req_compile.extractor import NonExtractor, TarExtractor, ZipExtractor
 LOG = logging.getLogger('req_compile.metadata')
 
 FAILED_BUILDS = set()
+
+
+WHEEL_TIMEOUT = float(os.getenv('REQ_COMPILE_WHEEL_TIMEOUT', '30.0'))
+EGG_INFO_TIMEOUT = float(os.getenv('REQ_COMPILE_EGG_INFO_TIMEOUT', '15.0'))
 
 
 class MetadataError(Exception):
@@ -225,26 +233,77 @@ def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disa
     return results
 
 
+def _run_with_output(cmd, cwd=None, timeout=30.0):
+    """Run a subprocess with a timeout and return the output.  Similar check_output with a timeout
+
+    Args:
+        cmd (list[str]): Command line parts
+        cwd (str, optional): Current working directory to use
+        timeout (float, optional): The timeout to apply. After this timeout is exhausted, the
+            subprocess will be killed and an exception raise
+
+    Returns:
+        (str) The stdout and stderr of the process as ascii
+
+    Raises:
+        subprocess.CalledProcessError when the returncode is non-zero or the call times out. If the
+            call times out, the returncode will be set to -1
+    """
+    proc = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+    def shoveler(output, input_file):
+        for line in iter(lambda: input_file.read(1024), b''):
+            output.write(line)
+
+    stdout = BytesIO()
+    output_shoveler = threading.Thread(target=shoveler, args=(stdout, proc.stdout))
+    output_shoveler.start()
+
+    start = time.time()
+    while proc.poll() is None and (time.time() - start) < timeout:
+        output_shoveler.join(0.25)
+
+    result = proc.poll()
+    if result is None or result != 0:
+        ex = subprocess.CalledProcessError(result if result is not None else -1, cmd)
+        try:
+            proc.terminate()
+            proc.kill()
+            proc.wait()
+        except EnvironmentError:
+            pass
+        output_shoveler.join()
+        ex.output = stdout.getvalue().decode('ascii', 'ignore')
+        raise ex
+
+    output_shoveler.join()
+    return stdout.getvalue().decode('ascii', 'ignore')
+
+
 def _build_wheel(name, source_file):
+    """Build a wheel from a downloaded source file and extract metadata from the wheel"""
     results = None
-    temp_wheeldir = tempfile.mkdtemp()
     LOG.info('Building wheel file for %s', source_file)
+
+    temp_wheeldir = tempfile.mkdtemp()
     try:
-        subprocess.check_output([
-            sys.executable,
-            '-m', 'pip', 'wheel',
-            source_file, '--no-deps', '--wheel-dir', temp_wheeldir
-        ], stderr=subprocess.STDOUT, universal_newlines=True)
+        _run_with_output([
+                sys.executable,
+                '-m', 'pip', 'wheel',
+                source_file, '--no-deps', '--wheel-dir', temp_wheeldir
+            ], timeout=WHEEL_TIMEOUT)
         wheel_file = os.path.join(temp_wheeldir, os.listdir(temp_wheeldir)[0])
         results = _fetch_from_wheel(wheel_file)
     except subprocess.CalledProcessError as ex:
-        LOG.warning('Failed to build wheel for %s: %s', name, ex.output, exc_info=True)
+        LOG.warning('Failed to build wheel for %s:\nThe command "%s" produced:\n%s',
+                    name, subprocess.list2cmdline(ex.cmd), ex.output)
     finally:
         shutil.rmtree(temp_wheeldir)
     return results
 
 
 # Shim to wrap setup.py invocation with an import of setuptools
+# This is what pip does to allow building wheels of older dists
 SETUPTOOLS_SHIM = (
     "import setuptools, tokenize;"
     "__file__=%r;"
@@ -264,10 +323,10 @@ def _build_egg_info(name, extractor, setup_file):
     LOG.info('Building egg info for %s', extracted_setup_py)
     try:
         setup_dir = os.path.dirname(extracted_setup_py)
-        output = subprocess.check_output([  # pylint: disable=unexpected-keyword-arg
+        output = _run_with_output([
             sys.executable, '-c', SETUPTOOLS_SHIM % extracted_setup_py, 'egg_info',
             '--egg-base', setup_dir
-        ], cwd=setup_dir, stderr=subprocess.STDOUT, universal_newlines=True)
+        ], cwd=setup_dir)
 
         try:
             egg_info_dir = [egg_info for egg_info in os.listdir(setup_dir)
@@ -280,7 +339,8 @@ def _build_egg_info(name, extractor, setup_file):
         pkg_dist = PkgResourcesDistInfo(pkg_resources.Distribution(setup_dir, project_name=name, metadata=metadata))
         return pkg_dist
     except subprocess.CalledProcessError as ex:
-        LOG.warning('Failed to build egg-info for %s: %s', name, ex.output, exc_info=True)
+        LOG.warning('Failed to build egg-info for %s:\nThe command "%s" produced:\n%s',
+                    name, subprocess.list2cmdline(ex.cmd), ex.output)
         try:
             return _build_wheel(name, os.path.dirname(extracted_setup_py))
         finally:

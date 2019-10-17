@@ -59,9 +59,12 @@ WHITELIST = {
     'shadow-auth',  # disagree whether 3.7 is greater >3 and <4
     'sib-api-v3-sdk',  # the package calls itself 'sib-api'
     'sibis',  # pip-compile misses the requests[security] extra
+    'slapos-tool-nosqltester-manager',  # weirdly formed versions -- some look like they aren't prereleases
+    'slapos-tool-nosqltester-manager-kumo',
+    'slapos-tool-nosqltester-manager-sheepdog',
 }
 
-START_WITH = 'sibis'
+START_WITH = 'slapos-tool-nosqltester-manager'
 
 
 # Python 2.7
@@ -79,6 +82,8 @@ START_WITH = 'sibis'
 # sentimental-skk - hung
 # PySide - Fails due to attempting to import from utils
 # shyml - missing some requirements
+# simupop - hung
+# slackr - hung
 
 # Good projects
 # python-watcher - substantial number of reqs
