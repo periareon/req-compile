@@ -249,7 +249,8 @@ def _run_with_output(cmd, cwd=None, timeout=30.0):
         subprocess.CalledProcessError when the returncode is non-zero or the call times out. If the
             call times out, the returncode will be set to -1
     """
-    proc = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    proc = subprocess.Popen(cmd, cwd=cwd,
+                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
     def shoveler(output, input_file):
         for line in iter(lambda: input_file.read(1024), b''):
@@ -258,6 +259,9 @@ def _run_with_output(cmd, cwd=None, timeout=30.0):
     stdout = BytesIO()
     output_shoveler = threading.Thread(target=shoveler, args=(stdout, proc.stdout))
     output_shoveler.start()
+
+    # Close the stdin pipe immediately to unhang anything attempting to read from stdin
+    proc.stdin.close()
 
     start = time.time()
     while proc.poll() is None and (time.time() - start) < timeout:
@@ -576,6 +580,8 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
     import distutils.core
     import fileinput
     import multiprocessing
+    import urllib.request
+    import requests
 
     try:
         import importlib.util
@@ -631,6 +637,9 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
 
     def os_error_call(*args, **kwargs):
         raise OSError('Popen not permitted: {} {}'.format(args, kwargs))
+
+    def io_error_call(*args, **kwargs):
+        raise IOError('Network and I/O calls not permitted: {} {}'.format(args, kwargs))
 
     setup_dir = os.path.dirname(setup_file)
     abs_setupdir = os.path.abspath(os.path.dirname(setup_file))
@@ -706,9 +715,12 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
     meta_hook = ArchiveMetaHook()
     sys.meta_path.append(meta_hook)
 
+    fake_stdin = StringIO()
+
     with patch(
             sys, 'stderr', StringIO(),
             sys, 'stdout', StringIO(),
+            sys, 'stdin', fake_stdin,
             os, '_exit', sys.exit,
             os, 'symlink', lambda *_: None,
             'builtins', 'open', extractor.open,
@@ -719,6 +731,10 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
             subprocess, 'Popen', os_error_call,
             multiprocessing, 'Pool', os_error_call,
             multiprocessing, 'Process', os_error_call,
+            urllib.request, 'urlretrieve', io_error_call,
+            requests, 'Session', io_error_call,
+            requests, 'get', io_error_call,
+            requests, 'post', io_error_call,
             os, 'listdir', lambda path: [],
             os.path, 'exists', _fake_exists,
             os.path, 'isfile', _fake_exists,

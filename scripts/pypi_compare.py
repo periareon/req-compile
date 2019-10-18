@@ -74,14 +74,9 @@ START_WITH = 'slapos-tool-nosqltester-manager'
 # aegeantools 2.0.2.post1 sorted incorrectly
 # pythonruntimediagnostics - seems very slow (appears to be due to bokeh)
 # pymc - failed hard
-# pyobjc - hung. Seems bad
 
 # Python 3.7
-# discoplot - hung
-# screenshot - hung HARD
-# sentimental-skk - hung
 # PySide - Fails due to attempting to import from utils
-# shyml - missing some requirements
 # simupop - hung
 # slackr - hung
 
