@@ -580,11 +580,11 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
     import distutils.core
     import fileinput
     import multiprocessing
-    import urllib.request
     import requests
 
     try:
         import importlib.util
+        import urllib.request
     except ImportError:
         pass
 
@@ -731,7 +731,7 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
             subprocess, 'Popen', os_error_call,
             multiprocessing, 'Pool', os_error_call,
             multiprocessing, 'Process', os_error_call,
-            urllib.request, 'urlretrieve', io_error_call,
+            'urllib.request', 'urlretrieve', io_error_call,
             requests, 'Session', io_error_call,
             requests, 'get', io_error_call,
             requests, 'post', io_error_call,
