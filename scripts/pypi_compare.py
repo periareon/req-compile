@@ -64,7 +64,7 @@ WHITELIST = {
     'slapos-tool-nosqltester-manager-sheepdog',
 }
 
-START_WITH = 'smart-integration-utils'
+START_WITH = 'smart-mirror'
 
 
 # Python 2.7
@@ -77,6 +77,7 @@ START_WITH = 'smart-integration-utils'
 
 # Python 3.7
 # PySide - Fails due to attempting to import from utils
+# smart-mirror - requires an older exact version of itself.  Not handled well
 
 # Good projects
 # python-watcher - substantial number of reqs

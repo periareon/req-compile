@@ -374,7 +374,7 @@ def _parse_flat_metadata(contents):
         elif version is None and lower_line.startswith('version:'):
             version = utils.parse_version(line.split(':')[1].strip())
         elif lower_line.startswith('requires-dist:'):
-            raw_reqs.append(line.split(':')[1].strip())
+            raw_reqs.append(line.partition(':')[2].strip())
 
     return DistInfo(name, version, list(utils.parse_requirements(raw_reqs)))
 
@@ -424,7 +424,7 @@ def setup(results, *_args, **kwargs):  # pylint: disable=too-many-branches,too-m
                     for cur_req in cur_reqs]
             else:
                 req_with_marker = [
-                    parse_req_with_marker(str(cur_req), 'extra=="{}"'.format(extra))
+                    parse_req_with_marker(str(cur_req), 'extra=="{}"'.format(extra.replace('"', '\\"')))
                     for cur_req in cur_reqs]
             all_reqs.extend(req_with_marker)
         except pkg_resources.RequirementParseError as ex:

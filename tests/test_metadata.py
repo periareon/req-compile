@@ -29,6 +29,14 @@ def test_parse_flat_metadata_two_names():
     assert results.name == 'fabio'
 
 
+def test_parse_flat_metadata_bizarre_extra():
+    results = req_compile.metadata._parse_flat_metadata(open(os.path.join(os.path.dirname(__file__),
+                                                                          'METADATA-bizarre-extra')).read())
+    assert results.name == 'setuptools'
+    assert results.requires() == []
+    assert results.requires(extra="ssl:sys_platform=='win32'")[0].name == 'wincertstore'
+
+
 def test_parse_flat_metadata_complex_marker():
     results = req_compile.metadata._parse_flat_metadata(open(os.path.join(os.path.dirname(__file__),
                                                                           'METADATA-implementation-marker')).read())

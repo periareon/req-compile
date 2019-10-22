@@ -1,3 +1,4 @@
+# pylint: disable=too-many-nested-blocks
 """Logic for compiling requirements"""
 from __future__ import print_function
 import logging
@@ -5,8 +6,8 @@ import operator
 import sys
 from collections import defaultdict
 
-import pkg_resources
 import six
+import pkg_resources
 
 import req_compile.dists
 import req_compile.metadata
