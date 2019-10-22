@@ -25,6 +25,7 @@ class DependencyNode(object):
         self.dependencies = {}  # Dict[DependencyNode, pkg_resources.Requirement]
         self.reverse_deps = set()  # Set[DependencyNode]
         self.repo = None
+        self.complete = False  # Whether this node and all of its dependency are completely solved
 
     def __repr__(self):
         return self.key
@@ -176,6 +177,7 @@ class DistributionCollection(object):
         if not remove_upstream:
             node.dependencies = {}
             node.metadata = None
+            node.complete = False
 
     def build(self, roots):
         results = self.generate_lines(roots)

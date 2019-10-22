@@ -64,7 +64,7 @@ WHITELIST = {
     'slapos-tool-nosqltester-manager-sheepdog',
 }
 
-START_WITH = 'slapos-tool-nosqltester-manager'
+START_WITH = 'smart-integration-utils'
 
 
 # Python 2.7
@@ -77,8 +77,6 @@ START_WITH = 'slapos-tool-nosqltester-manager'
 
 # Python 3.7
 # PySide - Fails due to attempting to import from utils
-# simupop - hung
-# slackr - hung
 
 # Good projects
 # python-watcher - substantial number of reqs

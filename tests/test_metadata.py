@@ -162,6 +162,8 @@ sources = [
     ['dir-changer-0.1.1', 'dir-changer', '0.1.1', ['requests']],
     ['file-input-1.0', 'file-input', '1.0', None],
     ['capital-s-1.0', 'capital-s', '1.0', []],
+    ['dirsep-1.0', 'dirsep', '1.0', []],
+    ['newline-req-1.0', 'newline-req', '1.0', ['cfn_flip>=1.0.2', 'awacs>=0.8; extra == "policy"']]
 ]
 if six.PY3:
     sources.append(['spec-loading-1.0', 'spec-loading', '1.0', ['et_xmlfile', 'jdcal']])

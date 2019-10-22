@@ -571,7 +571,8 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
 
     import os.path  # pylint: disable=redefined-outer-name
 
-    spy_globals = {'__file__': os.path.join(fake_setupdir, setup_file),
+    # Make sure __file__ contains only os.sep separators
+    spy_globals = {'__file__': os.path.join(fake_setupdir, setup_file).replace('/', os.sep),
                    '__name__': '__main__',
                    'setup': setup_with_results}
 

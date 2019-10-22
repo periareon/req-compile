@@ -86,6 +86,9 @@ def parse_version(version):
 
 def parse_requirements(reqs):
     for req in reqs:
+        if '\n' in req:
+            for inner_req in parse_requirements(req.split('\n')):
+                yield inner_req
         result = parse_requirement(req)
         if result is not None:
             yield result

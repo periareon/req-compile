@@ -6,6 +6,7 @@ import sys
 from collections import defaultdict
 
 import pkg_resources
+import six
 
 import req_compile.dists
 import req_compile.metadata
@@ -40,19 +41,22 @@ def compile_roots(node, source, repo, dists, depth=1, max_downgrade=MAX_DOWNGRAD
     logger.debug('Processing node %s', node)
 
     if node.metadata is not None:
-        if node.metadata.meta:
-            can_reuse = False
-        else:
-            can_reuse = all(dep.metadata is not None for dep in node.dependencies)
-
+        can_reuse = node.complete and all(dep.complete for dep in node.dependencies)
         if not can_reuse:
-            if depth > 40:
+            if depth > 80:
                 raise ValueError('Recursion too deep')
             try:
                 for req in list(node.dependencies):
-                    if req.metadata is None:
-                        compile_roots(req, node, repo, dists,
-                                      depth=depth + 1, max_downgrade=max_downgrade, extras=extras)
+                    if not req.complete or req.metadata is None:
+                        is_circular = False
+                        for descendent in dists.visit_nodes([req]):
+                            if descendent is node:
+                                logger.debug('Skipping node %s because it includes this node', descendent)
+                                is_circular = True
+                                break
+                        if not is_circular:
+                            compile_roots(req, node, repo, dists,
+                                          depth=depth + 1, max_downgrade=max_downgrade, extras=extras)
             except NoCandidateException:
                 if max_downgrade == 0:
                     raise
@@ -74,21 +78,18 @@ def compile_roots(node, source, repo, dists, depth=1, max_downgrade=MAX_DOWNGRAD
                                                 parse_requirement(reason.name + '[' + ','.join(extras) + ']'))
 
             nodes_to_recurse = dists.add_dist(metadata, source, reason)
-            try:
-                for recurse_node in sorted(nodes_to_recurse):
-                    for child_node in sorted(recurse_node.dependencies):
-                        if child_node in dists.nodes.values():
-                            compile_roots(child_node, recurse_node, repo, dists,
-                                          depth=depth + 1, max_downgrade=max_downgrade, extras=extras)
-            except NoCandidateException as ex:
-                logger.info('Candidate %s cannot be used because a dependency (%s) could not be satisfied',
-                            metadata, ex.req)
-                if max_downgrade != 0:
-                    dists.remove_dists(nodes_to_recurse, remove_upstream=False)
-                raise
-        except NoCandidateException as ex:
+            for recurse_node in sorted(nodes_to_recurse):
+                for child_node in sorted(recurse_node.dependencies):
+                    if child_node in dists.nodes.values():
+                        compile_roots(child_node, recurse_node, repo, dists,
+                                      depth=depth + 1, max_downgrade=max_downgrade, extras=extras)
+
+            node.complete = True
+        except NoCandidateException:
             if max_downgrade == 0:
                 raise
+
+            exc_info = sys.exc_info()
 
             nodes = sorted(node.reverse_deps)
 
@@ -100,49 +101,30 @@ def compile_roots(node, source, repo, dists, depth=1, max_downgrade=MAX_DOWNGRAD
                         violate_score[revnode] += 1
                         violate_score[next_node] += 1
 
-            bad_nodes = {node for node, _ in sorted(violate_score.items(), key=operator.itemgetter(1))
-                         if not node.metadata.meta}
+            try:
+                baddest_node = next(node for node, _ in sorted(violate_score.items(), key=operator.itemgetter(1))
+                                    if node.metadata is not None and not node.metadata.meta)
+            except StopIteration:
+                six.reraise(*exc_info)
 
-            if not bad_nodes:
-                raise
+            bad_meta = baddest_node.metadata
+            new_constraints = [parse_requirement('{}!={}'.format(
+                bad_meta.name, bad_meta.version))]
+            bad_constraint = req_compile.dists.DistInfo('#bad#-{}-{}'.format(baddest_node, depth), None,
+                                                        new_constraints, meta=True)
+            dists.remove_dists(baddest_node, remove_upstream=False)
+            dists.remove_dists(node, remove_upstream=False)
 
-            accumulated_constraints = []
-            for _ in range(max_downgrade):
-                round_constraints = list(accumulated_constraints)
-                for bad_node in sorted(bad_nodes):
-                    new_constraints = []
-                    if bad_node.metadata is not None:
-                        new_constraints = [parse_requirement('{}!={}'.format(
-                            bad_node.metadata.name, bad_node.metadata.version))]
-                        accumulated_constraints.extend(new_constraints)
+            bad_constraints = dists.add_dist(bad_constraint, None, None)
+            try:
+                for node_to_compile in (node, baddest_node):
+                    compile_roots(node_to_compile, None, repo, dists,
+                                  depth=depth, max_downgrade=max_downgrade - 1, extras=extras)
 
-                    bad_constraint = req_compile.dists.DistInfo('#bad#-{}-{}'.format(bad_node, depth), None,
-                                                                round_constraints + new_constraints,
-                                                                meta=True)
-
-                    bad_constraints = dists.add_dist(bad_constraint, None, None)
-                    try:
-                        all_successful = True
-                        for other_bad_node in sorted(bad_nodes):
-                            try:
-                                compile_roots(other_bad_node, None, repo, dists,
-                                              depth=depth + 1, max_downgrade=0, extras=extras)
-                            except NoCandidateException:
-                                dists.remove_dists(other_bad_node, remove_upstream=False)
-                                all_successful = False
-
-                        if all_successful:
-                            print('Forced to pin {} - pin to this version to see why'.format(
-                                bad_node.build_constraints()), file=sys.stderr)
-                            return
-                    finally:
-                        dists.remove_dists(bad_constraints, remove_upstream=True)
-
-                if round_constraints == accumulated_constraints:
-                    break
-
-            dists.remove_dists(bad_nodes, remove_upstream=False)
-            raise
+                print('Could not use {} {} - pin to this version to see why not'.format(
+                    bad_meta.name, bad_meta.version), file=sys.stderr)
+            finally:
+                dists.remove_dists(bad_constraints, remove_upstream=True)
 
 
 def perform_compile(input_reqs, repo, extras=None, constraint_reqs=None):
