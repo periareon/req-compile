@@ -64,7 +64,7 @@ WHITELIST = {
     'slapos-tool-nosqltester-manager-sheepdog',
 }
 
-START_WITH = 'smart-mirror'
+START_WITH = 'socketio'
 
 
 # Python 2.7
