@@ -99,9 +99,8 @@ class LinksHTMLParser(html_parser.HTMLParser):
                 try:
                     self.active_skip = not check_python_compatibility(requires_python)
                 except ValueError:
-                    raise ValueError('Failed to parse requires expression "{}" for requirement {}'.format(
-                        requires_python, self.active_link
-                    ))
+                    LOG.error('Failed to parse requires expression "%s" for requirement %s',
+                              requires_python, self.active_link)
 
     def handle_data(self, data):
         if self.active_link is None or self.active_skip:

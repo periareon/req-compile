@@ -64,7 +64,7 @@ WHITELIST = {
     'slapos-tool-nosqltester-manager-sheepdog',
 }
 
-START_WITH = 'socketio'
+START_WITH = 'solitaire-cipher'
 
 
 # Python 2.7
@@ -78,6 +78,8 @@ START_WITH = 'socketio'
 # Python 3.7
 # PySide - Fails due to attempting to import from utils
 # smart-mirror - requires an older exact version of itself.  Not handled well
+# soft-dtw - actually attempts to shell out to pip during import.  Evil
+# tinyscript - malformed python_requires expr.  I think pip-tools just iggnores it then
 
 # Good projects
 # python-watcher - substantial number of reqs

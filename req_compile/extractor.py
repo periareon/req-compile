@@ -34,14 +34,14 @@ class Extractor(object):
 
     def open(self, filename, mode='r', encoding=None, **_kwargs):
         """Open a real file or a file within the archive"""
-        filename = self.to_relative(filename)
-        if isinstance(filename, int) or not self.contains_path(filename):
+        relative_filename = self.to_relative(filename)
+        if isinstance(filename, int) or filename == os.devnull or not self.contains_path(relative_filename):
             return self.io_open(filename, mode=mode, encoding=encoding)
 
         kwargs = {}
         if 'b' not in mode:
             kwargs = {'encoding': encoding or 'ascii'}
-        handle = self._open_handle(filename)
+        handle = self._open_handle(relative_filename)
         return WithDecoding(handle, **kwargs)
 
     def names(self):
