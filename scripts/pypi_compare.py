@@ -63,9 +63,11 @@ WHITELIST = {
     'slapos-tool-nosqltester-manager-kumo',
     'slapos-tool-nosqltester-manager-sheepdog',
     'somebod',  # uses map for install_requires
+    'sos-vcs',  # Package seems malformed. Can't build egg-info - I think pip-tools uses the packaged egg-info
+    'sphinx-3dr-theme',  # package name appears to be set to sphinx
 }
 
-START_WITH = 'sos-vcs'
+START_WITH = 'sphinx-3dr-theme'
 
 
 # Python 2.7

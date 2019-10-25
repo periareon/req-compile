@@ -26,14 +26,9 @@ PY_VERSION_NUM = str(sys.version_info.major) + str(sys.version_info.minor)
 
 
 def is_manylinux2010_compatible():
-    # Only Linux, and only x86-64 / i686
-    from distutils.util import get_platform
-    if get_platform() not in ['linux-x86_64', 'linux-i686']:
-        return False
-
     # Check for presence of _manylinux module
     try:
-        import _manylinux
+        import _manylinux  # pylint: disable=import-outside-toplevel
         return bool(_manylinux.manylinux2010_compatible)
     except (ImportError, AttributeError):
         # Fall through to heuristic check below
