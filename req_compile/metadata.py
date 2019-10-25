@@ -639,6 +639,10 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
     def os_error_call(*args, **kwargs):
         raise OSError('Popen not permitted: {} {}'.format(args, kwargs))
 
+    class FakePopen(object):
+        def __init__(self, *args, **kwargs):
+            os_error_call(*args, **kwargs)
+
     def io_error_call(*args, **kwargs):
         raise IOError('Network and I/O calls not permitted: {} {}'.format(args, kwargs))
 
@@ -729,7 +733,7 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
             '__builtin__', 'execfile', _fake_execfile,
             subprocess, 'check_call', os_error_call,
             subprocess, 'check_output', os_error_call,
-            subprocess, 'Popen', os_error_call,
+            subprocess, 'Popen', FakePopen,
             multiprocessing, 'Pool', os_error_call,
             multiprocessing, 'Process', os_error_call,
             'urllib.request', 'urlretrieve', io_error_call,
