@@ -12,7 +12,7 @@ import pkg_resources
 
 import req_compile.metadata
 import req_compile.utils
-from req_compile.utils import normalize_project_name
+from req_compile.utils import normalize_project_name, have_compatible_glibc
 
 INTERPRETER_TAGS = {
     'CPython': 'cp',
@@ -25,6 +25,25 @@ INTERPRETER_TAG = INTERPRETER_TAGS.get(platform.python_implementation(), 'cp')
 PY_VERSION_NUM = str(sys.version_info.major) + str(sys.version_info.minor)
 
 
+def is_manylinux2010_compatible():
+    # Only Linux, and only x86-64 / i686
+    from distutils.util import get_platform
+    if get_platform() not in ['linux-x86_64', 'linux-i686']:
+        return False
+
+    # Check for presence of _manylinux module
+    try:
+        import _manylinux
+        return bool(_manylinux.manylinux2010_compatible)
+    except (ImportError, AttributeError):
+        # Fall through to heuristic check below
+        pass
+
+    # Check glibc version. CentOS 6 uses glibc 2.12.
+    # PEP 513 contains an implementation of this function.
+    return have_compatible_glibc(2, 12)
+
+
 def _get_platform_tags():
     is_32 = struct.calcsize("P") == 4
     if sys.platform == 'win32':
@@ -34,9 +53,13 @@ def _get_platform_tags():
             tag = ('win_amd64',)
     elif sys.platform.startswith('linux'):
         if is_32:
-            tag = (('manylinux1_' + platform.machine()),)
+            arch_tag = platform.machine()
         else:
-            tag = ('manylinux1_x86_64',)
+            arch_tag = 'x86_64'
+
+        tag = (('manylinux1_' + arch_tag),)
+        if is_manylinux2010_compatible():
+            tag += ('manylinux2010_' + arch_tag,)
     else:
         raise ValueError('Unsupported platform: {}'.format(sys.platform))
     return tag

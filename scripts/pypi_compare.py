@@ -62,9 +62,10 @@ WHITELIST = {
     'slapos-tool-nosqltester-manager',  # weirdly formed versions -- some look like they aren't prereleases
     'slapos-tool-nosqltester-manager-kumo',
     'slapos-tool-nosqltester-manager-sheepdog',
+    'somebod',  # uses map for install_requires
 }
 
-START_WITH = 'solitaire-cipher'
+START_WITH = 'sos-vcs'
 
 
 # Python 2.7

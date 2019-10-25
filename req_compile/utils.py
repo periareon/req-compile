@@ -182,3 +182,32 @@ def has_prerelease(req):
     """
     return any(parse_version(spec.version).is_prerelease
                for spec in req.specifier)
+
+
+def have_compatible_glibc(major, minimum_minor):
+    """Pulled from PEP 513"""
+    import ctypes
+
+    process_namespace = ctypes.CDLL(None)
+    try:
+        gnu_get_libc_version = process_namespace.gnu_get_libc_version
+    except AttributeError:
+        # Symbol doesn't exist -> therefore, we are not linked to
+        # glibc.
+        return False
+
+    # Call gnu_get_libc_version, which returns a string like "2.5".
+    gnu_get_libc_version.restype = ctypes.c_char_p
+    version_str = gnu_get_libc_version()
+    # py2 / py3 compatibility:
+    if not isinstance(version_str, str):
+        version_str = version_str.decode("ascii")
+
+    # Parse string and check against requested version.
+    version = [int(piece) for piece in version_str.split(".")]
+    assert len(version) == 2
+    if major != version[0]:
+        return False
+    if minimum_minor > version[1]:
+        return False
+    return True
