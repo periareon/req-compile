@@ -186,7 +186,7 @@ def has_prerelease(req):
 
 def have_compatible_glibc(major, minimum_minor):
     """Pulled from PEP 513"""
-    import ctypes
+    import ctypes  # pylint: disable=bad-option-value,import-outside-toplevel
 
     process_namespace = ctypes.CDLL(None)
     try:

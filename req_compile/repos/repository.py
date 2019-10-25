@@ -28,7 +28,7 @@ PY_VERSION_NUM = str(sys.version_info.major) + str(sys.version_info.minor)
 def is_manylinux2010_compatible():
     # Check for presence of _manylinux module
     try:
-        import _manylinux  # pylint: disable=import-outside-toplevel
+        import _manylinux  # pylint: disable=bad-option-value,import-outside-toplevel
         return bool(_manylinux.manylinux2010_compatible)
     except (ImportError, AttributeError):
         # Fall through to heuristic check below
