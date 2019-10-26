@@ -61,7 +61,8 @@ def _check_py_constraint(version_constraint):
     if dotted_parts == 2:
         ref_version = SYS_PY_MAJOR_MINOR
     if dotted_parts == 1:
-        ref_version = SYS_PY_MAJOR
+        ref_version = SYS_PY_MAJOR_MINOR
+        version_part += '.0'
 
     version = pkg_resources.parse_version(version_part)
     if operator == '~=':

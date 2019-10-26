@@ -65,9 +65,14 @@ WHITELIST = {
     'somebod',  # uses map for install_requires
     'sos-vcs',  # Package seems malformed. Can't build egg-info - I think pip-tools uses the packaged egg-info
     'sphinx-3dr-theme',  # package name appears to be set to sphinx
+    'sphinx-fortran',  # pip missing reqs
+    'spiderkeeper-2-1',  # version issues again
+    'universal-analytics-python',  # Not python 3 compatible
+    'unix-elf',  # Bad distribution, reports 1.0.0 filename says 1.0.1
+    'util-q',  # util--q doesn't match
 }
 
-START_WITH = 'sphinx-3dr-theme'
+START_WITH = 'util-q'
 
 
 # Python 2.7
@@ -83,6 +88,7 @@ START_WITH = 'sphinx-3dr-theme'
 # smart-mirror - requires an older exact version of itself.  Not handled well
 # soft-dtw - actually attempts to shell out to pip during import.  Evil
 # tinyscript - malformed python_requires expr.  I think pip-tools just iggnores it then
+# spqr - says python > 3   really??
 
 # Good projects
 # python-watcher - substantial number of reqs
