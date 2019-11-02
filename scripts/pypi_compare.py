@@ -70,9 +70,10 @@ WHITELIST = {
     'universal-analytics-python',  # Not python 3 compatible
     'unix-elf',  # Bad distribution, reports 1.0.0 filename says 1.0.1
     'util-q',  # util--q doesn't match
+    'vault-printer',  # pip missing some reqs
 }
 
-START_WITH = 'util-q'
+START_WITH = 'vcfpy'
 
 
 # Python 2.7

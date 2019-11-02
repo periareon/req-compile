@@ -120,7 +120,7 @@ def normalize(name):
 
 
 @lru_cache(maxsize=None)
-def _scan_page_links(index_url, project_name, session):
+def _scan_page_links(index_url, project_name, session, retries):
     """
 
     Args:
@@ -137,6 +137,9 @@ def _scan_page_links(index_url, project_name, session):
     if session is None:
         session = requests
     response = session.get(url + '/')
+
+    if retries and 500 <= response.status_code < 600:
+        return _scan_page_links(index_url, project_name, session, retries - 1)
 
     # Raise for any error status that's not 404
     if response.status_code != 404:
@@ -187,7 +190,16 @@ def _do_download(logger, filename, link, session, wheeldir):
 
 
 class PyPIRepository(Repository):
-    def __init__(self, index_url, wheeldir, allow_prerelease=False):
+    def __init__(self, index_url, wheeldir, allow_prerelease=False, retries=3):
+        """
+        A repository that conforms to the PEP standard for webpage index of python distributions
+
+        Args:
+            index_url (str): URL of the base index
+            wheeldir (str): Directory to download wheels and source dists to, if required
+            allow_prerelease (bool, optional): Whether or not to consider prereleases
+            retries (int): Number of times to retry. A value of 0 will never retry
+        """
         super(PyPIRepository, self).__init__('pypi', allow_prerelease)
 
         if index_url.endswith('/'):
@@ -198,6 +210,7 @@ class PyPIRepository(Repository):
         else:
             self.wheeldir = None
         self.allow_prerelease = allow_prerelease
+        self.retries = retries
 
         self.session = requests.Session()
 
@@ -215,7 +228,7 @@ class PyPIRepository(Repository):
     def get_candidates(self, req):
         if req is None:
             return []
-        return _scan_page_links(self.index_url, req.name, self.session)
+        return _scan_page_links(self.index_url, req.name, self.session, self.retries)
 
     def resolve_candidate(self, candidate):
         filename, cached = None, True
