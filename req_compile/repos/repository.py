@@ -52,7 +52,7 @@ def _get_platform_tags():
         else:
             arch_tag = 'x86_64'
 
-        tag = (('manylinux1_' + arch_tag),)
+        tag = (('linux_' + arch_tag), ('manylinux1_' + arch_tag),)
         if is_manylinux2010_compatible():
             tag += ('manylinux2010_' + arch_tag,)
     else:
