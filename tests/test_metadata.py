@@ -1,10 +1,9 @@
 import os
 import sys
 
+import pkg_resources
 import pytest
 import six
-
-import pkg_resources
 
 import req_compile.extractor
 import req_compile.metadata
@@ -40,7 +39,8 @@ def test_parse_flat_metadata_bizarre_extra():
 def test_parse_flat_metadata_complex_marker():
     results = req_compile.metadata._parse_flat_metadata(open(os.path.join(os.path.dirname(__file__),
                                                                           'METADATA-implementation-marker')).read())
-    assert {req.name for req in results.requires()} == {'ordereddict', 'yaml.clib'} if six.PY2 else {'yaml.clib'}
+    assert {req.name for req in results.requires()} == {'ordereddict',
+                                                        'yaml.clib'} if six.PY2 else {'yaml.clib'}
 
 
 def test_a_with_extra(metadata_provider):
@@ -201,7 +201,6 @@ def test_source_dist(archive_fixture, directory, name, version, reqs, mock_targz
         assert metadata.version == pkg_resources.parse_version(version)
     if reqs is not None:
         assert set(metadata.reqs) == set(pkg_resources.parse_requirements(reqs))
-
 
 
 def test_relative_import(mock_targz):

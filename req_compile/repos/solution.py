@@ -3,7 +3,6 @@ from __future__ import print_function
 import os
 import sys
 
-import six
 from six.moves import map as imap
 
 import req_compile.dists
@@ -100,18 +99,30 @@ def _add_sources(req, sources, result, origin):
     pkg_names = imap(lambda x: x.split(' ')[0], sources)
     constraints = imap(lambda x: x.split(' ')[1].replace('(', '').replace(')', '') if '(' in x else None, sources)
     version = req_compile.utils.parse_version(list(req.specifier)[0].version)
-    metadata = req_compile.dists.DistInfo(req.name, version, [])
+
+    metadata = None
+    if req.name in result:
+        metadata = result[req.name].metadata
+    if metadata is None:
+        metadata = req_compile.dists.DistInfo(req.name, version, [])
+
+    metadata.version = version
     metadata.origin = origin
     result.add_dist(metadata, None, req)
-    for name, constraints in zip(pkg_names, constraints):
+    for name, constraint in zip(pkg_names, constraints):
         if name and not (name.endswith('.txt') or name.endswith('.out') or '\\' in name or '/' in name):
             constraint_req = req_compile.utils.parse_requirement(name)
             result.add_dist(constraint_req.name, None, constraint_req)
             reverse_dep = result[name]
+            if reverse_dep.metadata is None:
+                inner_meta = req_compile.dists.DistInfo(name, None, [])
+                reverse_dep.metadata = inner_meta
         else:
             reverse_dep = None
-        result.add_dist(metadata.name, reverse_dep,
-                        _create_metadata_req(req, metadata, name, constraints))
+        reason = _create_metadata_req(req, metadata, name, constraint)
+        if reverse_dep is not None:
+            reverse_dep.metadata.reqs.append(reason)
+        result.add_dist(metadata.name, reverse_dep, reason)
 
 
 def _create_metadata_req(req, metadata, name, constraints):
@@ -149,15 +160,7 @@ def load_from_file(filename, origin=None):
 def _remove_nodes(result):
     nodes_to_remove = []
     for node in result:
-        if node.metadata is not None:
-            try:
-                requirements = [value for dep_node, value in six.iteritems(node.dependencies)
-                                if dep_node.metadata is not None and dep_node.metadata.name != node.metadata.name]
-                node.metadata.reqs.extend(requirements)
-            except Exception:
-                print('Error while processing requirement {}'.format(node), file=sys.stderr)
-                raise
-        else:
+        if node.metadata is None:
             nodes_to_remove.append(node)
     for node in nodes_to_remove:
         try:

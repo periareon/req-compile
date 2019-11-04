@@ -113,3 +113,12 @@ def test_round_trip(scenario, roots, mock_metadata, mock_pypi):
     for node in results:
         if isinstance(node.metadata, DistInfo) and node.key != 'test':
             assert node.key in solution_result
+
+
+def test_load_additive_constraints():
+    """Test that solutions with additive constraints, where extras add an extra constraint
+    to an existing requirement, are reconstructed correctly"""
+    solution_repo = SolutionRepository(
+        os.path.join(os.path.dirname(__file__), 'requests_security_solution.txt'))
+    constraints = solution_repo.solution['idna'].build_constraints()
+    assert constraints == pkg_resources.Requirement.parse('idna<2.9,>=2.5')

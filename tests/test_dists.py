@@ -113,7 +113,7 @@ def test_metadata_transitive_violated():
 
 def test_repo_with_extra():
     dists = DistributionCollection()
-    root = DistInfo('root', '1.0', pkg_resources.parse_requirements(['a[test]']))
+    root = DistInfo('root', '1.0', pkg_resources.parse_requirements(['a[test]']), meta=True)
     metadata_a = DistInfo('a', '1.0.0', pkg_resources.parse_requirements(
                                 ['b ; extra=="test"',
                                  'c']
@@ -132,3 +132,17 @@ def test_repo_with_extra():
         (('b', '2.0.0'), 'a[test]'),
         (('c', '2.0.0'), 'a'),
     ]
+
+
+def test_regular_and_extra_constraints():
+    dists = DistributionCollection()
+    root = DistInfo('root', '1.0', pkg_resources.parse_requirements(['a[test]']), meta=True)
+    metadata_a = DistInfo('a', '1.0.0', pkg_resources.parse_requirements(
+        ['b>3 ; extra=="test"',
+         'b>2']
+    ))
+
+    dists.add_dist(root, None, None)
+    dists.add_dist(metadata_a, None, pkg_resources.Requirement.parse('a[test]'))
+
+    assert dists['b'].build_constraints() == pkg_resources.Requirement.parse('b>2,>3')

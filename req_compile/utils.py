@@ -151,6 +151,8 @@ def filter_req(req, extra):
         return False
     keep_req = True
     if req.marker:
+        if not extra:
+            extra = None
         keep_req = req.marker.evaluate({'extra': extra})
     return keep_req
 

@@ -9,7 +9,8 @@ import shutil
 import six
 
 from req_compile import utils
-from req_compile.utils import normalize_project_name, merge_requirements, filter_req, reduce_requirements
+from req_compile.utils import normalize_project_name, merge_requirements, filter_req, \
+    reduce_requirements
 
 
 class DependencyNode(object):
@@ -47,37 +48,53 @@ class DependencyNode(object):
             extras |= set(rdep.dependencies[self].extras)
         return extras
 
+    def add_reason(self, node, reason):
+        self.dependencies[node] = reason
+
     def build_constraints(self):
-        req = None
+        result = None
 
         for rdep_node in self.reverse_deps:
-            req = merge_requirements(req, rdep_node.dependencies[self])
+            all_reqs = set(rdep_node.metadata.requires())
+            for extra in rdep_node.extras:
+                all_reqs |= set(rdep_node.metadata.requires(extra=extra))
+            for req in all_reqs:
+                if normalize_project_name(req.name) == self.key:
+                    result = merge_requirements(result, req)
 
-        if req is None:
+        if result is None:
             if self.metadata is None:
-                req = utils.parse_requirement(self.key)
+                result = utils.parse_requirement(self.key)
             else:
-                req = utils.parse_requirement(self.metadata.name)
+                result = utils.parse_requirement(self.metadata.name)
             if self.extras:
-                req.extras = self.extras
+                result.extras = self.extras
                 # Reparse to create a correct hash
-                req = utils.parse_requirement(str(req))
-        return req
+                result = utils.parse_requirement(str(result))
+        return result
 
 
 def _build_constraints(root_node):
     constraints = []
     for node in root_node.reverse_deps:
-        req = node.dependencies[root_node]
-        specifics = ' (' + str(req.specifier) + ')' if req.specifier else ''
-        extra = None
-        if req.marker:
-            for marker in req.marker._markers:  # pylint: disable=protected-access
-                if isinstance(marker, tuple) and marker[0].value == 'extra' and marker[1].value == '==':
-                    extra = marker[2].value
-        source = node.metadata.name + (('[' + extra + ']') if extra else '')
-        constraints += [source + specifics]
+        all_reqs = set(node.metadata.requires())
+        for extra in node.extras:
+            all_reqs |= set(node.metadata.requires(extra=extra))
+        for req in all_reqs:
+            if normalize_project_name(req.name) == root_node.key:
+                _process_constraint_req(req, node, constraints)
     return constraints
+
+
+def _process_constraint_req(req, node, constraints):
+    extra = None
+    if req.marker:
+        for marker in req.marker._markers:  # pylint: disable=protected-access
+            if isinstance(marker, tuple) and marker[0].value == 'extra' and marker[1].value == '==':
+                extra = marker[2].value
+    source = node.metadata.name + (('[' + extra + ']') if extra else '')
+    specifics = ' (' + str(req.specifier) + ')' if req.specifier else ''
+    constraints.extend([source + specifics])
 
 
 class DistributionCollection(object):
@@ -121,7 +138,7 @@ class DistributionCollection(object):
 
         if source is not None and source.key in self.nodes:
             node.reverse_deps.add(source)
-            source.dependencies[node] = reason
+            source.add_reason(node, reason)
 
         nodes = set()
         if metadata_to_apply is not None:
@@ -136,8 +153,9 @@ class DistributionCollection(object):
 
     def _discard_metadata_if_necessary(self, node, reason):
         if node.metadata is not None and not node.metadata.meta and reason is not None:
-            if not reason.specifier.contains(node.metadata.version,
-                                             prereleases=True):
+            if node.metadata.version is not None and not reason.specifier.contains(
+                    node.metadata.version,
+                    prereleases=True):
                 self.logger.debug('Existing solution (%s) invalidated by %s', node.metadata, reason)
                 # Discard the metadata
                 self.remove_dists(node, remove_upstream=False)
