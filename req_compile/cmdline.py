@@ -3,7 +3,6 @@ from __future__ import print_function
 
 import argparse
 import datetime
-import itertools
 import logging
 import os
 import shutil
@@ -157,30 +156,39 @@ def _create_req_from_path(path):
     Returns:
 
     """
-    dist = req_compile.metadata.extract_metadata(path)
-    dist.meta = True
+    try:
+        dist = req_compile.metadata.extract_metadata(path)
+    except req_compile.metadata.MetadataError:
+        dist = None
+
     if dist is None:
         raise ValueError(
-            'Input arg "{}" is not directory containing setup.py or requirements file'.format(path))
+            'Input arg "{}" is not directory containing a valid setup.py'.format(path))
     return dist
 
 
-def _create_input_reqs(input_arg):
+def _create_input_reqs(input_arg, extra_sources):
     input_arg = input_arg.strip()
     if input_arg == '-':
         stdin_contents = sys.stdin.readlines()
 
         def _create_stdin_input_req(line):
             try:
-                return _create_input_reqs(line)
+                result = _create_req_from_path(line)
+                extra_sources.append(line)
+                return utils.parse_requirement('{}=={}'.format(*result.to_definition(None)))
             except ValueError:
-                return (utils.parse_requirement(line),)
+                return utils.parse_requirement(line)
 
-        return DistInfo('-', None, list(itertools.chain(*[_create_stdin_input_req(line)
-                                                          for line in stdin_contents])), meta=True)
+        reqs = (_create_stdin_input_req(line.strip())
+                for line in stdin_contents
+                if line.strip())
+        reqs = (req for req in reqs if req is not None)
+        return DistInfo('-', None, reqs, meta=True)
 
     if os.path.isfile(input_arg):
         return RequirementsFile.from_file(input_arg)
+
     return _create_req_from_path(input_arg)
 
 
@@ -211,14 +219,15 @@ def run_compile(input_args,
         else:
             input_args = ('.',)
 
-    input_reqs = [_create_input_reqs(input_arg) for input_arg in input_args]
-    if extra_sources:
-        # Add the sources provided to the search repos
-        repo = MultiRepository(*([SourceRepository(source) for source in extra_sources] + [repo]))
+    input_reqs = [_create_input_reqs(input_arg, extra_sources) for input_arg in input_args]
 
     constraint_reqs = None
     if constraint_files is not None:
-        constraint_reqs = [_create_input_reqs(input_arg) for input_arg in constraint_files]
+        constraint_reqs = [_create_input_reqs(input_arg, extra_sources) for input_arg in constraint_files]
+
+    if extra_sources:
+        # Add the sources provided to the search repos
+        repo = MultiRepository(*([SourceRepository(source) for source in extra_sources] + [repo]))
 
     try:
         results, roots = perform_compile(input_reqs, repo, extras=extras,
