@@ -1,14 +1,17 @@
+import os
+
+import pkg_resources
 import pytest
 
-from req_compile.cmdline import compile_main
-import os
+from six import StringIO
+
+from req_compile.cmdline import compile_main, _create_input_reqs
 
 from req_compile.dists import DistInfo
 from req_compile.repos.findlinks import FindLinksRepository
 from req_compile.repos.pypi import PyPIRepository
 from req_compile.repos.solution import SolutionRepository
 from req_compile.repos.source import SourceRepository
-from req_compile import utils
 
 
 @pytest.fixture
@@ -62,3 +65,41 @@ def test_source_dirs_dont_hit_pypi(mocker, basic_compile_mock):
     compile_main(['source/myproj'])
     perform_compile_args = basic_compile_mock.mock_calls[0][1]
     assert perform_compile_args[0][0].name == 'myproj'
+
+
+@pytest.fixture
+def mock_stdin(mocker):
+    fake_stdin = StringIO()
+
+    def _write(value):
+        fake_stdin.write(value)
+        fake_stdin.seek(0, 0)
+
+    mocker.patch('sys.stdin', fake_stdin)
+    return _write
+
+
+def test_stdin_paths(mock_stdin):
+    """Verify that paths work correctly from stdin"""
+    mono_dir = os.path.join(os.path.dirname(__file__), 'repos', 'monorepo')
+    mono1 = os.path.join(mono_dir, 'pkg1')
+    mono2 = os.path.join(mono_dir, 'pkg2')
+    mono3 = os.path.join(mono_dir, 'subdir', 'pkg3')
+    mock_stdin(mono1 + '\n' + mono2 + '\n' + mono3 + '\n')
+
+    extra_sources = []
+    result = _create_input_reqs('-', extra_sources)
+
+    assert set(extra_sources) == {mono1, mono2, mono3}
+    assert set(result.reqs) == set(pkg_resources.parse_requirements(['pkg1==1.0.0', 'pkg2==2.0.1', 'pkg3==0.0.0']))
+
+
+def test_stdin_reqs(mock_stdin):
+    """Verify that lists of requirements work correctly from stdin, including comment and blank lines"""
+    mock_stdin('pytest\n# Comment\n\npytest-mock\n')
+
+    extra_sources = []
+    result = _create_input_reqs('-', extra_sources)
+
+    assert extra_sources == []
+    assert set(result.reqs) == set(pkg_resources.parse_requirements(['pytest', 'pytest-mock']))
