@@ -4,6 +4,7 @@ import itertools
 import os
 import sys
 
+import req_compile.metadata.errors
 from req_compile import utils
 import req_compile.metadata
 import req_compile.repos.repository
@@ -51,7 +52,7 @@ class SourceRepository(Repository):
                             req_compile.repos.repository.DistributionType.SOURCE)
                         candidate.preparsed = result
                         self.distributions[utils.normalize_project_name(result.name)].append(candidate)
-                    except req_compile.metadata.MetadataError as ex:
+                    except req_compile.metadata.errors.MetadataError as ex:
                         print('Failed to parse metadata for {} - {}'.format(root, str(ex)),
                               file=sys.stderr)
                     break

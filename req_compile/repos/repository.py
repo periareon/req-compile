@@ -11,6 +11,8 @@ import six
 import pkg_resources
 
 import req_compile.metadata
+import req_compile.metadata.errors
+import req_compile.metadata.source
 import req_compile.utils
 from req_compile.utils import normalize_project_name, have_compatible_glibc
 
@@ -249,7 +251,7 @@ def _wheel_candidate(source, filename):
 
 
 def _tar_gz_candidate(source, filename):
-    name, version = req_compile.metadata.parse_source_filename(filename)
+    name, version = req_compile.metadata.source.parse_source_filename(filename)
     return Candidate(name, filename, version, None, 'any',
                      source, candidate_type=DistributionType.SDIST)
 
@@ -359,7 +361,7 @@ class Repository(BaseRepository):
                 return candidate, cached
 
             return None, CantUseReason.BAD_METADATA
-        except req_compile.metadata.MetadataError as ex:
+        except req_compile.metadata.errors.MetadataError as ex:
             self.logger.warning('Could not use candidate %s - %s', candidate, ex)
             return None, CantUseReason.BAD_METADATA
 

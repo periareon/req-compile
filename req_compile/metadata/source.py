@@ -1,11 +1,10 @@
-# pylint: disable=exec-used,bad-continuation
-from __future__ import print_function
-
+import contextlib
 import functools
 import imp
 import io
 import logging
 import os
+import os.path
 import re
 import shutil
 import subprocess
@@ -13,41 +12,28 @@ import sys
 import tempfile
 import threading
 import time
-import zipfile
-import contextlib
-from contextlib import closing
-from types import ModuleType
-
-import six
-from six.moves import StringIO, configparser
-from six import BytesIO
 
 import setuptools
+from types import ModuleType
+from contextlib import closing
+from io import BytesIO, StringIO
+
 import pkg_resources
+import six
+from six.moves import configparser
 
 from req_compile import utils
-from req_compile.dists import DistInfo, PkgResourcesDistInfo
-from req_compile.extractor import NonExtractor, TarExtractor, ZipExtractor
+from req_compile.dists import PkgResourcesDistInfo, DistInfo
+from req_compile.metadata.dist_info import _fetch_from_wheel
+from req_compile.metadata.extractor import NonExtractor
+from req_compile.metadata.errors import MetadataError
 
-LOG = logging.getLogger('req_compile.metadata')
-
-FAILED_BUILDS = set()
-
+LOG = logging.getLogger('req_compile.metadata.source')
 
 WHEEL_TIMEOUT = float(os.getenv('REQ_COMPILE_WHEEL_TIMEOUT', '30.0'))
 EGG_INFO_TIMEOUT = float(os.getenv('REQ_COMPILE_EGG_INFO_TIMEOUT', '15.0'))
 
-
-class MetadataError(Exception):
-    def __init__(self, name, version, ex):
-        super(MetadataError, self).__init__()
-        self.name = name
-        self.version = version
-        self.ex = ex
-
-    def __str__(self):
-        return 'Failed to parse metadata for package {} ({}) - {}: {}'.format(
-            self.name, self.version, self.ex.__class__.__name__, str(self.ex))
+FAILED_BUILDS = set()
 
 
 def parse_source_filename(full_filename):
@@ -91,47 +77,6 @@ def parse_source_filename(full_filename):
 
     version = utils.parse_version('.'.join(version_parts))
     return pkg_name, version
-
-
-def extract_metadata(filename, run_setup_py=True, origin=None):
-    """Extract a DistInfo from a file or directory
-
-    Args:
-        filename (str): File or path to extract metadata from
-        origin (str, req_compile.repos.Repository: Origin of the metadata
-
-    Returns:
-        (RequirementContainer) the result of the metadata extraction
-    """
-    LOG.info('Extracting metadata for %s', filename)
-    _, ext = os.path.splitext(filename)
-    ext = ext.lower()
-    if ext == '.whl':
-        LOG.debug('Extracting from wheel')
-        try:
-            result = _fetch_from_wheel(filename)
-        except zipfile.BadZipfile as ex:
-            raise MetadataError(os.path.basename(filename).replace('.whl', ''), '0.0', ex)
-    elif ext == '.zip':
-        LOG.debug('Extracting from a zipped source package')
-        result = _fetch_from_source(filename, ZipExtractor, run_setup_py=run_setup_py)
-    elif ext in ('.gz', '.bz2', '.tgz'):
-        LOG.debug('Extracting from a tar package')
-        if ext == '.tgz':
-            ext = 'gz'
-        result = _fetch_from_source(os.path.abspath(filename),
-                                    functools.partial(TarExtractor, ext.replace('.', '')),
-                                    run_setup_py=run_setup_py)
-    elif ext in ('.egg',):
-        LOG.debug('Attempted to resolve an unsupported format')
-        return None
-    else:
-        LOG.debug('Extracting directly from a source directory')
-        result = _fetch_from_source(os.path.abspath(filename), NonExtractor, run_setup_py=run_setup_py)
-
-    if result is not None:
-        result.origin = origin
-    return result
 
 
 def find_in_archive(extractor, filename, max_depth=None):
@@ -330,7 +275,7 @@ def _build_egg_info(name, extractor, setup_file):
         output = _run_with_output([
             sys.executable, '-c', SETUPTOOLS_SHIM % extracted_setup_py, 'egg_info',
             '--egg-base', setup_dir
-        ], cwd=setup_dir)
+        ], cwd=setup_dir, timeout=EGG_INFO_TIMEOUT)
 
         try:
             egg_info_dir = [egg_info for egg_info in os.listdir(setup_dir)
@@ -349,34 +294,6 @@ def _build_egg_info(name, extractor, setup_file):
             return _build_wheel(name, os.path.dirname(extracted_setup_py))
         finally:
             shutil.rmtree(temp_tar)
-
-
-def _fetch_from_wheel(wheel):
-    zfile = zipfile.ZipFile(wheel, 'r')
-    with closing(zfile):
-        infos = zfile.namelist()
-        for info in infos:
-            if info.endswith('.dist-info/METADATA'):
-                return _parse_flat_metadata(zfile.read(info).decode('utf-8', 'ignore'))
-
-        return None
-
-
-def _parse_flat_metadata(contents):
-    name = None
-    version = None
-    raw_reqs = []
-
-    for line in contents.split('\n'):
-        lower_line = line.lower()
-        if name is None and lower_line.startswith('name:'):
-            name = line.split(':')[1].strip()
-        elif version is None and lower_line.startswith('version:'):
-            version = utils.parse_version(line.split(':')[1].strip())
-        elif lower_line.startswith('requires-dist:'):
-            raw_reqs.append(line.partition(':')[2].strip())
-
-    return DistInfo(name, version, list(utils.parse_requirements(raw_reqs)))
 
 
 def parse_req_with_marker(req_str, marker):
@@ -559,7 +476,6 @@ def import_contents(modname, filename, contents):
     return module
 
 
-# pylint: disable=too-many-branches
 def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disable=too-many-locals,too-many-statements
     # pylint: disable=bad-option-value,no-name-in-module,no-member,import-outside-toplevel
     # Capture warnings.warn, which is sometimes used in setup.py files

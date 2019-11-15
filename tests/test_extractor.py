@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-import req_compile.extractor
+import req_compile.metadata.extractor
 
 
 @contextlib.contextmanager
@@ -30,13 +30,13 @@ def test_extractor(archive_fixture, tmpdir, mock_targz, mock_zip):
     with temp_cwd(str(tmpdir.mkdir('fake_root'))) as fake_root:
         logging.getLogger('req_compile.tests').info('Running in context: %s', fake_root)
         if archive_fixture == 'mock_targz':
-            extractor = req_compile.extractor.TarExtractor('gz', archive, fake_root)
+            extractor = req_compile.metadata.extractor.TarExtractor('gz', archive, fake_root)
             prefix = directory + '/'
         elif archive_fixture == 'mock_zip':
-            extractor = req_compile.extractor.ZipExtractor(archive, fake_root)
+            extractor = req_compile.metadata.extractor.ZipExtractor(archive, fake_root)
             prefix = directory + '/'
         else:
-            extractor = req_compile.extractor.NonExtractor(archive, fake_root)
+            extractor = req_compile.metadata.extractor.NonExtractor(archive, fake_root)
             prefix = ''
 
         with contextlib.closing(extractor):

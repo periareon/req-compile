@@ -73,7 +73,7 @@ WHITELIST = {
     'vault-printer',  # pip missing some reqs
 }
 
-START_WITH = 'vcfpy'
+START_WITH = 'diogenes8'
 
 
 # Python 2.7

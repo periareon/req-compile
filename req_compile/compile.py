@@ -11,6 +11,7 @@ import pkg_resources
 
 import req_compile.dists
 import req_compile.metadata
+import req_compile.metadata.errors
 import req_compile.repos.pypi
 import req_compile.utils
 from req_compile.repos.source import SourceRepository
@@ -170,7 +171,7 @@ def perform_compile(input_reqs, repo, extras=None, constraint_reqs=None):
     try:
         for node in sorted(nodes):
             compile_roots(node, None, repo, dists=results, extras=extras)
-    except (NoCandidateException, req_compile.metadata.MetadataError) as ex:
+    except (NoCandidateException, req_compile.metadata.errors.MetadataError) as ex:
         ex.results = results
         raise
 

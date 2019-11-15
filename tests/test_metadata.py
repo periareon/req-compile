@@ -5,8 +5,10 @@ import pkg_resources
 import pytest
 import six
 
-import req_compile.extractor
+import req_compile.metadata.dist_info
+import req_compile.metadata.extractor
 import req_compile.metadata
+import req_compile.metadata.source
 
 
 def test_a_with_no_extra(metadata_provider):
@@ -17,19 +19,19 @@ def test_a_with_no_extra(metadata_provider):
 
 
 def test_parse_flat_metadata_extra_space():
-    results = req_compile.metadata._parse_flat_metadata(open(os.path.join(os.path.dirname(__file__),
+    results = req_compile.metadata.dist_info._parse_flat_metadata(open(os.path.join(os.path.dirname(__file__),
                                                                           'METADATA-extra-space')).read())
     assert results.requires() == [pkg_resources.Requirement.parse('django')]
 
 
 def test_parse_flat_metadata_two_names():
-    results = req_compile.metadata._parse_flat_metadata(open(os.path.join(os.path.dirname(__file__),
+    results = req_compile.metadata.dist_info._parse_flat_metadata(open(os.path.join(os.path.dirname(__file__),
                                                                           'METADATA-two-names')).read())
     assert results.name == 'fabio'
 
 
 def test_parse_flat_metadata_bizarre_extra():
-    results = req_compile.metadata._parse_flat_metadata(open(os.path.join(os.path.dirname(__file__),
+    results = req_compile.metadata.dist_info._parse_flat_metadata(open(os.path.join(os.path.dirname(__file__),
                                                                           'METADATA-bizarre-extra')).read())
     assert results.name == 'setuptools'
     assert results.requires() == []
@@ -37,7 +39,7 @@ def test_parse_flat_metadata_bizarre_extra():
 
 
 def test_parse_flat_metadata_complex_marker():
-    results = req_compile.metadata._parse_flat_metadata(open(os.path.join(os.path.dirname(__file__),
+    results = req_compile.metadata.dist_info._parse_flat_metadata(open(os.path.join(os.path.dirname(__file__),
                                                                           'METADATA-implementation-marker')).read())
     assert {req.name for req in results.requires()} == {'ordereddict',
                                                         'yaml.clib'} if six.PY2 else {'yaml.clib'}
@@ -111,7 +113,7 @@ def test_pylint_python(metadata_provider):
                          ['django-ajax-forms_0.3.1.tar.gz', 'django-ajax-forms', '0.3.1'],
 ])
 def test_parse_source_filename(filename, result_name, result_version):
-    result = req_compile.metadata.parse_source_filename(filename)
+    result = req_compile.metadata.source.parse_source_filename(filename)
     assert result == (result_name, pkg_resources.parse_version(result_version))
 
 
@@ -184,7 +186,7 @@ if six.PY3:
 ])
 @pytest.mark.parametrize('directory,name,version,reqs', sources)
 def test_source_dist(archive_fixture, directory, name, version, reqs, mock_targz, mock_zip, mocker):
-    mock_build = mocker.patch('req_compile.metadata._build_wheel')
+    mock_build = mocker.patch('req_compile.metadata.source._build_wheel')
 
     if archive_fixture == 'mock_targz':
         archive = mock_targz(directory)
@@ -215,22 +217,6 @@ def test_extern_import(mock_targz):
     archive = mock_targz('extern-importer-1.0')
 
     metadata = req_compile.metadata.extract_metadata(archive)
-
-
-# def test_setup_with_tenacity(mock_targz):
-#     archive = mock_targz('setup-with-tenacity-1.0')
-#
-#     metadata = req_compile.metadata.extract_metadata(archive)
-#     assert metadata.name == 'setup-with-tenacity'
-#     assert metadata.version == pkg_resources.parse_version('1.0')
-#
-#
-# def test_setup_with_tenacity_tornado(mock_targz):
-#     archive = mock_targz('setup-with-tenacity-tornado-1.0')
-#
-#     metadata = req_compile.metadata.extract_metadata(archive)
-#     assert metadata.name == 'setup-with-tenacity-tornado'
-#     assert metadata.version == pkg_resources.parse_version('1.0')
 
 
 def test_self_source():

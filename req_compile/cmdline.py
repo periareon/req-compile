@@ -14,6 +14,7 @@ from pip._vendor import pkg_resources
 import req_compile.compile
 import req_compile.dists
 import req_compile.metadata
+import req_compile.metadata.errors
 import req_compile.repos.pypi
 
 from req_compile import utils
@@ -141,7 +142,7 @@ def _dump_repo_candidates(req, repos):
                                             _cantusereason_to_text(
                                                 repo.why_cant_I_use(req, candidate))),
                           file=sys.stderr)
-                except req_compile.metadata.MetadataError:
+                except req_compile.metadata.errors.MetadataError:
                     print('  {}: {}'.format(candidate, 'Failed to parse metadata'), file=sys.stderr)
         else:
             print('  No candidates found', file=sys.stderr)
@@ -158,7 +159,7 @@ def _create_req_from_path(path):
     """
     try:
         dist = req_compile.metadata.extract_metadata(path)
-    except req_compile.metadata.MetadataError:
+    except req_compile.metadata.errors.MetadataError:
         dist = None
 
     if dist is None:
@@ -276,7 +277,7 @@ def run_compile(input_args,
                 print(fmt.format(key=line[0][0], version=line[0][1],
                                  padding=padding,
                                  annotation=annotation, constraints=line[1]))
-    except (req_compile.repos.repository.NoCandidateException, req_compile.metadata.MetadataError) as ex:
+    except (req_compile.repos.repository.NoCandidateException, req_compile.metadata.errors.MetadataError) as ex:
         _generate_no_candidate_display(ex.req, repo, ex.results, ex)
         sys.exit(1)
 
