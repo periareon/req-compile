@@ -77,8 +77,8 @@ def test_resolve_new_numpy(mocked_responses, tmpdir, read_contents, mocker):
     mock_extract = mocker.MagicMock()
     mock_extract.return_value.name = 'numpy'
 
-    with mocker.patch('req_compile.repos.pypi.extract_metadata', mock_extract):
-        candidate, cached = repo.get_candidate(pkg_resources.Requirement.parse('numpy'))
+    mocker.patch('req_compile.repos.pypi.extract_metadata', mock_extract)
+    candidate, cached = repo.get_candidate(pkg_resources.Requirement.parse('numpy'))
     assert candidate is not None
     assert not cached
 
