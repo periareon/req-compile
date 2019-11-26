@@ -122,3 +122,11 @@ def test_load_additive_constraints():
         os.path.join(os.path.dirname(__file__), 'requests_security_solution.txt'))
     constraints = solution_repo.solution['idna'].build_constraints()
     assert constraints == pkg_resources.Requirement.parse('idna<2.9,>=2.5')
+
+
+def test_load_extra_first():
+    """Test that solutions that refer to a requirement with an extra before it is defined correctly
+    add the requirement with the extra"""
+    solution_repo = SolutionRepository(
+        os.path.join(os.path.dirname(__file__), 'extra_only_solution.txt'))
+    assert solution_repo.solution['extra_only'].metadata.name == 'extra_only'

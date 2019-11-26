@@ -1,7 +1,13 @@
+# pylint: disable=exec-used,bad-continuation
+"""Parsing of metadata that comes from setup.py"""
+from __future__ import print_function
+
 import contextlib
+from contextlib import closing
 import functools
 import imp
 import io
+from io import BytesIO, StringIO
 import logging
 import os
 import os.path
@@ -12,21 +18,18 @@ import sys
 import tempfile
 import threading
 import time
-
-import setuptools
 from types import ModuleType
-from contextlib import closing
-from io import BytesIO, StringIO
 
-import pkg_resources
 import six
 from six.moves import configparser
+import setuptools
+import pkg_resources
 
 from req_compile import utils
 from req_compile.dists import PkgResourcesDistInfo, DistInfo
-from req_compile.metadata.dist_info import _fetch_from_wheel
-from req_compile.metadata.extractor import NonExtractor
-from req_compile.metadata.errors import MetadataError
+from .dist_info import _fetch_from_wheel
+from .extractor import NonExtractor
+from .errors import MetadataError
 
 LOG = logging.getLogger('req_compile.metadata.source')
 
@@ -237,10 +240,10 @@ def _build_wheel(name, source_file):
     temp_wheeldir = tempfile.mkdtemp()
     try:
         _run_with_output([
-                sys.executable,
-                '-m', 'pip', 'wheel',
-                source_file, '--no-deps', '--wheel-dir', temp_wheeldir
-            ], timeout=WHEEL_TIMEOUT)
+            sys.executable,
+            '-m', 'pip', 'wheel',
+            source_file, '--no-deps', '--wheel-dir', temp_wheeldir
+        ], timeout=WHEEL_TIMEOUT)
         wheel_file = os.path.join(temp_wheeldir, os.listdir(temp_wheeldir)[0])
         results = _fetch_from_wheel(wheel_file)
     except subprocess.CalledProcessError as ex:
@@ -477,7 +480,7 @@ def import_contents(modname, filename, contents):
 
 
 def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disable=too-many-locals,too-many-statements
-    # pylint: disable=bad-option-value,no-name-in-module,no-member,import-outside-toplevel
+    # pylint: disable=bad-option-value,no-name-in-module,no-member,import-outside-toplevel,too-many-branches
     # Capture warnings.warn, which is sometimes used in setup.py files
 
     logging.captureWarnings(True)
@@ -485,7 +488,7 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
     results = []
     setup_with_results = functools.partial(setup, results)
 
-    import os.path  # pylint: disable=redefined-outer-name
+    import os.path  # pylint: disable=redefined-outer-name,reimported
 
     # Make sure __file__ contains only os.sep separators
     spy_globals = {'__file__': os.path.join(fake_setupdir, setup_file).replace('/', os.sep),
@@ -676,9 +679,8 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
             contents = extractor.contents(os.path.basename(setup_file))
             if six.PY2:
                 contents = remove_encoding_lines(contents)
+                contents = contents.replace('print ', '').replace('print(', '(lambda *a, **kw: None)(')
 
-            # pylint: disable=exec-used
-            contents = contents.replace('print ', '')
             exec(contents, spy_globals, spy_globals)
         except SystemExit:
             LOG.warning('setup.py raised SystemExit')

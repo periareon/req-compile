@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import functools
 import logging
 import os
@@ -9,6 +7,7 @@ from .errors import MetadataError
 from .extractor import NonExtractor, TarExtractor, ZipExtractor
 from .source import _fetch_from_source
 from .dist_info import _fetch_from_wheel
+from .pyproject import fetch_from_pyproject
 
 LOG = logging.getLogger('req_compile.metadata')
 
@@ -45,6 +44,9 @@ def extract_metadata(filename, run_setup_py=True, origin=None):
     elif ext in ('.egg',):
         LOG.debug('Attempted to resolve an unsupported format')
         return None
+    elif os.path.exists(os.path.join(filename, 'pyproject.toml')):
+        LOG.debug('Extracting from a pyproject.toml')
+        result = fetch_from_pyproject(filename)
     else:
         LOG.debug('Extracting directly from a source directory')
         result = _fetch_from_source(os.path.abspath(filename), NonExtractor, run_setup_py=run_setup_py)

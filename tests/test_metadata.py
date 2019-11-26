@@ -145,7 +145,6 @@ sources = [
     ['termcolor-1.1.0', 'termcolor', '1.1.0', None],
     ['wuc-0.5', 'wuc', '0.5', None],
     ['pint-0.6', 'Pint', '0.6', None],
-    ['print-1.1.0b8', 'print', '1.1.0b8', None],
     ['tar-utf8-1.1.0', 'tar-utf8', '1.1.0', None],
     ['tar-1.0.0', 'tar', '1.0.0', None],
     ['et_xmlfile-1.0.1', 'et_xmlfile', '1.0.1', None],
@@ -177,6 +176,8 @@ sources = [
 ]
 if six.PY3:
     sources.append(['spec-loading-1.0', 'spec-loading', '1.0', ['et_xmlfile', 'jdcal']])
+if six.PY2:
+    sources.append(['print-1.1.0b8', 'print', '1.1.0b8', None])
 
 
 @pytest.mark.parametrize('archive_fixture', [

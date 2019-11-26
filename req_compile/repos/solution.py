@@ -115,7 +115,7 @@ def _add_sources(req, sources, result, origin):
             result.add_dist(constraint_req.name, None, constraint_req)
             reverse_dep = result[name]
             if reverse_dep.metadata is None:
-                inner_meta = req_compile.dists.DistInfo(name, None, [])
+                inner_meta = req_compile.dists.DistInfo(constraint_req.name, None, [])
                 reverse_dep.metadata = inner_meta
         else:
             reverse_dep = None
