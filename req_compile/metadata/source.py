@@ -283,20 +283,20 @@ def _build_egg_info(name, extractor, setup_file):
         try:
             egg_info_dir = [egg_info for egg_info in os.listdir(setup_dir)
                             if egg_info.endswith('.egg-info')][0]
+            metadata = pkg_resources.PathMetadata(setup_dir, os.path.join(setup_dir, egg_info_dir))
+            pkg_dist = PkgResourcesDistInfo(pkg_resources.Distribution(setup_dir, project_name=name, metadata=metadata))
+            return pkg_dist
         except IndexError:
             LOG.error('Failed to build .egg-info %s:\n%s', list(os.listdir(setup_dir)), output)
-            raise
 
-        metadata = pkg_resources.PathMetadata(setup_dir, os.path.join(setup_dir, egg_info_dir))
-        pkg_dist = PkgResourcesDistInfo(pkg_resources.Distribution(setup_dir, project_name=name, metadata=metadata))
-        return pkg_dist
     except subprocess.CalledProcessError as ex:
         LOG.warning('Failed to build egg-info for %s:\nThe command "%s" produced:\n%s',
                     name, subprocess.list2cmdline(ex.cmd), ex.output)
-        try:
-            return _build_wheel(name, os.path.dirname(extracted_setup_py))
-        finally:
-            shutil.rmtree(temp_tar)
+
+    try:
+        return _build_wheel(name, os.path.dirname(extracted_setup_py))
+    finally:
+        shutil.rmtree(temp_tar)
 
 
 def parse_req_with_marker(req_str, marker):
