@@ -220,6 +220,7 @@ def run_compile(input_args,
                 constraint_files,
                 repo,
                 remove_source,
+                remove_non_source,
                 annotate_source,
                 no_comments,
                 no_pins):
@@ -259,14 +260,18 @@ def run_compile(input_args,
             return req.metadata.name.lower() not in BLACKLIST
 
         req_filter = blacklist_filter
-        if remove_source:
+        if remove_source or remove_non_source:
             if not any(isinstance(r, SourceRepository) for r in repo):
                 raise ValueError('Cannot remove results from source, no source provided')
 
             def is_not_from_source(dist):
                 return dist.metadata.origin is not None and not isinstance(dist.metadata.origin, SourceRepository)
 
-            req_filter = lambda req: blacklist_filter(req) and is_not_from_source(req)
+            source_req_filter = lambda req: blacklist_filter(req) and is_not_from_source(req)
+            if remove_non_source:
+                req_filter = lambda req: not source_req_filter(req)
+            else:
+                req_filter = source_req_filter
 
         lines = sorted(results.generate_lines(roots, req_filter=req_filter),
                        key=lambda x: x[0][0].lower())
@@ -392,6 +397,8 @@ def compile_main(args=None):
                        help='Package to omit from solutions. Use this to upgrade packages')
     group.add_argument('--remove-source', default=False, action='store_true',
                        help='Remove distributions satisfied via --source from the output')
+    group.add_argument('--remove-non-source', default=False, action='store_true',
+                       help='Remove distributions not satisfied via --source from the output')
     group.add_argument('-p', '--pre', dest='allow_prerelease', default=False, action='store_true',
                        help='Allow preleases from all sources')
     group.add_argument('--annotate', default=False, action='store_true',
@@ -438,6 +445,7 @@ def compile_main(args=None):
                     args.constraints if args.constraints else None,
                     repo,
                     args.remove_source,
+                    args.remove_non_source,
                     args.annotate,
                     args.no_comments,
                     args.no_pins)

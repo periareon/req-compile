@@ -11,7 +11,8 @@ import req_compile.repos.repository
 
 from req_compile.repos.repository import Repository
 
-SPECIAL_DIRS = ('site-packages', 'dist-packages', '.git', '.svn', '.idea')
+SPECIAL_DIRS = ('site-packages', 'dist-packages', '.git', '.svn', '.idea', '__pycache__',
+                'node_modules', 'venv', '.eggs', 'build', 'dist')
 SPECIAL_FILES = ('__init__.py',)
 
 
@@ -24,44 +25,55 @@ class SourceRepository(Repository):
 
         self.path = os.path.abspath(path)
         self.distributions = collections.defaultdict(list)
-        self._find_all_distributions([os.path.normpath(path) for path in (excluded_paths or [])])
+        self._find_all_distributions([os.path.abspath(path) for path in (excluded_paths or [])])
+
+    def _extract_metadata(self, source_dir):
+        try:
+            self.logger.debug('Processing %s (cwd = %s)', source_dir, os.getcwd())
+            return req_compile.metadata.extract_metadata(source_dir, origin=self)
+        except req_compile.metadata.errors.MetadataError as ex:
+            self.logger.error('Failed to parse metadata for {} - {}'.format(source_dir, str(ex)),
+                              file=sys.stderr)
+            return None
 
     def _find_all_distributions(self, excluded_paths):
+        source_dirs = self._find_all_source_dirs(excluded_paths)
+
+        for source_dir in source_dirs:
+            result = self._extract_metadata(source_dir)
+            if result is not None:
+                candidate = req_compile.repos.repository.Candidate(
+                    result.name,
+                    source_dir,
+                    result.version,
+                    None,
+                    'any',
+                    None,
+                    req_compile.repos.repository.DistributionType.SOURCE)
+                candidate.preparsed = result
+                self.distributions[utils.normalize_project_name(result.name)].append(candidate)
+
+    def _find_all_source_dirs(self, excluded_paths):
         for root, dirs, files in os.walk(self.path):
-            for dir_ in dirs:
-                if dir_ in SPECIAL_DIRS:
+            for dir_ in list(dirs):
+                if dir_ in SPECIAL_DIRS or dir_.endswith('.egg-info') or dir_.endswith('.dist-info'):
                     dirs.remove(dir_)
                 else:
                     for excluded_path in excluded_paths:
-                        if dir_.startswith(excluded_path):
+                        if os.path.join(root, dir_).startswith(excluded_path):
                             dirs.remove(dir_)
 
             for filename in files:
                 if filename in SPECIAL_FILES:
-                    for dir_ in dirs:
-                        dirs.remove(dir_)
-                elif filename == 'setup.py':
+                    dirs[:] = []
+                    break
+                elif filename == 'setup.py' or filename == 'pyproject.toml':
                     # Remove test directories from search
                     for dir_ in list(dirs):
-                        if dir_ == 'tests' or dir_.endswith(('-tests')):
+                        if dir_ == 'tests' or dir_ == 'test' or dir_.endswith('-tests') or dir_.endswith('-test'):
                             dirs.remove(dir_)
 
-                    try:
-                        result = req_compile.metadata.extract_metadata(root, origin=self)
-                        candidate = req_compile.repos.repository.Candidate(
-                            result.name,
-                            root,
-                            result.version,
-                            None,
-                            'any',
-                            None,
-                            req_compile.repos.repository.DistributionType.SOURCE)
-                        candidate.preparsed = result
-                        self.distributions[utils.normalize_project_name(result.name)].append(candidate)
-                    except req_compile.metadata.errors.MetadataError as ex:
-                        print('Failed to parse metadata for {} - {}'.format(root, str(ex)),
-                              file=sys.stderr)
-                    break
+                    yield root
 
     def __repr__(self):
         return '--source {}'.format(self.path)
@@ -86,3 +98,11 @@ class SourceRepository(Repository):
 
     def close(self):
         pass
+
+
+class ReferenceSourceRepository(SourceRepository):
+    """Represents a source that shows up in solution files but may not itself be present"""
+    def __init__(self, dist):
+        # Skip the SourceRepository super call
+        super(SourceRepository, self).__init__('ref-source', allow_prerelease=True)
+        self.distributions = {dist.name: dist}

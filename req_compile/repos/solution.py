@@ -9,6 +9,7 @@ import req_compile.dists
 import req_compile.utils
 from req_compile.repos import RepositoryInitializationError
 from req_compile.repos.repository import Repository, Candidate, DistributionType
+from req_compile.repos.source import ReferenceSourceRepository
 
 
 def _candidate_from_node(node):
@@ -115,7 +116,8 @@ def _add_sources(req, sources, result, origin):
             result.add_dist(constraint_req.name, None, constraint_req)
             reverse_dep = result[name]
             if reverse_dep.metadata is None:
-                inner_meta = req_compile.dists.DistInfo(constraint_req.name, None, [])
+                inner_meta = req_compile.dists.DistInfo(constraint_req.name, req_compile.utils.parse_version('0+missing'), [])
+                inner_meta.origin = ReferenceSourceRepository(inner_meta)
                 reverse_dep.metadata = inner_meta
         else:
             reverse_dep = None

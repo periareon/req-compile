@@ -38,6 +38,8 @@ EGG_INFO_TIMEOUT = float(os.getenv('REQ_COMPILE_EGG_INFO_TIMEOUT', '15.0'))
 
 FAILED_BUILDS = set()
 
+threadlocal = threading.local()
+
 
 def parse_source_filename(full_filename):
     filename = full_filename.replace('_', '-')
@@ -83,6 +85,9 @@ def parse_source_filename(full_filename):
 
 
 def find_in_archive(extractor, filename, max_depth=None):
+    if extractor.exists(filename):
+        return filename
+
     for info_name in extractor.names():
         if info_name.lower().endswith(filename) and (max_depth is None or info_name.count('/') <= max_depth):
             if '/' not in filename and info_name.lower().rsplit('/')[-1] != filename:
@@ -141,44 +146,79 @@ def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disa
     Returns:
         (DistInfo) The resulting distribution metadata
     """
-    setup_file = find_in_archive(extractor, 'setup.py', max_depth=1)
-
-    if name == 'setuptools':
-        LOG.debug('Not running setup.py for setuptools')
-        return None
-
-    if setup_file is None:
-        LOG.warning('Could not find a setup.py in %s', os.path.basename(source_file))
-        return None
+    results = None
 
     fake_setupdir = tempfile.mkdtemp(suffix='_{}_{}'.format(extractor.__class__.__name__, name))
     LOG.debug('Setting root to %s', fake_setupdir)
     extractor.fake_root = fake_setupdir
-
     try:
-        LOG.info('Parsing setup.py %s', setup_file)
-        results = _parse_setup_py(name, fake_setupdir, setup_file, extractor)
-    except (Exception, RuntimeError, ImportError):  # pylint: disable=broad-except
-        LOG.warning('Failed to parse %s', name, exc_info=True)
+        setattr(threadlocal, 'curdir', fake_setupdir)
 
-        results = _build_egg_info(name, extractor, setup_file)
+        def _fake_chdir(new_dir):
+            if os.path.isabs(new_dir):
+                dir_test = os.path.relpath(new_dir, fake_setupdir)
+                if dir_test != '.' and dir_test.startswith('.'):
+                    raise ValueError('Cannot operate outside of setup dir ({})'.format(dir_test))
+            try:
+                os.mkdir(new_dir)
+            except OSError:
+                pass
+            setattr(threadlocal, 'curdir', os.path.abspath(new_dir))
+
+        def _fake_getcwd():
+            return getattr(threadlocal, 'curdir')
+
+        def _fake_abspath(path):
+            """Return the absolute version of a path."""
+            if not os.path.isabs(path):
+                if six.PY2 and isinstance(path, unicode):
+                    cwd = os.getcwdu()
+                else:
+                    cwd = os.getcwd()
+                path = os.path.join(cwd, path)
+            return path
+
+        with patch(
+                os, 'chdir', _fake_chdir,
+                os, 'getcwd', _fake_getcwd,
+                os, 'getcwdu', _fake_getcwd,
+                os.path, 'abspath', _fake_abspath,
+        ):
+            setup_file = find_in_archive(extractor, 'setup.py', max_depth=1)
+
+            if name == 'setuptools':
+                LOG.debug('Not running setup.py for setuptools')
+                return None
+
+            if setup_file is None:
+                LOG.warning('Could not find a setup.py in %s', os.path.basename(source_file))
+                return None
+
+            try:
+                LOG.info('Parsing setup.py %s', setup_file)
+                results = _parse_setup_py(name, fake_setupdir, setup_file, extractor)
+            except (Exception, RuntimeError, ImportError):  # pylint: disable=broad-except
+                LOG.warning('Failed to parse %s', name, exc_info=True)
+
+        if results is None:
+            results = _build_egg_info(name, extractor, setup_file)
+
+        if results is None or (results.name is None and results.version is None):
+            return None
+
+        if results.name is None:
+            results.name = name
+        if results.version is None or (version and results.version != version):
+            results.version = version or utils.parse_version('0.0.0')
+
+        if (not isinstance(extractor, NonExtractor) and
+                utils.normalize_project_name(results.name) != utils.normalize_project_name(name)):
+            LOG.warning('Name coming from setup.py does not match: %s', results.name)
+            results.name = name
+        return results
     finally:
         if fake_setupdir != source_file:
             shutil.rmtree(fake_setupdir)
-
-    if results is None or (results.name is None and results.version is None):
-        return None
-
-    if results.name is None:
-        results.name = name
-    if results.version is None or (version and results.version != version):
-        results.version = version or utils.parse_version('0.0.0')
-
-    if (not isinstance(extractor, NonExtractor) and
-            utils.normalize_project_name(results.name) != utils.normalize_project_name(name)):
-        LOG.warning('Name coming from setup.py does not match: %s', results.name)
-        results.name = name
-    return results
 
 
 def _run_with_output(cmd, cwd=None, timeout=30.0):
@@ -515,8 +555,6 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
         sys.modules['numpy.distutils.misc_util'] = FakeModule('misc_util')
         sys.modules['numpy.distutils.system_info'] = FakeModule('system_info')
 
-    old_dir = os.getcwd()
-
     def _fake_exists(path):
         return extractor.exists(path)
 
@@ -528,20 +566,6 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
 
     def _fake_file_input(path, **_kwargs):
         return open(path, 'r')
-
-    os.chdir(fake_setupdir)
-    orig_chdir = os.chdir
-
-    def _fake_chdir(new_dir):
-        if os.path.isabs(new_dir):
-            dir_test = os.path.relpath(new_dir, fake_setupdir)
-            if dir_test != '.' and dir_test.startswith('.'):
-                raise ValueError('Cannot operate outside of setup dir ({})'.format(dir_test))
-        try:
-            os.mkdir(new_dir)
-        except OSError:
-            pass
-        return orig_chdir(new_dir)
 
     old_cythonize = None
     try:
@@ -663,7 +687,6 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
             os.path, 'exists', _fake_exists,
             os.path, 'isfile', _fake_exists,
             os, 'rename', _fake_rename,
-            os, 'chdir', _fake_chdir,
             io, 'open', extractor.open,
             codecs, 'open', extractor.open,
             setuptools, 'setup', setup_with_results,
@@ -687,8 +710,8 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
         finally:
             if old_cythonize is not None:
                 Cython.Build.cythonize = old_cythonize
-            if fake_setupdir in sys.path:
-                sys.path.remove(fake_setupdir)
+            if abs_setupdir in sys.path:
+                sys.path.remove(abs_setupdir)
 
             end_patch(load_source_patch)
             end_patch(spec_from_file_location_patch)
@@ -696,15 +719,21 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
             sys.meta_path.remove(meta_hook)
 
             for module_name in list(sys.modules.keys()):
-                module = sys.modules[module_name]
+                try:
+                    module = sys.modules[module_name]
+                except KeyError:
+                    module = None
+
                 if module is None:
                     continue
                 if isinstance(module, (FakeModule, FakeNumpyModule)):
                     del sys.modules[module_name]
-                elif hasattr(module, '__file__') and module.__file__ and extractor.contains_path(module.__file__):
-                    del sys.modules[module_name]
-
-            orig_chdir(old_dir)
+                elif hasattr(module, '__file__') and module.__file__:
+                    module_file = module.__file__
+                    if (not module_file.startswith(sys.real_prefix)
+                            and not module_file.startswith(sys.prefix)
+                            and extractor.contains_path(module.__file__)):
+                        del sys.modules[module_name]
 
     if not results:
         raise ValueError('Distutils/setuptools setup() was not ever '

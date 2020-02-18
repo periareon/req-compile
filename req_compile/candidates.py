@@ -4,6 +4,7 @@ import logging
 import shutil
 import sys
 import tempfile
+import time
 
 import pkg_resources
 
@@ -36,6 +37,7 @@ def candidates_main():
     else:
         logging.basicConfig(level=logging.CRITICAL, stream=sys.stderr)
 
+    start = time.time()
     wheeldir = tempfile.mkdtemp()
     repo = build_repo(None, None,
                       args.sources, args.excluded_sources,
@@ -62,6 +64,8 @@ def candidates_main():
                 print(candidate)
     finally:
         shutil.rmtree(wheeldir)
+        end = time.time()
+        print('Discovered all %d candidate(s) in %0.2f seconds' % (len(candidates), (end - start)), file=sys.stderr)
 
 
 if __name__ == '__main__':
