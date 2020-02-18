@@ -9,7 +9,7 @@ import shutil
 import sys
 import tempfile
 
-from pip._vendor import pkg_resources
+import pkg_resources
 
 import req_compile.compile
 import req_compile.dists
@@ -72,9 +72,13 @@ def _find_paths_to_root(failing_node, visited=None):
 
 
 def _generate_no_candidate_display(req, repo, dists, failure):
+    """Print a human friendly display to stderr when compilation fails"""
     failing_node = dists[req.name]
     constraints = failing_node.build_constraints()
+
     can_satisfy = True
+    no_candidates = False
+
     if isinstance(failure, NoCandidateException):
         try:
             can_satisfy = is_possible(constraints)
@@ -99,33 +103,39 @@ def _generate_no_candidate_display(req, repo, dists, failure):
               "{failure}".format(name=req.name, failure=failure), file=sys.stderr)
 
     paths = _find_paths_to_root(failing_node)
-    nodes_visited = set()
-    nodes_without_constraints = set()
-
-    printed_constraints = False
-    none_found = False
-    while not printed_constraints:
-        for path in paths:
-            if none_found or path[-2].dependencies[failing_node].specifier:
-                nodes_without_constraints.add(path[-2])
-                if path[-2] in nodes_visited:
-                    continue
-
-                printed_constraints = True
-                nodes_visited.add(path[-2])
-
-                print('  ', end='', file=sys.stderr)
-                for node in path[:-1]:
-                    node_str = '{}{}{}'.format(
-                        node.metadata.name,
-                        '[{}]'.format(','.join(node.extras)) if node.extras else '',
-                        (' ' + str(node.metadata.version)) if hasattr(node.metadata, 'version') else '')
-                    print(node_str + ' -> ', end='', file=sys.stderr)
-                print(path[-2].dependencies[failing_node], file=sys.stderr)
-        none_found = True
+    _print_paths_to_root(failing_node, paths, True)
 
     if can_satisfy and not no_candidates:
         _dump_repo_candidates(req, repo)
+
+
+def _print_paths_to_root(failing_node, paths, require_specifier=True):
+    """
+    Given a failing node, print to stderr all of the nodes that required it. If any have
+    constraints, prefer printing only these first.
+    """
+    printed_constraints = False
+    nodes_visited = set()
+    for path in paths:
+        if not require_specifier or path[-2].dependencies[failing_node].specifier:
+            if path[-2] in nodes_visited:
+                continue
+
+            printed_constraints = True
+            nodes_visited.add(path[-2])
+
+            print('  ', end='', file=sys.stderr)
+            for node in path[:-1]:
+                node_str = '{}{}{}'.format(
+                    node.metadata.name,
+                    '[{}]'.format(','.join(node.extras)) if node.extras else '',
+                    (' ' + str(node.metadata.version)) if hasattr(node.metadata, 'version') else '')
+                print(node_str + ' -> ', end='', file=sys.stderr)
+            print(path[-2].dependencies[failing_node], file=sys.stderr)
+
+    # If there were no constraints on this failing node, at least print who required it
+    if not printed_constraints and require_specifier:
+        _print_paths_to_root(failing_node, paths, require_specifier=False)
 
 
 def _dump_repo_candidates(req, repos):
@@ -253,10 +263,10 @@ def run_compile(input_args,
             if not any(isinstance(r, SourceRepository) for r in repo):
                 raise ValueError('Cannot remove results from source, no source provided')
 
-            def is_from_source(dist):
-                return not isinstance(dist.metadata.origin, SourceRepository)
+            def is_not_from_source(dist):
+                return dist.metadata.origin is not None and not isinstance(dist.metadata.origin, SourceRepository)
 
-            req_filter = lambda req: blacklist_filter(req) and is_from_source(req)
+            req_filter = lambda req: blacklist_filter(req) and is_not_from_source(req)
 
         lines = sorted(results.generate_lines(roots, req_filter=req_filter),
                        key=lambda x: x[0][0].lower())

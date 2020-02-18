@@ -27,7 +27,7 @@ class Extractor(object):
         Returns:
             (bool)
         """
-        return os.path.abspath(path).startswith(os.path.abspath(self.fake_root))
+        return os.path.abspath(path).startswith(self.fake_root)
 
     def add_rename(self, name, new_name):
         """Add a rename entry for a file in the archive"""
@@ -36,7 +36,7 @@ class Extractor(object):
     def open(self, filename, mode='r', encoding=None, **_kwargs):
         """Open a real file or a file within the archive"""
         relative_filename = self.to_relative(filename)
-        if isinstance(filename, int) or filename == os.devnull or not self.contains_path(relative_filename):
+        if isinstance(filename, int) or filename == os.devnull or os.path.isabs(relative_filename):
             return self.io_open(filename, mode=mode, encoding=encoding)
 
         kwargs = {}
@@ -81,7 +81,7 @@ class Extractor(object):
         result = filename
         if os.path.isabs(filename):
             if self.contains_path(filename):
-                result = os.path.relpath(filename, self.fake_root)
+                result = filename.replace(self.fake_root, '.')
         else:
             cur = os.getcwd()
             if cur != self.fake_root:
@@ -114,7 +114,7 @@ class NonExtractor(Extractor):
 
     def names(self):
         for root, _, files in os.walk(self.path):
-            rel_root = os.path.relpath(root, self.path).replace('\\', '/')
+            rel_root = root.replace(self.path, '.').replace('\\', '/')
             if rel_root != '.':
                 rel_root += '/'
             else:
@@ -132,7 +132,6 @@ class NonExtractor(Extractor):
                 shutil.copy2(path, target_dir)
 
     def _check_exists(self, filename):
-
         return self.os_path_exists(os.path.join(self.path, filename))
 
     def _open_handle(self, filename):

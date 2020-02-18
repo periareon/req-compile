@@ -29,12 +29,11 @@ class SourceRepository(Repository):
     def _find_all_distributions(self, excluded_paths):
         for root, dirs, files in os.walk(self.path):
             for dir_ in dirs:
-                norm_dir = os.path.normpath(dir_)
-                if norm_dir in SPECIAL_DIRS:
+                if dir_ in SPECIAL_DIRS:
                     dirs.remove(dir_)
                 else:
                     for excluded_path in excluded_paths:
-                        if norm_dir.startswith(excluded_path):
+                        if dir_.startswith(excluded_path):
                             dirs.remove(dir_)
 
             for filename in files:

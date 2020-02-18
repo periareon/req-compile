@@ -566,7 +566,7 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
         raise IOError('Network and I/O calls not permitted: {} {}'.format(args, kwargs))
 
     setup_dir = os.path.dirname(setup_file)
-    abs_setupdir = os.path.abspath(os.path.dirname(setup_file))
+    abs_setupdir = os.path.abspath(setup_dir)
 
     class FakeSpec(object):  # pylint: disable=too-many-instance-attributes
         class Loader(object):
@@ -672,7 +672,7 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
             sys, 'argv', ['setup.py', 'egg_info']):
 
         try:
-            sys.path.insert(0, os.path.abspath(setup_dir))
+            sys.path.insert(0, abs_setupdir)
             if setup_dir:
                 os.chdir(setup_dir)
 
