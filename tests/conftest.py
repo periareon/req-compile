@@ -26,8 +26,6 @@ def clear_caches():
     """Fixture to automatically clear the LRU cache for
     the requirement parsing cache"""
     req_compile.utils.parse_requirement.cache_clear()
-    logging.getLogger().debug('HELLO ROOT')
-    logging.getLogger('req_compile').debug('HELLO')
 
 
 @pytest.fixture

@@ -260,7 +260,7 @@ class RequirementContainer(object):
     """A container for a list of requirements"""
     def __init__(self, name, reqs, meta=False):
         self.name = name
-        self.reqs = list(reqs) if reqs else reqs
+        self.reqs = list(reqs) if reqs else []
         self.origin = None
         self.meta = meta
 

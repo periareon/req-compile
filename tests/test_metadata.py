@@ -172,7 +172,8 @@ sources = [
     ['file-input-1.0', 'file-input', '1.0', None],
     ['capital-s-1.0', 'capital-s', '1.0', []],
     ['dirsep-1.0', 'dirsep', '1.0', []],
-    ['newline-req-1.0', 'newline-req', '1.0', ['cfn_flip>=1.0.2', 'awacs>=0.8; extra == "policy"']]
+    ['newline-req-1.0', 'newline-req', '1.0', ['cfn_flip>=1.0.2', 'awacs>=0.8; extra == "policy"']],
+    ['version-writer-1.2', 'version-writer', '1.2', []],
 ]
 if six.PY3:
     sources.append(['spec-loading-1.0', 'spec-loading', '1.0', ['et_xmlfile', 'jdcal']])
@@ -194,7 +195,7 @@ def test_source_dist(archive_fixture, directory, name, version, reqs, mock_targz
     elif archive_fixture == 'mock_zip':
         archive = mock_zip(directory)
     else:
-        archive = os.path.join('tests', 'source-packages', directory)
+        archive = os.path.join(os.path.dirname(__file__), 'source-packages', directory)
 
     metadata = req_compile.metadata.extract_metadata(archive)
     assert not mock_build.called

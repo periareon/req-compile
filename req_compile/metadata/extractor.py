@@ -2,6 +2,7 @@
 import io
 import logging
 import os
+import shutil
 import tarfile
 import zipfile
 
@@ -121,7 +122,17 @@ class NonExtractor(Extractor):
             for filename in files:
                 yield rel_root + filename
 
+    def extract(self, target_dir):
+        # Copy the entire file tree to the target directory
+        for filename in os.listdir(self.path):
+            path = os.path.join(self.path, filename)
+            if os.path.isdir(path):
+                shutil.copytree(path, os.path.join(target_dir, filename))
+            else:
+                shutil.copy2(path, target_dir)
+
     def _check_exists(self, filename):
+
         return self.os_path_exists(os.path.join(self.path, filename))
 
     def _open_handle(self, filename):

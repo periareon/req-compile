@@ -45,8 +45,7 @@ def _fetch_from_wheel(wheel):
     zfile = zipfile.ZipFile(wheel, 'r')
     with closing(zfile):
         # Reverse since metadata details are supposed to be written at the end of the zip
-        infos = reversed(zfile.namelist())
-        print(zfile.namelist())
+        infos = list(reversed(zfile.namelist()))
         result = _find_dist_info_metadata(project_name, infos)
         if result is not None:
             return _parse_flat_metadata(zfile.read(result).decode('utf-8', 'ignore'))
