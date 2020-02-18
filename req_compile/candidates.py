@@ -1,6 +1,8 @@
 from __future__ import print_function
 import argparse
+import logging
 import shutil
+import sys
 import tempfile
 
 import pkg_resources
@@ -21,13 +23,22 @@ def candidates_main():
                        help='Print projects as a path,name tuple')
     group.add_argument('--paths-only', default=False, action='store_true',
                        help="Print projects as paths")
-    add_repo_args(parser)
+    group.add_argument('-v', '--verbose', default=False, action='store_true',
+                       help='Enable verbose output to stderr')
 
+    add_repo_args(parser)
     args = parser.parse_args()
+
+    logger = logging.getLogger('req_compile')
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG, stream=sys.stderr)
+        logger.setLevel(logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.CRITICAL, stream=sys.stderr)
 
     wheeldir = tempfile.mkdtemp()
     repo = build_repo(None, None,
-                      args.sources,
+                      args.sources, args.excluded_sources,
                       args.find_links,
                       args.index_urls, args.no_index, wheeldir)
 

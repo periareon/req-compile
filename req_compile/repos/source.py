@@ -16,7 +16,7 @@ SPECIAL_FILES = ('__init__.py',)
 
 
 class SourceRepository(Repository):
-    def __init__(self, path):
+    def __init__(self, path, excluded_paths=None):
         super(SourceRepository, self).__init__('source', allow_prerelease=True)
 
         if not os.path.exists(path):
@@ -24,21 +24,28 @@ class SourceRepository(Repository):
 
         self.path = os.path.abspath(path)
         self.distributions = collections.defaultdict(list)
-        self._find_all_distributions()
+        self._find_all_distributions([os.path.normpath(path) for path in (excluded_paths or [])])
 
-    def _find_all_distributions(self):
+    def _find_all_distributions(self, excluded_paths):
         for root, dirs, files in os.walk(self.path):
             for dir_ in dirs:
-                if dir_ in SPECIAL_DIRS:
+                norm_dir = os.path.normpath(dir_)
+                if norm_dir in SPECIAL_DIRS:
                     dirs.remove(dir_)
+                else:
+                    for excluded_path in excluded_paths:
+                        if norm_dir.startswith(excluded_path):
+                            dirs.remove(dir_)
 
             for filename in files:
                 if filename in SPECIAL_FILES:
                     for dir_ in dirs:
                         dirs.remove(dir_)
                 elif filename == 'setup.py':
+                    # Remove test directories from search
                     for dir_ in list(dirs):
-                        dirs.remove(dir_)
+                        if dir_ == 'tests' or dir_.endswith(('-tests')):
+                            dirs.remove(dir_)
 
                     try:
                         result = req_compile.metadata.extract_metadata(root, origin=self)

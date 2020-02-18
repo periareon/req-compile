@@ -81,9 +81,16 @@ def _generate_no_candidate_display(req, repo, dists, failure):
         except (ValueError, TypeError):
             can_satisfy = True
 
+        all_candidates = {repo: repo.get_candidates(req) for repo in repo}
+        no_candidates = sum(len(candidates) for candidates in all_candidates.values()) == 0
+
         if not can_satisfy:
-            print('No version could possibly satisfy the following requirements ({}):'.format(constraints),
-                  file=sys.stderr)
+            print('No version of {} could possibly satisfy the following requirements ({}):'.format(
+                req.name, constraints), file=sys.stderr)
+        elif no_candidates:
+            print('No candidates found for {} in any of the input sources. Required by:'.format(
+                req.name
+            ), file=sys.stderr)
         else:
             print('No version of {} could satisfy the following requirements ({}):'.format(req.name, constraints),
                   file=sys.stderr)
@@ -93,28 +100,32 @@ def _generate_no_candidate_display(req, repo, dists, failure):
 
     paths = _find_paths_to_root(failing_node)
     nodes_visited = set()
-    for path in paths:
-        if path[-2].dependencies[failing_node].specifier:
-            if path[-2] in nodes_visited:
-                continue
+    nodes_without_constraints = set()
 
-            nodes_visited.add(path[-2])
+    printed_constraints = False
+    none_found = False
+    while not printed_constraints:
+        for path in paths:
+            if none_found or path[-2].dependencies[failing_node].specifier:
+                nodes_without_constraints.add(path[-2])
+                if path[-2] in nodes_visited:
+                    continue
 
-            print('  ', end='', file=sys.stderr)
-            for node in path[:-1]:
-                node_str = '{}{}{}'.format(
-                    node.metadata.name,
-                    '[{}]'.format(','.join(node.extras)) if node.extras else '',
-                    (' ' + str(node.metadata.version)) if hasattr(node.metadata, 'version') else '')
-                print(node_str + ' -> ', end='', file=sys.stderr)
-            print(path[-2].dependencies[failing_node], file=sys.stderr)
+                printed_constraints = True
+                nodes_visited.add(path[-2])
 
-    if can_satisfy:
-        all_candidates = {repo: repo.get_candidates(req) for repo in repo}
-        if sum(len(candidates) for candidates in all_candidates.values()) == 0:
-            print('No candidates found in any of the input sources', file=sys.stderr)
-        else:
-            _dump_repo_candidates(req, repo)
+                print('  ', end='', file=sys.stderr)
+                for node in path[:-1]:
+                    node_str = '{}{}{}'.format(
+                        node.metadata.name,
+                        '[{}]'.format(','.join(node.extras)) if node.extras else '',
+                        (' ' + str(node.metadata.version)) if hasattr(node.metadata, 'version') else '')
+                    print(node_str + ' -> ', end='', file=sys.stderr)
+                print(path[-2].dependencies[failing_node], file=sys.stderr)
+        none_found = True
+
+    if can_satisfy and not no_candidates:
+        _dump_repo_candidates(req, repo)
 
 
 def _dump_repo_candidates(req, repos):
@@ -314,7 +325,7 @@ def _generate_repo_header(input_reqs, repos):
 
 
 def build_repo(solutions, upgrade_packages,
-               sources,
+               sources, excluded_sources,
                find_links,
                index_urls, no_index, wheeldir,
                allow_prerelease=False):
@@ -323,7 +334,7 @@ def build_repo(solutions, upgrade_packages,
         repos.extend(SolutionRepository(solution, excluded_packages=upgrade_packages)
                      for solution in solutions)
     if sources:
-        repos.extend(SourceRepository(source)
+        repos.extend(SourceRepository(source, excluded_paths=excluded_sources)
                      for source in sources)
     if find_links:
         repos.extend(FindLinksRepository(find_link, allow_prerelease=allow_prerelease)
@@ -354,8 +365,6 @@ class IndentFilter(logging.Filter):
 
 
 def compile_main(args=None):
-    logging.basicConfig(level=logging.ERROR)
-
     parser = argparse.ArgumentParser(description='Req-Compile: Python requirements compiler')
     group = parser.add_argument_group('requirement compilation')
     group.add_argument('requirement_files', nargs='*',
@@ -394,7 +403,7 @@ def compile_main(args=None):
 
         logger.getChild('compile').addFilter(IndentFilter())
     else:
-        logger.setLevel(logging.CRITICAL)
+        logging.basicConfig(level=logging.CRITICAL, stream=sys.stderr)
 
     wheeldir = args.wheel_dir
     if wheeldir:
@@ -410,7 +419,7 @@ def compile_main(args=None):
 
     try:
         repo = build_repo(args.solutions, args.upgrade_packages,
-                          args.sources,
+                          args.sources, args.excluded_sources,
                           args.find_links, args.index_urls, args.no_index, wheeldir,
                           allow_prerelease=args.allow_prerelease)
 
@@ -441,6 +450,8 @@ def add_repo_args(parser):
     group.add_argument('-s', '--source', action='append', dest='sources', default=[],
                        metavar='project_dir',
                        help='Search for projects in the provided directory recursively')
+    group.add_argument('-x', '--exclude-source', action='append', dest='excluded_sources', default=[],
+                       help='Directories to exclude when searching for projects. Applies recursively')
     group.add_argument('-f', '--find-links', action='append', default=[],
                        metavar='directory',
                        help='Directory to search for wheel and source distributions')
