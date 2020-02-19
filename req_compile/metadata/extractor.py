@@ -132,7 +132,7 @@ class NonExtractor(Extractor):
                 shutil.copy2(path, target_dir)
 
     def _check_exists(self, filename):
-        return self.os_path_exists(os.path.join(self.path, filename))
+        return self.os_path_exists(self.path + '/' + filename)
 
     def _open_handle(self, filename):
         try:

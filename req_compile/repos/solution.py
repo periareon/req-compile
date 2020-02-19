@@ -116,7 +116,8 @@ def _add_sources(req, sources, result, origin):
             result.add_dist(constraint_req.name, None, constraint_req)
             reverse_dep = result[name]
             if reverse_dep.metadata is None:
-                inner_meta = req_compile.dists.DistInfo(constraint_req.name, req_compile.utils.parse_version('0+missing'), [])
+                inner_meta = req_compile.dists.DistInfo(constraint_req.name,
+                                                        req_compile.utils.parse_version('0+missing'), [])
                 inner_meta.origin = ReferenceSourceRepository(inner_meta)
                 reverse_dep.metadata = inner_meta
         else:

@@ -2,7 +2,8 @@ from __future__ import print_function
 import collections
 import itertools
 import os
-import sys
+
+from six.moves import map
 
 import req_compile.metadata.errors
 from req_compile import utils
@@ -30,16 +31,16 @@ class SourceRepository(Repository):
     def _extract_metadata(self, source_dir):
         try:
             self.logger.debug('Processing %s (cwd = %s)', source_dir, os.getcwd())
-            return req_compile.metadata.extract_metadata(source_dir, origin=self)
+            return source_dir, req_compile.metadata.extract_metadata(source_dir, origin=self)
         except req_compile.metadata.errors.MetadataError as ex:
             self.logger.error('Failed to parse metadata for %s - %s', source_dir, str(ex))
-            return None
+            return source_dir, None
 
     def _find_all_distributions(self, excluded_paths):
         source_dirs = self._find_all_source_dirs(excluded_paths)
 
-        for source_dir in source_dirs:
-            result = self._extract_metadata(source_dir)
+        results = map(self._extract_metadata, source_dirs)
+        for source_dir, result in results:
             if result is not None:
                 candidate = req_compile.repos.repository.Candidate(
                     result.name,
@@ -66,12 +67,12 @@ class SourceRepository(Repository):
                 if filename in SPECIAL_FILES:
                     dirs[:] = []
                     break
-                elif filename == 'setup.py' or filename == 'pyproject.toml':
+
+                if filename in ('setup.py', 'pyproject.toml'):
                     # Remove test directories from search
                     for dir_ in list(dirs):
                         if dir_ == 'tests' or dir_ == 'test' or dir_.endswith('-tests') or dir_.endswith('-test'):
                             dirs.remove(dir_)
-
                     yield root
 
     def __repr__(self):
@@ -103,5 +104,6 @@ class ReferenceSourceRepository(SourceRepository):
     """Represents a source that shows up in solution files but may not itself be present"""
     def __init__(self, dist):
         # Skip the SourceRepository super call
+        # pylint: disable=bad-super-call
         super(SourceRepository, self).__init__('ref-source', allow_prerelease=True)
         self.distributions = {dist.name: dist}

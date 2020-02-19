@@ -38,7 +38,7 @@ EGG_INFO_TIMEOUT = float(os.getenv('REQ_COMPILE_EGG_INFO_TIMEOUT', '15.0'))
 
 FAILED_BUILDS = set()
 
-threadlocal = threading.local()
+THREADLOCAL = threading.local()
 
 
 def parse_source_filename(full_filename):
@@ -148,26 +148,26 @@ def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disa
     """
     results = None
 
-    setattr(threadlocal, 'curdir', extractor.fake_root)
+    setattr(THREADLOCAL, 'curdir', extractor.fake_root)
 
     def _fake_chdir(new_dir):
         if os.path.isabs(new_dir):
             dir_test = os.path.relpath(new_dir, extractor.fake_root)
             if dir_test != '.' and dir_test.startswith('.'):
                 raise ValueError('Cannot operate outside of setup dir ({})'.format(dir_test))
-        setattr(threadlocal, 'curdir', os.path.abspath(new_dir))
+        setattr(THREADLOCAL, 'curdir', os.path.abspath(new_dir))
 
     def _fake_getcwd():
-        return getattr(threadlocal, 'curdir')
+        return getattr(THREADLOCAL, 'curdir')
 
     def _fake_abspath(path):
         """Return the absolute version of a path."""
         if not os.path.isabs(path):
-            if six.PY2 and isinstance(path, unicode):
-                cwd = os.getcwdu()
+            if six.PY2 and isinstance(path, unicode):  # pylint: disable=undefined-variable
+                cwd = os.getcwdu()  # pylint: disable=no-member
             else:
                 cwd = os.getcwd()
-            path = os.path.join(cwd, path)
+            path = cwd + '/' + path
         return path
 
     with patch(
@@ -654,6 +654,9 @@ def _parse_setup_py(name, setup_file, extractor):  # pylint: disable=too-many-lo
 
     fake_stdin = StringIO()
 
+    def _fake_find_packages(*args, **kwargs):
+        return []
+
     with patch(
             sys, 'stderr', StringIO(),
             sys, 'stdout', StringIO(),
@@ -681,6 +684,7 @@ def _parse_setup_py(name, setup_file, extractor):  # pylint: disable=too-many-lo
             setuptools, 'setup', setup_with_results,
             distutils.core, 'setup', setup_with_results,
             fileinput, 'input', _fake_file_input,
+            setuptools, 'find_packages', _fake_find_packages,
             sys, 'argv', ['setup.py', 'egg_info']):
 
         try:
