@@ -114,7 +114,7 @@ def _fetch_from_source(source_file, extractor_type, run_setup_py=True):
     if source_file in FAILED_BUILDS:
         raise MetadataError(name, version, Exception('Build has already failed before'))
 
-    extractor = extractor_type(source_file, source_file)
+    extractor = extractor_type(source_file)
     with closing(extractor):
         if run_setup_py:
             LOG.info('Attempting to fetch metadata from setup.py')
@@ -148,77 +148,66 @@ def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disa
     """
     results = None
 
-    fake_setupdir = tempfile.mkdtemp(suffix='_{}_{}'.format(extractor.__class__.__name__, name))
-    LOG.debug('Setting root to %s', fake_setupdir)
-    extractor.fake_root = fake_setupdir
-    try:
-        setattr(threadlocal, 'curdir', fake_setupdir)
+    setattr(threadlocal, 'curdir', extractor.fake_root)
 
-        def _fake_chdir(new_dir):
-            if os.path.isabs(new_dir):
-                dir_test = os.path.relpath(new_dir, fake_setupdir)
-                if dir_test != '.' and dir_test.startswith('.'):
-                    raise ValueError('Cannot operate outside of setup dir ({})'.format(dir_test))
-            try:
-                os.mkdir(new_dir)
-            except OSError:
-                pass
-            setattr(threadlocal, 'curdir', os.path.abspath(new_dir))
+    def _fake_chdir(new_dir):
+        if os.path.isabs(new_dir):
+            dir_test = os.path.relpath(new_dir, extractor.fake_root)
+            if dir_test != '.' and dir_test.startswith('.'):
+                raise ValueError('Cannot operate outside of setup dir ({})'.format(dir_test))
+        setattr(threadlocal, 'curdir', os.path.abspath(new_dir))
 
-        def _fake_getcwd():
-            return getattr(threadlocal, 'curdir')
+    def _fake_getcwd():
+        return getattr(threadlocal, 'curdir')
 
-        def _fake_abspath(path):
-            """Return the absolute version of a path."""
-            if not os.path.isabs(path):
-                if six.PY2 and isinstance(path, unicode):
-                    cwd = os.getcwdu()
-                else:
-                    cwd = os.getcwd()
-                path = os.path.join(cwd, path)
-            return path
+    def _fake_abspath(path):
+        """Return the absolute version of a path."""
+        if not os.path.isabs(path):
+            if six.PY2 and isinstance(path, unicode):
+                cwd = os.getcwdu()
+            else:
+                cwd = os.getcwd()
+            path = os.path.join(cwd, path)
+        return path
 
-        with patch(
-                os, 'chdir', _fake_chdir,
-                os, 'getcwd', _fake_getcwd,
-                os, 'getcwdu', _fake_getcwd,
-                os.path, 'abspath', _fake_abspath,
-        ):
-            setup_file = find_in_archive(extractor, 'setup.py', max_depth=1)
+    with patch(
+            os, 'chdir', _fake_chdir,
+            os, 'getcwd', _fake_getcwd,
+            os, 'getcwdu', _fake_getcwd,
+            os.path, 'abspath', _fake_abspath,
+    ):
+        setup_file = find_in_archive(extractor, 'setup.py', max_depth=1)
 
-            if name == 'setuptools':
-                LOG.debug('Not running setup.py for setuptools')
-                return None
-
-            if setup_file is None:
-                LOG.warning('Could not find a setup.py in %s', os.path.basename(source_file))
-                return None
-
-            try:
-                LOG.info('Parsing setup.py %s', setup_file)
-                results = _parse_setup_py(name, fake_setupdir, setup_file, extractor)
-            except (Exception, RuntimeError, ImportError):  # pylint: disable=broad-except
-                LOG.warning('Failed to parse %s', name, exc_info=True)
-
-        if results is None:
-            results = _build_egg_info(name, extractor, setup_file)
-
-        if results is None or (results.name is None and results.version is None):
+        if name == 'setuptools':
+            LOG.debug('Not running setup.py for setuptools')
             return None
 
-        if results.name is None:
-            results.name = name
-        if results.version is None or (version and results.version != version):
-            results.version = version or utils.parse_version('0.0.0')
+        if setup_file is None:
+            LOG.warning('Could not find a setup.py in %s', os.path.basename(source_file))
+            return None
 
-        if (not isinstance(extractor, NonExtractor) and
-                utils.normalize_project_name(results.name) != utils.normalize_project_name(name)):
-            LOG.warning('Name coming from setup.py does not match: %s', results.name)
-            results.name = name
-        return results
-    finally:
-        if fake_setupdir != source_file:
-            shutil.rmtree(fake_setupdir)
+        try:
+            LOG.info('Parsing setup.py %s', setup_file)
+            results = _parse_setup_py(name, setup_file, extractor)
+        except (Exception, RuntimeError, ImportError):  # pylint: disable=broad-except
+            LOG.warning('Failed to parse %s', name, exc_info=True)
+
+    if results is None:
+        results = _build_egg_info(name, extractor, setup_file)
+
+    if results is None or (results.name is None and results.version is None):
+        return None
+
+    if results.name is None:
+        results.name = name
+    if results.version is None or (version and results.version != version):
+        results.version = version or utils.parse_version('0.0.0')
+
+    if (not isinstance(extractor, NonExtractor) and
+            utils.normalize_project_name(results.name) != utils.normalize_project_name(name)):
+        LOG.warning('Name coming from setup.py does not match: %s', results.name)
+        results.name = name
+    return results
 
 
 def _run_with_output(cmd, cwd=None, timeout=30.0):
@@ -519,7 +508,7 @@ def import_contents(modname, filename, contents):
     return module
 
 
-def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disable=too-many-locals,too-many-statements
+def _parse_setup_py(name, setup_file, extractor):  # pylint: disable=too-many-locals,too-many-statements
     # pylint: disable=bad-option-value,no-name-in-module,no-member,import-outside-toplevel,too-many-branches
     # Capture warnings.warn, which is sometimes used in setup.py files
 
@@ -531,7 +520,7 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
     import os.path  # pylint: disable=redefined-outer-name,reimported
 
     # Make sure __file__ contains only os.sep separators
-    spy_globals = {'__file__': os.path.join(fake_setupdir, setup_file).replace('/', os.sep),
+    spy_globals = {'__file__': os.path.join(extractor.fake_root, setup_file).replace('/', os.sep),
                    '__name__': '__main__',
                    'setup': setup_with_results}
 
@@ -730,7 +719,11 @@ def _parse_setup_py(name, fake_setupdir, setup_file, extractor):  # pylint: disa
                     del sys.modules[module_name]
                 elif hasattr(module, '__file__') and module.__file__:
                     module_file = module.__file__
-                    if (not module_file.startswith(sys.real_prefix)
+                    if six.PY2:
+                        sys_prefix = sys.real_prefix
+                    else:
+                        sys_prefix = sys.base_prefix
+                    if (not module_file.startswith(sys_prefix)
                             and not module_file.startswith(sys.prefix)
                             and extractor.contains_path(module.__file__)):
                         del sys.modules[module_name]

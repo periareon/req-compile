@@ -32,8 +32,7 @@ class SourceRepository(Repository):
             self.logger.debug('Processing %s (cwd = %s)', source_dir, os.getcwd())
             return req_compile.metadata.extract_metadata(source_dir, origin=self)
         except req_compile.metadata.errors.MetadataError as ex:
-            self.logger.error('Failed to parse metadata for {} - {}'.format(source_dir, str(ex)),
-                              file=sys.stderr)
+            self.logger.error('Failed to parse metadata for %s - %s', source_dir, str(ex))
             return None
 
     def _find_all_distributions(self, excluded_paths):

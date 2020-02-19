@@ -16,9 +16,9 @@ class Extractor(object):
     """Abstract base class for file extractors. These classes operate on archive files or directories in order
     to expose files to metadata analysis and executing setup.pys.
     """
-    def __init__(self, extractor_type, fake_root):
+    def __init__(self, extractor_type, file_or_path):
         self.logger = LOG.getChild(extractor_type)
-        self.fake_root = fake_root
+        self.fake_root = os.path.abspath(os.sep + os.path.basename(file_or_path))
         self.io_open = io.open
         self.renames = {}
 
@@ -73,7 +73,7 @@ class Extractor(object):
         Returns:
             (str) The path to use to open the file or check existence
         """
-        if isinstance(filename, int) or self.fake_root is None:
+        if isinstance(filename, int):
             return filename
 
         if filename.replace('\\', '/').startswith('./'):
@@ -107,8 +107,8 @@ class Extractor(object):
 
 class NonExtractor(Extractor):
     """An extractor that operates on the filesystem directory instead of an archive"""
-    def __init__(self, path, root):
-        super(NonExtractor, self).__init__('fs', root)
+    def __init__(self, path):
+        super(NonExtractor, self).__init__('fs', path)
         self.path = path
         self.os_path_exists = os.path.exists
 
@@ -146,8 +146,8 @@ class NonExtractor(Extractor):
 
 class TarExtractor(Extractor):
     """An extractor for tar files. Accepts an additional first parameter for the decoding codec"""
-    def __init__(self, ext, filename, root):
-        super(TarExtractor, self).__init__('tar', root)
+    def __init__(self, ext, filename):
+        super(TarExtractor, self).__init__('tar', filename)
         self.tar = tarfile.open(filename, 'r:' + ext)
         self.io_open = io.open
 
@@ -182,8 +182,8 @@ class TarExtractor(Extractor):
 
 class ZipExtractor(Extractor):
     """An extractor for zip files"""
-    def __init__(self, filename, root):
-        super(ZipExtractor, self).__init__('gz', root)
+    def __init__(self, filename):
+        super(ZipExtractor, self).__init__('gz', filename)
         self.zfile = zipfile.ZipFile(os.path.abspath(filename), 'r')
         self.io_open = io.open
 
