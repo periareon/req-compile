@@ -354,7 +354,7 @@ def setup(results, *_args, **kwargs):  # pylint: disable=too-many-branches,too-m
     extra_reqs = kwargs.get('extras_require', {})
 
     if version is not None:
-        version = pkg_resources.parse_version(str(version))
+        version = utils.parse_version(str(version))
 
     if isinstance(reqs, str):
         reqs = [reqs]
