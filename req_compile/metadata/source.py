@@ -162,6 +162,8 @@ def _fetch_from_setup_py(
 
     setattr(THREADLOCAL, "curdir", extractor.fake_root)
 
+    orig_abspath = os.path.abspath
+
     def _fake_chdir(new_dir):
         if os.path.isabs(new_dir):
             dir_test = os.path.relpath(new_dir, extractor.fake_root)
@@ -169,7 +171,7 @@ def _fetch_from_setup_py(
                 raise ValueError(
                     "Cannot operate outside of setup dir ({})".format(dir_test)
                 )
-        setattr(THREADLOCAL, "curdir", os.path.abspath(new_dir))
+        setattr(THREADLOCAL, "curdir", orig_abspath(new_dir))
 
     def _fake_getcwd():
         return getattr(THREADLOCAL, "curdir")
@@ -186,20 +188,15 @@ def _fetch_from_setup_py(
             path = cwd + "/" + path
         return path
 
-    with patch(
-        os,
-        "chdir",
-        _fake_chdir,
-        os,
-        "getcwd",
-        _fake_getcwd,
-        os,
-        "getcwdu",
-        _fake_getcwd,
-        os.path,
-        "abspath",
-        _fake_abspath,
-    ):
+    # fmt: off
+    patches = patch(
+            os, 'chdir', _fake_chdir,
+            os, 'getcwd', _fake_getcwd,
+            os, 'getcwdu', _fake_getcwd,
+            os.path, 'abspath', _fake_abspath,
+    )
+    # fmt: on
+    with patches:
         setup_file = find_in_archive(extractor, "setup.py", max_depth=1)
 
         if name == "setuptools":
@@ -758,93 +755,38 @@ def _parse_setup_py(
     def _fake_find_packages(*args, **kwargs):
         return []
 
-    with patch(
-        sys,
-        "stderr",
-        StringIO(),
-        sys,
-        "stdout",
-        StringIO(),
-        sys,
-        "stdin",
-        fake_stdin,
-        os,
-        "_exit",
-        sys.exit,
-        os,
-        "symlink",
-        lambda *_: None,
-        "builtins",
-        "open",
-        extractor.open,
-        "__builtin__",
-        "open",
-        extractor.open,
-        "__builtin__",
-        "execfile",
-        _fake_execfile,
-        subprocess,
-        "check_call",
-        os_error_call,
-        subprocess,
-        "check_output",
-        os_error_call,
-        subprocess,
-        "Popen",
-        FakePopen,
-        multiprocessing,
-        "Pool",
-        os_error_call,
-        multiprocessing,
-        "Process",
-        os_error_call,
-        "urllib.request",
-        "urlretrieve",
-        io_error_call,
-        requests,
-        "Session",
-        io_error_call,
-        requests,
-        "get",
-        io_error_call,
-        requests,
-        "post",
-        io_error_call,
-        os,
-        "listdir",
-        lambda path: [],
-        os.path,
-        "exists",
-        _fake_exists,
-        os.path,
-        "isfile",
-        _fake_exists,
-        os,
-        "rename",
-        _fake_rename,
-        io,
-        "open",
-        extractor.open,
-        codecs,
-        "open",
-        extractor.open,
-        setuptools,
-        "setup",
-        setup_with_results,
-        distutils.core,
-        "setup",
-        setup_with_results,
-        fileinput,
-        "input",
-        _fake_file_input,
-        setuptools,
-        "find_packages",
-        _fake_find_packages,
-        sys,
-        "argv",
-        ["setup.py", "egg_info"],
-    ):
-
+    # fmt: off
+    patches = patch(
+            sys, 'stderr', StringIO(),
+            sys, 'stdout', StringIO(),
+            sys, 'stdin', fake_stdin,
+            os, '_exit', sys.exit,
+            os, 'symlink', lambda *_: None,
+            'builtins', 'open', extractor.open,
+            '__builtin__', 'open', extractor.open,
+            '__builtin__', 'execfile', _fake_execfile,
+            subprocess, 'check_call', os_error_call,
+            subprocess, 'check_output', os_error_call,
+            subprocess, 'Popen', FakePopen,
+            multiprocessing, 'Pool', os_error_call,
+            multiprocessing, 'Process', os_error_call,
+            'urllib.request', 'urlretrieve', io_error_call,
+            requests, 'Session', io_error_call,
+            requests, 'get', io_error_call,
+            requests, 'post', io_error_call,
+            os, 'listdir', lambda path: [],
+            os.path, 'exists', _fake_exists,
+            os.path, 'isfile', _fake_exists,
+            os, 'rename', _fake_rename,
+            io, 'open', extractor.open,
+            codecs, 'open', extractor.open,
+            setuptools, 'setup', setup_with_results,
+            distutils.core, 'setup', setup_with_results,
+            fileinput, 'input', _fake_file_input,
+            setuptools, 'find_packages', _fake_find_packages,
+            sys, 'argv', ['setup.py', 'egg_info'])
+    # fmt: on
+    with patches:
         try:
             sys.path.insert(0, abs_setupdir)
             if setup_dir:
