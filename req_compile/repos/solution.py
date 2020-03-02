@@ -18,42 +18,46 @@ def _candidate_from_node(node):
         node.metadata,
         node.metadata.version,
         None,
-        'any',
+        "any",
         None,
-        DistributionType.SOURCE)
+        DistributionType.SOURCE,
+    )
     candidate.preparsed = node.metadata
     return candidate
 
 
 class SolutionRepository(Repository):
     def __init__(self, filename, excluded_packages=None):
-        super(SolutionRepository, self).__init__('solution', allow_prerelease=True)
+        super(SolutionRepository, self).__init__("solution", allow_prerelease=True)
         self.filename = os.path.abspath(filename)
         self.excluded_packages = excluded_packages or []
         if excluded_packages:
-            self.excluded_packages = [req_compile.utils.normalize_project_name(pkg)
-                                      for pkg in excluded_packages]
-        if os.path.exists(filename) or filename == '-':
+            self.excluded_packages = [
+                req_compile.utils.normalize_project_name(pkg)
+                for pkg in excluded_packages
+            ]
+        if os.path.exists(filename) or filename == "-":
             self.solution = load_from_file(self.filename, origin=self)
         else:
-            print('Solution file {} not found'.format(filename), file=sys.stderr)
+            print("Solution file {} not found".format(filename), file=sys.stderr)
             self.solution = {}
 
     def __repr__(self):
-        return '--solution {}'.format(self.filename)
+        return "--solution {}".format(self.filename)
 
     def __eq__(self, other):
-        return (isinstance(other, SolutionRepository) and
-                super(SolutionRepository, self).__eq__(other) and
-                self.filename == other.filename)
+        return (
+            isinstance(other, SolutionRepository)
+            and super(SolutionRepository, self).__eq__(other)
+            and self.filename == other.filename
+        )
 
     def __hash__(self):
-        return hash('solution') ^ hash(self.filename)
+        return hash("solution") ^ hash(self.filename)
 
     def get_candidates(self, req):
         if req is None:
-            return [_candidate_from_node(node)
-                    for node in self.solution]
+            return [_candidate_from_node(node) for node in self.solution]
 
         if req_compile.utils.normalize_project_name(req.name) in self.excluded_packages:
             return []
@@ -73,7 +77,7 @@ class SolutionRepository(Repository):
 
 
 def _parse_line(result, line, meta_file, origin):
-    req_part, _, source_part = line.partition('#')
+    req_part, _, source_part = line.partition("#")
     req_part = req_part.strip()
     if not req_part:
         return
@@ -84,21 +88,27 @@ def _parse_line(result, line, meta_file, origin):
     if not source_part:
         raise RepositoryInitializationError(
             SolutionRepository,
-            'Solution file {} is not fully annotated and cannot be used. Consider'
-            ' compiling the solution against a remote index to add annotations.'.format(
+            "Solution file {} is not fully annotated and cannot be used. Consider"
+            " compiling the solution against a remote index to add annotations.".format(
                 meta_file
-            ))
+            ),
+        )
 
-    if source_part[0] == '[':
-        _, _, source_part = source_part.partition('] ')
-    sources = source_part.split(', ')
+    if source_part[0] == "[":
+        _, _, source_part = source_part.partition("] ")
+    sources = source_part.split(", ")
 
     _add_sources(req, sources, result, origin)
 
 
 def _add_sources(req, sources, result, origin):
-    pkg_names = imap(lambda x: x.split(' ')[0], sources)
-    constraints = imap(lambda x: x.split(' ')[1].replace('(', '').replace(')', '') if '(' in x else None, sources)
+    pkg_names = imap(lambda x: x.split(" ")[0], sources)
+    constraints = imap(
+        lambda x: x.split(" ")[1].replace("(", "").replace(")", "")
+        if "(" in x
+        else None,
+        sources,
+    )
     version = req_compile.utils.parse_version(list(req.specifier)[0].version)
 
     metadata = None
@@ -111,13 +121,21 @@ def _add_sources(req, sources, result, origin):
     metadata.origin = origin
     result.add_dist(metadata, None, req)
     for name, constraint in zip(pkg_names, constraints):
-        if name and not (name.endswith('.txt') or name.endswith('.out') or '\\' in name or '/' in name):
+        if name and not (
+            name.endswith(".txt")
+            or name.endswith(".out")
+            or "\\" in name
+            or "/" in name
+        ):
             constraint_req = req_compile.utils.parse_requirement(name)
             result.add_dist(constraint_req.name, None, constraint_req)
             reverse_dep = result[name]
             if reverse_dep.metadata is None:
-                inner_meta = req_compile.dists.DistInfo(constraint_req.name,
-                                                        req_compile.utils.parse_version('0+missing'), [])
+                inner_meta = req_compile.dists.DistInfo(
+                    constraint_req.name,
+                    req_compile.utils.parse_version("0+missing"),
+                    [],
+                )
                 inner_meta.origin = ReferenceSourceRepository(inner_meta)
                 reverse_dep.metadata = inner_meta
         else:
@@ -129,22 +147,25 @@ def _add_sources(req, sources, result, origin):
 
 
 def _create_metadata_req(req, metadata, name, constraints):
-    marker = ''
-    if '[' in name:
+    marker = ""
+    if "[" in name:
         extra = req_compile.utils.parse_requirement(name).extras[0]
         marker = ' ; extra == "{}"'.format(extra)
 
-    return req_compile.utils.parse_requirement('{}{}{}{}'.format(
-        metadata.name,
-        ('[' + ','.join(
-            req.extras) + ']') if req.extras else '',
-        constraints if constraints else '', marker))
+    return req_compile.utils.parse_requirement(
+        "{}{}{}{}".format(
+            metadata.name,
+            ("[" + ",".join(req.extras) + "]") if req.extras else "",
+            constraints if constraints else "",
+            marker,
+        )
+    )
 
 
 def load_from_file(filename, origin=None):
     result = req_compile.dists.DistributionCollection()
 
-    if filename == '-':
+    if filename == "-":
         reqfile = sys.stdin
     else:
         reqfile = open(filename)

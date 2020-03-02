@@ -8,27 +8,35 @@ import req_compile.metadata
 
 class FindLinksRepository(Repository):
     def __init__(self, path, allow_prerelease=None):
-        super(FindLinksRepository, self).__init__('findlinks', allow_prerelease=allow_prerelease)
+        super(FindLinksRepository, self).__init__(
+            "findlinks", allow_prerelease=allow_prerelease
+        )
         self.path = path
         self.links = []
         self._find_all_links()
 
     def __repr__(self):
-        return '--find-links {}'.format(self.path)
+        return "--find-links {}".format(self.path)
 
     def __eq__(self, other):
-        return (isinstance(other, FindLinksRepository) and
-                super(FindLinksRepository, self).__eq__(other) and
-                self.path == other.path)
+        return (
+            isinstance(other, FindLinksRepository)
+            and super(FindLinksRepository, self).__eq__(other)
+            and self.path == other.path
+        )
 
     def __hash__(self):
-        return hash('findlinks') ^ hash(self.path)
+        return hash("findlinks") ^ hash(self.path)
 
     def _find_all_links(self):
         if not os.path.exists(self.path):
-            raise RepositoryInitializationError(FindLinksRepository, 'Directory {} not found.'.format(self.path))
+            raise RepositoryInitializationError(
+                FindLinksRepository, "Directory {} not found.".format(self.path)
+            )
         for filename in os.listdir(self.path):
-            candidate = req_compile.repos.repository.process_distribution(None, filename)
+            candidate = req_compile.repos.repository.process_distribution(
+                None, filename
+            )
             if candidate is not None:
                 self.links.append(candidate)
 
@@ -38,7 +46,10 @@ class FindLinksRepository(Repository):
             project_name = utils.normalize_project_name(req.name)
         results = []
         for candidate in self.links:
-            if req is None or utils.normalize_project_name(candidate.name) == project_name:
+            if (
+                req is None
+                or utils.normalize_project_name(candidate.name) == project_name
+            ):
                 results.append(candidate)
 
         return results

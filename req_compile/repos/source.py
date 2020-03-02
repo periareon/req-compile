@@ -12,28 +12,48 @@ import req_compile.repos.repository
 
 from req_compile.repos.repository import Repository
 
-SPECIAL_DIRS = ('site-packages', 'dist-packages', '.git', '.svn', '.idea', '__pycache__',
-                'node_modules', 'venv', '.eggs', 'build', 'dist')
-SPECIAL_FILES = ('__init__.py',)
+SPECIAL_DIRS = (
+    "site-packages",
+    "dist-packages",
+    ".git",
+    ".svn",
+    ".idea",
+    "__pycache__",
+    "node_modules",
+    "venv",
+    ".eggs",
+    "build",
+    "dist",
+)
+SPECIAL_FILES = ("__init__.py",)
 
 
 class SourceRepository(Repository):
     def __init__(self, path, excluded_paths=None):
-        super(SourceRepository, self).__init__('source', allow_prerelease=True)
+        super(SourceRepository, self).__init__("source", allow_prerelease=True)
 
         if not os.path.exists(path):
-            raise ValueError('Source directory {} does not exist (cwd={})'.format(path, os.getcwd()))
+            raise ValueError(
+                "Source directory {} does not exist (cwd={})".format(path, os.getcwd())
+            )
 
         self.path = os.path.abspath(path)
         self.distributions = collections.defaultdict(list)
-        self._find_all_distributions([os.path.abspath(path) for path in (excluded_paths or [])])
+        self._find_all_distributions(
+            [os.path.abspath(path) for path in (excluded_paths or [])]
+        )
 
     def _extract_metadata(self, source_dir):
         try:
-            self.logger.debug('Processing %s (cwd = %s)', source_dir, os.getcwd())
-            return source_dir, req_compile.metadata.extract_metadata(source_dir, origin=self)
+            self.logger.debug("Processing %s (cwd = %s)", source_dir, os.getcwd())
+            return (
+                source_dir,
+                req_compile.metadata.extract_metadata(source_dir, origin=self),
+            )
         except req_compile.metadata.errors.MetadataError as ex:
-            self.logger.error('Failed to parse metadata for %s - %s', source_dir, str(ex))
+            self.logger.error(
+                "Failed to parse metadata for %s - %s", source_dir, str(ex)
+            )
             return source_dir, None
 
     def _find_all_distributions(self, excluded_paths):
@@ -47,44 +67,59 @@ class SourceRepository(Repository):
                     source_dir,
                     result.version,
                     None,
-                    'any',
+                    "any",
                     None,
-                    req_compile.repos.repository.DistributionType.SOURCE)
+                    req_compile.repos.repository.DistributionType.SOURCE,
+                )
                 candidate.preparsed = result
-                self.distributions[utils.normalize_project_name(result.name)].append(candidate)
+                self.distributions[utils.normalize_project_name(result.name)].append(
+                    candidate
+                )
 
     def _find_all_source_dirs(self, excluded_paths):
         for root, dirs, files in os.walk(self.path):
             for dir_ in list(dirs):
-                if dir_ in SPECIAL_DIRS or dir_.endswith('.egg-info') or dir_.endswith('.dist-info'):
+                if (
+                    dir_ in SPECIAL_DIRS
+                    or dir_.endswith(".egg-info")
+                    or dir_.endswith(".dist-info")
+                ):
                     dirs.remove(dir_)
                 else:
                     for excluded_path in excluded_paths:
                         if os.path.join(root, dir_).startswith(excluded_path):
                             dirs.remove(dir_)
+                            break
 
             for filename in files:
                 if filename in SPECIAL_FILES:
                     dirs[:] = []
                     break
 
-                if filename in ('setup.py', 'pyproject.toml'):
+                if filename in ("setup.py", "pyproject.toml"):
                     # Remove test directories from search
                     for dir_ in list(dirs):
-                        if dir_ == 'tests' or dir_ == 'test' or dir_.endswith('-tests') or dir_.endswith('-test'):
+                        if (
+                            dir_ == "tests"
+                            or dir_ == "test"
+                            or dir_.endswith("-tests")
+                            or dir_.endswith("-test")
+                        ):
                             dirs.remove(dir_)
                     yield root
 
     def __repr__(self):
-        return '--source {}'.format(self.path)
+        return "--source {}".format(self.path)
 
     def __eq__(self, other):
-        return (isinstance(other, SourceRepository) and
-                super(SourceRepository, self).__eq__(other) and
-                self.path == other.path)
+        return (
+            isinstance(other, SourceRepository)
+            and super(SourceRepository, self).__eq__(other)
+            and self.path == other.path
+        )
 
     def __hash__(self):
-        return hash('source') ^ hash(self.path)
+        return hash("source") ^ hash(self.path)
 
     def get_candidates(self, req):
         if req is None:
@@ -102,8 +137,9 @@ class SourceRepository(Repository):
 
 class ReferenceSourceRepository(SourceRepository):
     """Represents a source that shows up in solution files but may not itself be present"""
+
     def __init__(self, dist):
         # Skip the SourceRepository super call
         # pylint: disable=bad-super-call
-        super(SourceRepository, self).__init__('ref-source', allow_prerelease=True)
+        super(SourceRepository, self).__init__("ref-source", allow_prerelease=True)
         self.distributions = {dist.name: dist}

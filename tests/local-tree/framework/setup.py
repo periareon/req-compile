@@ -1,6 +1,5 @@
 from setuptools import setup
 
 setup(
-  name='framework',
-  version='1.0.1',
+    name="framework", version="1.0.1",
 )

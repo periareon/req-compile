@@ -8,7 +8,7 @@ from req_compile import utils
 from req_compile.dists import DistInfo
 
 
-LOG = logging.getLogger('req_compile.metadata.dist_info')
+LOG = logging.getLogger("req_compile.metadata.dist_info")
 
 
 def _find_dist_info_metadata(project_name, namelist):
@@ -22,10 +22,15 @@ def _find_dist_info_metadata(project_name, namelist):
     Returns:
         (str) The best zip path that matches this project
     """
-    for best_match in (r'^(.+/)?{}-.+\.dist-info/METADATA$'.format(project_name), r'^.*\.dist-info/METADATA'):
+    for best_match in (
+        r"^(.+/)?{}-.+\.dist-info/METADATA$".format(project_name),
+        r"^.*\.dist-info/METADATA",
+    ):
         for info in namelist:
             if re.match(best_match, info):
-                LOG.debug('Found dist-info in the zip: %s (with regex %s)', info, best_match)
+                LOG.debug(
+                    "Found dist-info in the zip: %s (with regex %s)", info, best_match
+                )
                 return info
 
     return None
@@ -40,17 +45,17 @@ def _fetch_from_wheel(wheel):
     Returns:
         (DistInfo, None) The metadata for this zip, or None if it could not be found or parsed
     """
-    project_name = os.path.basename(wheel).split('-')[0]
+    project_name = os.path.basename(wheel).split("-")[0]
 
-    zfile = zipfile.ZipFile(wheel, 'r')
+    zfile = zipfile.ZipFile(wheel, "r")
     with closing(zfile):
         # Reverse since metadata details are supposed to be written at the end of the zip
         infos = list(reversed(zfile.namelist()))
         result = _find_dist_info_metadata(project_name, infos)
         if result is not None:
-            return _parse_flat_metadata(zfile.read(result).decode('utf-8', 'ignore'))
+            return _parse_flat_metadata(zfile.read(result).decode("utf-8", "ignore"))
 
-        LOG.warning('Could not find .dist-info/METADATA in the zip archive')
+        LOG.warning("Could not find .dist-info/METADATA in the zip archive")
         return None
 
 
@@ -59,13 +64,13 @@ def _parse_flat_metadata(contents):
     version = None
     raw_reqs = []
 
-    for line in contents.split('\n'):
+    for line in contents.split("\n"):
         lower_line = line.lower()
-        if name is None and lower_line.startswith('name:'):
-            name = line.split(':')[1].strip()
-        elif version is None and lower_line.startswith('version:'):
-            version = utils.parse_version(line.split(':')[1].strip())
-        elif lower_line.startswith('requires-dist:'):
-            raw_reqs.append(line.partition(':')[2].strip())
+        if name is None and lower_line.startswith("name:"):
+            name = line.split(":")[1].strip()
+        elif version is None and lower_line.startswith("version:"):
+            version = utils.parse_version(line.split(":")[1].strip())
+        elif lower_line.startswith("requires-dist:"):
+            raw_reqs.append(line.partition(":")[2].strip())
 
     return DistInfo(name, version, list(utils.parse_requirements(raw_reqs)))

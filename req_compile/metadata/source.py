@@ -31,10 +31,10 @@ from .dist_info import _fetch_from_wheel
 from .extractor import NonExtractor
 from .errors import MetadataError
 
-LOG = logging.getLogger('req_compile.metadata.source')
+LOG = logging.getLogger("req_compile.metadata.source")
 
-WHEEL_TIMEOUT = float(os.getenv('REQ_COMPILE_WHEEL_TIMEOUT', '30.0'))
-EGG_INFO_TIMEOUT = float(os.getenv('REQ_COMPILE_EGG_INFO_TIMEOUT', '15.0'))
+WHEEL_TIMEOUT = float(os.getenv("REQ_COMPILE_WHEEL_TIMEOUT", "30.0"))
+EGG_INFO_TIMEOUT = float(os.getenv("REQ_COMPILE_EGG_INFO_TIMEOUT", "15.0"))
 
 FAILED_BUILDS = set()
 
@@ -42,23 +42,27 @@ THREADLOCAL = threading.local()
 
 
 def parse_source_filename(full_filename):
-    filename = full_filename.replace('_', '-')
-    filename = filename.replace('.tar.gz', '')
-    filename = filename.replace('.tar.bz2', '')
-    filename = filename.replace('.zip', '')
-    filename = filename.replace('.tgz', '')
+    filename = full_filename.replace("_", "-")
+    filename = filename.replace(".tar.gz", "")
+    filename = filename.replace(".tar.bz2", "")
+    filename = filename.replace(".zip", "")
+    filename = filename.replace(".tgz", "")
 
-    dash_parts = filename.split('-')
+    dash_parts = filename.split("-")
     version_start = None
     for idx, part in enumerate(dash_parts):
         if not part:
             continue
         # pylint: disable=too-many-boolean-expressions
-        if (idx != 0 and idx >= len(dash_parts) - 3) and \
-                (part[0].isdigit() or
-                 (len(part) > 1 and part[0].lower() == 'v' and part[1].isdigit())):
-            if (idx == len(dash_parts) - 2 and '.' in dash_parts[idx + 1] and
-                    ('.' not in part or re.sub(r'[\d.]+', '', part))):
+        if (idx != 0 and idx >= len(dash_parts) - 3) and (
+            part[0].isdigit()
+            or (len(part) > 1 and part[0].lower() == "v" and part[1].isdigit())
+        ):
+            if (
+                idx == len(dash_parts) - 2
+                and "." in dash_parts[idx + 1]
+                and ("." not in part or re.sub(r"[\d.]+", "", part))
+            ):
                 continue
             version_start = idx
             break
@@ -67,20 +71,22 @@ def parse_source_filename(full_filename):
         return os.path.basename(filename), None
 
     if version_start == 0:
-        raise ValueError('Package name missing: {}'.format(full_filename))
+        raise ValueError("Package name missing: {}".format(full_filename))
 
-    pkg_name = '-'.join(dash_parts[:version_start])
+    pkg_name = "-".join(dash_parts[:version_start])
 
-    version_str = '-'.join(dash_parts[version_start:]).replace('_', '-')
-    version_parts = version_str.split('.')
+    version_str = "-".join(dash_parts[version_start:]).replace("_", "-")
+    version_parts = version_str.split(".")
     for idx, part in enumerate(version_parts):
-        if idx != 0 and (part.startswith('linux') or
-                         part.startswith('windows') or
-                         part.startswith('macos')):
+        if idx != 0 and (
+            part.startswith("linux")
+            or part.startswith("windows")
+            or part.startswith("macos")
+        ):
             version_parts = version_parts[:idx]
             break
 
-    version = utils.parse_version('.'.join(version_parts))
+    version = utils.parse_version(".".join(version_parts))
     return pkg_name, version
 
 
@@ -89,8 +95,10 @@ def find_in_archive(extractor, filename, max_depth=None):
         return filename
 
     for info_name in extractor.names():
-        if info_name.lower().endswith(filename) and (max_depth is None or info_name.count('/') <= max_depth):
-            if '/' not in filename and info_name.lower().rsplit('/')[-1] != filename:
+        if info_name.lower().endswith(filename) and (
+            max_depth is None or info_name.count("/") <= max_depth
+        ):
+            if "/" not in filename and info_name.lower().rsplit("/")[-1] != filename:
                 continue
             return info_name
     return None
@@ -107,29 +115,33 @@ def _fetch_from_source(source_file, extractor_type, run_setup_py=True):
 
     """
     if not os.path.exists(source_file):
-        raise ValueError('Source file/path {} does not exist'.format(source_file))
+        raise ValueError("Source file/path {} does not exist".format(source_file))
 
     name, version = parse_source_filename(os.path.basename(source_file))
 
     if source_file in FAILED_BUILDS:
-        raise MetadataError(name, version, Exception('Build has already failed before'))
+        raise MetadataError(name, version, Exception("Build has already failed before"))
 
     extractor = extractor_type(source_file)
     with closing(extractor):
         if run_setup_py:
-            LOG.info('Attempting to fetch metadata from setup.py')
+            LOG.info("Attempting to fetch metadata from setup.py")
             results = _fetch_from_setup_py(source_file, name, version, extractor)
             if results is not None:
                 return results
         else:
             extractor.fake_root = None
 
-        LOG.warning('No metadata source could be found for the source dist %s', source_file)
+        LOG.warning(
+            "No metadata source could be found for the source dist %s", source_file
+        )
         FAILED_BUILDS.add(source_file)
-        raise MetadataError(name, version, Exception('Invalid project distribution'))
+        raise MetadataError(name, version, Exception("Invalid project distribution"))
 
 
-def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disable=too-many-branches
+def _fetch_from_setup_py(
+    source_file, name, version, extractor
+):  # pylint: disable=too-many-branches
     """Attempt a set of executions to obtain metadata from the setup.py without having to build
     a wheel.  First attempt without mocking __import__ at all. This means that projects
     which import a package inside of themselves will not succeed, but all other simple
@@ -148,49 +160,63 @@ def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disa
     """
     results = None
 
-    setattr(THREADLOCAL, 'curdir', extractor.fake_root)
+    setattr(THREADLOCAL, "curdir", extractor.fake_root)
 
     def _fake_chdir(new_dir):
         if os.path.isabs(new_dir):
             dir_test = os.path.relpath(new_dir, extractor.fake_root)
-            if dir_test != '.' and dir_test.startswith('.'):
-                raise ValueError('Cannot operate outside of setup dir ({})'.format(dir_test))
-        setattr(THREADLOCAL, 'curdir', os.path.abspath(new_dir))
+            if dir_test != "." and dir_test.startswith("."):
+                raise ValueError(
+                    "Cannot operate outside of setup dir ({})".format(dir_test)
+                )
+        setattr(THREADLOCAL, "curdir", os.path.abspath(new_dir))
 
     def _fake_getcwd():
-        return getattr(THREADLOCAL, 'curdir')
+        return getattr(THREADLOCAL, "curdir")
 
     def _fake_abspath(path):
         """Return the absolute version of a path."""
         if not os.path.isabs(path):
-            if six.PY2 and isinstance(path, unicode):  # pylint: disable=undefined-variable
+            if six.PY2 and isinstance(
+                path, unicode  # pylint: disable=undefined-variable
+            ):
                 cwd = os.getcwdu()  # pylint: disable=no-member
             else:
                 cwd = os.getcwd()
-            path = cwd + '/' + path
+            path = cwd + "/" + path
         return path
 
     with patch(
-            os, 'chdir', _fake_chdir,
-            os, 'getcwd', _fake_getcwd,
-            os, 'getcwdu', _fake_getcwd,
-            os.path, 'abspath', _fake_abspath,
+        os,
+        "chdir",
+        _fake_chdir,
+        os,
+        "getcwd",
+        _fake_getcwd,
+        os,
+        "getcwdu",
+        _fake_getcwd,
+        os.path,
+        "abspath",
+        _fake_abspath,
     ):
-        setup_file = find_in_archive(extractor, 'setup.py', max_depth=1)
+        setup_file = find_in_archive(extractor, "setup.py", max_depth=1)
 
-        if name == 'setuptools':
-            LOG.debug('Not running setup.py for setuptools')
+        if name == "setuptools":
+            LOG.debug("Not running setup.py for setuptools")
             return None
 
         if setup_file is None:
-            LOG.warning('Could not find a setup.py in %s', os.path.basename(source_file))
+            LOG.warning(
+                "Could not find a setup.py in %s", os.path.basename(source_file)
+            )
             return None
 
         try:
-            LOG.info('Parsing setup.py %s', setup_file)
+            LOG.info("Parsing setup.py %s", setup_file)
             results = _parse_setup_py(name, setup_file, extractor)
         except (Exception, RuntimeError, ImportError):  # pylint: disable=broad-except
-            LOG.warning('Failed to parse %s', name, exc_info=True)
+            LOG.warning("Failed to parse %s", name, exc_info=True)
 
     if results is None:
         results = _build_egg_info(name, extractor, setup_file)
@@ -201,11 +227,12 @@ def _fetch_from_setup_py(source_file, name, version, extractor):  # pylint: disa
     if results.name is None:
         results.name = name
     if results.version is None or (version and results.version != version):
-        results.version = version or utils.parse_version('0.0.0')
+        results.version = version or utils.parse_version("0.0.0")
 
-    if (not isinstance(extractor, NonExtractor) and
-            utils.normalize_project_name(results.name) != utils.normalize_project_name(name)):
-        LOG.warning('Name coming from setup.py does not match: %s', results.name)
+    if not isinstance(extractor, NonExtractor) and utils.normalize_project_name(
+        results.name
+    ) != utils.normalize_project_name(name):
+        LOG.warning("Name coming from setup.py does not match: %s", results.name)
         results.name = name
     return results
 
@@ -226,11 +253,16 @@ def _run_with_output(cmd, cwd=None, timeout=30.0):
         subprocess.CalledProcessError when the returncode is non-zero or the call times out. If the
             call times out, the returncode will be set to -1
     """
-    proc = subprocess.Popen(cmd, cwd=cwd,
-                            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    proc = subprocess.Popen(
+        cmd,
+        cwd=cwd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
 
     def shoveler(output, input_file):
-        for line in iter(lambda: input_file.read(1024), b''):
+        for line in iter(lambda: input_file.read(1024), b""):
             output.write(line)
 
     stdout = BytesIO()
@@ -254,30 +286,42 @@ def _run_with_output(cmd, cwd=None, timeout=30.0):
         except EnvironmentError:
             pass
         output_shoveler.join()
-        ex.output = stdout.getvalue().decode('ascii', 'ignore')
+        ex.output = stdout.getvalue().decode("ascii", "ignore")
         raise ex
 
     output_shoveler.join()
-    return stdout.getvalue().decode('ascii', 'ignore')
+    return stdout.getvalue().decode("ascii", "ignore")
 
 
 def _build_wheel(name, source_file):
     """Build a wheel from a downloaded source file and extract metadata from the wheel"""
     results = None
-    LOG.info('Building wheel file for %s', source_file)
+    LOG.info("Building wheel file for %s", source_file)
 
     temp_wheeldir = tempfile.mkdtemp()
     try:
-        _run_with_output([
-            sys.executable,
-            '-m', 'pip', 'wheel',
-            source_file, '--no-deps', '--wheel-dir', temp_wheeldir
-        ], timeout=WHEEL_TIMEOUT)
+        _run_with_output(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "wheel",
+                source_file,
+                "--no-deps",
+                "--wheel-dir",
+                temp_wheeldir,
+            ],
+            timeout=WHEEL_TIMEOUT,
+        )
         wheel_file = os.path.join(temp_wheeldir, os.listdir(temp_wheeldir)[0])
         results = _fetch_from_wheel(wheel_file)
     except subprocess.CalledProcessError as ex:
-        LOG.warning('Failed to build wheel for %s:\nThe command "%s" produced:\n%s',
-                    name, subprocess.list2cmdline(ex.cmd), ex.output)
+        LOG.warning(
+            'Failed to build wheel for %s:\nThe command "%s" produced:\n%s',
+            name,
+            subprocess.list2cmdline(ex.cmd),
+            ex.output,
+        )
     finally:
         shutil.rmtree(temp_wheeldir)
     return results
@@ -301,26 +345,49 @@ def _build_egg_info(name, extractor, setup_file):
     extractor.extract(temp_tar)
 
     extracted_setup_py = os.path.join(temp_tar, setup_file)
-    LOG.info('Building egg info for %s', extracted_setup_py)
+    LOG.info("Building egg info for %s", extracted_setup_py)
     try:
         setup_dir = os.path.dirname(extracted_setup_py)
-        output = _run_with_output([
-            sys.executable, '-c', SETUPTOOLS_SHIM % extracted_setup_py, 'egg_info',
-            '--egg-base', setup_dir
-        ], cwd=setup_dir, timeout=EGG_INFO_TIMEOUT)
+        output = _run_with_output(
+            [
+                sys.executable,
+                "-c",
+                SETUPTOOLS_SHIM % extracted_setup_py,
+                "egg_info",
+                "--egg-base",
+                setup_dir,
+            ],
+            cwd=setup_dir,
+            timeout=EGG_INFO_TIMEOUT,
+        )
 
         try:
-            egg_info_dir = [egg_info for egg_info in os.listdir(setup_dir)
-                            if egg_info.endswith('.egg-info')][0]
-            metadata = pkg_resources.PathMetadata(setup_dir, os.path.join(setup_dir, egg_info_dir))
-            pkg_dist = PkgResourcesDistInfo(pkg_resources.Distribution(setup_dir, project_name=name, metadata=metadata))
+            egg_info_dir = [
+                egg_info
+                for egg_info in os.listdir(setup_dir)
+                if egg_info.endswith(".egg-info")
+            ][0]
+            metadata = pkg_resources.PathMetadata(
+                setup_dir, os.path.join(setup_dir, egg_info_dir)
+            )
+            pkg_dist = PkgResourcesDistInfo(
+                pkg_resources.Distribution(
+                    setup_dir, project_name=name, metadata=metadata
+                )
+            )
             return pkg_dist
         except IndexError:
-            LOG.error('Failed to build .egg-info %s:\n%s', list(os.listdir(setup_dir)), output)
+            LOG.error(
+                "Failed to build .egg-info %s:\n%s", list(os.listdir(setup_dir)), output
+            )
 
     except subprocess.CalledProcessError as ex:
-        LOG.warning('Failed to build egg-info for %s:\nThe command "%s" produced:\n%s',
-                    name, subprocess.list2cmdline(ex.cmd), ex.output)
+        LOG.warning(
+            'Failed to build egg-info for %s:\nThe command "%s" produced:\n%s',
+            name,
+            subprocess.list2cmdline(ex.cmd),
+            ex.output,
+        )
 
     try:
         return _build_wheel(name, os.path.dirname(extracted_setup_py))
@@ -329,29 +396,35 @@ def _build_egg_info(name, extractor, setup_file):
 
 
 def parse_req_with_marker(req_str, marker):
-    return utils.parse_requirement(req_str + ' and {}'.format(marker) if ';' in req_str else
-                                   req_str + '; {}'.format(marker))
+    return utils.parse_requirement(
+        req_str + " and {}".format(marker)
+        if ";" in req_str
+        else req_str + "; {}".format(marker)
+    )
 
 
-def setup(results, *_args, **kwargs):  # pylint: disable=too-many-branches,too-many-locals
+def setup(
+    results, *_args, **kwargs
+):  # pylint: disable=too-many-branches,too-many-locals
     # pbr uses a dangerous pattern that only works when you build using setuptools
     # d2to1 uses unknown config options in setup.cfg
-    setup_frameworks = ('pbr', 'd2to1', 'use_pyscaffold')
+    setup_frameworks = ("pbr", "d2to1", "use_pyscaffold")
     for framework in setup_frameworks:
         if framework in kwargs:
-            raise ValueError('Must run egg-info if {} is used'.format(framework))
+            raise ValueError("Must run egg-info if {} is used".format(framework))
 
-    if 'setup_requires' in kwargs and ('pbr' in kwargs['setup_requires'] or
-                                       'setupmeta' in kwargs['setup_requires']):
-        raise ValueError('Must run egg-info if pbr/setupmeta is in setup_requires')
+    if "setup_requires" in kwargs and (
+        "pbr" in kwargs["setup_requires"] or "setupmeta" in kwargs["setup_requires"]
+    ):
+        raise ValueError("Must run egg-info if pbr/setupmeta is in setup_requires")
 
-    if os.path.exists('setup.cfg'):
+    if os.path.exists("setup.cfg"):
         _add_setup_cfg_kwargs(kwargs)
 
-    name = kwargs.get('name', None)
-    version = kwargs.get('version', None)
-    reqs = kwargs.get('install_requires', [])
-    extra_reqs = kwargs.get('extras_require', {})
+    name = kwargs.get("name", None)
+    version = kwargs.get("version", None)
+    reqs = kwargs.get("install_requires", [])
+    extra_reqs = kwargs.get("extras_require", {})
 
     if version is not None:
         version = utils.parse_version(str(version))
@@ -367,28 +440,36 @@ def setup(results, *_args, **kwargs):  # pylint: disable=too-many-branches,too-m
             if isinstance(extra_req_strs, six.string_types):
                 extra_req_strs = [extra_req_strs]
             cur_reqs = utils.parse_requirements(extra_req_strs)
-            if extra.startswith(':'):
+            if extra.startswith(":"):
                 req_with_marker = [
                     parse_req_with_marker(str(cur_req), extra[1:])
-                    for cur_req in cur_reqs]
+                    for cur_req in cur_reqs
+                ]
             else:
                 req_with_marker = [
-                    parse_req_with_marker(str(cur_req), 'extra=="{}"'.format(extra.replace('"', '\\"')))
-                    for cur_req in cur_reqs]
+                    parse_req_with_marker(
+                        str(cur_req), 'extra=="{}"'.format(extra.replace('"', '\\"'))
+                    )
+                    for cur_req in cur_reqs
+                ]
             all_reqs.extend(req_with_marker)
         except pkg_resources.RequirementParseError as ex:
-            print('Failed to parse extra requirement ({}) '
-                  'from the set:\n{}'.format(str(ex), extra_reqs), file=sys.stderr)
+            print(
+                "Failed to parse extra requirement ({}) "
+                "from the set:\n{}".format(str(ex), extra_reqs),
+                file=sys.stderr,
+            )
             raise
 
     if name is not None:
-        name = name.replace(' ', '-')
+        name = name.replace(" ", "-")
     results.append(DistInfo(name, version, all_reqs))
 
     # Some projects inspect the setup() result
     class FakeResult(object):
         def __getattr__(self, item):
             return None
+
     return FakeResult()
 
 
@@ -423,7 +504,7 @@ def patch(*args):
     """Manager a patch in a contextmanager"""
     tokens = []
     for idx in range(0, len(args), 3):
-        module, member, new_value = args[idx:idx + 3]
+        module, member, new_value = args[idx : idx + 3]
         tokens.append(begin_patch(module, member, new_value))
 
     try:
@@ -434,81 +515,94 @@ def patch(*args):
 
 
 def _get_include():
-    return ''
+    return ""
 
 
 class FakeNumpyModule(ModuleType):
     """A module simulating numpy"""
+
     def __init__(self, name):
-        ModuleType.__init__(self, name)  # pylint: disable=non-parent-init-called,no-member
-        self.__version__ = '2.16.0'
+        ModuleType.__init__(  # pylint: disable=non-parent-init-called,no-member
+            self, name
+        )
+        self.__version__ = "2.16.0"
         self.get_include = _get_include
 
 
 class FakeModule(ModuleType):
     """A module simulating cython"""
+
     def __init__(self, name):
-        ModuleType.__init__(self, name)  # pylint: disable=non-parent-init-called,no-member
+        ModuleType.__init__(  # pylint: disable=non-parent-init-called,no-member
+            self, name
+        )
 
     def __call__(self, *args, **kwargs):
-        return FakeModule('')
+        return FakeModule("")
 
     def __iter__(self):
         return iter([])
 
     def __getattr__(self, item):
-        if item == '__path__':
+        if item == "__path__":
             return []
-        if item == 'setup':
+        if item == "setup":
             return setuptools.setup
         return FakeModule(item)
 
 
 def _add_setup_cfg_kwargs(kwargs):
-    LOG.info('Parsing from setup.cfg')
+    LOG.info("Parsing from setup.cfg")
 
     parser = configparser.ConfigParser()
-    parser.read('setup.cfg')
+    parser.read("setup.cfg")
 
-    install_requires = kwargs.get('install_requires', [])
-    if parser.has_option('options', 'install_requires'):
-        install_requires.extend(parser.get('options', 'install_requires').split('\n'))
-        kwargs['install_requires'] = install_requires
+    install_requires = kwargs.get("install_requires", [])
+    if parser.has_option("options", "install_requires"):
+        install_requires.extend(parser.get("options", "install_requires").split("\n"))
+        kwargs["install_requires"] = install_requires
 
-    extras_require = kwargs.get('extras_require', {})
-    if parser.has_section('options.extras_require'):
-        for extra, req_str in parser.items('options.extras_require'):
-            extras_require[extra] = req_str.split('\n')
-        kwargs['extras_require'] = extras_require
+    extras_require = kwargs.get("extras_require", {})
+    if parser.has_section("options.extras_require"):
+        for extra, req_str in parser.items("options.extras_require"):
+            extras_require[extra] = req_str.split("\n")
+        kwargs["extras_require"] = extras_require
 
-    if parser.has_option('metadata', 'name'):
-        kwargs['name'] = parser.get('metadata', 'name')
+    if parser.has_option("metadata", "name"):
+        kwargs["name"] = parser.get("metadata", "name")
 
-    if parser.has_option('metadata', 'version'):
-        kwargs['version'] = parser.get('metadata', 'version')
+    if parser.has_option("metadata", "version"):
+        kwargs["version"] = parser.get("metadata", "version")
 
 
 def remove_encoding_lines(contents):
-    lines = contents.split('\n')
-    lines = [line for line in lines if not (line.startswith('#') and
-                                            ('-*- coding' in line or '-*- encoding' in line or 'encoding:' in line))]
-    return '\n'.join(lines)
+    lines = contents.split("\n")
+    lines = [
+        line
+        for line in lines
+        if not (
+            line.startswith("#")
+            and ("-*- coding" in line or "-*- encoding" in line or "encoding:" in line)
+        )
+    ]
+    return "\n".join(lines)
 
 
 def import_contents(modname, filename, contents):
     module = imp.new_module(modname)
-    if filename.endswith('__init__.py'):
-        setattr(module, '__path__',
-                [os.path.dirname(filename)])
-    setattr(module, '__name__', modname)
-    setattr(module, '__file__', filename)
+    if filename.endswith("__init__.py"):
+        setattr(module, "__path__", [os.path.dirname(filename)])
+    setattr(module, "__name__", modname)
+    setattr(module, "__file__", filename)
     sys.modules[modname] = module
     contents = remove_encoding_lines(contents)
     exec(contents, module.__dict__)  # pylint: disable=exec-used
     return module
 
 
-def _parse_setup_py(name, setup_file, extractor):  # pylint: disable=too-many-locals,too-many-statements
+def _parse_setup_py(
+    name, setup_file, extractor
+):  # pylint: disable=too-many-locals,too-many-statements
     # pylint: disable=bad-option-value,no-name-in-module,no-member,import-outside-toplevel,too-many-branches
     # Capture warnings.warn, which is sometimes used in setup.py files
 
@@ -520,9 +614,11 @@ def _parse_setup_py(name, setup_file, extractor):  # pylint: disable=too-many-lo
     import os.path  # pylint: disable=redefined-outer-name,reimported
 
     # Make sure __file__ contains only os.sep separators
-    spy_globals = {'__file__': os.path.join(extractor.fake_root, setup_file).replace('/', os.sep),
-                   '__name__': '__main__',
-                   'setup': setup_with_results}
+    spy_globals = {
+        "__file__": os.path.join(extractor.fake_root, setup_file).replace("/", os.sep),
+        "__name__": "__main__",
+        "setup": setup_with_results,
+    }
 
     # pylint: disable=unused-import,unused-variable
     import codecs
@@ -537,12 +633,12 @@ def _parse_setup_py(name, setup_file, extractor):  # pylint: disable=too-many-lo
     except ImportError:
         pass
 
-    if 'numpy' not in sys.modules:
-        sys.modules['numpy'] = FakeNumpyModule('numpy')
-        sys.modules['numpy.distutils'] = FakeModule('distutils')
-        sys.modules['numpy.distutils.core'] = FakeModule('core')
-        sys.modules['numpy.distutils.misc_util'] = FakeModule('misc_util')
-        sys.modules['numpy.distutils.system_info'] = FakeModule('system_info')
+    if "numpy" not in sys.modules:
+        sys.modules["numpy"] = FakeNumpyModule("numpy")
+        sys.modules["numpy.distutils"] = FakeModule("distutils")
+        sys.modules["numpy.distutils.core"] = FakeModule("core")
+        sys.modules["numpy.distutils.misc_util"] = FakeModule("misc_util")
+        sys.modules["numpy.distutils.system_info"] = FakeModule("system_info")
 
     def _fake_exists(path):
         return extractor.exists(path)
@@ -554,29 +650,30 @@ def _parse_setup_py(name, setup_file, extractor):  # pylint: disable=too-many-lo
         exec(extractor.contents(path), spy_globals, spy_globals)
 
     def _fake_file_input(path, **_kwargs):
-        return open(path, 'r')
+        return open(path, "r")
 
     old_cythonize = None
     try:
         import Cython.Build
+
         old_cythonize = Cython.Build.cythonize
-        Cython.Build.cythonize = lambda *args, **kwargs: ''
+        Cython.Build.cythonize = lambda *args, **kwargs: ""
     except ImportError:
-        sys.modules['Cython'] = FakeModule('Cython')
-        sys.modules['Cython.Build'] = FakeModule('Build')
-        sys.modules['Cython.Distutils'] = FakeModule('Distutils')
-        sys.modules['Cython.Compiler'] = FakeModule('Compiler')
-        sys.modules['Cython.Compiler.Main'] = FakeModule('Main')
+        sys.modules["Cython"] = FakeModule("Cython")
+        sys.modules["Cython.Build"] = FakeModule("Build")
+        sys.modules["Cython.Distutils"] = FakeModule("Distutils")
+        sys.modules["Cython.Compiler"] = FakeModule("Compiler")
+        sys.modules["Cython.Compiler.Main"] = FakeModule("Main")
 
     def os_error_call(*args, **kwargs):
-        raise OSError('Popen not permitted: {} {}'.format(args, kwargs))
+        raise OSError("Popen not permitted: {} {}".format(args, kwargs))
 
     class FakePopen(object):
         def __init__(self, *args, **kwargs):
             os_error_call(*args, **kwargs)
 
     def io_error_call(*args, **kwargs):
-        raise IOError('Network and I/O calls not permitted: {} {}'.format(args, kwargs))
+        raise IOError("Network and I/O calls not permitted: {} {}".format(args, kwargs))
 
     setup_dir = os.path.dirname(setup_file)
     abs_setupdir = os.path.abspath(setup_dir)
@@ -608,36 +705,40 @@ def _parse_setup_py(name, setup_file, extractor):  # pylint: disable=too-many-lo
     def fake_module_from_spec(spec):
         return import_contents(spec.name, spec.path, spec.contents)
 
-    spec_from_file_location_patch = begin_patch('importlib.util',
-                                                'spec_from_file_location', fake_spec_from_file_location)
-    module_from_spec_patch = begin_patch('importlib.util',
-                                         'module_from_spec', fake_module_from_spec)
-    load_source_patch = begin_patch(imp, 'load_source', fake_load_source)
+    spec_from_file_location_patch = begin_patch(
+        "importlib.util", "spec_from_file_location", fake_spec_from_file_location
+    )
+    module_from_spec_patch = begin_patch(
+        "importlib.util", "module_from_spec", fake_module_from_spec
+    )
+    load_source_patch = begin_patch(imp, "load_source", fake_load_source)
 
     class ArchiveMetaHook(object):
         def __init__(self):
             self.mod_mapping = {}
 
         def find_module(self, full_module, path=None):
-            path_name = full_module.replace('.', '/')
+            path_name = full_module.replace(".", "/")
             dirs_to_search = [abs_setupdir] + (path if path is not None else [])
             for sys_path in sys.path:
                 if extractor.contains_path(sys_path):
                     dirs_to_search.append(sys_path)
             for dir_to_search in dirs_to_search:
-                for archive_path in (os.path.join(dir_to_search, path_name) + '.py',
-                                     os.path.join(dir_to_search, path_name, '__init__.py')):
+                for archive_path in (
+                    os.path.join(dir_to_search, path_name) + ".py",
+                    os.path.join(dir_to_search, path_name, "__init__.py"),
+                ):
                     if extractor.exists(archive_path):
                         self.mod_mapping[full_module] = archive_path
                         return self
             return None
 
         def load_module(self, fullname):
-            LOG.debug('Importing module %s from archive', fullname)
+            LOG.debug("Importing module %s from archive", fullname)
 
             filename = self.mod_mapping[fullname]
             code = extractor.contents(filename)
-            ispkg = filename.endswith('__init__.py')
+            ispkg = filename.endswith("__init__.py")
             mod = sys.modules.setdefault(fullname, imp.new_module(fullname))
             mod.__file__ = filename
             mod.__loader__ = self
@@ -645,7 +746,7 @@ def _parse_setup_py(name, setup_file, extractor):  # pylint: disable=too-many-lo
                 mod.__path__ = []
                 mod.__package__ = fullname
             else:
-                mod.__package__ = fullname.rpartition('.')[0]
+                mod.__package__ = fullname.rpartition(".")[0]
             exec(code, mod.__dict__)
             return mod
 
@@ -658,34 +759,91 @@ def _parse_setup_py(name, setup_file, extractor):  # pylint: disable=too-many-lo
         return []
 
     with patch(
-            sys, 'stderr', StringIO(),
-            sys, 'stdout', StringIO(),
-            sys, 'stdin', fake_stdin,
-            os, '_exit', sys.exit,
-            os, 'symlink', lambda *_: None,
-            'builtins', 'open', extractor.open,
-            '__builtin__', 'open', extractor.open,
-            '__builtin__', 'execfile', _fake_execfile,
-            subprocess, 'check_call', os_error_call,
-            subprocess, 'check_output', os_error_call,
-            subprocess, 'Popen', FakePopen,
-            multiprocessing, 'Pool', os_error_call,
-            multiprocessing, 'Process', os_error_call,
-            'urllib.request', 'urlretrieve', io_error_call,
-            requests, 'Session', io_error_call,
-            requests, 'get', io_error_call,
-            requests, 'post', io_error_call,
-            os, 'listdir', lambda path: [],
-            os.path, 'exists', _fake_exists,
-            os.path, 'isfile', _fake_exists,
-            os, 'rename', _fake_rename,
-            io, 'open', extractor.open,
-            codecs, 'open', extractor.open,
-            setuptools, 'setup', setup_with_results,
-            distutils.core, 'setup', setup_with_results,
-            fileinput, 'input', _fake_file_input,
-            setuptools, 'find_packages', _fake_find_packages,
-            sys, 'argv', ['setup.py', 'egg_info']):
+        sys,
+        "stderr",
+        StringIO(),
+        sys,
+        "stdout",
+        StringIO(),
+        sys,
+        "stdin",
+        fake_stdin,
+        os,
+        "_exit",
+        sys.exit,
+        os,
+        "symlink",
+        lambda *_: None,
+        "builtins",
+        "open",
+        extractor.open,
+        "__builtin__",
+        "open",
+        extractor.open,
+        "__builtin__",
+        "execfile",
+        _fake_execfile,
+        subprocess,
+        "check_call",
+        os_error_call,
+        subprocess,
+        "check_output",
+        os_error_call,
+        subprocess,
+        "Popen",
+        FakePopen,
+        multiprocessing,
+        "Pool",
+        os_error_call,
+        multiprocessing,
+        "Process",
+        os_error_call,
+        "urllib.request",
+        "urlretrieve",
+        io_error_call,
+        requests,
+        "Session",
+        io_error_call,
+        requests,
+        "get",
+        io_error_call,
+        requests,
+        "post",
+        io_error_call,
+        os,
+        "listdir",
+        lambda path: [],
+        os.path,
+        "exists",
+        _fake_exists,
+        os.path,
+        "isfile",
+        _fake_exists,
+        os,
+        "rename",
+        _fake_rename,
+        io,
+        "open",
+        extractor.open,
+        codecs,
+        "open",
+        extractor.open,
+        setuptools,
+        "setup",
+        setup_with_results,
+        distutils.core,
+        "setup",
+        setup_with_results,
+        fileinput,
+        "input",
+        _fake_file_input,
+        setuptools,
+        "find_packages",
+        _fake_find_packages,
+        sys,
+        "argv",
+        ["setup.py", "egg_info"],
+    ):
 
         try:
             sys.path.insert(0, abs_setupdir)
@@ -695,11 +853,13 @@ def _parse_setup_py(name, setup_file, extractor):  # pylint: disable=too-many-lo
             contents = extractor.contents(os.path.basename(setup_file))
             if six.PY2:
                 contents = remove_encoding_lines(contents)
-                contents = contents.replace('print ', '').replace('print(', '(lambda *a, **kw: None)(')
+                contents = contents.replace("print ", "").replace(
+                    "print(", "(lambda *a, **kw: None)("
+                )
 
             exec(contents, spy_globals, spy_globals)
         except SystemExit:
-            LOG.warning('setup.py raised SystemExit')
+            LOG.warning("setup.py raised SystemExit")
         finally:
             if old_cythonize is not None:
                 Cython.Build.cythonize = old_cythonize
@@ -721,22 +881,30 @@ def _parse_setup_py(name, setup_file, extractor):  # pylint: disable=too-many-lo
                     continue
                 if isinstance(module, (FakeModule, FakeNumpyModule)):
                     del sys.modules[module_name]
-                elif hasattr(module, '__file__') and module.__file__:
+                elif hasattr(module, "__file__") and module.__file__:
                     module_file = module.__file__
-                    if six.PY2:
+                    if hasattr(sys, "real_prefix"):
                         sys_prefix = sys.real_prefix
-                    else:
+                    elif hasattr(sys, "base_prefix"):
                         sys_prefix = sys.base_prefix
-                    if (not module_file.startswith(sys_prefix)
-                            and not module_file.startswith(sys.prefix)
-                            and extractor.contains_path(module.__file__)):
+                    else:
+                        sys_prefix = sys.prefix
+                    if (
+                        not module_file.startswith(sys_prefix)
+                        and not module_file.startswith(sys.prefix)
+                        and extractor.contains_path(module.__file__)
+                    ):
                         del sys.modules[module_name]
 
     if not results:
-        raise ValueError('Distutils/setuptools setup() was not ever '
-                         'called on "{}". Is this a valid project?'.format(name))
+        raise ValueError(
+            "Distutils/setuptools setup() was not ever "
+            'called on "{}". Is this a valid project?'.format(name)
+        )
     result = results[0]
     if result is None or (result.name is None and result.version is None):
-        raise ValueError('Failed to fetch any metadata from setup() call. Is this numpy?')
+        raise ValueError(
+            "Failed to fetch any metadata from setup() call. Is this numpy?"
+        )
 
     return result

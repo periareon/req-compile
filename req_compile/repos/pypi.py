@@ -19,21 +19,22 @@ from req_compile.repos.repository import Repository, process_distribution
 from req_compile.metadata import extract_metadata, MetadataError
 
 
-LOG = logging.getLogger('req_compile.repository.pypi')
+LOG = logging.getLogger("req_compile.repository.pypi")
 
 
-SYS_PY_VERSION = pkg_resources.parse_version(sys.version.split(' ')[0].replace('+', ''))
-SYS_PY_MAJOR = pkg_resources.parse_version('{}'.format(sys.version_info.major))
-SYS_PY_MAJOR_MINOR = pkg_resources.parse_version('{}.{}'.format(sys.version_info.major,
-                                                                sys.version_info.minor))
+SYS_PY_VERSION = pkg_resources.parse_version(sys.version.split(" ")[0].replace("+", ""))
+SYS_PY_MAJOR = pkg_resources.parse_version("{}".format(sys.version_info.major))
+SYS_PY_MAJOR_MINOR = pkg_resources.parse_version(
+    "{}.{}".format(sys.version_info.major, sys.version_info.minor)
+)
 
 OPS = {
-    '<': lambda x, y: x < y,
-    '>': lambda x, y: x > y,
-    '==': lambda x, y: x == y,
-    '!=': lambda x, y: x != y,
-    '>=': lambda x, y: x >= y,
-    '<=': lambda x, y: x <= y
+    "<": lambda x, y: x < y,
+    ">": lambda x, y: x > y,
+    "==": lambda x, y: x == y,
+    "!=": lambda x, y: x != y,
+    ">=": lambda x, y: x >= y,
+    "<=": lambda x, y: x <= y,
 }
 
 
@@ -41,22 +42,28 @@ def check_python_compatibility(requires_python):
     if requires_python is None:
         return True
     try:
-        return all(_check_py_constraint(part) for part in requires_python.split(',') if part.strip())
+        return all(
+            _check_py_constraint(part)
+            for part in requires_python.split(",")
+            if part.strip()
+        )
     except ValueError:
-        raise ValueError('Unable to parse requires python expression: {}'.format(requires_python))
+        raise ValueError(
+            "Unable to parse requires python expression: {}".format(requires_python)
+        )
 
 
 def _check_py_constraint(version_constraint):
     ref_version = SYS_PY_VERSION
 
-    version_part = re.split('[!=<>~]', version_constraint)[-1].strip()
-    operator = version_constraint.replace(version_part, '').strip()
+    version_part = re.split("[!=<>~]", version_constraint)[-1].strip()
+    operator = version_constraint.replace(version_part, "").strip()
     if version_part and not operator:
-        operator = '=='
+        operator = "=="
 
-    dotted_parts = len(version_part.split('.'))
-    if version_part.endswith('.*'):
-        version_part = version_part.replace('.*', '')
+    dotted_parts = len(version_part.split("."))
+    if version_part.endswith(".*"):
+        version_part = version_part.replace(".*", "")
         if dotted_parts == 3:
             ref_version = SYS_PY_MAJOR_MINOR
         elif dotted_parts == 2:
@@ -66,19 +73,19 @@ def _check_py_constraint(version_constraint):
             ref_version = SYS_PY_MAJOR_MINOR
         elif dotted_parts == 1:
             ref_version = SYS_PY_MAJOR_MINOR
-            version_part += '.0'
+            version_part += ".0"
 
     version = pkg_resources.parse_version(version_part)
-    if operator == '~=':
+    if operator == "~=":
         # Convert ~= to the >=, < equivalent check
         # See: https://packaging.python.org/guides/distributing-packages-using-setuptools/#python-requires
-        major_num = int(str(version_part).split('.')[0])
-        equivalent_check = '>={},<{}'.format(version_part, major_num + 1)
+        major_num = int(str(version_part).split(".")[0])
+        equivalent_check = ">={},<{}".format(version_part, major_num + 1)
         return check_python_compatibility(equivalent_check)
     try:
         return OPS[operator](ref_version, version)
     except KeyError:
-        raise ValueError('Unable to parse constraint {}'.format(version_constraint))
+        raise ValueError("Unable to parse constraint {}".format(version_constraint))
 
 
 class LinksHTMLParser(html_parser.HTMLParser):
@@ -91,21 +98,27 @@ class LinksHTMLParser(html_parser.HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         self.active_link = None
-        if tag == 'a':
+        if tag == "a":
             self.active_skip = False
             requires_python = None
             for attr in attrs:
-                if attr[0] == 'href':
+                if attr[0] == "href":
                     self.active_link = self.url, attr[1]
-                elif attr[0] == 'metadata-requires-python' or attr[0] == 'data-requires-python':
+                elif (
+                    attr[0] == "metadata-requires-python"
+                    or attr[0] == "data-requires-python"
+                ):
                     requires_python = attr[1]
 
             if requires_python:
                 try:
                     self.active_skip = not check_python_compatibility(requires_python)
                 except ValueError:
-                    LOG.error('Failed to parse requires expression "%s" for requirement %s',
-                              requires_python, self.active_link)
+                    LOG.error(
+                        'Failed to parse requires expression "%s" for requirement %s',
+                        requires_python,
+                        self.active_link,
+                    )
 
     def handle_data(self, data):
         if self.active_link is None or self.active_skip:
@@ -120,7 +133,7 @@ class LinksHTMLParser(html_parser.HTMLParser):
 
 def normalize(name):
     """Normalize per PEP-0503"""
-    return re.sub(r'(\s|[-_.])+', '-', name).lower()
+    return re.sub(r"(\s|[-_.])+", "-", name).lower()
 
 
 @lru_cache(maxsize=None)
@@ -136,11 +149,13 @@ def _scan_page_links(index_url, project_name, session, retries):
         (list[Candidate])
     """
 
-    url = '{index_url}/{project_name}'.format(index_url=index_url, project_name=normalize(project_name))
-    LOG.info('Fetching versions for %s from %s', project_name, url)
+    url = "{index_url}/{project_name}".format(
+        index_url=index_url, project_name=normalize(project_name)
+    )
+    LOG.info("Fetching versions for %s from %s", project_name, url)
     if session is None:
         session = requests
-    response = session.get(url + '/')
+    response = session.get(url + "/")
 
     if retries and 500 <= response.status_code < 600:
         return _scan_page_links(index_url, project_name, session, retries - 1)
@@ -150,14 +165,14 @@ def _scan_page_links(index_url, project_name, session, retries):
         response.raise_for_status()
 
     parser = LinksHTMLParser(response.url)
-    parser.feed(response.content.decode('utf-8'))
+    parser.feed(response.content.decode("utf-8"))
 
     return parser.dists
 
 
 def _do_download(logger, filename, link, session, wheeldir):
     url, link = link
-    split_link = link.split('#sha256=')
+    split_link = link.split("#sha256=")
     if len(split_link) > 1:
         sha = split_link[1]
     else:
@@ -167,27 +182,27 @@ def _do_download(logger, filename, link, session, wheeldir):
 
     if sha is not None and os.path.exists(output_file):
         hasher = sha256()
-        with open(output_file, 'rb') as handle:
+        with open(output_file, "rb") as handle:
             while True:
                 block = handle.read(4096)
                 if not block:
                     break
                 hasher.update(block)
         if hasher.hexdigest() == sha:
-            logger.info('Reusing %s', output_file)
+            logger.info("Reusing %s", output_file)
             return output_file, True
-        logger.debug('No hash match for downloaded file, removing')
+        logger.debug("No hash match for downloaded file, removing")
         os.remove(output_file)
     else:
-        logger.debug('No file in wheel-dir')
+        logger.debug("No file in wheel-dir")
 
     full_link = urllib.parse.urljoin(url, link)
-    logger.info('Downloading %s -> %s', full_link, output_file)
+    logger.info("Downloading %s -> %s", full_link, output_file)
     if session is None:
         session = requests
     response = session.get(full_link, stream=True)
 
-    with open(output_file, 'wb') as handle:
+    with open(output_file, "wb") as handle:
         for block in response.iter_content(4 * 1024):
             handle.write(block)
     return output_file, False
@@ -204,9 +219,9 @@ class PyPIRepository(Repository):
             allow_prerelease (bool, optional): Whether or not to consider prereleases
             retries (int): Number of times to retry. A value of 0 will never retry
         """
-        super(PyPIRepository, self).__init__('pypi', allow_prerelease)
+        super(PyPIRepository, self).__init__("pypi", allow_prerelease)
 
-        if index_url.endswith('/'):
+        if index_url.endswith("/"):
             index_url = index_url[:-1]
         self.index_url = index_url
         if wheeldir is not None:
@@ -219,15 +234,17 @@ class PyPIRepository(Repository):
         self.session = requests.Session()
 
     def __repr__(self):
-        return '--index-url {}'.format(self.index_url)
+        return "--index-url {}".format(self.index_url)
 
     def __eq__(self, other):
-        return (isinstance(other, PyPIRepository) and
-                super(PyPIRepository, self).__eq__(other) and
-                self.index_url == other.index_url)
+        return (
+            isinstance(other, PyPIRepository)
+            and super(PyPIRepository, self).__eq__(other)
+            and self.index_url == other.index_url
+        )
 
     def __hash__(self):
-        return hash('pypi') ^ hash(self.index_url)
+        return hash("pypi") ^ hash(self.index_url)
 
     def get_candidates(self, req):
         if req is None:
@@ -237,8 +254,13 @@ class PyPIRepository(Repository):
     def resolve_candidate(self, candidate):
         filename, cached = None, True
         try:
-            filename, cached = _do_download(self.logger, candidate.filename, candidate.link,
-                                            self.session, self.wheeldir)
+            filename, cached = _do_download(
+                self.logger,
+                candidate.filename,
+                candidate.link,
+                self.session,
+                self.wheeldir,
+            )
             return extract_metadata(filename, origin=self), cached
         except MetadataError:
             if not cached:

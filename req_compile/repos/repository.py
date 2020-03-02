@@ -17,13 +17,13 @@ import req_compile.utils
 from req_compile.utils import normalize_project_name, have_compatible_glibc
 
 INTERPRETER_TAGS = {
-    'CPython': 'cp',
-    'IronPython': 'ip',
-    'PyPy': 'pp',
-    'Jython': 'jy',
+    "CPython": "cp",
+    "IronPython": "ip",
+    "PyPy": "pp",
+    "Jython": "jy",
 }
 
-INTERPRETER_TAG = INTERPRETER_TAGS.get(platform.python_implementation(), 'cp')
+INTERPRETER_TAG = INTERPRETER_TAGS.get(platform.python_implementation(), "cp")
 PY_VERSION_NUM = str(sys.version_info.major) + str(sys.version_info.minor)
 
 
@@ -31,6 +31,7 @@ def is_manylinux2010_compatible():
     # Check for presence of _manylinux module
     try:
         import _manylinux  # pylint: disable=bad-option-value,import-outside-toplevel
+
         return bool(_manylinux.manylinux2010_compatible)
     except (ImportError, AttributeError):
         # Fall through to heuristic check below
@@ -43,22 +44,25 @@ def is_manylinux2010_compatible():
 
 def _get_platform_tags():
     is_32 = struct.calcsize("P") == 4
-    if sys.platform == 'win32':
+    if sys.platform == "win32":
         if is_32:
-            tag = ('win32',)
+            tag = ("win32",)
         else:
-            tag = ('win_amd64',)
-    elif sys.platform.startswith('linux'):
+            tag = ("win_amd64",)
+    elif sys.platform.startswith("linux"):
         if is_32:
             arch_tag = platform.machine()
         else:
-            arch_tag = 'x86_64'
+            arch_tag = "x86_64"
 
-        tag = (('linux_' + arch_tag), ('manylinux1_' + arch_tag),)
+        tag = (
+            ("linux_" + arch_tag),
+            ("manylinux1_" + arch_tag),
+        )
         if is_manylinux2010_compatible():
-            tag += ('manylinux2010_' + arch_tag,)
+            tag += ("manylinux2010_" + arch_tag,)
     else:
-        raise ValueError('Unsupported platform: {}'.format(sys.platform))
+        raise ValueError("Unsupported platform: {}".format(sys.platform))
     return tag
 
 
@@ -67,6 +71,7 @@ PLATFORM_TAGS = _get_platform_tags()
 
 class RepositoryInitializationError(ValueError):
     """Failure to initialize a repository"""
+
     def __init__(self, repo_type, message):
         super(RepositoryInitializationError, self).__init__(message)
         self.type = repo_type
@@ -79,7 +84,6 @@ class DistributionType(enum.IntEnum):
 
 
 class PythonVersionRequirement(object):
-
     def check_compatibility(self):
         raise NotImplementedError
 
@@ -87,14 +91,16 @@ class PythonVersionRequirement(object):
 def _all_py_tags_in_major(up_to):
     up_to = int(up_to)
     while (up_to % 10) > 0:
-        yield 'py' + str(up_to)
+        yield "py" + str(up_to)
         up_to -= 1
-    yield 'py' + str(up_to)
+    yield "py" + str(up_to)
 
 
 class WheelVersionTags(PythonVersionRequirement):
-    WHEEL_VERSION_TAGS = ('py2' if six.PY2 else 'py3',
-                          INTERPRETER_TAG + PY_VERSION_NUM,) + tuple(_all_py_tags_in_major(PY_VERSION_NUM))
+    WHEEL_VERSION_TAGS = (
+        "py2" if six.PY2 else "py3",
+        INTERPRETER_TAG + PY_VERSION_NUM,
+    ) + tuple(_all_py_tags_in_major(PY_VERSION_NUM))
 
     def __init__(self, py_version):
         self.py_version = py_version
@@ -102,14 +108,16 @@ class WheelVersionTags(PythonVersionRequirement):
     def check_compatibility(self):
         if not self.py_version:
             return True
-        return any(version in WheelVersionTags.WHEEL_VERSION_TAGS
-                   for version in self.py_version)
+        return any(
+            version in WheelVersionTags.WHEEL_VERSION_TAGS
+            for version in self.py_version
+        )
 
     def __str__(self):
         if self.py_version is None or self.py_version == ():
-            return 'any'
+            return "any"
 
-        return '.'.join(sorted(self.py_version))
+        return ".".join(sorted(self.py_version))
 
     def __eq__(self, other):
         return self.py_version == other.py_version
@@ -122,8 +130,8 @@ class WheelVersionTags(PythonVersionRequirement):
             version_val = self.py_version[0]
 
         if version_val is not None:
-            for tag_type in tuple(INTERPRETER_TAGS.values()) + ('py',):
-                version_val = version_val.replace(tag_type, '')
+            for tag_type in tuple(INTERPRETER_TAGS.values()) + ("py",):
+                version_val = version_val.replace(tag_type, "")
             try:
                 result += int(version_val)
             except ValueError:
@@ -133,9 +141,17 @@ class WheelVersionTags(PythonVersionRequirement):
 
 
 class Candidate(object):  # pylint: disable=too-many-instance-attributes
-    def __init__(self, name, filename, version, py_version, plat, link,
-                 candidate_type=DistributionType.SDIST,
-                 extra_sort_info=''):
+    def __init__(
+        self,
+        name,
+        filename,
+        version,
+        py_version,
+        plat,
+        link,
+        candidate_type=DistributionType.SDIST,
+        extra_sort_info="",
+    ):
         """
 
         Args:
@@ -149,7 +165,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
         """
         self.name = name
         self.filename = filename
-        self.version = version or pkg_resources.parse_version('0.0.0')
+        self.version = version or pkg_resources.parse_version("0.0.0")
         self.py_version = py_version
         self.platform = plat
         self.link = link
@@ -157,40 +173,52 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
 
         # Sort based on tags to make sure the most specific distributions
         # are matched first
-        self.sortkey = (self.version, extra_sort_info, candidate_type.value, self.tag_score)
+        self.sortkey = (
+            self.version,
+            extra_sort_info,
+            candidate_type.value,
+            self.tag_score,
+        )
 
         self.preparsed = None
 
     @property
     def tag_score(self):
         result = self.py_version.tag_score if self.py_version is not None else 0
-        if platform != 'any':
+        if platform != "any":
             result += 1000
 
         # Spaces in source dist filenames penalize them in the search order
-        if isinstance(self.filename, six.string_types) and ' ' in self.filename:
+        if isinstance(self.filename, six.string_types) and " " in self.filename:
             result -= 100
         return result
 
     def __eq__(self, other):
-        return (self.name == other.name and
-                self.filename == other.filename and
-                self.version == other.version and
-                self.py_version == other.py_version and
-                self.platform == other.platform and
-                self.link == other.link and
-                self.type == other.type)
+        return (
+            self.name == other.name
+            and self.filename == other.filename
+            and self.version == other.version
+            and self.py_version == other.py_version
+            and self.platform == other.platform
+            and self.link == other.link
+            and self.type == other.type
+        )
 
     def __repr__(self):
-        return 'Candidate(name={}, filename={}, version={}, py_version={}, platform={}, link={})'.format(
-            self.name, self.filename, self.version, self.py_version, self.platform, self.link
+        return "Candidate(name={}, filename={}, version={}, py_version={}, platform={}, link={})".format(
+            self.name,
+            self.filename,
+            self.version,
+            self.py_version,
+            self.platform,
+            self.link,
         )
 
     def __str__(self):
-        py_version_str = str(self.py_version) + '-'
-        return '{} {}-{}-{}{}'.format(
-            self.type.name,
-            self.name, self.version, py_version_str, self.platform)
+        py_version_str = str(self.py_version) + "-"
+        return "{} {}-{}-{}{}".format(
+            self.type.name, self.name, self.version, py_version_str, self.platform
+        )
 
 
 class NoCandidateException(Exception):
@@ -203,61 +231,78 @@ class NoCandidateException(Exception):
     def __str__(self):
         if self.req.specifier:
             return 'NoCandidateException - no candidate for "{}" satisfies {}'.format(
-                self.req.name,
-                self.req.specifier
+                self.req.name, self.req.specifier
             )
-        return 'NoCandidateException - no candidates found for "{}"'.format(self.req.name)
+        return 'NoCandidateException - no candidates found for "{}"'.format(
+            self.req.name
+        )
 
 
 def process_distribution(source, filename):
     candidate = None
-    if filename.endswith('.egg'):
+    if filename.endswith(".egg"):
         return None
-    if '.whl' in filename:
+    if ".whl" in filename:
         candidate = _wheel_candidate(source, filename)
-    elif '.tar.gz' in filename or '.tgz' in filename or '.zip' in filename or '.tar.bz2' in filename:
+    elif (
+        ".tar.gz" in filename
+        or ".tgz" in filename
+        or ".zip" in filename
+        or ".tar.bz2" in filename
+    ):
         # Best effort skip of dumb binary distributions
-        if '.linux-' in filename or '.win-' in filename or '.macosx-' in filename:
+        if ".linux-" in filename or ".win-" in filename or ".macosx-" in filename:
             return None
         candidate = _tar_gz_candidate(source, filename)
     return candidate
 
 
 def _wheel_candidate(source, filename):
-    data_parts = filename.split('-')
+    data_parts = filename.split("-")
     if len(data_parts) < 5:
-        logging.getLogger('req_compile.repository').debug('Unable to use %s, improper filename', filename)
+        logging.getLogger("req_compile.repository").debug(
+            "Unable to use %s, improper filename", filename
+        )
         return None
 
     has_build_tag = len(data_parts) == 6
-    build_tag = ''
+    build_tag = ""
     if has_build_tag:
         build_tag = data_parts.pop(2)
     name = data_parts[0]
     #  Convert old-style post-versions to new style so it will sort correctly
-    version = pkg_resources.parse_version(data_parts[1].replace('_', '-'))
-    plat = data_parts[4].split('.')[0]
+    version = pkg_resources.parse_version(data_parts[1].replace("_", "-"))
+    plat = data_parts[4].split(".")[0]
 
-    requires_python = WheelVersionTags(tuple(data_parts[2].split('.')))
+    requires_python = WheelVersionTags(tuple(data_parts[2].split(".")))
 
-    return Candidate(name,
-                     filename,
-                     version,
-                     requires_python,
-                     plat,
-                     source,
-                     candidate_type=DistributionType.WHEEL,
-                     extra_sort_info=build_tag)
+    return Candidate(
+        name,
+        filename,
+        version,
+        requires_python,
+        plat,
+        source,
+        candidate_type=DistributionType.WHEEL,
+        extra_sort_info=build_tag,
+    )
 
 
 def _tar_gz_candidate(source, filename):
     name, version = req_compile.metadata.source.parse_source_filename(filename)
-    return Candidate(name, filename, version, None, 'any',
-                     source, candidate_type=DistributionType.SDIST)
+    return Candidate(
+        name,
+        filename,
+        version,
+        None,
+        "any",
+        source,
+        candidate_type=DistributionType.SDIST,
+    )
 
 
 def _check_platform_compatibility(py_platform):
-    return py_platform == 'any' or (py_platform.lower() in PLATFORM_TAGS)
+    return py_platform == "any" or (py_platform.lower() in PLATFORM_TAGS)
 
 
 class BaseRepository(object):
@@ -297,12 +342,51 @@ def sort_candidates(candidates):
     return sorted(candidates, key=lambda x: x.sortkey, reverse=True)
 
 
+def check_usability(req, candidate, has_equality=None, allow_prereleases=False):
+    if (
+        candidate.py_version is not None
+        and not candidate.py_version.check_compatibility()
+    ):
+        return CantUseReason.WRONG_PYTHON_VERSION
+
+    if not _check_platform_compatibility(candidate.platform):
+        return CantUseReason.WRONG_PLATFORM
+
+    if not has_equality and not allow_prereleases and candidate.version.is_prerelease:
+        return CantUseReason.IS_PRERELEASE
+
+    if req is not None and not req.specifier.contains(
+        candidate.version, prereleases=has_equality or allow_prereleases
+    ):
+        return CantUseReason.VERSION_NO_SATISFY
+
+    return None
+
+
+def filter_candidates(req, candidates, allow_prereleases=False):
+    has_equality = (
+        req_compile.utils.is_pinned_requirement(req) if req is not None else False
+    )
+
+    for candidate in candidates:
+        if (
+            check_usability(
+                req,
+                candidate,
+                has_equality=has_equality,
+                allow_prereleases=allow_prereleases,
+            )
+            is None
+        ):
+            yield candidate
+
+
 class Repository(BaseRepository):
     def __init__(self, logger_name, allow_prerelease=None):
         super(Repository, self).__init__()
         if allow_prerelease is None:
             allow_prerelease = False
-        self.logger = logging.getLogger('req_compile.repository').getChild(logger_name)
+        self.logger = logging.getLogger("req_compile.repository").getChild(logger_name)
         self.allow_prerelease = allow_prerelease
 
     def __eq__(self, other):
@@ -329,43 +413,13 @@ class Repository(BaseRepository):
         raise NotImplementedError()
 
     def get_candidate(self, req, max_downgrade=None):
-        self.logger.info('Getting candidate for %s', req)
+        self.logger.info("Getting candidate for %s", req)
         candidates = self.get_candidates(req)
         return self.do_get_candidate(req, candidates, max_downgrade=max_downgrade)
 
-    # pylint: disable=too-many-return-statements
-    def _try_candidate(self, req, candidate, has_equality=None, allow_prereleases=False):
-        if candidate.py_version is not None and not candidate.py_version.check_compatibility():
-            return None, CantUseReason.WRONG_PYTHON_VERSION
-
-        if not _check_platform_compatibility(candidate.platform):
-            return None, CantUseReason.WRONG_PLATFORM
-
-        if not has_equality and not allow_prereleases and candidate.version.is_prerelease:
-            return None, CantUseReason.IS_PRERELEASE
-
-        if not req.specifier.contains(candidate.version,
-                                      prereleases=has_equality or allow_prereleases):
-            return None, CantUseReason.VERSION_NO_SATISFY
-
-        if candidate.type == DistributionType.SDIST:
-            self.logger.warning('Considering source distribution for %s', candidate.name)
-
-        try:
-            candidate, cached = self.resolve_candidate(candidate)
-            if candidate is not None:
-                if normalize_project_name(candidate.name) != normalize_project_name(req.name):
-                    self.logger.warning('The candidate name %s does not match what the requirement requested',
-                                        candidate.name)
-                    return None, CantUseReason.NAME_DOESNT_MATCH
-                return candidate, cached
-
-            return None, CantUseReason.BAD_METADATA
-        except req_compile.metadata.errors.MetadataError as ex:
-            self.logger.warning('Could not use candidate %s - %s', candidate, ex)
-            return None, CantUseReason.BAD_METADATA
-
-    def do_get_candidate(self, req, candidates, force_allow_prerelease=False, max_downgrade=None):
+    def do_get_candidate(
+        self, req, candidates, force_allow_prerelease=False, max_downgrade=None
+    ):
         """
 
         Args:
@@ -381,35 +435,55 @@ class Repository(BaseRepository):
         allow_prereleases = force_allow_prerelease or self.allow_prerelease
         if candidates:
             candidates = sort_candidates(candidates)
-            has_equality = req_compile.utils.is_pinned_requirement(req)
-
             tried_versions = set()
 
-            for candidate in candidates:
+            for candidate in filter_candidates(
+                req, candidates, allow_prereleases=allow_prereleases
+            ):
                 if candidate.version is None:
-                    self.logger.warning('Found candidate with no version: %s', candidate)
+                    self.logger.warning(
+                        "Found candidate with no version: %s", candidate
+                    )
                     continue
 
                 all_prereleases = all_prereleases and candidate.version.is_prerelease
-                result, reason = self._try_candidate(req, candidate,
-                                                     has_equality=has_equality, allow_prereleases=allow_prereleases)
-                if result is not None:
-                    return result, reason
+                if candidate.type == DistributionType.SDIST:
+                    self.logger.warning(
+                        "Considering source distribution for %s", candidate.name
+                    )
 
-                if reason == CantUseReason.BAD_METADATA:
-                    tried_versions.add(candidate.version)
-                    if max_downgrade is not None and len(tried_versions) >= max_downgrade:
-                        break
+                try:
+                    candidate, cached = self.resolve_candidate(candidate)
+                    if candidate is not None:
+                        if normalize_project_name(
+                            candidate.name
+                        ) == normalize_project_name(req.name):
+                            return candidate, cached
+                except req_compile.metadata.errors.MetadataError as ex:
+                    self.logger.warning(
+                        "Could not use candidate %s - %s", candidate, ex
+                    )
 
-        if (all_prereleases or req_compile.utils.has_prerelease(req)) and not allow_prereleases:
-            return self.do_get_candidate(req, candidates, force_allow_prerelease=True, max_downgrade=max_downgrade)
+                tried_versions.add(candidate.version)
+                if max_downgrade is not None and len(tried_versions) >= max_downgrade:
+                    break
+
+        if (
+            all_prereleases or req_compile.utils.has_prerelease(req)
+        ) and not allow_prereleases:
+            return self.do_get_candidate(
+                req,
+                candidates,
+                force_allow_prerelease=True,
+                max_downgrade=max_downgrade,
+            )
 
         raise NoCandidateException(req)
 
     def why_cant_I_use(self, req, candidate):  # pylint: disable=invalid-name
-        has_equality = req_compile.utils.is_pinned_requirement(req)
-        candidate, reason = self._try_candidate(req, candidate,
-                                                has_equality=has_equality, allow_prereleases=self.allow_prerelease)
-        if candidate is not None:
+        reason = check_usability(
+            req, candidate, allow_prereleases=self.allow_prerelease,
+        )
+        if reason is None:
             return CantUseReason.U_CAN_USE
         return reason

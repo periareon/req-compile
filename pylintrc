@@ -4,10 +4,12 @@ max-line-length=120
 [MESSAGES CONTROL]
 
 disable=
+  R,
   missing-docstring,
   too-few-public-methods,
   useless-object-inheritance,
   useless-return,
-  too-many-arguments
+  too-many-arguments,
+  bad-continuation,
 
 ignored-modules=distutils.core

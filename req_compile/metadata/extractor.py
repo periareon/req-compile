@@ -9,13 +9,14 @@ import zipfile
 import six
 from six import BytesIO
 
-LOG = logging.getLogger('req_compile.extractor')
+LOG = logging.getLogger("req_compile.extractor")
 
 
 class Extractor(object):
     """Abstract base class for file extractors. These classes operate on archive files or directories in order
     to expose files to metadata analysis and executing setup.pys.
     """
+
     def __init__(self, extractor_type, file_or_path):
         self.logger = LOG.getChild(extractor_type)
         self.fake_root = os.path.abspath(os.sep + os.path.basename(file_or_path))
@@ -33,15 +34,19 @@ class Extractor(object):
         """Add a rename entry for a file in the archive"""
         self.renames[self.to_relative(new_name)] = self.to_relative(name)
 
-    def open(self, filename, mode='r', encoding=None, **_kwargs):
+    def open(self, filename, mode="r", encoding=None, **_kwargs):
         """Open a real file or a file within the archive"""
         relative_filename = self.to_relative(filename)
-        if isinstance(filename, int) or filename == os.devnull or os.path.isabs(relative_filename):
+        if (
+            isinstance(filename, int)
+            or filename == os.devnull
+            or os.path.isabs(relative_filename)
+        ):
             return self.io_open(filename, mode=mode, encoding=encoding)
 
         kwargs = {}
-        if 'b' not in mode:
-            kwargs = {'encoding': encoding or 'ascii'}
+        if "b" not in mode:
+            kwargs = {"encoding": encoding or "ascii"}
         handle = self._open_handle(relative_filename)
         return WithDecoding(handle, **kwargs)
 
@@ -76,19 +81,19 @@ class Extractor(object):
         if isinstance(filename, int):
             return filename
 
-        if filename.replace('\\', '/').startswith('./'):
+        if filename.replace("\\", "/").startswith("./"):
             filename = filename[2:]
         result = filename
         if os.path.isabs(filename):
             if self.contains_path(filename):
-                result = filename.replace(self.fake_root, '.')
+                result = filename.replace(self.fake_root, ".", 1)
         else:
             cur = os.getcwd()
             if cur != self.fake_root:
-                result = os.path.relpath(cur, self.fake_root) + '/' + filename
+                result = os.path.relpath(cur, self.fake_root) + "/" + filename
 
-        result = result.replace('\\', '/')
-        if result.startswith('./'):
+        result = result.replace("\\", "/")
+        if result.startswith("./"):
             result = result[2:]
 
         if result in self.renames:
@@ -101,24 +106,25 @@ class Extractor(object):
         Returns:
             (str) The full file contents
         """
-        with self.open(name, encoding='utf-8') as handle:
+        with self.open(name, encoding="utf-8") as handle:
             return handle.read()
 
 
 class NonExtractor(Extractor):
     """An extractor that operates on the filesystem directory instead of an archive"""
+
     def __init__(self, path):
-        super(NonExtractor, self).__init__('fs', path)
+        super(NonExtractor, self).__init__("fs", path)
         self.path = path
         self.os_path_exists = os.path.exists
 
     def names(self):
         for root, _, files in os.walk(self.path):
-            rel_root = root.replace(self.path, '.').replace('\\', '/')
-            if rel_root != '.':
-                rel_root += '/'
+            rel_root = root.replace(self.path, ".").replace("\\", "/")
+            if rel_root != ".":
+                rel_root += "/"
             else:
-                rel_root = ''
+                rel_root = ""
             for filename in files:
                 yield rel_root + filename
 
@@ -132,13 +138,13 @@ class NonExtractor(Extractor):
                 shutil.copy2(path, target_dir)
 
     def _check_exists(self, filename):
-        return self.os_path_exists(self.path + '/' + filename)
+        return self.os_path_exists(self.path + "/" + filename)
 
     def _open_handle(self, filename):
         try:
-            return self.io_open(os.path.join(self.path, filename), 'rb')
+            return self.io_open(os.path.join(self.path, filename), "rb")
         except KeyError:
-            raise IOError('Could not find {}'.format(filename))
+            raise IOError("Could not find {}".format(filename))
 
     def close(self):
         pass
@@ -146,14 +152,14 @@ class NonExtractor(Extractor):
 
 class TarExtractor(Extractor):
     """An extractor for tar files. Accepts an additional first parameter for the decoding codec"""
+
     def __init__(self, ext, filename):
-        super(TarExtractor, self).__init__('tar', filename)
-        self.tar = tarfile.open(filename, 'r:' + ext)
+        super(TarExtractor, self).__init__("tar", filename)
+        self.tar = tarfile.open(filename, "r:" + ext)
         self.io_open = io.open
 
     def names(self):
-        return (info.name for info in self.tar.getmembers()
-                if info.type != b'5')
+        return (info.name for info in self.tar.getmembers() if info.type != b"5")
 
     def _check_exists(self, filename):
         try:
@@ -174,7 +180,7 @@ class TarExtractor(Extractor):
         try:
             return self.tar.extractfile(filename)
         except KeyError:
-            raise IOError('Could not find {}'.format(filename))
+            raise IOError("Could not find {}".format(filename))
 
     def close(self):
         self.tar.close()
@@ -182,20 +188,21 @@ class TarExtractor(Extractor):
 
 class ZipExtractor(Extractor):
     """An extractor for zip files"""
+
     def __init__(self, filename):
-        super(ZipExtractor, self).__init__('gz', filename)
-        self.zfile = zipfile.ZipFile(os.path.abspath(filename), 'r')
+        super(ZipExtractor, self).__init__("gz", filename)
+        self.zfile = zipfile.ZipFile(os.path.abspath(filename), "r")
         self.io_open = io.open
 
     def names(self):
-        return (name for name in self.zfile.namelist() if name[-1] != '/')
+        return (name for name in self.zfile.namelist() if name[-1] != "/")
 
     def _check_exists(self, filename):
         try:
             self.zfile.getinfo(filename)
             return True
         except KeyError:
-            return any(name.startswith(filename + '/') for name in self.names())
+            return any(name.startswith(filename + "/") for name in self.names())
 
     def extract(self, target_dir):
         old_dir = os.getcwd()
@@ -209,7 +216,7 @@ class ZipExtractor(Extractor):
         try:
             return BytesIO(self.zfile.read(filename))
         except KeyError:
-            raise IOError('Could not find {}'.format(filename))
+            raise IOError("Could not find {}".format(filename))
 
     def close(self):
         self.zfile.close()
@@ -217,18 +224,19 @@ class ZipExtractor(Extractor):
 
 class WithDecoding(object):
     """Wrap a file object and handle decoding for Python 2 and Python 3"""
+
     def __init__(self, wrap, encoding=None):
         if wrap is None:
-            raise IOError('File not found')
+            raise IOError("File not found")
         self.file = wrap
         self.encoding = encoding
         self.iter = iter(self)
 
     def _do_decode(self, results):
         if six.PY3 and self.encoding and isinstance(results, bytes):
-            results = results.decode(self.encoding, 'ignore')
+            results = results.decode(self.encoding, "ignore")
         if six.PY2:
-            results = str(''.join([i if ord(i) < 128 else ' ' for i in results]))
+            results = str("".join([i if ord(i) < 128 else " " for i in results]))
         return results
 
     def read(self, nbytes=None):

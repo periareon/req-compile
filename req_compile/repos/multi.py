@@ -9,7 +9,7 @@ class MultiRepository(BaseRepository):
         self.repositories = list(repositories)
 
     def __repr__(self):
-        return ', '.join(repr(repo) for repo in self)
+        return ", ".join(repr(repo) for repo in self)
 
     def __iter__(self):
         # Expand nested MultiRepositories as well

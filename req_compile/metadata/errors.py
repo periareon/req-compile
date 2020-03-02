@@ -9,5 +9,6 @@ class MetadataError(Exception):
         self.ex = ex
 
     def __str__(self):
-        return 'Failed to parse metadata for package {} ({}) - {}: {}'.format(
-            self.name, self.version, self.ex.__class__.__name__, str(self.ex))
+        return "Failed to parse metadata for package {} ({}) - {}: {}".format(
+            self.name, self.version, self.ex.__class__.__name__, str(self.ex)
+        )

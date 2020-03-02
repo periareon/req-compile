@@ -12,25 +12,31 @@ import pkg_resources
 
 
 def _req_iter_from_file(reqfile_name):
-    with open(reqfile_name, 'r') as reqfile:
+    with open(reqfile_name, "r") as reqfile:
         for req_line in reqfile:
             req_line = req_line.strip()
             if not req_line:
                 continue
-            if req_line.startswith('-r'):
-                for req in _req_iter_from_file(os.path.join(
-                        os.path.dirname(reqfile_name),
-                        req_line.split(' ')[1].strip())):
+            if req_line.startswith("-r"):
+                for req in _req_iter_from_file(
+                    os.path.join(
+                        os.path.dirname(reqfile_name), req_line.split(" ")[1].strip()
+                    )
+                ):
                     yield req
-            elif req_line.startswith('--index-url') or req_line.startswith('--extra-index-url'):
+            elif req_line.startswith("--index-url") or req_line.startswith(
+                "--extra-index-url"
+            ):
                 pass
-            elif req_line.startswith('#'):
+            elif req_line.startswith("#"):
                 pass
             else:
                 try:
                     yield parse_requirement(req_line)
                 except ValueError:
-                    logging.getLogger('req.utils').exception('Failed to parse %s', req_line)
+                    logging.getLogger("req.utils").exception(
+                        "Failed to parse %s", req_line
+                    )
                     raise
 
 
@@ -70,7 +76,7 @@ def parse_requirement(req_text):
     req_text = req_text.strip()
     if not req_text:
         return None
-    if req_text[0] == '#':
+    if req_text[0] == "#":
         return None
     return pkg_resources.Requirement.parse(req_text)
 
@@ -86,12 +92,14 @@ def parse_version(version):
 
 def parse_requirements(reqs):
     for req in reqs:
-        if '\n' in req:
-            for inner_req in parse_requirements(req.split('\n')):
+        req = req.strip()
+        if "\n" in req:
+            for inner_req in parse_requirements(req.split("\n")):
                 yield inner_req
-        result = parse_requirement(req)
-        if result is not None:
-            yield result
+        else:
+            result = parse_requirement(req)
+            if result is not None:
+                yield result
 
 
 def merge_extras(extras1, extras2):
@@ -117,21 +125,26 @@ def merge_requirements(req1, req2):
     if req1.marker and req2.marker:
         if str(req1.marker) != str(req2.marker):
             if str(req1.marker) in str(req2.marker):
-                new_marker = ';' + str(req1.marker)
+                new_marker = ";" + str(req1.marker)
             elif str(req2.marker) in str(req1.marker):
-                new_marker = ';' + str(req2.marker)
+                new_marker = ";" + str(req2.marker)
             else:
-                new_marker = ''
+                new_marker = ""
         else:
-            new_marker = ';' + str(req1.marker)
+            new_marker = ";" + str(req1.marker)
     else:
-        new_marker = ''
+        new_marker = ""
 
     extras = merge_extras(req1.extras, req2.extras)
-    extras_str = ''
+    extras_str = ""
     if extras:
-        extras_str = '[' + ','.join(extras) + ']'
-    req_str = req1_name_norm + extras_str + ','.join(''.join(parts) for parts in all_specs) + new_marker
+        extras_str = "[" + ",".join(extras) + "]"
+    req_str = (
+        req1_name_norm
+        + extras_str
+        + ",".join("".join(parts) for parts in all_specs)
+        + new_marker
+    )
     return parse_requirement(req_str)
 
 
@@ -141,7 +154,7 @@ NAME_CACHE = {}
 def normalize_project_name(project_name):
     if project_name in NAME_CACHE:
         return NAME_CACHE[project_name]
-    value = project_name.lower().replace('-', '_') .replace('.', '_').replace(' ', '_')
+    value = project_name.lower().replace("-", "_").replace(".", "_").replace(" ", "_")
     NAME_CACHE[project_name] = value
     return value
 
@@ -153,7 +166,7 @@ def filter_req(req, extra):
     if req.marker:
         if not extra:
             extra = None
-        keep_req = req.marker.evaluate({'extra': extra})
+        keep_req = req.marker.evaluate({"extra": extra})
     return keep_req
 
 
@@ -174,16 +187,18 @@ def is_pinned_requirement(req):
         django==1.*   # NOT pinned
     """
 
-    return any((spec.operator == '==' or spec.operator == '===') and not spec.version.endswith('.*')
-               for spec in req.specifier)
+    return any(
+        (spec.operator == "==" or spec.operator == "===")
+        and not spec.version.endswith(".*")
+        for spec in req.specifier
+    )
 
 
 def has_prerelease(req):
     """
     Returns whether an InstallRequirement has a prerelease specifier
     """
-    return any(parse_version(spec.version).is_prerelease
-               for spec in req.specifier)
+    return any(parse_version(spec.version).is_prerelease for spec in req.specifier)
 
 
 def have_compatible_glibc(major, minimum_minor):

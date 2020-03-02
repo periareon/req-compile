@@ -26,7 +26,7 @@ Why use it?
 
 * Does not allow you to use constraints that are not included in the final output
 * Provides no tools to track down where conflicting constraints originate
-* Cannot treat source directories recursively as project sources
+* Cannot treat source directories recursively as sources of requirements (like with --find-links)
 * Does not allow you to configure a storage location for downloaded distributions
 
 Req-Compile has these features, making it an effective tool for large Python projects.
@@ -78,7 +78,7 @@ Output is always emitted to stdout. Possible inputs include::
 
     > req-compile
     > req-compile .
-    # Compiles the current directory (looks for a setup.py)
+    # Compiles the current directory (looks for a setup.py or pyproject.toml)
 
     > req-compile . --extra test
     # Compiles the current directory with the extra "test"
@@ -93,7 +93,7 @@ Output is always emitted to stdout. Possible inputs include::
     # Search for candidates and compile them piped in via stdin
 
     > echo flask | req-compile
-    # Compile the requirement 'flask' using the defaut remote index (PyPI)
+    # Compile the requirement 'flask' using the default remote index (PyPI)
 
 
 Specifying source of distributions
@@ -115,7 +115,7 @@ can be specified, resolved in the same order (e.g. source takes precedence over 
 * ``--find-links``
 
   Read a directory to load distributions from. The directory can contain anything
-  a remote index would, wheels, zips, and source tarballs. This matches pip's commmand line.
+  a remote index would, wheels, zips, and source tarballs. This matches pip's command line.
 * ``--index-url``
 
   URL of a remote index to search for packages in. When compiling, it's necessary to download
@@ -182,9 +182,9 @@ Conflicts will automatically print the source of each conflicting requirement::
     pylint>=1.5
 
     > req-compile projectreqs.txt
-    No version could possibly satisfy the following requirements:
+    No version of astroid could possibly satisfy the following requirements (astroid<1.6,<3,>=2.3.0):
       projectreqs.txt -> astroid<1.6
-      projectreqs.txt -> pylint -> astroid<2.2.0,>=2.0
+      projectreqs.txt -> pylint 2.4.1 -> astroid<3,>=2.3.0
 
 Saving distributions
 ~~~~~~~~~~~~~~~~~~~~
@@ -261,3 +261,4 @@ together and ensure that their requirements will all install into the same envir
 
     > req-candidates --paths-only | req-compile --extra test --solution compiled-requirements.txt --wheel-dir .wheeldir > compiled-requirements.txt
     .. all reqs and all test reqs compiled together...
+

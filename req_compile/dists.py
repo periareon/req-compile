@@ -9,8 +9,12 @@ import shutil
 import six
 
 from req_compile import utils
-from req_compile.utils import normalize_project_name, merge_requirements, filter_req, \
-    reduce_requirements
+from req_compile.utils import (
+    normalize_project_name,
+    merge_requirements,
+    filter_req,
+    reduce_requirements,
+)
 
 
 class DependencyNode(object):
@@ -26,17 +30,19 @@ class DependencyNode(object):
         self.dependencies = {}  # Dict[DependencyNode, pkg_resources.Requirement]
         self.reverse_deps = set()  # Set[DependencyNode]
         self.repo = None
-        self.complete = False  # Whether this node and all of its dependency are completely solved
+        self.complete = (
+            False  # Whether this node and all of its dependency are completely solved
+        )
 
     def __repr__(self):
         return self.key
 
     def __str__(self):
         if self.metadata is None:
-            return self.key + ' [UNSOLVED]'
+            return self.key + " [UNSOLVED]"
         if self.metadata.meta:
             return self.metadata.name
-        return '=='.join(str(x) for x in self.metadata.to_definition(self.extras))
+        return "==".join(str(x) for x in self.metadata.to_definition(self.extras))
 
     def __lt__(self, other):
         return self.key < other.key
@@ -90,23 +96,29 @@ def _process_constraint_req(req, node, constraints):
     extra = None
     if req.marker:
         for marker in req.marker._markers:  # pylint: disable=protected-access
-            if isinstance(marker, tuple) and marker[0].value == 'extra' and marker[1].value == '==':
+            if (
+                isinstance(marker, tuple)
+                and marker[0].value == "extra"
+                and marker[1].value == "=="
+            ):
                 extra = marker[2].value
-    source = node.metadata.name + (('[' + extra + ']') if extra else '')
-    specifics = ' (' + str(req.specifier) + ')' if req.specifier else ''
+    source = node.metadata.name + (("[" + extra + "]") if extra else "")
+    specifics = " (" + str(req.specifier) + ")" if req.specifier else ""
     constraints.extend([source + specifics])
 
 
 class DistributionCollection(object):
     def __init__(self):
         self.nodes = {}  # Dict[str, DependencyNode]
-        self.logger = logging.getLogger('req_compile.dists')
+        self.logger = logging.getLogger("req_compile.dists")
 
     @staticmethod
     def _build_key(name):
         return utils.normalize_project_name(name)
 
-    def add_dist(self, name_or_metadata, source, reason):  # pylint: disable=too-many-branches
+    def add_dist(
+        self, name_or_metadata, source, reason
+    ):  # pylint: disable=too-many-branches
         """
         Add a distribution
 
@@ -115,7 +127,7 @@ class DistributionCollection(object):
             source (DependencyNode, optional): The source of the distribution
             reason (pkg_resources.Requirement, optional):
         """
-        self.logger.debug('Adding dist: %s %s %s', name_or_metadata, source, reason)
+        self.logger.debug("Adding dist: %s %s %s", name_or_metadata, source, reason)
 
         if isinstance(name_or_metadata, six.string_types):
             req_name = name_or_metadata
@@ -133,7 +145,12 @@ class DistributionCollection(object):
             self.nodes[key] = node
 
         # If a new extra is being supplied, update the metadata
-        if reason and node.metadata and reason.extras and set(reason.extras) - node.extras:
+        if (
+            reason
+            and node.metadata
+            and reason.extras
+            and set(reason.extras) - node.extras
+        ):
             metadata_to_apply = node.metadata
 
         if source is not None and source.key in self.nodes:
@@ -147,16 +164,18 @@ class DistributionCollection(object):
         self._discard_metadata_if_necessary(node, reason)
 
         if node.key not in self.nodes:
-            raise ValueError('The node {} is gone, while adding'.format(node.key))
+            raise ValueError("The node {} is gone, while adding".format(node.key))
 
         return nodes
 
     def _discard_metadata_if_necessary(self, node, reason):
         if node.metadata is not None and not node.metadata.meta and reason is not None:
             if node.metadata.version is not None and not reason.specifier.contains(
-                    node.metadata.version,
-                    prereleases=True):
-                self.logger.debug('Existing solution (%s) invalidated by %s', node.metadata, reason)
+                node.metadata.version, prereleases=True
+            ):
+                self.logger.debug(
+                    "Existing solution (%s) invalidated by %s", node.metadata, reason
+                )
                 # Discard the metadata
                 self.remove_dists(node, remove_upstream=False)
 
@@ -175,10 +194,10 @@ class DistributionCollection(object):
                 self.remove_dists(single_node, remove_upstream=remove_upstream)
             return
 
-        self.logger.info('Removing dist(s): %s (upstream = %s)', node, remove_upstream)
+        self.logger.info("Removing dist(s): %s (upstream = %s)", node, remove_upstream)
 
         if node.key not in self.nodes:
-            self.logger.debug('Node %s was already removed', node.key)
+            self.logger.debug("Node %s was already removed", node.key)
             return
 
         if remove_upstream:
@@ -199,9 +218,14 @@ class DistributionCollection(object):
 
     def build(self, roots):
         results = self.generate_lines(roots)
-        return [utils.parse_requirement('=='.join([result[0][0], str(result[0][1])])) for result in results]
+        return [
+            utils.parse_requirement("==".join([result[0][0], str(result[0][1])]))
+            for result in results
+        ]
 
-    def visit_nodes(self, roots, max_depth=None, reverse=False, _visited=None, _cur_depth=0):
+    def visit_nodes(
+        self, roots, max_depth=None, reverse=False, _visited=None, _cur_depth=0
+    ):
         if _visited is None:
             _visited = set()
 
@@ -217,8 +241,13 @@ class DistributionCollection(object):
             yield node
 
             if max_depth is None or _cur_depth < max_depth - 1:
-                results = self.visit_nodes([node], reverse=reverse, max_depth=max_depth,
-                                           _visited=_visited, _cur_depth=_cur_depth + 1)
+                results = self.visit_nodes(
+                    [node],
+                    reverse=reverse,
+                    max_depth=max_depth,
+                    _visited=_visited,
+                    _cur_depth=_cur_depth + 1,
+                )
                 for result in results:
                     yield result
 
@@ -240,24 +269,25 @@ class DistributionCollection(object):
             if not node.metadata.meta and req_filter(node):
                 constraints = _build_constraints(node)
                 req_expr = node.metadata.to_definition(node.extras)
-                constraint_text = ', '.join(sorted(constraints))
+                constraint_text = ", ".join(sorted(constraints))
                 results.append((req_expr, constraint_text))
         return results
 
     def __contains__(self, project_name):
-        req_name = project_name.split('[')[0]
+        req_name = project_name.split("[")[0]
         return normalize_project_name(req_name) in self.nodes
 
     def __iter__(self):
         return iter(self.nodes.values())
 
     def __getitem__(self, project_name):
-        req_name = project_name.split('[')[0]
+        req_name = project_name.split("[")[0]
         return self.nodes[normalize_project_name(req_name)]
 
 
 class RequirementContainer(object):
     """A container for a list of requirements"""
+
     def __init__(self, name, reqs, meta=False):
         self.name = name
         self.reqs = list(reqs) if reqs else []
@@ -265,8 +295,7 @@ class RequirementContainer(object):
         self.meta = meta
 
     def requires(self, extra=None):
-        return reduce_requirements(req for req in self.reqs
-                                   if filter_req(req, extra))
+        return reduce_requirements(req for req in self.reqs if filter_req(req, extra))
 
     def to_definition(self, extras):
         raise NotImplementedError()
@@ -277,7 +306,7 @@ class RequirementsFile(RequirementContainer):
         super(RequirementsFile, self).__init__(filename, reqs, meta=True)
 
     def __repr__(self):
-        return 'RequirementsFile({})'.format(self.name)
+        return "RequirementsFile({})".format(self.name)
 
     @staticmethod
     def from_file(full_path):
@@ -307,16 +336,22 @@ class DistInfo(RequirementContainer):
         self.source = None
 
     def __str__(self):
-        return '{}=={}'.format(*self.to_definition(None))
+        return "{}=={}".format(*self.to_definition(None))
 
     def to_definition(self, extras):
-        req_expr = '{}{}'.format(
-            self.name,
-            ('[' + ','.join(sorted(extras)) + ']') if extras else '')
+        req_expr = "{}{}".format(
+            self.name, ("[" + ",".join(sorted(extras)) + "]") if extras else ""
+        )
         return req_expr, self.version
 
     def __repr__(self):
-        return self.name + ' ' + str(self.version) + '\n' + '\n'.join([str(req) for req in self.reqs])
+        return (
+            self.name
+            + " "
+            + str(self.version)
+            + "\n"
+            + "\n".join([str(req) for req in self.reqs])
+        )
 
 
 class PkgResourcesDistInfo(RequirementContainer):
@@ -330,19 +365,20 @@ class PkgResourcesDistInfo(RequirementContainer):
         self.version = dist.parsed_version
 
     def __str__(self):
-        return '{}=={}'.format(*self.to_definition(None))
+        return "{}=={}".format(*self.to_definition(None))
 
     def requires(self, extra=None):
         return self.dist.requires(extras=extra or ())
 
     def to_definition(self, extras):
-        req_expr = '{}{}'.format(
+        req_expr = "{}{}".format(
             self.dist.project_name,
-            ('[' + ','.join(sorted(extras)) + ']') if extras else '')
+            ("[" + ",".join(sorted(extras)) + "]") if extras else "",
+        )
         return req_expr, self.version
 
     def __del__(self):
         try:
-            shutil.rmtree(os.path.join(self.dist.location, '..'))
+            shutil.rmtree(os.path.join(self.dist.location, ".."))
         except EnvironmentError:
             pass
