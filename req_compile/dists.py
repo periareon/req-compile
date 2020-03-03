@@ -116,9 +116,7 @@ class DistributionCollection(object):
     def _build_key(name):
         return utils.normalize_project_name(name)
 
-    def add_dist(
-        self, name_or_metadata, source, reason
-    ):  # pylint: disable=too-many-branches
+    def add_dist(self, name_or_metadata, source, reason):
         """
         Add a distribution
 
@@ -159,7 +157,7 @@ class DistributionCollection(object):
 
         nodes = set()
         if metadata_to_apply is not None:
-            nodes |= self.update_dists(node, metadata_to_apply)
+            nodes |= self._update_dists(node, metadata_to_apply)
 
         self._discard_metadata_if_necessary(node, reason)
 
@@ -179,7 +177,7 @@ class DistributionCollection(object):
                 # Discard the metadata
                 self.remove_dists(node, remove_upstream=False)
 
-    def update_dists(self, node, metadata):
+    def _update_dists(self, node, metadata):
         node.metadata = metadata
         add_nodes = {node}
         for extra in {None} | node.extras:
@@ -302,6 +300,8 @@ class RequirementContainer(object):
 
 
 class RequirementsFile(RequirementContainer):
+    """Represents a requirements file - a text file containing a list of requirements"""
+
     def __init__(self, filename, reqs):
         super(RequirementsFile, self).__init__(filename, reqs, meta=True)
 

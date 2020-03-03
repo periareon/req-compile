@@ -7,6 +7,10 @@ import req_compile.metadata
 
 
 class FindLinksRepository(Repository):
+    """
+    A directory on the filesystem as a source of distributions.
+    """
+
     def __init__(self, path, allow_prerelease=None):
         super(FindLinksRepository, self).__init__(
             "findlinks", allow_prerelease=allow_prerelease

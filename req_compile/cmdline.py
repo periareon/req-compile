@@ -251,142 +251,82 @@ def _create_input_reqs(input_arg, extra_sources):
     return _create_req_from_path(input_arg)
 
 
-# pylint: disable=too-many-locals,too-many-branches
-def run_compile(
-    input_args,
-    extras,
-    constraint_files,
-    repo,
-    remove_source,
-    remove_non_source,
-    annotate_source,
-    no_comments,
-    no_pins,
+def _blacklist_filter(req):
+    return req.metadata.name.lower() not in BLACKLIST
+
+
+def _is_not_from_source(dist):
+    return dist.metadata.origin is not None and not isinstance(
+        dist.metadata.origin, SourceRepository
+    )
+
+
+def _source_req_filter(req):
+    return _blacklist_filter(req) and _is_not_from_source(req)
+
+
+def _non_source_req_filter(req):
+    return _blacklist_filter(req) and not _is_not_from_source(req)
+
+
+def write_requirements_file(
+    results,
+    roots,
+    annotate_source=False,
+    input_reqs=None,
+    repo=None,
+    remove_non_source=False,
+    remove_source=False,
+    no_pins=False,
+    no_comments=False,
 ):
-    """
-    Args:
-        input_args (list[str]):
-        extras (Iterable[str]):
-        constraint_files (list[str]):
-        repo:
-        remove_source (bool):
-        remove_non_source:
-        annotate_source (bool):
-        no_pins (bool):
-        no_comments (bool):
-    Returns:
+    req_filter = _blacklist_filter
+    if remove_source or remove_non_source:
+        if not any(isinstance(r, SourceRepository) for r in repo):
+            raise ValueError("Cannot remove results from source, no source provided")
 
-    """
-    extra_sources = []
-    if not input_args:
-        # Check to see whether stdin is hooked up to piped data or the console
-        if not sys.stdin.isatty():
-            input_args = ("-",)
+        if remove_non_source:
+            req_filter = _non_source_req_filter
         else:
-            input_args = (".",)
+            req_filter = _source_req_filter
 
-    input_reqs = [
-        _create_input_reqs(input_arg, extra_sources) for input_arg in input_args
-    ]
+    lines = sorted(
+        results.generate_lines(roots, req_filter=req_filter),
+        key=lambda x: x[0][0].lower(),
+    )
 
-    constraint_reqs = []
-    if constraint_files is not None:
-        constraint_reqs = [
-            _create_input_reqs(input_arg, extra_sources)
-            for input_arg in constraint_files
-        ]
+    fmt = "{key}"
+    line_len = lambda x: len(x[0][0])
+    if not no_pins:
+        fmt += "=={version}"
+        line_len = lambda x: len(x[0][0]) + len(str(x[0][1]))
+    if not no_comments:
+        fmt += "{padding}# {annotation}{constraints}"
+    if annotate_source:
+        repo_mapping = _generate_repo_header(input_reqs, repo)
+    if lines:
+        left_column_len = max(line_len(x) + 2 for x in lines)
+        annotation = ""
+        for line in lines:
+            if annotate_source:
+                key = line[0][0]
+                source = results[key].metadata.origin
+                if source not in repo_mapping:
+                    print("No repo for {}".format(line), file=sys.stderr)
+                    annotation = "[?] "
+                else:
+                    annotation = "[{}] ".format(repo_mapping[source])
 
-    if extras:
-        for req in input_reqs:
-            try:
-                extra_req = pkg_resources.Requirement.parse(
-                    req.name + "[{}]".format(",".join(extras))
+            padding = " " * (left_column_len - line_len(line))
+            print(
+                fmt.format(
+                    key=line[0][0],
+                    version=line[0][1],
+                    padding=padding,
+                    annotation=annotation,
+                    constraints=line[1],
                 )
-            except pkg_resources.RequirementParseError:
-                continue
-            extra_constraint = DistInfo(
-                "{}-extra".format(req.name), None, [extra_req], meta=True
             )
-            constraint_reqs.append(extra_constraint)
-
-    if extra_sources:
-        # Add the sources provided to the search repos
-        repo = MultiRepository(
-            *([SourceRepository(source) for source in extra_sources] + [repo])
-        )
-
-    try:
-        results, roots = perform_compile(
-            input_reqs, repo, extras=extras, constraint_reqs=constraint_reqs
-        )
-
-        def blacklist_filter(req):
-            return req.metadata.name.lower() not in BLACKLIST
-
-        req_filter = blacklist_filter
-        if remove_source or remove_non_source:
-            if not any(isinstance(r, SourceRepository) for r in repo):
-                raise ValueError(
-                    "Cannot remove results from source, no source provided"
-                )
-
-            def is_not_from_source(dist):
-                return dist.metadata.origin is not None and not isinstance(
-                    dist.metadata.origin, SourceRepository
-                )
-
-            source_req_filter = lambda req: blacklist_filter(
-                req
-            ) and is_not_from_source(req)
-            if remove_non_source:
-                req_filter = lambda req: not source_req_filter(req)
-            else:
-                req_filter = source_req_filter
-
-        lines = sorted(
-            results.generate_lines(roots, req_filter=req_filter),
-            key=lambda x: x[0][0].lower(),
-        )
-
-        fmt = "{key}"
-        line_len = lambda x: len(x[0][0])
-        if not no_pins:
-            fmt += "=={version}"
-            line_len = lambda x: len(x[0][0]) + len(str(x[0][1]))
-        if not no_comments:
-            fmt += "{padding}# {annotation}{constraints}"
-
-        if annotate_source:
-            repo_mapping = _generate_repo_header(input_reqs, repo)
-        if lines:
-            left_column_len = max(line_len(x) + 2 for x in lines)
-            annotation = ""
-            for line in lines:
-                if annotate_source:
-                    key = line[0][0]
-                    source = results[key].metadata.origin
-                    if source not in repo_mapping:
-                        print("No repo for {}".format(line), file=sys.stderr)
-                        annotation = "[?] "
-                    else:
-                        annotation = "[{}] ".format(repo_mapping[source])
-
-                padding = " " * (left_column_len - line_len(line))
-                print(
-                    fmt.format(
-                        key=line[0][0],
-                        version=line[0][1],
-                        padding=padding,
-                        annotation=annotation,
-                        constraints=line[1],
-                    )
-                )
-    except (
-        req_compile.repos.repository.NoCandidateException,
-        req_compile.metadata.errors.MetadataError,
-    ) as ex:
-        _generate_no_candidate_display(ex.req, repo, ex.results, ex)
-        sys.exit(1)
 
 
 def _generate_repo_header(input_reqs, repos):
@@ -582,11 +522,44 @@ def compile_main(args=None):
         wheeldir = tempfile.mkdtemp()
         delete_wheeldir = True
 
+    input_args = args.requirement_files
+    if not input_args:
+        # Check to see whether stdin is hooked up to piped data or the console
+        if not sys.stdin.isatty():
+            input_args = ("-",)
+        else:
+            input_args = (".",)
+
+    extra_sources = []
+    input_reqs = [
+        _create_input_reqs(input_arg, extra_sources) for input_arg in input_args
+    ]
+
+    constraint_reqs = []
+    if args.constraints is not None:
+        constraint_reqs = [
+            _create_input_reqs(input_arg, extra_sources)
+            for input_arg in args.constraints
+        ]
+
+    if args.extras:
+        for req in input_reqs:
+            try:
+                extra_req = pkg_resources.Requirement.parse(
+                    req.name + "[{}]".format(",".join(args.extras))
+                )
+            except pkg_resources.RequirementParseError:
+                continue
+            extra_constraint = DistInfo(
+                "{}-extra".format(req.name), None, [extra_req], meta=True
+            )
+            constraint_reqs.append(extra_constraint)
+
     try:
         repo = build_repo(
             args.solutions,
             args.upgrade_packages,
-            args.sources,
+            extra_sources + args.sources,
             args.excluded_sources,
             args.find_links,
             args.index_urls,
@@ -594,25 +567,34 @@ def compile_main(args=None):
             wheeldir,
             allow_prerelease=args.allow_prerelease,
         )
-
-        run_compile(
-            args.requirement_files,
-            args.extras,
-            args.constraints if args.constraints else None,
-            repo,
-            args.remove_source,
-            args.remove_non_source,
-            args.annotate,
-            args.no_comments,
-            args.no_pins,
+        results, roots = perform_compile(
+            input_reqs, repo, extras=args.extras, constraint_reqs=constraint_reqs
         )
     except RepositoryInitializationError as ex:
         logger.exception("Error initialization repository")
         print("Error initializing {}: {}".format(ex.type.__name__, ex), file=sys.stderr)
         sys.exit(1)
+    except (
+        req_compile.repos.repository.NoCandidateException,
+        req_compile.metadata.errors.MetadataError,
+    ) as ex:
+        _generate_no_candidate_display(ex.req, repo, ex.results, ex)
+        sys.exit(1)
     finally:
         if delete_wheeldir:
             shutil.rmtree(wheeldir)
+
+    write_requirements_file(
+        results,
+        roots,
+        annotate_source=args.annotate,
+        input_reqs=input_reqs,
+        repo=repo,
+        remove_non_source=args.remove_non_source,
+        remove_source=args.remove_source,
+        no_pins=args.no_pins,
+        no_comments=args.no_comments,
+    )
 
 
 def add_logging_args(parser):
@@ -626,6 +608,7 @@ def add_logging_args(parser):
 
 
 def add_repo_args(parser):
+    """Add arguments related to adding repositories to the command line"""
     group = parser.add_argument_group("repositories")
     group.add_argument(
         "-n",

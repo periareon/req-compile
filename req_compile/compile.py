@@ -198,6 +198,7 @@ def perform_compile(input_reqs, repo, extras=None, constraint_reqs=None):
             insight into the resolved requirements
         repo (req_compile.repos.Repository): Repository to use as a source of
             Python packages.
+        extras (Iterable[str]): Extras to apply automatically to source projects
         constraint_reqs (list[RequirementsContainer] or None): Constraints to use
             when compiling
     Returns:

@@ -205,6 +205,7 @@ sources = [
         ["cfn_flip>=1.0.2", 'awacs>=0.8; extra == "policy"'],
     ],
     ["version-writer-1.2", "version-writer", "1.2", []],
+    ["tinyrpc-1.0.4", "tinyrpc", "1.0.4", ["six"]],
 ]
 if six.PY3:
     sources.append(["spec-loading-1.0", "spec-loading", "1.0", ["et_xmlfile", "jdcal"]])
@@ -229,9 +230,10 @@ def test_source_dist(
     metadata = req_compile.metadata.extract_metadata(archive)
     assert not mock_build.called
 
-    assert metadata.name == name
-    if version is not None:
-        assert metadata.version == pkg_resources.parse_version(version)
+    if archive_fixture != "mock_fs":
+        assert metadata.name == name
+        if version is not None:
+            assert metadata.version == pkg_resources.parse_version(version)
     if reqs is not None:
         assert set(metadata.reqs) == set(pkg_resources.parse_requirements(reqs))
 

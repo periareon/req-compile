@@ -42,11 +42,16 @@ THREADLOCAL = threading.local()
 
 
 def parse_source_filename(full_filename):
-    filename = full_filename.replace("_", "-")
-    filename = filename.replace(".tar.gz", "")
+    filename = full_filename.replace(".tar.gz", "")
     filename = filename.replace(".tar.bz2", "")
     filename = filename.replace(".zip", "")
     filename = filename.replace(".tgz", "")
+
+    # Source directories don't express a version
+    if full_filename == filename:
+        return full_filename, None
+
+    filename = filename.replace("_", "-")
 
     dash_parts = filename.split("-")
     version_start = None
@@ -162,8 +167,6 @@ def _fetch_from_setup_py(
 
     setattr(THREADLOCAL, "curdir", extractor.fake_root)
 
-    orig_abspath = os.path.abspath
-
     def _fake_chdir(new_dir):
         if os.path.isabs(new_dir):
             dir_test = os.path.relpath(new_dir, extractor.fake_root)
@@ -171,7 +174,9 @@ def _fetch_from_setup_py(
                 raise ValueError(
                     "Cannot operate outside of setup dir ({})".format(dir_test)
                 )
-        setattr(THREADLOCAL, "curdir", orig_abspath(new_dir))
+        elif new_dir == "..":
+            new_dir = "/".join(re.split(r"[/\\]", os.getcwd())[:-1])
+        setattr(THREADLOCAL, "curdir", os.path.abspath(new_dir))
 
     def _fake_getcwd():
         return getattr(THREADLOCAL, "curdir")
@@ -224,6 +229,9 @@ def _fetch_from_setup_py(
     if results.name is None:
         results.name = name
     if results.version is None or (version and results.version != version):
+        LOG.debug(
+            "Parsed version of %s did not match filename %s", results.version, version
+        )
         results.version = version or utils.parse_version("0.0.0")
 
     if not isinstance(extractor, NonExtractor) and utils.normalize_project_name(
@@ -790,7 +798,7 @@ def _parse_setup_py(
         try:
             sys.path.insert(0, abs_setupdir)
             if setup_dir:
-                os.chdir(setup_dir)
+                os.chdir(abs_setupdir)
 
             contents = extractor.contents(os.path.basename(setup_file))
             if six.PY2:

@@ -91,6 +91,7 @@ def parse_version(version):
 
 
 def parse_requirements(reqs):
+    """Parse a list of strings into a generate of pkg_resources.Requirements"""
     for req in reqs:
         req = req.strip()
         if "\n" in req:
@@ -103,6 +104,7 @@ def parse_requirements(reqs):
 
 
 def merge_extras(extras1, extras2):
+    """Merge two iterables of extra into a single sorted tuple. Case-sensitive"""
     if not extras1:
         return extras2
     if not extras2:
@@ -111,6 +113,7 @@ def merge_extras(extras1, extras2):
 
 
 def merge_requirements(req1, req2):
+    """Merge two requirements into a single requirement that would satisfy both"""
     if req1 is not None and req2 is None:
         return req1
     if req2 is not None and req1 is None:
@@ -152,6 +155,7 @@ NAME_CACHE = {}
 
 
 def normalize_project_name(project_name):
+    """Normalize a project name"""
     if project_name in NAME_CACHE:
         return NAME_CACHE[project_name]
     value = project_name.lower().replace("-", "_").replace(".", "_").replace(" ", "_")
@@ -160,6 +164,7 @@ def normalize_project_name(project_name):
 
 
 def filter_req(req, extra):
+    """Apply an extra using a requirements markers and return True if this requirement is kept"""
     if extra and not req.marker:
         return False
     keep_req = True
@@ -171,8 +176,7 @@ def filter_req(req, extra):
 
 
 def is_pinned_requirement(req):
-    """
-    Returns whether an InstallRequirement is a "pinned" requirement.
+    """Returns whether an InstallRequirement is a "pinned" requirement.
 
     An InstallRequirement is considered pinned if:
     - Is not editable
@@ -195,9 +199,7 @@ def is_pinned_requirement(req):
 
 
 def has_prerelease(req):
-    """
-    Returns whether an InstallRequirement has a prerelease specifier
-    """
+    """Returns whether an InstallRequirement has a prerelease specifier"""
     return any(parse_version(spec.version).is_prerelease for spec in req.specifier)
 
 
