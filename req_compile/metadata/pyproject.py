@@ -1,4 +1,5 @@
 """PEP517 pyproject.toml support. One major restriction: build isolation is not supported"""
+import logging
 import os
 import shutil
 import tempfile
@@ -7,6 +8,8 @@ import importlib
 import toml
 
 from .dist_info import _parse_flat_metadata, _fetch_from_wheel
+
+LOG = logging.getLogger("req_compile.metadata.source")
 
 
 def _create_build_backend(build_system):
@@ -56,10 +59,16 @@ def fetch_from_pyproject(source_file):
     a wheel and extracting the metadata"""
     try:
         pyproject = toml.load(os.path.join(source_file, "pyproject.toml"))
-    except toml.TomlDecodeError:
+    except toml.TomlDecodeError as ex:
+        LOG.debug("Failed to load pyproject.toml: %s", ex)
         return None
 
-    backend = _create_build_backend(pyproject["build-system"])
+    try:
+        backend = _create_build_backend(pyproject["build-system"])
+    except KeyError:
+        LOG.debug("No build-system in the pyproject.toml")
+        return None
+
     result = _parse_from_prepared_metadata(source_file, backend)
     if result is not None:
         return result
