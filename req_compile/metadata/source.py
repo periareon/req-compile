@@ -2,7 +2,6 @@
 """Parsing of metadata that comes from setup.py"""
 from __future__ import print_function
 
-import contextlib
 from contextlib import closing
 import functools
 import imp
@@ -30,6 +29,7 @@ from req_compile.dists import PkgResourcesDistInfo, DistInfo
 from .dist_info import _fetch_from_wheel
 from .extractor import NonExtractor
 from .errors import MetadataError
+from .patch import begin_patch, end_patch, patch
 
 LOG = logging.getLogger("req_compile.metadata.source")
 
@@ -476,47 +476,6 @@ def setup(
             return None
 
     return FakeResult()
-
-
-def begin_patch(module, member, new_value):
-    if isinstance(module, str):
-        if module not in sys.modules:
-            return None
-
-        module = sys.modules[module]
-
-    if not hasattr(module, member):
-        old_member = None
-    else:
-        old_member = getattr(module, member)
-    setattr(module, member, new_value)
-    return module, member, old_member
-
-
-def end_patch(token):
-    if token is None:
-        return
-
-    module, member, old_member = token
-    if old_member is None:
-        delattr(module, member)
-    else:
-        setattr(module, member, old_member)
-
-
-@contextlib.contextmanager
-def patch(*args):
-    """Manager a patch in a contextmanager"""
-    tokens = []
-    for idx in range(0, len(args), 3):
-        module, member, new_value = args[idx : idx + 3]
-        tokens.append(begin_patch(module, member, new_value))
-
-    try:
-        yield
-    finally:
-        for token in tokens[::-1]:
-            end_patch(token)
 
 
 def _get_include():

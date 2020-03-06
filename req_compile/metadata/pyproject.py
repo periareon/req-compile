@@ -2,12 +2,15 @@
 import logging
 import os
 import shutil
+import sys
 import tempfile
 import importlib
+from six.moves import StringIO
 
 import toml
 
 from .dist_info import _parse_flat_metadata, _fetch_from_wheel
+from .patch import patch
 
 LOG = logging.getLogger("req_compile.metadata.source")
 
@@ -30,7 +33,9 @@ def _parse_from_prepared_metadata(source_file, backend):
     old_cwd = os.getcwd()
     try:
         os.chdir(source_file)
-        info = prepare(dest)
+        fake_out = StringIO()
+        with patch(sys, "stdout", fake_out, sys, "stderr", fake_out):
+            info = prepare(dest)
         meta_info = os.path.join(dest, info, "METADATA")
         if os.path.exists(meta_info):
             with open(meta_info, "r") as file_handle:
@@ -67,6 +72,11 @@ def fetch_from_pyproject(source_file):
         backend = _create_build_backend(pyproject["build-system"])
     except KeyError:
         LOG.debug("No build-system in the pyproject.toml")
+        return None
+    except ImportError:
+        LOG.debug(
+            "Could not import backend %s", pyproject["build-system"]["build-backend"]
+        )
         return None
 
     result = _parse_from_prepared_metadata(source_file, backend)
