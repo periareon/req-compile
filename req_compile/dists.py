@@ -368,7 +368,7 @@ class PkgResourcesDistInfo(RequirementContainer):
         return "{}=={}".format(*self.to_definition(None))
 
     def requires(self, extra=None):
-        return self.dist.requires(extras=extra or ())
+        return self.dist.requires(extras=(extra,) if extra else ())
 
     def to_definition(self, extras):
         req_expr = "{}{}".format(
