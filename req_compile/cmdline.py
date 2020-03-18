@@ -279,7 +279,27 @@ def write_requirements_file(
     remove_source=False,
     no_pins=False,
     no_comments=False,
+    write_to=sys.stdout,
 ):
+    """
+    Write a text requirements file with various options
+
+    Args:
+        results (DistributionCollection): Results of a compilation
+        roots (set[DependencyNode]): Roots to include in the output. Anything not reachable from these
+            roots will be discarded
+        annotate_source (bool): if True, annotates where a requirement comes from via a comment header
+            and numeric indicators per line. Also includes information about the input requirements in the header
+        input_reqs (list[RequirementContainer]): If annotate_source is true, the input requirements must be
+            provided to display them in the header
+        repo (Repository): The repository that was the source of the requirements. In the case of annotate_source,
+            all requirements will belong to this repository unless it is a MultiRepository
+        remove_non_source (bool): Requirements that don't come from source directories will be omitted
+        remove_source (bool): Requirements that come from source directories will be omitted
+        no_pins (bool): If True, omit the solved version from the requirement lines
+        no_comments (bool): If True, omit the comment containing the reverse dependencies
+        write_to (file-like object): Object that implements "write" that takes a string
+    """
     req_filter = _blacklist_filter
     if remove_source or remove_non_source:
         if not any(isinstance(r, SourceRepository) for r in repo):
@@ -303,7 +323,7 @@ def write_requirements_file(
     if not no_comments:
         fmt += "{padding}# {annotation}{constraints}"
     if annotate_source:
-        repo_mapping = _generate_repo_header(input_reqs, repo)
+        repo_mapping = _generate_repo_header(input_reqs, repo, write_to)
     if lines:
         left_column_len = max(line_len(x) + 2 for x in lines)
         annotation = ""
@@ -312,13 +332,12 @@ def write_requirements_file(
                 key = line[0][0]
                 source = results[key].metadata.origin
                 if source not in repo_mapping:
-                    print("No repo for {}".format(line), file=sys.stderr)
                     annotation = "[?] "
                 else:
                     annotation = "[{}] ".format(repo_mapping[source])
 
             padding = " " * (left_column_len - line_len(line))
-            print(
+            write_to.write(
                 fmt.format(
                     key=line[0][0],
                     version=line[0][1],
@@ -327,9 +346,10 @@ def write_requirements_file(
                     constraints=line[1],
                 )
             )
+            write_to.write("\n")
 
 
-def _generate_repo_header(input_reqs, repos):
+def _generate_repo_header(input_reqs, repos, write_to):
     """Generate the header used in --annotate mode. Produces a mapping from repo to integer to mark
     each line
 
@@ -341,26 +361,24 @@ def _generate_repo_header(input_reqs, repos):
     qer_req = pkg_resources.working_set.find(
         pkg_resources.Requirement.parse("req_compile")
     )
-    print(
-        "# Compiled by Req-Compile Requirements Compiler ({}) on {} UTC".format(
+    write_to.write(
+        "# Compiled by Req-Compile Requirements Compiler ({}) on {} UTC\n".format(
             qer_req.version if qer_req else "dev", datetime.datetime.utcnow()
         )
     )
-    print("#")
-    print("# Inputs:")
+    write_to.write("#\n# Inputs:\n")
     for input_arg in input_reqs:
         input_to_print = input_arg.name
         if input_arg == "-":
             input_to_print = list(input_arg.reqs)
         elif os.path.exists(input_arg.name):
             input_to_print = os.path.abspath(input_arg.name)
-        print("# {}".format(input_to_print))
-    print("#")
-    print("# Repositories (this annotation produced by --annotate):")
+        write_to.write("# {}\n".format(input_to_print))
+    write_to.write("#\n# Repositories (this annotation produced by --annotate):\n")
     for idx, repo in enumerate(repos):
         repo_mapping[repo] = idx
-        print("# [{}] {}".format(idx, repo))
-    print("")
+        write_to.write("# [{}] {}\n".format(idx, repo))
+    write_to.write("\n")
     return repo_mapping
 
 
