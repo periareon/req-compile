@@ -98,6 +98,8 @@ class SourceRepository(Repository):
                 )
 
     def _find_all_source_dirs(self, excluded_paths):
+        yield self.path
+
         for root, dirs, files in os.walk(self.path):
             has_marker = False
             for dir_ in list(dirs):

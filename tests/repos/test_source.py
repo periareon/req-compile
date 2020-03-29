@@ -44,6 +44,14 @@ def test_marker(monorepo_dir):
         source_repo_marker.get_candidate(pkg_resources.Requirement.parse("pkg4"))
 
 
+def test_marker_in_dir(monorepo_dir):
+    """Verify that special marker files don't prevent the root of the source repository from being added"""
+    source_repo_marker = SourceRepository(
+        os.path.join(monorepo_dir, "pkg4"), marker_files=[".special_dir"]
+    )
+    source_repo_marker.get_candidate(pkg_resources.Requirement.parse("pkg4"))
+
+
 def test_exclude_dirs(monorepo_dir):
     """Test that that projects can be excluded by excluded paths"""
     source_repo = SourceRepository(
