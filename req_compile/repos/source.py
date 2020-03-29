@@ -98,8 +98,6 @@ class SourceRepository(Repository):
                 )
 
     def _find_all_source_dirs(self, excluded_paths):
-        yield self.path
-
         for root, dirs, files in os.walk(self.path):
             has_marker = False
             for dir_ in list(dirs):
@@ -118,12 +116,12 @@ class SourceRepository(Repository):
                     has_marker = True
                     break
 
-            if has_marker:
+            if root != self.path and has_marker:
                 continue
 
             root_is_valid = False
             for filename in files:
-                if filename in self.marker_files:
+                if root != self.path and filename in self.marker_files:
                     dirs[:] = []
                     root_is_valid = False
                     break
