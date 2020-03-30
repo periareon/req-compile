@@ -1,23 +1,28 @@
 import os
-from os.path import expanduser
 import sys
 
+import appdirs
 from six.moves import configparser
+
+CONFIG_BASENAME = 'pip.ini' if sys.platform == "win32" else 'pip.conf'
 
 
 def _get_config_paths():
-    # Try user specific config file first
-    if sys.platform.startswith("linux"):
-        home = expanduser("~")
-        user_config = os.path.join(home, ".config", "pip", "pip.conf")
-        site_config = "/etc/pip.conf"
-    elif sys.platform == "win32":
-        user_config = os.path.join(os.getenv("LOCALAPPDATA"), "pip", "pip.ini")
-        site_config = os.path.join(os.getenv("PROGRAMDATA"), "pip", "pip.ini")
-    else:
-        return ()
+    user_dir = appdirs.user_config_dir('pip', appauthor=False, roaming=True)
+    site_dir = appdirs.site_config_dir('pip', appauthor=False, multipath=True)
 
-    return site_config, user_config
+    config_files = [
+        os.path.join(user_dir, CONFIG_BASENAME),
+        os.path.join(site_dir, CONFIG_BASENAME),
+    ]
+    if sys.platform.startswith("linux"):
+        config_files.append("/etc/pip.conf")
+    elif sys.platform == "win32" and site_dir is None or site_dir == r'.\pip':
+        # Add a manual fallback to C:\ProgramData if it could not be programmatically
+        # determined
+        config_files.append(r"C:\ProgramData\pip\pip.ini")
+
+    return config_files
 
 
 def read_pip_default_index():
