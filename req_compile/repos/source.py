@@ -88,6 +88,7 @@ class SourceRepository(Repository):
                     source_dir,
                     result.version,
                     None,
+                    None,
                     "any",
                     None,
                     req_compile.repos.repository.DistributionType.SOURCE,

@@ -302,16 +302,24 @@ class RequirementContainer(object):
 class RequirementsFile(RequirementContainer):
     """Represents a requirements file - a text file containing a list of requirements"""
 
-    def __init__(self, filename, reqs):
+    def __init__(self, filename, reqs, **_kwargs):
         super(RequirementsFile, self).__init__(filename, reqs, meta=True)
 
     def __repr__(self):
         return "RequirementsFile({})".format(self.name)
 
-    @staticmethod
-    def from_file(full_path):
+    @classmethod
+    def from_file(cls, full_path, **kwargs):
+        """Load requirements from a file and build a RequirementsFile
+
+        Args:
+            full_path (str): The path to the file to load
+
+        Keyword Args:
+            Additional arguments to forward to the class constructor
+        """
         reqs = utils.reqs_from_files([full_path])
-        return RequirementsFile(full_path, reqs)
+        return cls(full_path, reqs, **kwargs)
 
     def __str__(self):
         return self.name

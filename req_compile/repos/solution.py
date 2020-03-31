@@ -18,6 +18,7 @@ def _candidate_from_node(node):
         node.metadata,
         node.metadata.version,
         None,
+        None,
         "any",
         None,
         DistributionType.SOURCE,

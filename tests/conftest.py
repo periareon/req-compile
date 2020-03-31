@@ -83,7 +83,9 @@ class MockRepository(Repository):
                 handle.read()
             )
 
-        return Candidate(req.project_name, path, metadata.version, None, "any", None)
+        return Candidate(
+            req.project_name, path, metadata.version, None, None, "any", None
+        )
 
     def get_candidates(self, req):
         if self.index_map is None:

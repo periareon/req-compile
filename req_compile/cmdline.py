@@ -53,6 +53,8 @@ def _cantusereason_to_text(reason):  # pylint: disable=too-many-return-statement
         return "bad metadata"
     if reason == CantUseReason.NAME_DOESNT_MATCH:
         return "name doesn't match"
+    if reason == CantUseReason.WRONG_ABI:
+        return "extension ABI mismatch"
     return "unknown"
 
 

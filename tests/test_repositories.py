@@ -60,7 +60,9 @@ def test_sort_non_semver():
     candidates = []
     for ver in candidate_vers:
         candidates.append(
-            Candidate("pytz", None, pkg_resources.parse_version(ver), None, "any", None)
+            Candidate(
+                "pytz", None, pkg_resources.parse_version(ver), None, None, "any", None
+            )
         )
 
     reference = list(candidates)

@@ -71,7 +71,9 @@ def test_fetch_in_order():
     repo3 = FakeRepository("3")
 
     repo3.get_candidates.side_effect = lambda req: [
-        Candidate("nonsense", ".", pkg_resources.parse_version("1.0"), None, "any", "")
+        Candidate(
+            "nonsense", ".", pkg_resources.parse_version("1.0"), None, None, "any", ""
+        )
     ]
     multi = MultiRepository(repo1, repo2, repo3)
 

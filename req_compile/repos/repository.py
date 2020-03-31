@@ -6,6 +6,7 @@ import enum
 import logging
 import platform
 import sys
+import sysconfig
 
 import six
 import pkg_resources
@@ -66,7 +67,25 @@ def _get_platform_tags():
     return tag
 
 
+def _get_abi_tag():
+    """Build a best effort ABI tag"""
+    py_version = (sys.version_info.major, sys.version_info.minor)
+    tag = INTERPRETER_TAG + PY_VERSION_NUM
+    if py_version < (3, 8):
+        pymalloc = sysconfig.get_config_var("WITH_PYMALLOC")
+        if pymalloc or pymalloc is None:
+            tag += "m"
+        if py_version < (3, 3):
+            unicode_size = sysconfig.get_config_var("Py_UNICODE_SIZE")
+            if unicode_size == 4 or (
+                unicode_size is None and sys.maxunicode == 0x10FFFF
+            ):
+                tag += "u"
+    return tag
+
+
 PLATFORM_TAGS = _get_platform_tags()
+ABI_TAG = _get_abi_tag()
 
 
 class RepositoryInitializationError(ValueError):
@@ -147,6 +166,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
         filename,
         version,
         py_version,
+        abi,
         plat,
         link,
         candidate_type=DistributionType.SDIST,
@@ -159,6 +179,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
             filename:
             version:
             py_version (RequiresPython): Python version
+            abi (str, None)
             plat (str):
             link:
             candidate_type:
@@ -167,6 +188,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
         self.filename = filename
         self.version = version or pkg_resources.parse_version("0.0.0")
         self.py_version = py_version
+        self.abi = abi
         self.platform = plat
         self.link = link
         self.type = candidate_type
@@ -199,25 +221,27 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
             and self.filename == other.filename
             and self.version == other.version
             and self.py_version == other.py_version
+            and self.abi == other.abi
             and self.platform == other.platform
             and self.link == other.link
             and self.type == other.type
         )
 
     def __repr__(self):
-        return "Candidate(name={}, filename={}, version={}, py_version={}, platform={}, link={})".format(
+        return "Candidate(name={}, filename={}, version={}, py_version={}, abi={}, platform={}, link={})".format(
             self.name,
             self.filename,
             self.version,
             self.py_version,
+            self.abi,
             self.platform,
             self.link,
         )
 
     def __str__(self):
         py_version_str = str(self.py_version) + "-"
-        return "{} {}-{}-{}{}".format(
-            self.type.name, self.name, self.version, py_version_str, self.platform
+        return "{} {}-{}-{}{}-{}".format(
+            self.type.name, self.name, self.version, py_version_str, self.abi, self.platform
         )
 
 
@@ -270,6 +294,7 @@ def _wheel_candidate(source, filename):
     if has_build_tag:
         build_tag = data_parts.pop(2)
     name = data_parts[0]
+    abi = data_parts[3]
     #  Convert old-style post-versions to new style so it will sort correctly
     version = pkg_resources.parse_version(data_parts[1].replace("_", "-"))
     plat = data_parts[4].split(".")[0]
@@ -281,6 +306,7 @@ def _wheel_candidate(source, filename):
         filename,
         version,
         requires_python,
+        abi if abi != "none" else None,
         plat,
         source,
         candidate_type=DistributionType.WHEEL,
@@ -295,6 +321,7 @@ def _tar_gz_candidate(source, filename):
         filename,
         version,
         None,
+        None,
         "any",
         source,
         candidate_type=DistributionType.SDIST,
@@ -303,6 +330,10 @@ def _tar_gz_candidate(source, filename):
 
 def _check_platform_compatibility(py_platform):
     return py_platform == "any" or (py_platform.lower() in PLATFORM_TAGS)
+
+
+def _check_abi_compatibility(abi):
+    return abi == ABI_TAG
 
 
 class BaseRepository(object):
@@ -328,6 +359,7 @@ class CantUseReason(enum.Enum):
     VERSION_NO_SATISFY = 5
     BAD_METADATA = 6
     NAME_DOESNT_MATCH = 7
+    WRONG_ABI = 8
 
 
 def sort_candidates(candidates):
@@ -348,6 +380,9 @@ def check_usability(req, candidate, has_equality=None, allow_prereleases=False):
         and not candidate.py_version.check_compatibility()
     ):
         return CantUseReason.WRONG_PYTHON_VERSION
+
+    if candidate.abi is not None and not _check_abi_compatibility(candidate.abi):
+        return CantUseReason.WRONG_ABI
 
     if not _check_platform_compatibility(candidate.platform):
         return CantUseReason.WRONG_PLATFORM
