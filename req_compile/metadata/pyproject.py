@@ -69,7 +69,12 @@ def fetch_from_pyproject(source_file):
         return None
 
     try:
-        backend = _create_build_backend(pyproject["build-system"])
+        build_system = pyproject["build-system"]
+        backend_name = build_system["build-backend"]
+        # If the backend is setuptools, rely on req-compile's setup.py heuristics instead
+        if backend_name == "setuptools.build_meta":
+            return None
+        backend = _create_build_backend(build_system)
     except KeyError:
         LOG.debug("No build-system in the pyproject.toml")
         return None
