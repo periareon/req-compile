@@ -1,15 +1,14 @@
 from __future__ import print_function
 
-import struct
-
 import enum
 import logging
 import platform
+import struct
 import sys
 import sysconfig
 
-import six
 import pkg_resources
+import six
 
 import req_compile.metadata
 import req_compile.metadata.errors
@@ -43,6 +42,33 @@ def is_manylinux2010_compatible():
     return have_compatible_glibc(2, 12)
 
 
+def is_manylinux2014_compatible():
+    # Only Linux, and only supported architectures
+    if platform.machine() not in (
+        "x86_64",
+        "i686",
+        "aarch64",
+        "armv7l",
+        "ppc64",
+        "ppc64le",
+        "s390x",
+    ):
+        return False
+
+    # Check for presence of _manylinux module
+    try:
+        import _manylinux  # pylint: disable=bad-option-value,import-outside-toplevel
+
+        return bool(_manylinux.manylinux2014_compatible)
+    except (ImportError, AttributeError):
+        # Fall through to heuristic check below
+        pass
+
+    # Check glibc version. CentOS 7 uses glibc 2.17.
+    # PEP 513 contains an implementation of this function.
+    return have_compatible_glibc(2, 17)
+
+
 def _get_platform_tags():
     is_32 = struct.calcsize("P") == 4
     if sys.platform == "win32":
@@ -62,9 +88,11 @@ def _get_platform_tags():
         )
         if is_manylinux2010_compatible():
             tag += ("manylinux2010_" + arch_tag,)
+        if is_manylinux2014_compatible():
+            tag += ("manylinux2014_" + arch_tag,)
     else:
         raise ValueError("Unsupported platform: {}".format(sys.platform))
-    return tag
+    return ("any",) + tag
 
 
 def _get_abi_tag():
@@ -85,7 +113,7 @@ def _get_abi_tag():
 
 
 PLATFORM_TAGS = _get_platform_tags()
-ABI_TAG = _get_abi_tag()
+ABI_TAGS = ("abi" + str(sys.version_info.major), _get_abi_tag())
 
 
 class RepositoryInitializationError(ValueError):
@@ -110,6 +138,7 @@ class PythonVersionRequirement(object):
 def _all_py_tags_in_major(up_to):
     up_to = int(up_to)
     while (up_to % 10) > 0:
+        yield INTERPRETER_TAG + str(up_to)
         yield "py" + str(up_to)
         up_to -= 1
     yield "py" + str(up_to)
@@ -195,25 +224,36 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
 
         # Sort based on tags to make sure the most specific distributions
         # are matched first
-        self.sortkey = (
-            self.version,
-            extra_sort_info,
-            candidate_type.value,
-            self.tag_score,
-        )
+        self._sortkey = None
+        self._extra_sort_info = extra_sort_info
 
         self.preparsed = None
 
     @property
-    def tag_score(self):
-        result = self.py_version.tag_score if self.py_version is not None else 0
-        if platform != "any":
-            result += 1000
+    def sortkey(self):
+        if self._sortkey is None:
+            self._sortkey = (
+                self.version,
+                self._extra_sort_info,
+                self.type.value,
+                self.tag_score,
+            )
+        return self._sortkey
 
+    @property
+    def tag_score(self):
+        py_version_score = self.py_version.tag_score if self.py_version is not None else 0
+        try:
+            abi_score = ABI_TAGS.index(self.abi) if self.abi is not None else 0
+        except ValueError:
+            abi_score = 0
+        try:
+            plat_score = PLATFORM_TAGS.index(self.platform.lower())
+        except ValueError:
+            plat_score = 0
         # Spaces in source dist filenames penalize them in the search order
-        if isinstance(self.filename, six.string_types) and " " in self.filename:
-            result -= 100
-        return result
+        extra_score = 0 if isinstance(self.filename, six.string_types) and " " in self.filename else 1
+        return py_version_score, plat_score, abi_score, extra_score
 
     def __eq__(self, other):
         return (
@@ -333,7 +373,7 @@ def _check_platform_compatibility(py_platform):
 
 
 def _check_abi_compatibility(abi):
-    return abi == ABI_TAG
+    return abi in ABI_TAGS
 
 
 class BaseRepository(object):
@@ -416,6 +456,13 @@ def filter_candidates(req, candidates, allow_prereleases=False):
             yield candidate
 
 
+def _is_all_prereleases(candidates):
+    all_prereleases = True
+    for candidate in candidates:
+        all_prereleases = all_prereleases and candidate.version.is_prerelease
+    return all_prereleases
+
+
 class Repository(BaseRepository):
     def __init__(self, logger_name, allow_prerelease=None):
         super(Repository, self).__init__()
@@ -466,22 +513,18 @@ class Repository(BaseRepository):
         Returns:
             (DistInfo, bool): The distribution and whether or not it was cached
         """
-        all_prereleases = True
         allow_prereleases = force_allow_prerelease or self.allow_prerelease
         if candidates:
-            candidates = sort_candidates(candidates)
+            filtered_candidates = filter_candidates(req, candidates, allow_prereleases=allow_prereleases)
             tried_versions = set()
 
-            for candidate in filter_candidates(
-                req, candidates, allow_prereleases=allow_prereleases
-            ):
+            for candidate in sort_candidates(filtered_candidates):
                 if candidate.version is None:
                     self.logger.warning(
                         "Found candidate with no version: %s", candidate
                     )
                     continue
 
-                all_prereleases = all_prereleases and candidate.version.is_prerelease
                 if candidate.type == DistributionType.SDIST:
                     self.logger.warning(
                         "Considering source distribution for %s", candidate.name
@@ -504,8 +547,9 @@ class Repository(BaseRepository):
                     break
 
         if (
-            all_prereleases or req_compile.utils.has_prerelease(req)
+            _is_all_prereleases(candidates) or req_compile.utils.has_prerelease(req)
         ) and not allow_prereleases:
+            self.logger.debug("No non-prerelease candidates available, including prereleases")
             return self.do_get_candidate(
                 req,
                 candidates,

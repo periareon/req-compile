@@ -13,7 +13,7 @@ import pkg_resources
 
 from req_compile.cmdline import add_repo_args, add_logging_args, build_repo
 from req_compile.repos.pypi import PyPIRepository
-from req_compile.repos.repository import sort_candidates, check_usability
+from req_compile.repos.repository import sort_candidates, filter_candidates
 from req_compile.repos.source import SourceRepository
 
 
@@ -87,21 +87,12 @@ def candidates_main():
         req = None
         if args.project_name:
             req = pkg_resources.Requirement.parse(args.project_name)
-        candidates = sort_candidates(repo.get_candidates(req))
 
-        for candidate in candidates:
-            if args.all:
-                if not req.specifier.contains(
-                    candidate.version, prereleases=args.allow_prerelease
-                ):
-                    continue
-            else:
-                reason = check_usability(
-                    req, candidate, allow_prereleases=args.allow_prerelease
-                )
-                if reason is not None:
-                    continue
+        candidates = repo.get_candidates(req)
+        if not args.all:
+            candidates = filter_candidates(req, candidates, allow_prereleases=args.allow_prerelease)
 
+        for candidate in sort_candidates(candidates):
             if args.paths or args.paths_only:
                 print(candidate.filename, end="")
                 if not args.paths_only:
