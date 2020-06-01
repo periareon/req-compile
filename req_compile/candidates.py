@@ -90,7 +90,9 @@ def candidates_main():
 
         candidates = repo.get_candidates(req)
         if not args.all:
-            candidates = filter_candidates(req, candidates, allow_prereleases=args.allow_prerelease)
+            candidates = filter_candidates(
+                req, candidates, allow_prereleases=args.allow_prerelease
+            )
 
         for candidate in sort_candidates(candidates):
             if args.paths or args.paths_only:

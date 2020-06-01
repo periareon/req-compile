@@ -2,13 +2,14 @@ from __future__ import print_function
 
 import enum
 import logging
+import os
 import platform
 import struct
 import sys
 import sysconfig
 
-import pkg_resources
 import six
+import pkg_resources
 
 import req_compile.metadata
 import req_compile.metadata.errors
@@ -242,7 +243,9 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
 
     @property
     def tag_score(self):
-        py_version_score = self.py_version.tag_score if self.py_version is not None else 0
+        py_version_score = (
+            self.py_version.tag_score if self.py_version is not None else 0
+        )
         try:
             abi_score = ABI_TAGS.index(self.abi) if self.abi is not None else 0
         except ValueError:
@@ -252,7 +255,11 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
         except ValueError:
             plat_score = 0
         # Spaces in source dist filenames penalize them in the search order
-        extra_score = 0 if isinstance(self.filename, six.string_types) and " " in self.filename else 1
+        extra_score = (
+            0
+            if isinstance(self.filename, six.string_types) and " " in self.filename
+            else 1
+        )
         return py_version_score, plat_score, abi_score, extra_score
 
     def __eq__(self, other):
@@ -281,7 +288,12 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
     def __str__(self):
         py_version_str = str(self.py_version) + "-"
         return "{} {}-{}-{}{}-{}".format(
-            self.type.name, self.name, self.version, py_version_str, self.abi, self.platform
+            self.type.name,
+            self.name,
+            self.version,
+            py_version_str,
+            self.abi,
+            self.platform,
         )
 
 
@@ -355,7 +367,9 @@ def _wheel_candidate(source, filename):
 
 
 def _tar_gz_candidate(source, filename):
-    name, version = req_compile.metadata.source.parse_source_filename(filename)
+    name, version = req_compile.metadata.source.parse_source_filename(
+        os.path.basename(filename)
+    )
     return Candidate(
         name,
         filename,
@@ -515,7 +529,9 @@ class Repository(BaseRepository):
         """
         allow_prereleases = force_allow_prerelease or self.allow_prerelease
         if candidates:
-            filtered_candidates = filter_candidates(req, candidates, allow_prereleases=allow_prereleases)
+            filtered_candidates = filter_candidates(
+                req, candidates, allow_prereleases=allow_prereleases
+            )
             tried_versions = set()
 
             for candidate in sort_candidates(filtered_candidates):
@@ -549,7 +565,9 @@ class Repository(BaseRepository):
         if (
             _is_all_prereleases(candidates) or req_compile.utils.has_prerelease(req)
         ) and not allow_prereleases:
-            self.logger.debug("No non-prerelease candidates available, including prereleases")
+            self.logger.debug(
+                "No non-prerelease candidates available. Now allowing prereleases"
+            )
             return self.do_get_candidate(
                 req,
                 candidates,

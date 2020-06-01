@@ -39,7 +39,7 @@ class FindLinksRepository(Repository):
             )
         for filename in os.listdir(self.path):
             candidate = req_compile.repos.repository.process_distribution(
-                None, filename
+                None, os.path.join(self.path, filename)
             )
             if candidate is not None:
                 self.links.append(candidate)

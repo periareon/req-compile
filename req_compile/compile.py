@@ -5,10 +5,16 @@ import logging
 import operator
 import sys
 from collections import defaultdict
+from typing import Iterable, Tuple, Set, Optional
 
 import six
 
 import req_compile.dists
+from req_compile.dists import (
+    RequirementContainer,
+    DistributionCollection,
+    DependencyNode,
+)
 import req_compile.metadata
 import req_compile.metadata.errors
 import req_compile.repos.pypi
@@ -17,28 +23,35 @@ from req_compile.repos.source import SourceRepository
 from req_compile.utils import parse_requirement, merge_requirements
 import req_compile.repos.repository
 
-from req_compile.repos.repository import NoCandidateException
+from req_compile.repos.repository import NoCandidateException, BaseRepository
 from req_compile.versions import is_possible
 
+MAX_COMPILE_DEPTH = 80
 MAX_DOWNGRADE = 3
 
 LOG = logging.getLogger("req_compile.compile")
 
 
+class CompileOptions(object):
+    """Static options for a compile_roots"""
+
+    extras = ()  # type: Iterable[str]
+    allow_circular_dependencies = False
+
+
 def compile_roots(
-    node, source, repo, dists, depth=1, max_downgrade=MAX_DOWNGRADE, extras=None
+    node, source, repo, dists, options, depth=1, max_downgrade=MAX_DOWNGRADE
 ):  # pylint: disable=too-many-statements,too-many-locals,too-many-branches
+    # type: (DependencyNode, Optional[DependencyNode], BaseRepository, DistributionCollection, CompileOptions, int, int) -> None
     """
-
     Args:
-        node (req_compile.dists.DependencyNode):
-        source (DependencyNode):
-        repo (Repository):
-        dists (DistributionCollection):
-        depth:
-        extras (list[str]): Extras to include automatically for source requirements
-    Returns:
-
+        node: The node to compile
+        source: The source node of this provided node. This is used to build the graph
+        repo: The repository to provide candidates.
+        dists: The solution that is being built incrementally
+        options: Static options for the compile (including extras)
+        depth: Depth the compilation has descended into
+        max_downgrade: The maximum number of version downgrades that will be allowed for conflicts
     """
     logger = logging.LoggerAdapter(LOG, dict(depth=depth))
     logger.debug("Processing node %s", node)
@@ -46,41 +59,42 @@ def compile_roots(
     if node.metadata is not None:
         can_reuse = node.complete and all(dep.complete for dep in node.dependencies)
         if not can_reuse:
-            if depth > 80:
+            if depth > MAX_COMPILE_DEPTH:
                 raise ValueError("Recursion too deep")
             try:
-                for req in list(node.dependencies):
+                for req in sorted(node.dependencies):
                     if not req.complete or req.metadata is None:
                         is_circular = False
-                        for descendent in dists.visit_nodes([req]):
-                            if descendent is node:
-                                logger.debug(
-                                    "Skipping node %s because it includes this node",
-                                    descendent,
-                                )
+
+                        for rdep in dists.visit_nodes([req], reverse=True):
+                            if rdep is req:
                                 is_circular = True
-                                break
+                                if options.allow_circular_dependencies:
+                                    logger.debug(
+                                        "Skipping node %s because it includes this node",
+                                        rdep,
+                                    )
+                                    break
+                                raise ValueError(
+                                    "Circular dependency: {node} -> {req} -> {node}".format(
+                                        node=node, req=req,
+                                    )
+                                )
                         if not is_circular:
                             compile_roots(
                                 req,
                                 node,
                                 repo,
                                 dists,
+                                options,
                                 depth=depth + 1,
                                 max_downgrade=max_downgrade,
-                                extras=extras,
                             )
             except NoCandidateException:
                 if max_downgrade == 0:
                     raise
                 compile_roots(
-                    node,
-                    source,
-                    repo,
-                    dists,
-                    depth=depth,
-                    max_downgrade=0,
-                    extras=extras,
+                    node, source, repo, dists, options, depth=depth, max_downgrade=0,
                 )
         else:
             logger.info("Reusing dist %s %s", node.metadata.name, node.metadata.version)
@@ -99,10 +113,12 @@ def compile_roots(
             reason = None
             if source is not None:
                 reason = source.dependencies[node]
-                if extras and isinstance(metadata.origin, SourceRepository):
+                if options.extras and isinstance(metadata.origin, SourceRepository):
                     reason = merge_requirements(
                         reason,
-                        parse_requirement(reason.name + "[" + ",".join(extras) + "]"),
+                        parse_requirement(
+                            reason.name + "[" + ",".join(options.extras) + "]"
+                        ),
                     )
 
             nodes_to_recurse = dists.add_dist(metadata, source, reason)
@@ -114,9 +130,9 @@ def compile_roots(
                             recurse_node,
                             repo,
                             dists,
+                            options,
                             depth=depth + 1,
                             max_downgrade=max_downgrade,
-                            extras=extras,
                         )
 
             node.complete = True
@@ -172,9 +188,9 @@ def compile_roots(
                         None,
                         repo,
                         dists,
+                        options,
                         depth=depth,
                         max_downgrade=max_downgrade - 1,
-                        extras=extras,
                     )
 
                 print(
@@ -187,20 +203,25 @@ def compile_roots(
                 dists.remove_dists(bad_constraints, remove_upstream=True)
 
 
-def perform_compile(input_reqs, repo, extras=None, constraint_reqs=None):
+def perform_compile(
+    input_reqs,
+    repo,
+    constraint_reqs=None,
+    extras=None,
+    allow_circular_dependencies=True,
+):
+    # type: (Iterable[RequirementContainer], BaseRepository, Iterable[RequirementContainer], Iterable[str], bool) -> Tuple[DistributionCollection, Set[DependencyNode]]
     """
     Perform a compilation using the given inputs and constraints
 
     Args:
-        input_reqs (list[RequirementsContainer]):
+        input_reqs:
             List of mapping of input requirements. If provided a mapping,
             requirements will be kept separate during compilation for better
             insight into the resolved requirements
-        repo (req_compile.repos.Repository): Repository to use as a source of
-            Python packages.
-        extras (Iterable[str]): Extras to apply automatically to source projects
-        constraint_reqs (list[RequirementsContainer] or None): Constraints to use
-            when compiling
+        repo: Repository to use as a source of Python packages.
+        extras: Extras to apply automatically to source projects
+        constraint_reqs: Constraints to use when compiling
     Returns:
         tuple[DistributionCollection, set[DependencyNode], set[DependencyNode]],
         the solution and the constraints node used for
@@ -216,14 +237,21 @@ def perform_compile(input_reqs, repo, extras=None, constraint_reqs=None):
             constraint_nodes |= constraint_node
             nodes |= constraint_node
 
+    roots = set()
     for req_source in input_reqs:
-        nodes |= results.add_dist(req_source, None, None)
+        roots |= results.add_dist(req_source, None, None)
+
+    nodes |= roots
+
+    options = CompileOptions()
+    options.allow_circular_dependencies = allow_circular_dependencies
+    options.extras = extras
 
     try:
         for node in sorted(nodes):
-            compile_roots(node, None, repo, dists=results, extras=extras)
+            compile_roots(node, None, repo, results, options)
     except (NoCandidateException, req_compile.metadata.errors.MetadataError) as ex:
         ex.results = results
         raise
 
-    return results, nodes - constraint_nodes
+    return results, roots
