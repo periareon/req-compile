@@ -334,6 +334,7 @@ def process_distribution(source, filename):
 
 
 def _wheel_candidate(source, filename):
+    filename = os.path.basename(filename)
     data_parts = filename.split("-")
     if len(data_parts) < 5:
         logging.getLogger("req_compile.repository").debug(
