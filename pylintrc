@@ -11,5 +11,7 @@ disable=
   useless-return,
   too-many-arguments,
   raise-missing-from,
+  bad-continuation,
+  unused-import,  # Python 2 pylint is confused by the typing imports
 
 ignored-modules=distutils.core

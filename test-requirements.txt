@@ -4,5 +4,5 @@ responses
 pylint
 mock
 isort
-mypy ; python_version > '3.0'
-black ; python_version > '3.0'
+mypy ; python_version > '3.5'
+black ; python_version > '3.5'
