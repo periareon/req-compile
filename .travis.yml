@@ -21,8 +21,9 @@ deploy:
   skip_existing: true
 
 install:
-- pip install -r requirements.txt -r test-requirements.txt
-- python setup.py -q install
+- pip install .
+- req-compile . test-requirements.txt > install-reqs.txt
+- pip install -r install-reqs.txt
 script:
 - pylint -rn req_compile --disable unused-import,line-too-long,wrong-import-order
 - pytest tests

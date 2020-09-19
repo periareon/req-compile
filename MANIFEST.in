@@ -1,0 +1,5 @@
+include *.py
+prune tests .idea
+include requirements.txt
+include README.rst
+include LICENSE.txt
