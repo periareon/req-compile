@@ -1,16 +1,17 @@
 """Definition of source repository"""
 from __future__ import print_function
+
 import collections
 import itertools
 import os
 
 from six.moves import map
 
-import req_compile.metadata.errors
 from req_compile import utils
+import req_compile.errors
 import req_compile.metadata
+import req_compile.metadata.metadata
 import req_compile.repos.repository
-
 from req_compile.repos.repository import Repository
 
 # Special directories that will never be considered
@@ -71,7 +72,7 @@ class SourceRepository(Repository):
                 source_dir,
                 req_compile.metadata.extract_metadata(source_dir, origin=self),
             )
-        except req_compile.metadata.errors.MetadataError as ex:
+        except req_compile.errors.MetadataError as ex:
             self.logger.error(
                 "Failed to parse metadata for %s - %s", source_dir, str(ex)
             )

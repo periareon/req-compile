@@ -2,6 +2,7 @@
 # pylint: disable=too-many-branches
 
 from __future__ import print_function
+
 import argparse
 import logging
 import shutil
@@ -11,9 +12,9 @@ import time
 
 import pkg_resources
 
-from req_compile.cmdline import add_repo_args, add_logging_args, build_repo
+from req_compile.cmdline import add_logging_args, add_repo_args, build_repo
 from req_compile.repos.pypi import PyPIRepository
-from req_compile.repos.repository import sort_candidates, filter_candidates
+from req_compile.repos.repository import filter_candidates, sort_candidates
 from req_compile.repos.source import SourceRepository
 
 

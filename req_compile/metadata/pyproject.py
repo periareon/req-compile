@@ -1,21 +1,24 @@
 """PEP517 pyproject.toml support. One major restriction: build isolation is not supported"""
+import importlib
 import logging
 import os
 import shutil
 import sys
 import tempfile
-import importlib
-from six.moves import StringIO
+from typing import Any, Mapping, Optional
 
+from six.moves import StringIO
 import toml
 
-from .dist_info import _parse_flat_metadata, _fetch_from_wheel
+from ..containers import DistInfo
+from .dist_info import _fetch_from_wheel, _parse_flat_metadata
 from .patch import patch
 
 LOG = logging.getLogger("req_compile.metadata.source")
 
 
 def _create_build_backend(build_system):
+    # type: (Mapping) -> Any
     backend_name = build_system["build-backend"]
     module, _, obj = backend_name.partition(":")
     backend = importlib.import_module(module)
@@ -25,6 +28,7 @@ def _create_build_backend(build_system):
 
 
 def _parse_from_prepared_metadata(source_file, backend):
+    # type: (str, Any) -> Optional[DistInfo]
     prepare = getattr(backend, "prepare_metadata_for_build_wheel", None)
     if prepare is None:
         return None
@@ -48,6 +52,7 @@ def _parse_from_prepared_metadata(source_file, backend):
 
 
 def _parse_from_wheel(backend):
+    # type: (Mapping[str, Any]) -> Optional[DistInfo]
     build_wheel = getattr(backend, "build_wheel", None)
     if build_wheel is None:
         return None
@@ -60,6 +65,7 @@ def _parse_from_wheel(backend):
 
 
 def fetch_from_pyproject(source_file):
+    # type: (str) -> Optional[DistInfo]
     """Fetch metadata from pyproject.toml either by relying on the backend to provide metadata, or by building
     a wheel and extracting the metadata"""
     try:

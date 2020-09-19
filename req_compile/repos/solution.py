@@ -5,11 +5,12 @@ import sys
 
 from six.moves import map as imap
 
+import req_compile.containers
 import req_compile.dists
-import req_compile.utils
 from req_compile.repos import RepositoryInitializationError
-from req_compile.repos.repository import Repository, Candidate, DistributionType
+from req_compile.repos.repository import Candidate, DistributionType, Repository
 from req_compile.repos.source import ReferenceSourceRepository
+import req_compile.utils
 
 
 def _candidate_from_node(node):
@@ -116,7 +117,7 @@ def _add_sources(req, sources, result, origin):
     if req.name in result:
         metadata = result[req.name].metadata
     if metadata is None:
-        metadata = req_compile.dists.DistInfo(req.name, version, [])
+        metadata = req_compile.containers.DistInfo(req.name, version, [])
 
     metadata.version = version
     metadata.origin = origin
@@ -132,7 +133,7 @@ def _add_sources(req, sources, result, origin):
             result.add_dist(constraint_req.name, None, constraint_req)
             reverse_dep = result[name]
             if reverse_dep.metadata is None:
-                inner_meta = req_compile.dists.DistInfo(
+                inner_meta = req_compile.containers.DistInfo(
                     constraint_req.name,
                     req_compile.utils.parse_version("0+missing"),
                     [],

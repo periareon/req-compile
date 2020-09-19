@@ -1,6 +1,7 @@
 import pkg_resources
 
-from req_compile.dists import DistributionCollection, DistInfo
+from req_compile.dists import DistributionCollection
+from req_compile.containers import DistInfo
 
 dists = None
 

@@ -5,7 +5,7 @@ import pkg_resources
 import pytest
 
 import req_compile.compile
-from req_compile.dists import DistInfo
+from req_compile.containers import DistInfo
 from req_compile.repos import RepositoryInitializationError
 
 from req_compile.repos.solution import SolutionRepository, load_from_file

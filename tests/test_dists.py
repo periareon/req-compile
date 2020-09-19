@@ -1,7 +1,8 @@
 import pkg_resources
 from pkg_resources import Requirement
 
-from req_compile.dists import DistributionCollection, DistInfo
+from req_compile.dists import DistributionCollection
+from req_compile.containers import DistInfo
 
 
 def test_unconstrained():

@@ -1,29 +1,34 @@
 # pylint: disable=too-many-nested-blocks
 """Logic for compiling requirements"""
 from __future__ import print_function
+
+from collections import defaultdict
 import logging
 import operator
 import sys
-from collections import defaultdict
-from typing import Iterable, Tuple, Set, Optional
+from typing import Dict, Iterable, Mapping, Optional, Set, Tuple
 
+import pkg_resources
 import six
 
+import req_compile.containers
+from req_compile.containers import RequirementContainer
 import req_compile.dists
-from req_compile.dists import (
-    RequirementContainer,
-    DistributionCollection,
-    DependencyNode,
-)
+from req_compile.dists import DependencyNode, DistributionCollection
+import req_compile.errors
+from req_compile.errors import NoCandidateException
 import req_compile.metadata
-import req_compile.metadata.errors
 import req_compile.repos.pypi
-import req_compile.utils
-from req_compile.repos.source import SourceRepository
-from req_compile.utils import parse_requirement, merge_requirements
 import req_compile.repos.repository
-
-from req_compile.repos.repository import NoCandidateException, BaseRepository
+from req_compile.repos.repository import BaseRepository
+from req_compile.repos.source import SourceRepository
+import req_compile.utils
+from req_compile.utils import (
+    is_pinned_requirement,
+    merge_requirements,
+    normalize_project_name,
+    parse_requirement,
+)
 from req_compile.versions import is_possible
 
 MAX_COMPILE_DEPTH = 80
@@ -35,14 +40,21 @@ LOG = logging.getLogger("req_compile.compile")
 class CompileOptions(object):
     """Static options for a compile_roots"""
 
-    extras = ()  # type: Iterable[str]
+    extras = None  # type: Optional[Iterable[str]]
     allow_circular_dependencies = False
+    pinned_requirements = {}  # type: Mapping[str, pkg_resources.Requirement]
 
 
 def compile_roots(
-    node, source, repo, dists, options, depth=1, max_downgrade=MAX_DOWNGRADE
+    node,  # type: DependencyNode
+    source,  # type: Optional[DependencyNode]
+    repo,  # type: BaseRepository
+    dists,  # type: DistributionCollection
+    options,  # type: CompileOptions
+    depth=1,  # type: int
+    max_downgrade=MAX_DOWNGRADE,  # type: int
 ):  # pylint: disable=too-many-statements,too-many-locals,too-many-branches
-    # type: (DependencyNode, Optional[DependencyNode], BaseRepository, DistributionCollection, CompileOptions, int, int) -> None
+    # type: (...) -> None
     """
     Args:
         node: The node to compile
@@ -77,7 +89,8 @@ def compile_roots(
                                     break
                                 raise ValueError(
                                     "Circular dependency: {node} -> {req} -> {node}".format(
-                                        node=node, req=req,
+                                        node=node,
+                                        req=req,
                                     )
                                 )
                         if not is_circular:
@@ -94,12 +107,24 @@ def compile_roots(
                 if max_downgrade == 0:
                     raise
                 compile_roots(
-                    node, source, repo, dists, options, depth=depth, max_downgrade=0,
+                    node,
+                    source,
+                    repo,
+                    dists,
+                    options,
+                    depth=depth,
+                    max_downgrade=0,
                 )
         else:
             logger.info("Reusing dist %s %s", node.metadata.name, node.metadata.version)
     else:
         spec_req = node.build_constraints()
+
+        if options.pinned_requirements:
+            pin = options.pinned_requirements.get(
+                normalize_project_name(spec_req.project_name), spec_req
+            )
+            spec_req = merge_requirements(spec_req, pin)
 
         try:
             metadata, cached = repo.get_candidate(spec_req, max_downgrade=max_downgrade)
@@ -144,7 +169,7 @@ def compile_roots(
 
             nodes = sorted(node.reverse_deps)
 
-            violate_score = defaultdict(int)
+            violate_score = defaultdict(int)  # type: Dict[DependencyNode, int]
             for idx, revnode in enumerate(nodes):
                 for next_node in nodes[idx + 1 :]:
                     if not is_possible(
@@ -171,7 +196,7 @@ def compile_roots(
             new_constraints = [
                 parse_requirement("{}!={}".format(bad_meta.name, bad_meta.version))
             ]
-            bad_constraint = req_compile.dists.DistInfo(
+            bad_constraint = req_compile.containers.DistInfo(
                 "#bad#-{}-{}".format(baddest_node, depth),
                 None,
                 new_constraints,
@@ -204,13 +229,13 @@ def compile_roots(
 
 
 def perform_compile(
-    input_reqs,
-    repo,
-    constraint_reqs=None,
-    extras=None,
-    allow_circular_dependencies=True,
+    input_reqs,  # type: Iterable[RequirementContainer]
+    repo,  # type: BaseRepository
+    constraint_reqs=None,  # type: Iterable[RequirementContainer]
+    extras=None,  # type: Iterable[str]
+    allow_circular_dependencies=True,  # type: bool
 ):
-    # type: (Iterable[RequirementContainer], BaseRepository, Iterable[RequirementContainer], Iterable[str], bool) -> Tuple[DistributionCollection, Set[DependencyNode]]
+    # type: (...) -> Tuple[DistributionCollection, Set[DependencyNode]]
     """
     Perform a compilation using the given inputs and constraints
 
@@ -222,20 +247,29 @@ def perform_compile(
         repo: Repository to use as a source of Python packages.
         extras: Extras to apply automatically to source projects
         constraint_reqs: Constraints to use when compiling
+        allow_circular_dependencies: Whether or not to allow circular dependencies
     Returns:
-        tuple[DistributionCollection, set[DependencyNode], set[DependencyNode]],
-        the solution and the constraints node used for
-            the solution
+        the solution and root nodes used to generate it
     """
     results = req_compile.dists.DistributionCollection()
 
     constraint_nodes = set()
     nodes = set()
+    all_pinned = True
+    pinned_requirements = {}
+
     if constraint_reqs is not None:
         for constraint_source in constraint_reqs:
-            constraint_node = results.add_dist(constraint_source, None, None)
-            constraint_nodes |= constraint_node
-            nodes |= constraint_node
+            all_pinned &= all([is_pinned_requirement(req) for req in constraint_source])
+            if all_pinned:
+                for req in constraint_source:
+                    pinned_requirements[normalize_project_name(req.project_name)] = req
+
+        if not all_pinned:
+            for constraint_source in constraint_reqs:
+                constraint_node = results.add_dist(constraint_source, None, None)
+                constraint_nodes |= constraint_node
+                nodes |= constraint_nodes
 
     roots = set()
     for req_source in input_reqs:
@@ -247,11 +281,27 @@ def perform_compile(
     options.allow_circular_dependencies = allow_circular_dependencies
     options.extras = extras
 
+    if all_pinned:
+        LOG.info("All constraints were pins - no need to solve the constraints")
+        options.pinned_requirements = pinned_requirements
+
     try:
         for node in sorted(nodes):
             compile_roots(node, None, repo, results, options)
-    except (NoCandidateException, req_compile.metadata.errors.MetadataError) as ex:
+    except (NoCandidateException, req_compile.errors.MetadataError) as ex:
+        _add_constraints(all_pinned, constraint_reqs, results)
         ex.results = results
         raise
 
+    # Add the constraints in so it will show up as a contributor in the results.
+    # The same is done in the exception block above
+    _add_constraints(all_pinned, constraint_reqs, results)
+
     return results, roots
+
+
+def _add_constraints(all_pinned, constraint_reqs, results):
+    # type: (bool, Optional[Iterable[RequirementContainer]], DistributionCollection) -> None
+    if all_pinned and constraint_reqs is not None:
+        for constraint_source in constraint_reqs:
+            results.add_dist(constraint_source, None, None)

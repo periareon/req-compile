@@ -1,10 +1,11 @@
-import itertools
-import os
-import logging
 from collections import defaultdict
+import itertools
+import logging
+import os
+from typing import Dict, Iterable, Optional
 
 try:
-    from functools32 import lru_cache
+    from functools32 import lru_cache  # type: ignore
 except ImportError:
     from functools import lru_cache
 
@@ -63,6 +64,7 @@ def reduce_requirements(raw_reqs):
 
 @lru_cache(maxsize=None)
 def parse_requirement(req_text):
+    # type: (str) -> Optional[pkg_resources.Requirement]
     """
     Parse a string into a Requirement object
 
@@ -91,6 +93,7 @@ def parse_version(version):
 
 
 def parse_requirements(reqs):
+    # type: (Iterable[str]) -> Iterable[pkg_resources.Requirement]
     """Parse a list of strings into a generate of pkg_resources.Requirements"""
     for req in reqs:
         req = req.strip()
@@ -113,14 +116,18 @@ def merge_extras(extras1, extras2):
 
 
 def merge_requirements(req1, req2):
+    # type: (Optional[pkg_resources.Requirement], Optional[pkg_resources.Requirement]) -> pkg_resources.Requirement
     """Merge two requirements into a single requirement that would satisfy both"""
     if req1 is not None and req2 is None:
         return req1
     if req2 is not None and req1 is None:
         return req2
 
-    req1_name_norm = normalize_project_name(req1.name)
-    if req1_name_norm != normalize_project_name(req2.name):
+    assert req1 is not None
+    assert req2 is not None
+
+    req1_name_norm = normalize_project_name(req1.project_name)
+    if req1_name_norm != normalize_project_name(req2.project_name):
         raise ValueError("Reqs don't match: {} != {}".format(req1, req2))
     all_specs = set(req1.specs or []) | set(req2.specs or [])
 
@@ -151,7 +158,7 @@ def merge_requirements(req1, req2):
     return parse_requirement(req_str)
 
 
-NAME_CACHE = {}
+NAME_CACHE = {}  # type: Dict[str, str]
 
 
 def normalize_project_name(project_name):

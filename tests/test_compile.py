@@ -5,10 +5,11 @@ import pytest
 from pytest import fixture
 
 import req_compile.compile
+import req_compile.errors
 import req_compile.repos.pypi
 import req_compile.repos.repository
 import req_compile.utils
-from req_compile.dists import DistInfo
+from req_compile.containers import DistInfo
 from req_compile.repos.multi import MultiRepository
 from req_compile.repos.source import SourceRepository
 
@@ -185,7 +186,7 @@ def test_simple_compile(perform_compile, scenario, index, reqs, constraints, res
     ],
 )
 def test_no_candidate(perform_compile, scenario, index, reqs, constraints):
-    with pytest.raises(req_compile.repos.repository.NoCandidateException):
+    with pytest.raises(req_compile.errors.NoCandidateException):
         perform_compile(scenario, index, reqs, constraint_reqs=constraints)
 
 

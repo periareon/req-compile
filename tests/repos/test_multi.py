@@ -2,10 +2,11 @@ import mock
 import pkg_resources
 import pytest
 
-from req_compile.dists import DistInfo
+from req_compile.containers import DistInfo
 from req_compile.repos import Repository
 from req_compile.repos.multi import MultiRepository
-from req_compile.repos.repository import NoCandidateException, Candidate
+from req_compile.repos.repository import Candidate
+from req_compile.errors import NoCandidateException
 
 
 class FakeRepository(Repository):

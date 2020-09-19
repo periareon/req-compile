@@ -1,6 +1,5 @@
 import pkg_resources
 
-
 PART_MAX = "999999999"
 
 

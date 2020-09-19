@@ -10,6 +10,6 @@ disable=
   useless-object-inheritance,
   useless-return,
   too-many-arguments,
-  bad-continuation,
+  raise-missing-from,
 
 ignored-modules=distutils.core

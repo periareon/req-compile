@@ -11,6 +11,7 @@ import tempfile
 
 import req_compile.metadata
 import req_compile.metadata.dist_info
+import req_compile.metadata.metadata
 import req_compile.utils
 from req_compile.repos.repository import Repository, Candidate
 from req_compile.repos.solution import load_from_file
@@ -95,7 +96,7 @@ class MockRepository(Repository):
 
     def resolve_candidate(self, candidate):
         return (
-            req_compile.metadata.extract_metadata(candidate.filename, origin=self),
+            req_compile.metadata.metadata.extract_metadata(candidate.filename, origin=self),
             False,
         )
 
@@ -110,7 +111,7 @@ def mock_pypi():
 
 @pytest.fixture
 def mock_metadata(mocker, metadata_provider):
-    mocker.patch("req_compile.metadata.extract_metadata", side_effect=metadata_provider)
+    mocker.patch("req_compile.metadata.metadata.extract_metadata", side_effect=metadata_provider)
 
 
 @pytest.yield_fixture

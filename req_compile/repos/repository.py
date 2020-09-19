@@ -7,15 +7,17 @@ import platform
 import struct
 import sys
 import sysconfig
+from typing import Iterable, Optional, Sequence, Tuple
 
-import six
 import pkg_resources
+import six
 
-import req_compile.metadata
-import req_compile.metadata.errors
-import req_compile.metadata.source
+from req_compile.containers import DistInfo
+import req_compile.errors
+from req_compile.errors import NoCandidateException
+from req_compile.filename import parse_source_filename
 import req_compile.utils
-from req_compile.utils import normalize_project_name, have_compatible_glibc
+from req_compile.utils import have_compatible_glibc, normalize_project_name
 
 INTERPRETER_TAGS = {
     "CPython": "cp",
@@ -29,9 +31,10 @@ PY_VERSION_NUM = str(sys.version_info.major) + str(sys.version_info.minor)
 
 
 def is_manylinux2010_compatible():
+    # type: () -> bool
     # Check for presence of _manylinux module
     try:
-        import _manylinux  # pylint: disable=bad-option-value,import-outside-toplevel
+        import _manylinux  # type: ignore  # pylint: disable=bad-option-value,import-outside-toplevel
 
         return bool(_manylinux.manylinux2010_compatible)
     except (ImportError, AttributeError):
@@ -44,6 +47,7 @@ def is_manylinux2010_compatible():
 
 
 def is_manylinux2014_compatible():
+    # type: () -> bool
     # Only Linux, and only supported architectures
     if platform.machine() not in (
         "x86_64",
@@ -71,6 +75,7 @@ def is_manylinux2014_compatible():
 
 
 def _get_platform_tags():
+    # type: () -> Sequence[str]
     is_32 = struct.calcsize("P") == 4
     if sys.platform == "win32":
         if is_32:
@@ -97,6 +102,7 @@ def _get_platform_tags():
 
 
 def _get_abi_tag():
+    # type: () -> str
     """Build a best effort ABI tag"""
     py_version = (sys.version_info.major, sys.version_info.minor)
     tag = INTERPRETER_TAG + PY_VERSION_NUM
@@ -297,23 +303,6 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
         )
 
 
-class NoCandidateException(Exception):
-    def __init__(self, req, results=None):
-        super(NoCandidateException, self).__init__()
-        self.req = req
-        self.results = results
-        self.check_level = 0
-
-    def __str__(self):
-        if self.req.specifier:
-            return 'NoCandidateException - no candidate for "{}" satisfies {}'.format(
-                self.req.name, self.req.specifier
-            )
-        return 'NoCandidateException - no candidates found for "{}"'.format(
-            self.req.name
-        )
-
-
 def process_distribution(source, filename):
     candidate = None
     if filename.endswith(".egg"):
@@ -368,9 +357,7 @@ def _wheel_candidate(source, filename):
 
 
 def _tar_gz_candidate(source, filename):
-    name, version = req_compile.metadata.source.parse_source_filename(
-        os.path.basename(filename)
-    )
+    name, version = parse_source_filename(os.path.basename(filename))
     return Candidate(
         name,
         filename,
@@ -393,11 +380,12 @@ def _check_abi_compatibility(abi):
 
 class BaseRepository(object):
     def get_candidate(self, req, max_downgrade=None):
+        # type: (pkg_resources.Requirement, int) -> Tuple[DistInfo, bool]
         """Fetch the best matching candidate for the given requirement
 
         Args:
-            req (pkg_resources.Requirement): Requirement to find a match for
-            max_downgrade (int, optional): Maximum number of different versions to try if
+            req: Requirement to find a match for
+            max_downgrade: Maximum number of different versions to try if
                 metadata parsing fails
 
         Returns:
@@ -430,6 +418,7 @@ def sort_candidates(candidates):
 
 
 def check_usability(req, candidate, has_equality=None, allow_prereleases=False):
+    # type: (pkg_resources.Requirement, Candidate, bool, bool) -> Optional[CantUseReason]
     if (
         candidate.py_version is not None
         and not candidate.py_version.check_compatibility()
@@ -445,7 +434,7 @@ def check_usability(req, candidate, has_equality=None, allow_prereleases=False):
     if not has_equality and not allow_prereleases and candidate.version.is_prerelease:
         return CantUseReason.IS_PRERELEASE
 
-    if req is not None and not req.specifier.contains(
+    if req is not None and not req.specifier.contains(  # type: ignore[attr-defined]
         candidate.version, prereleases=has_equality or allow_prereleases
     ):
         return CantUseReason.VERSION_NO_SATISFY
@@ -454,6 +443,7 @@ def check_usability(req, candidate, has_equality=None, allow_prereleases=False):
 
 
 def filter_candidates(req, candidates, allow_prereleases=False):
+    # type: (pkg_resources.Requirement, Iterable[Candidate], bool) -> Iterable[Candidate]
     has_equality = (
         req_compile.utils.is_pinned_requirement(req) if req is not None else False
     )
@@ -480,6 +470,7 @@ def _is_all_prereleases(candidates):
 
 class Repository(BaseRepository):
     def __init__(self, logger_name, allow_prerelease=None):
+        # type: (str, bool) -> None
         super(Repository, self).__init__()
         if allow_prerelease is None:
             allow_prerelease = False
@@ -510,6 +501,7 @@ class Repository(BaseRepository):
         raise NotImplementedError()
 
     def get_candidate(self, req, max_downgrade=None):
+        # type: (pkg_resources.Requirement, int) -> Tuple[DistInfo, bool]
         self.logger.info("Getting candidate for %s", req)
         candidates = self.get_candidates(req)
         return self.do_get_candidate(req, candidates, max_downgrade=max_downgrade)
@@ -517,16 +509,17 @@ class Repository(BaseRepository):
     def do_get_candidate(
         self, req, candidates, force_allow_prerelease=False, max_downgrade=None
     ):
+        # type: (pkg_resources.Requirement, Iterable[Candidate], bool, int) -> Tuple[DistInfo, bool]
         """
 
         Args:
-            req (pkg_resources.Requirement): Requirement to fetch candidate for
-            candidates (list[Candidate]): Available candidates (any versions, unsorted)
-            force_allow_prerelease (bool): Override the allow prerelease setting
-            max_downgrade (int, optional): Number of different versions to try. Does not limit number of candidates
+            req: Requirement to fetch candidate for
+            candidates: Available candidates (any versions, unsorted)
+            force_allow_prerelease: Override the allow prerelease setting
+            max_downgrade: Number of different versions to try. Does not limit number of candidates
                 per version nor make any judgements about the semver
         Returns:
-            (DistInfo, bool): The distribution and whether or not it was cached
+            The distribution and whether or not it was cached
         """
         allow_prereleases = force_allow_prerelease or self.allow_prerelease
         if candidates:
@@ -552,9 +545,9 @@ class Repository(BaseRepository):
                     if candidate is not None:
                         if normalize_project_name(
                             candidate.name
-                        ) == normalize_project_name(req.name):
+                        ) == normalize_project_name(req.project_name):
                             return candidate, cached
-                except req_compile.metadata.errors.MetadataError as ex:
+                except req_compile.errors.MetadataError as ex:
                     self.logger.warning(
                         "Could not use candidate %s - %s", candidate, ex
                     )
@@ -579,8 +572,11 @@ class Repository(BaseRepository):
         raise NoCandidateException(req)
 
     def why_cant_I_use(self, req, candidate):  # pylint: disable=invalid-name
+        # type: (pkg_resources.Requirement, Candidate) -> CantUseReason
         reason = check_usability(
-            req, candidate, allow_prereleases=self.allow_prerelease,
+            req,
+            candidate,
+            allow_prereleases=self.allow_prerelease,
         )
         if reason is None:
             return CantUseReason.U_CAN_USE

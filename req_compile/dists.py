@@ -3,33 +3,31 @@ from __future__ import print_function
 import collections
 import itertools
 import logging
-import os
-import shutil
+from typing import Dict, Iterable, List, Optional, Set
 
+import pkg_resources
 import six
 
 from req_compile import utils
-from req_compile.utils import (
-    normalize_project_name,
-    merge_requirements,
-    filter_req,
-    reduce_requirements,
-)
+from req_compile.containers import DistInfo
+from req_compile.repos import Repository
+from req_compile.utils import merge_requirements, normalize_project_name
 
 
 class DependencyNode(object):
-    def __init__(self, key, metadata):
-        """
+    """
+    Class representing a node in the dependency graph of a resolution. Contains information
+    about whether or not this node has a solution yet -- meaning, is it resolved to a
+    concrete requirement resolved from a Repository
+    """
 
-        Args:
-            key:
-            metadata (RequirementContainer):
-        """
+    def __init__(self, key, metadata):
+        # type: (str, DistInfo) -> None
         self.key = key
         self.metadata = metadata
-        self.dependencies = {}  # Dict[DependencyNode, pkg_resources.Requirement]
-        self.reverse_deps = set()  # Set[DependencyNode]
-        self.repo = None
+        self.dependencies = {}  # type: Dict[DependencyNode, pkg_resources.Requirement]
+        self.reverse_deps = set()  # type: Set[DependencyNode]
+        self.repo = None  # type: Optional[Repository]
         self.complete = (
             False  # Whether this node and all of its dependency are completely solved
         )
@@ -49,15 +47,18 @@ class DependencyNode(object):
 
     @property
     def extras(self):
+        # type: () -> Set[str]
         extras = set()
         for rdep in self.reverse_deps:
             extras |= set(rdep.dependencies[self].extras)
         return extras
 
     def add_reason(self, node, reason):
+        # type: (DependencyNode, pkg_resources.Requirement) -> None
         self.dependencies[node] = reason
 
     def build_constraints(self):
+        # type: () -> pkg_resources.Requirement
         result = None
 
         for rdep_node in self.reverse_deps:
@@ -73,15 +74,19 @@ class DependencyNode(object):
                 result = utils.parse_requirement(self.key)
             else:
                 result = utils.parse_requirement(self.metadata.name)
+            assert result is not None
+
             if self.extras:
                 result.extras = self.extras
                 # Reparse to create a correct hash
                 result = utils.parse_requirement(str(result))
+                assert result is not None
         return result
 
 
 def _build_constraints(root_node):
-    constraints = []
+    # type: (DependencyNode) -> Iterable[str]
+    constraints = []  # type: List[str]
     for node in root_node.reverse_deps:
         all_reqs = set(node.metadata.requires())
         for extra in node.extras:
@@ -121,7 +126,7 @@ class DistributionCollection(object):
         Add a distribution
 
         Args:
-            name_or_metadata (RequirementContainer|str): Distribution info to add
+            name_or_metadata (req_compile.containers.RequirementContainer|str): Distribution info to add
             source (DependencyNode, optional): The source of the distribution
             reason (pkg_resources.Requirement, optional):
         """
@@ -264,6 +269,8 @@ class DistributionCollection(object):
         req_filter = req_filter or (lambda _: True)
         results = []
         for node in self.visit_nodes(roots):
+            if node.metadata is None:
+                continue
             if not node.metadata.meta and req_filter(node):
                 constraints = _build_constraints(node)
                 req_expr = node.metadata.to_definition(node.extras)
@@ -281,112 +288,3 @@ class DistributionCollection(object):
     def __getitem__(self, project_name):
         req_name = project_name.split("[")[0]
         return self.nodes[normalize_project_name(req_name)]
-
-
-class RequirementContainer(object):
-    """A container for a list of requirements"""
-
-    def __init__(self, name, reqs, meta=False):
-        self.name = name
-        self.reqs = list(reqs) if reqs else []
-        self.origin = None
-        self.meta = meta
-
-    def requires(self, extra=None):
-        return reduce_requirements(req for req in self.reqs if filter_req(req, extra))
-
-    def to_definition(self, extras):
-        raise NotImplementedError()
-
-
-class RequirementsFile(RequirementContainer):
-    """Represents a requirements file - a text file containing a list of requirements"""
-
-    def __init__(self, filename, reqs, **_kwargs):
-        super(RequirementsFile, self).__init__(filename, reqs, meta=True)
-
-    def __repr__(self):
-        return "RequirementsFile({})".format(self.name)
-
-    @classmethod
-    def from_file(cls, full_path, **kwargs):
-        """Load requirements from a file and build a RequirementsFile
-
-        Args:
-            full_path (str): The path to the file to load
-
-        Keyword Args:
-            Additional arguments to forward to the class constructor
-        """
-        reqs = utils.reqs_from_files([full_path])
-        return cls(full_path, reqs, **kwargs)
-
-    def __str__(self):
-        return self.name
-
-    def to_definition(self, extras):
-        return self.name, None
-
-
-class DistInfo(RequirementContainer):
-    """Metadata describing a distribution of a project"""
-
-    def __init__(self, name, version, reqs, meta=False):
-        """
-        Args:
-            name (str): The project name
-            version (pkg_resources.Version): Parsed version of the project
-            reqs (Iterable): The list of requirements for the project
-            meta (bool): Whether or not hte requirement is a meta-requirement
-        """
-        super(DistInfo, self).__init__(name, reqs, meta=meta)
-        self.version = version
-        self.source = None
-
-    def __str__(self):
-        return "{}=={}".format(*self.to_definition(None))
-
-    def to_definition(self, extras):
-        req_expr = "{}{}".format(
-            self.name, ("[" + ",".join(sorted(extras)) + "]") if extras else ""
-        )
-        return req_expr, self.version
-
-    def __repr__(self):
-        return (
-            self.name
-            + " "
-            + str(self.version)
-            + "\n"
-            + "\n".join([str(req) for req in self.reqs])
-        )
-
-
-class PkgResourcesDistInfo(RequirementContainer):
-    def __init__(self, dist):
-        """
-        Args:
-            dist (pkg_resources.Distribution): The distribution to wrap
-        """
-        super(PkgResourcesDistInfo, self).__init__(dist.project_name, None)
-        self.dist = dist
-        self.version = dist.parsed_version
-
-    def __str__(self):
-        return "{}=={}".format(*self.to_definition(None))
-
-    def requires(self, extra=None):
-        return self.dist.requires(extras=(extra,) if extra else ())
-
-    def to_definition(self, extras):
-        req_expr = "{}{}".format(
-            self.dist.project_name,
-            ("[" + ",".join(sorted(extras)) + "]") if extras else "",
-        )
-        return req_expr, self.version
-
-    def __del__(self):
-        try:
-            shutil.rmtree(os.path.join(self.dist.location, ".."))
-        except EnvironmentError:
-            pass

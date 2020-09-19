@@ -1,4 +1,4 @@
-# pylint: disable=exec-used,bad-continuation
+# pylint: disable=exec-used
 """Parsing of metadata that comes from setup.py"""
 from __future__ import print_function
 
@@ -19,16 +19,17 @@ import threading
 import time
 from types import ModuleType
 
+import pkg_resources
+import setuptools  # type: ignore
 import six
 from six.moves import configparser
-import setuptools
-import pkg_resources
 
 from req_compile import utils
-from req_compile.dists import PkgResourcesDistInfo, DistInfo
+from req_compile.errors import MetadataError
+from req_compile.filename import parse_source_filename
+from ..containers import DistInfo, PkgResourcesDistInfo
 from .dist_info import _fetch_from_wheel
 from .extractor import NonExtractor
-from .errors import MetadataError
 from .patch import begin_patch, end_patch, patch
 
 LOG = logging.getLogger("req_compile.metadata.source")
@@ -39,60 +40,6 @@ EGG_INFO_TIMEOUT = float(os.getenv("REQ_COMPILE_EGG_INFO_TIMEOUT", "15.0"))
 FAILED_BUILDS = set()
 
 THREADLOCAL = threading.local()
-
-
-def parse_source_filename(full_filename):
-    filename = full_filename.replace(".tar.gz", "")
-    filename = filename.replace(".tar.bz2", "")
-    filename = filename.replace(".zip", "")
-    filename = filename.replace(".tgz", "")
-
-    # Source directories don't express a version
-    if full_filename == filename:
-        return full_filename, None
-
-    filename = filename.replace("_", "-")
-
-    dash_parts = filename.split("-")
-    version_start = None
-    for idx, part in enumerate(dash_parts):
-        if not part:
-            continue
-        # pylint: disable=too-many-boolean-expressions
-        if (idx != 0 and idx >= len(dash_parts) - 3) and (
-            part[0].isdigit()
-            or (len(part) > 1 and part[0].lower() == "v" and part[1].isdigit())
-        ):
-            if (
-                idx == len(dash_parts) - 2
-                and "." in dash_parts[idx + 1]
-                and ("." not in part or re.sub(r"[\d.]+", "", part))
-            ):
-                continue
-            version_start = idx
-            break
-
-    if version_start is None:
-        return os.path.basename(filename), None
-
-    if version_start == 0:
-        raise ValueError("Package name missing: {}".format(full_filename))
-
-    pkg_name = "-".join(dash_parts[:version_start])
-
-    version_str = "-".join(dash_parts[version_start:]).replace("_", "-")
-    version_parts = version_str.split(".")
-    for idx, part in enumerate(version_parts):
-        if idx != 0 and (
-            part.startswith("linux")
-            or part.startswith("windows")
-            or part.startswith("macos")
-        ):
-            version_parts = version_parts[:idx]
-            break
-
-    version = utils.parse_version(".".join(version_parts))
-    return pkg_name, version
 
 
 def find_in_archive(extractor, filename, max_depth=None):
@@ -589,6 +536,7 @@ def _parse_setup_py(
     import distutils.core
     import fileinput
     import multiprocessing
+
     import requests
 
     try:
@@ -618,7 +566,7 @@ def _parse_setup_py(
 
     old_cythonize = None
     try:
-        import Cython.Build
+        import Cython.Build  # type: ignore
 
         old_cythonize = Cython.Build.cythonize
         Cython.Build.cythonize = lambda *args, **kwargs: ""

@@ -1,17 +1,18 @@
+from contextlib import closing
 import logging
 import os
 import re
+from typing import Iterable, Optional
 import zipfile
-from contextlib import closing
 
 from req_compile import utils
-from req_compile.dists import DistInfo
-
+from req_compile.containers import DistInfo
 
 LOG = logging.getLogger("req_compile.metadata.dist_info")
 
 
 def _find_dist_info_metadata(project_name, namelist):
+    # type: (str, Iterable[str]) -> Optional[str]
     """
     In a list of zip path entries, find the one that matches the dist-info for this project
 
@@ -37,6 +38,7 @@ def _find_dist_info_metadata(project_name, namelist):
 
 
 def _fetch_from_wheel(wheel):
+    # type: (str) -> Optional[DistInfo]
     """
     Fetch metadata from a wheel file
     Args:

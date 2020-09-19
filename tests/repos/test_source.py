@@ -3,7 +3,7 @@ import os
 import pkg_resources
 import pytest
 
-from req_compile.repos.repository import NoCandidateException
+from req_compile.errors import NoCandidateException
 from req_compile.repos.source import SourceRepository
 
 

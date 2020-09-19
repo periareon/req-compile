@@ -7,7 +7,7 @@ from six import StringIO
 
 from req_compile.cmdline import compile_main, _create_input_reqs
 
-from req_compile.dists import DistInfo
+from req_compile.containers import DistInfo
 from req_compile.repos.findlinks import FindLinksRepository
 from req_compile.repos.pypi import PyPIRepository
 from req_compile.repos.solution import SolutionRepository

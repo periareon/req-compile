@@ -22,7 +22,7 @@ Req-Compile is a Python work-in-progress requirements compiler geared toward lar
 
 Why use it?
 -----------
-**pip-tools** is the defacto requirements compiler for Python, but is missing some important features.
+**pip-tools** is the de-facto requirements compiler for Python, but is missing some important features.
 
 * Does not allow you to use constraints that are not included in the final output
 * Provides no tools to track down where conflicting constraints originate
@@ -119,14 +119,14 @@ can be specified, resolved in the same order (e.g. source takes precedence over 
 * ``--index-url``
 
   URL of a remote index to search for packages in. When compiling, it's necessary to download
-  a package to determine its requirements.  ``--wheel-dir`` can be supplied to specify where to save
+  a package to determine its requirements. ``--wheel-dir`` can be supplied to specify where to save
   these distributions. Otherwise they will be deleted after compilation is complete.
 
 All options can be repeated multiple times, with the resolution order within types matching what
 was passed on the commandline. However, overall resolution order will always match the order
 of the list above.
 
-By default, PyPI (https://pypi.org/) is added as a default source.  It can be removed by passing
+By default, PyPI (https://pypi.org/) is added as a default source. It can be removed by passing
 ``--no-index`` on the commandline.
 
 Identifying source of constraints
@@ -155,11 +155,17 @@ passed::
 
 Note that astroid is constrained by ``pylint``, even though ``pylint`` is not included in the output.
 
+If a passed constraints file is fully pinned, Req-Compile will not attempt to find a solution for
+the requirements passed in the constraints files. This behavior only occurs if ALL of the requirements
+listed in the constraints files are pinned. This is because pinning a single requirement may
+still bring in transitive requirements that would affect the final solution. The heuristic of
+checking that all requirements are pinned assumes that you are providing a full solution.
+
 Advanced Features
 -----------------
 Compiling a constrained subset
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Input can be supplied via stdin as well as via as through files.  For example, to supply a full
+Input can be supplied via stdin as well as via as through files. For example, to supply a full
 solution through a second compilation in order to obtain a subset of requirements, the
 following cmdline might be used::
 
@@ -192,7 +198,7 @@ Files downloading during the compile process can be saved for later install. Thi
 the execution times of builds when a separate compile step is required::
 
     > req-compile projectreqs.txt --wheel-dir .wheeldir > compiledreqs.txt
-    > pip install -r compilereqs.txt --find-links .wheeldir --no-index
+    > pip install -r compiledreqs.txt --find-links .wheeldir --no-index
 
 Cookbook
 --------
@@ -211,8 +217,8 @@ A script for test might run::
     > pip install -r compiled-requirements.txt --find-links .wheeldir --no-index
 
 This would produce an environment containing all of the requirements and test requirements for the project
-in the current directory (as defined by a setup.py).  This is a *stable* set, in that only changes to
-the requirements and constraints would produce a new output.  To produce a totally fresh compilation,
+in the current directory (as defined by a setup.py). This is a *stable* set, in that only changes to
+the requirements and constraints would produce a new output. To produce a totally fresh compilation,
 don't pass in a previous solution.
 
 The find-links parameter to the sync or pip install will *reuse* the wheels already downloaded by Req-Compile during

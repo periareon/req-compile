@@ -1,23 +1,24 @@
 """Repository to handle pulling packages from online package indexes"""
+from hashlib import sha256
 import logging
 import os
 import re
 import sys
-from hashlib import sha256
-import requests
+from typing import Optional, Sequence, Tuple
 
-from six.moves import html_parser
-from six.moves import urllib
 import pkg_resources
+import requests
+from six.moves import html_parser, urllib
+
+from req_compile.containers import RequirementContainer
+from req_compile.errors import MetadataError
+from req_compile.metadata import extract_metadata
+from req_compile.repos.repository import Candidate, Repository, process_distribution
 
 try:
-    from functools32 import lru_cache
+    from functools32 import lru_cache  # type: ignore
 except ImportError:
     from functools import lru_cache
-
-from req_compile.repos.repository import Repository, process_distribution
-from req_compile.metadata import extract_metadata, MetadataError
-
 
 LOG = logging.getLogger("req_compile.repository.pypi")
 
@@ -210,6 +211,7 @@ def _do_download(logger, filename, link, session, wheeldir):
 
 class PyPIRepository(Repository):
     def __init__(self, index_url, wheeldir, allow_prerelease=False, retries=3):
+        # type: (str, str, bool, int) -> None
         """
         A repository that conforms to the PEP standard for webpage index of python distributions
 
@@ -247,11 +249,15 @@ class PyPIRepository(Repository):
         return hash("pypi") ^ hash(self.index_url)
 
     def get_candidates(self, req):
+        # type: (pkg_resources.Requirement) -> Sequence[Candidate]
         if req is None:
             return []
-        return _scan_page_links(self.index_url, req.name, self.session, self.retries)
+        return _scan_page_links(
+            self.index_url, req.project_name, self.session, self.retries
+        )
 
     def resolve_candidate(self, candidate):
+        # type: (Candidate) -> Tuple[Optional[RequirementContainer], bool]
         filename, cached = None, True
         try:
             filename, cached = _do_download(
@@ -263,7 +269,7 @@ class PyPIRepository(Repository):
             )
             return extract_metadata(filename, origin=self), cached
         except MetadataError:
-            if not cached:
+            if not cached and filename is not None:
                 try:
                     os.remove(filename)
                 except EnvironmentError:
@@ -271,4 +277,5 @@ class PyPIRepository(Repository):
             raise
 
     def close(self):
+        # type: () -> None
         self.session.close()

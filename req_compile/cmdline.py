@@ -8,34 +8,35 @@ import os
 import shutil
 import sys
 import tempfile
+from typing import Iterable
 
 import pkg_resources
 
-import req_compile.compile
-import req_compile.dists
-import req_compile.metadata
-import req_compile.metadata.errors
-import req_compile.repos.pypi
-
 from req_compile import utils
+import req_compile.compile
 from req_compile.compile import perform_compile
 from req_compile.config import read_pip_default_index
+from req_compile.containers import DistInfo, RequirementsFile
+import req_compile.dists
+import req_compile.errors
+from req_compile.errors import NoCandidateException
+import req_compile.metadata
+import req_compile.metadata.metadata
 from req_compile.repos.findlinks import FindLinksRepository
+from req_compile.repos.multi import MultiRepository
+import req_compile.repos.pypi
 from req_compile.repos.pypi import PyPIRepository
 from req_compile.repos.repository import (
     CantUseReason,
-    sort_candidates,
-    NoCandidateException,
     RepositoryInitializationError,
+    sort_candidates,
 )
-from req_compile.repos.multi import MultiRepository
 from req_compile.repos.solution import SolutionRepository
 from req_compile.repos.source import SourceRepository
 from req_compile.versions import is_possible
-from req_compile.dists import RequirementsFile, DistInfo
 
 # Blacklist of requirements that will be filtered out of the output
-BLACKLIST = []
+BLACKLIST = []  # type: Iterable[str]
 
 
 def _cantusereason_to_text(reason):  # pylint: disable=too-many-return-statements
@@ -194,7 +195,7 @@ def _dump_repo_candidates(req, repos):
                         ),
                         file=sys.stderr,
                     )
-                except req_compile.metadata.errors.MetadataError:
+                except req_compile.errors.MetadataError:
                     print(
                         "  {}: {}".format(candidate, "Failed to parse metadata"),
                         file=sys.stderr,
@@ -214,7 +215,7 @@ def _create_req_from_path(path):
     """
     try:
         dist = req_compile.metadata.extract_metadata(path)
-    except req_compile.metadata.errors.MetadataError:
+    except req_compile.errors.MetadataError:
         dist = None
 
     if dist is None:
@@ -595,8 +596,8 @@ def compile_main(args=None):
         print("Error initializing {}: {}".format(ex.type.__name__, ex), file=sys.stderr)
         sys.exit(1)
     except (
-        req_compile.repos.repository.NoCandidateException,
-        req_compile.metadata.errors.MetadataError,
+        req_compile.errors.NoCandidateException,
+        req_compile.errors.MetadataError,
     ) as ex:
         _generate_no_candidate_display(ex.req, repo, ex.results, ex)
         sys.exit(1)

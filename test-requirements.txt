@@ -1,5 +1,8 @@
 pytest
 pytest-mock
 responses
-pylint < 2.6.0
+pylint
 mock
+isort
+mypy
+black

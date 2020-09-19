@@ -1,7 +1,7 @@
 import os
 import sys
 
-import appdirs
+import appdirs  # type: ignore
 from six.moves import configparser
 
 CONFIG_BASENAME = "pip.ini" if sys.platform == "win32" else "pip.conf"

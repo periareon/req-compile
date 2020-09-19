@@ -8,6 +8,8 @@ import six
 import req_compile.metadata.dist_info
 import req_compile.metadata.extractor
 import req_compile.metadata
+import req_compile.filename
+import req_compile.metadata.metadata
 import req_compile.metadata.source
 
 
@@ -134,17 +136,17 @@ def test_pylint_python(metadata_provider):
     ],
 )
 def test_parse_source_filename(filename, result_name, result_version):
-    result = req_compile.metadata.source.parse_source_filename(filename)
+    result = req_compile.filename.parse_source_filename(filename)
     assert result == (result_name, pkg_resources.parse_version(result_version))
 
 
 def test_compound(mock_targz):
     """Test one tar after another directly that have failed in the passed"""
     archive = mock_targz("et_xmlfile-1.0.1")
-    req_compile.metadata.extract_metadata(archive)
+    req_compile.metadata.metadata.extract_metadata(archive)
 
     archive = mock_targz("ed-1.4")
-    req_compile.metadata.extract_metadata(archive)
+    req_compile.metadata.metadata.extract_metadata(archive)
 
 
 sources = [
@@ -227,7 +229,7 @@ def test_source_dist(
     else:
         archive = os.path.join(os.path.dirname(__file__), "source-packages", directory)
 
-    metadata = req_compile.metadata.extract_metadata(archive)
+    metadata = req_compile.metadata.metadata.extract_metadata(archive)
     assert not mock_build.called
 
     if archive_fixture != "mock_fs":
@@ -241,7 +243,7 @@ def test_source_dist(
 def test_relative_import(mock_targz):
     archive = mock_targz("relative-import-1.0")
 
-    metadata = req_compile.metadata.extract_metadata(archive)
+    metadata = req_compile.metadata.metadata.extract_metadata(archive)
     assert metadata.name == "relative-import"
     assert metadata.version == pkg_resources.parse_version("1.0")
 
@@ -249,11 +251,11 @@ def test_relative_import(mock_targz):
 def test_extern_import(mock_targz):
     archive = mock_targz("extern-importer-1.0")
 
-    metadata = req_compile.metadata.extract_metadata(archive)
+    metadata = req_compile.metadata.metadata.extract_metadata(archive)
 
 
 def test_self_source():
     path = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
-    metadata = req_compile.metadata.extract_metadata(path)
+    metadata = req_compile.metadata.metadata.extract_metadata(path)
     assert metadata.name == "req-compile"
