@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="req-compile",
-    version="0.10.8",
+    version="0.10.9",
     author="Spencer Putt",
     author_email="sputt@alumni.iu.edu",
     description="Python requirements compiler",
@@ -17,7 +17,6 @@ setup(
             "req-candidates = req_compile.candidates:candidates_main",
         ],
     },
-    extras_require={"test": open("test-requirements.txt").readlines()},
     python_requires=">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*",
     classifiers=[
         "Programming Language :: Python",
