@@ -5,12 +5,7 @@ python:
 - '2.7'
 - '3.5'
 - '3.6'
-# Enable 3.7 without globally enabling sudo and dist: xenial for other build jobs
-matrix:
-  include:
-    - python: 3.7
-      dist: xenial
-      sudo: true
+- '3.7'
 
 deploy:
   provider: pypi
@@ -26,7 +21,5 @@ install:
 - pip install -r install-reqs.txt
 script:
 - isort req_compile --check --use-parentheses --trailing-comma --force-sort-within-sections --line-width 88 --multi-line 3 --no-lines-before LOCALFOLDER
-- black req_compile --check
-- mypy req_compile
 - pylint -rn req_compile --disable unused-import,line-too-long,wrong-import-order
 - pytest tests
