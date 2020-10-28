@@ -220,7 +220,7 @@ def _create_req_from_path(path):
 
     if dist is None:
         raise ValueError(
-            'Input arg "{}" is not directory containing a valid setup.py'.format(path)
+            'Input arg "{}" is not directory containing a valid setup.py or pyproject.toml'.format(path)
         )
     return dist
 
@@ -357,7 +357,7 @@ def _generate_repo_header(input_reqs, repos, write_to):
     each line
 
     Args:
-        input_reqs (list[RequirementsContainer]): Input
+        input_reqs (list[RequirementContainer]): Input
 
     """
     repo_mapping = {}

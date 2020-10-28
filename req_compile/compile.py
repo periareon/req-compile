@@ -28,6 +28,7 @@ from req_compile.utils import (
     merge_requirements,
     normalize_project_name,
     parse_requirement,
+    parse_version,
 )
 from req_compile.versions import is_possible
 
@@ -142,7 +143,7 @@ def compile_roots(
                     reason = merge_requirements(
                         reason,
                         parse_requirement(
-                            reason.name + "[" + ",".join(options.extras) + "]"
+                            reason.project_name + "[" + ",".join(options.extras) + "]"
                         ),
                     )
 
@@ -193,12 +194,14 @@ def compile_roots(
                 six.reraise(*exc_info)
 
             bad_meta = baddest_node.metadata
+            assert bad_meta is not None
+
             new_constraints = [
                 parse_requirement("{}!={}".format(bad_meta.name, bad_meta.version))
             ]
             bad_constraint = req_compile.containers.DistInfo(
                 "#bad#-{}-{}".format(baddest_node, depth),
-                None,
+                parse_version("0.0.0"),
                 new_constraints,
                 meta=True,
             )

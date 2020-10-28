@@ -3,15 +3,14 @@ from __future__ import print_function
 import collections
 import itertools
 import logging
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set, Union, Any
 
 import pkg_resources
 import six
 
-from req_compile import utils
-from req_compile.containers import DistInfo
+from req_compile.containers import RequirementContainer
 from req_compile.repos import Repository
-from req_compile.utils import merge_requirements, normalize_project_name
+from req_compile.utils import merge_requirements, normalize_project_name, parse_requirement
 
 
 class DependencyNode(object):
@@ -22,10 +21,10 @@ class DependencyNode(object):
     """
 
     def __init__(self, key, metadata):
-        # type: (str, DistInfo) -> None
+        # type: (str, Optional[RequirementContainer]) -> None
         self.key = key
         self.metadata = metadata
-        self.dependencies = {}  # type: Dict[DependencyNode, pkg_resources.Requirement]
+        self.dependencies = {}  # type: Dict[DependencyNode, Optional[pkg_resources.Requirement]]
         self.reverse_deps = set()  # type: Set[DependencyNode]
         self.repo = None  # type: Optional[Repository]
         self.complete = (
@@ -33,9 +32,11 @@ class DependencyNode(object):
         )
 
     def __repr__(self):
+        # type: () -> str
         return self.key
 
     def __str__(self):
+        # type: () -> str
         if self.metadata is None:
             return self.key + " [UNSOLVED]"
         if self.metadata.meta:
@@ -43,6 +44,7 @@ class DependencyNode(object):
         return "==".join(str(x) for x in self.metadata.to_definition(self.extras))
 
     def __lt__(self, other):
+        # type: (Any) -> bool
         return self.key < other.key
 
     @property
@@ -50,11 +52,14 @@ class DependencyNode(object):
         # type: () -> Set[str]
         extras = set()
         for rdep in self.reverse_deps:
-            extras |= set(rdep.dependencies[self].extras)
+            assert rdep.metadata is not None, "Reverse dependency should already have a solution"
+            reason = rdep.dependencies[self]
+            if reason is not None:
+                extras |= set(reason.extras)
         return extras
 
     def add_reason(self, node, reason):
-        # type: (DependencyNode, pkg_resources.Requirement) -> None
+        # type: (DependencyNode, Optional[pkg_resources.Requirement]) -> None
         self.dependencies[node] = reason
 
     def build_constraints(self):
@@ -62,24 +67,25 @@ class DependencyNode(object):
         result = None
 
         for rdep_node in self.reverse_deps:
+            assert rdep_node.metadata is not None, "Reverse dependency should already have a solution"
             all_reqs = set(rdep_node.metadata.requires())
             for extra in rdep_node.extras:
                 all_reqs |= set(rdep_node.metadata.requires(extra=extra))
             for req in all_reqs:
-                if normalize_project_name(req.name) == self.key:
+                if normalize_project_name(req.project_name) == self.key:
                     result = merge_requirements(result, req)
 
         if result is None:
             if self.metadata is None:
-                result = utils.parse_requirement(self.key)
+                result = parse_requirement(self.key)
             else:
-                result = utils.parse_requirement(self.metadata.name)
+                result = parse_requirement(self.metadata.name)
             assert result is not None
 
             if self.extras:
                 result.extras = self.extras
                 # Reparse to create a correct hash
-                result = utils.parse_requirement(str(result))
+                result = parse_requirement(str(result))
                 assert result is not None
         return result
 
@@ -88,16 +94,19 @@ def _build_constraints(root_node):
     # type: (DependencyNode) -> Iterable[str]
     constraints = []  # type: List[str]
     for node in root_node.reverse_deps:
+        assert node.metadata is not None, "Reverse dependency should already have a solution"
         all_reqs = set(node.metadata.requires())
         for extra in node.extras:
             all_reqs |= set(node.metadata.requires(extra=extra))
         for req in all_reqs:
-            if normalize_project_name(req.name) == root_node.key:
+            if normalize_project_name(req.project_name) == root_node.key:
                 _process_constraint_req(req, node, constraints)
     return constraints
 
 
 def _process_constraint_req(req, node, constraints):
+    # type: (pkg_resources.Requirement, DependencyNode, List[str]) -> None
+    assert node.metadata is not None, "Node {} must be solved".format(node)
     extra = None
     if req.marker:
         for marker in req.marker._markers:  # pylint: disable=protected-access
@@ -108,27 +117,40 @@ def _process_constraint_req(req, node, constraints):
             ):
                 extra = marker[2].value
     source = node.metadata.name + (("[" + extra + "]") if extra else "")
-    specifics = " (" + str(req.specifier) + ")" if req.specifier else ""
+    specifics = " (" + str(req.specifier) + ")" if req.specifier else ""  # type: ignore[attr-defined]
     constraints.extend([source + specifics])
 
 
 class DistributionCollection(object):
+    """A collection of dependencies and their distributions. This is the main representation
+    of the graph of dependencies when putting together a resolution. As distributions are
+    added to the collection and provide a concrete RequirementContainer (like a DistInfo from
+    a wheel), the corresponding node in this collection will be marked solved."""
+
     def __init__(self):
-        self.nodes = {}  # Dict[str, DependencyNode]
+        # type: () -> None
+        self.nodes = {}  # type: Dict[str, DependencyNode]
         self.logger = logging.getLogger("req_compile.dists")
 
     @staticmethod
     def _build_key(name):
-        return utils.normalize_project_name(name)
+        return normalize_project_name(name)
 
-    def add_dist(self, name_or_metadata, source, reason):
+    def add_dist(self,
+                 name_or_metadata,  # type: Union[str, RequirementContainer]
+                 source,  # type: Optional[DependencyNode]
+                 reason,  # type: Optional[pkg_resources.Requirement]
+             ):
+        # type: (...) -> Set[DependencyNode]
         """
-        Add a distribution
+        Add a distribution as a placeholder or as a solution
 
         Args:
-            name_or_metadata (req_compile.containers.RequirementContainer|str): Distribution info to add
-            source (DependencyNode, optional): The source of the distribution
-            reason (pkg_resources.Requirement, optional):
+            name_or_metadata: Distribution info to add, or if it is unknown, the
+                name of hte distribution so it can be added as a placeholder
+            source: The source of the distribution. This is used to build the graph
+            reason: The requirement that caused this distribution to be added to the
+                graph. This is used to constrain which solutions will be allowed
         """
         self.logger.debug("Adding dist: %s %s %s", name_or_metadata, source, reason)
 
@@ -192,6 +214,7 @@ class DistributionCollection(object):
         return add_nodes
 
     def remove_dists(self, node, remove_upstream=True):
+        # type: (Union[DependencyNode, Iterable[DependencyNode]], bool) -> None
         if isinstance(node, collections.Iterable):
             for single_node in node:
                 self.remove_dists(single_node, remove_upstream=remove_upstream)
@@ -222,7 +245,7 @@ class DistributionCollection(object):
     def build(self, roots):
         results = self.generate_lines(roots)
         return [
-            utils.parse_requirement("==".join([result[0][0], str(result[0][1])]))
+            parse_requirement("==".join([result[0][0], str(result[0][1])]))
             for result in results
         ]
 
