@@ -7,10 +7,10 @@ from six.moves import map as imap
 
 import req_compile.containers
 import req_compile.dists
+import req_compile.utils
 from req_compile.repos import RepositoryInitializationError
 from req_compile.repos.repository import Candidate, DistributionType, Repository
 from req_compile.repos.source import ReferenceSourceRepository
-import req_compile.utils
 
 
 def _candidate_from_node(node):

@@ -1,9 +1,9 @@
-from contextlib import closing
 import logging
 import os
 import re
-from typing import Iterable, Optional
 import zipfile
+from contextlib import closing
+from typing import Iterable, Optional
 
 from req_compile import utils
 from req_compile.containers import DistInfo

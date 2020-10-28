@@ -12,11 +12,11 @@ from typing import Iterable, Optional, Sequence, Tuple
 import pkg_resources
 import six
 
-from req_compile.containers import DistInfo
 import req_compile.errors
+import req_compile.utils
+from req_compile.containers import DistInfo
 from req_compile.errors import NoCandidateException
 from req_compile.filename import parse_source_filename
-import req_compile.utils
 from req_compile.utils import have_compatible_glibc, normalize_project_name
 
 INTERPRETER_TAGS = {

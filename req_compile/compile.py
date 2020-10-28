@@ -2,27 +2,27 @@
 """Logic for compiling requirements"""
 from __future__ import print_function
 
-from collections import defaultdict
 import logging
 import operator
 import sys
+from collections import defaultdict
 from typing import Dict, Iterable, Mapping, Optional, Set, Tuple
 
 import pkg_resources
 import six
 
 import req_compile.containers
-from req_compile.containers import RequirementContainer
 import req_compile.dists
-from req_compile.dists import DependencyNode, DistributionCollection
 import req_compile.errors
-from req_compile.errors import NoCandidateException
 import req_compile.metadata
 import req_compile.repos.pypi
 import req_compile.repos.repository
+import req_compile.utils
+from req_compile.containers import RequirementContainer
+from req_compile.dists import DependencyNode, DistributionCollection
+from req_compile.errors import NoCandidateException
 from req_compile.repos.repository import BaseRepository
 from req_compile.repos.source import SourceRepository
-import req_compile.utils
 from req_compile.utils import (
     is_pinned_requirement,
     merge_requirements,

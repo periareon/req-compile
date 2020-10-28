@@ -1,7 +1,7 @@
-from collections import defaultdict
 import itertools
 import logging
 import os
+from collections import defaultdict
 from typing import Dict, Iterable, Optional
 
 try:

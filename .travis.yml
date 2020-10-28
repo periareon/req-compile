@@ -20,6 +20,5 @@ install:
 - req-compile . test-requirements.txt > install-reqs.txt
 - pip install -r install-reqs.txt
 script:
-- isort req_compile --check --use-parentheses --trailing-comma --force-sort-within-sections --line-width 88 --multi-line 3 --no-lines-before LOCALFOLDER
 - pylint -rn req_compile --disable unused-import,line-too-long,wrong-import-order
 - pytest tests

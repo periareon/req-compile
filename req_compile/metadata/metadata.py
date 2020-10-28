@@ -1,12 +1,13 @@
 import functools
 import logging
 import os
-from typing import Optional
 import zipfile
+from typing import Optional
 
 from req_compile.containers import RequirementContainer
 from req_compile.errors import MetadataError
 from req_compile.repos.repository import Repository
+
 from .dist_info import _fetch_from_wheel
 from .extractor import NonExtractor, TarExtractor, ZipExtractor
 from .pyproject import fetch_from_pyproject

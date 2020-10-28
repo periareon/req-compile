@@ -1,10 +1,10 @@
 import os
 
-from req_compile import utils
 import req_compile.metadata
 import req_compile.metadata.metadata
-from req_compile.repos import Repository, RepositoryInitializationError
 import req_compile.repos.repository
+from req_compile import utils
+from req_compile.repos import Repository, RepositoryInitializationError
 
 
 class FindLinksRepository(Repository):

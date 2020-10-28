@@ -12,19 +12,19 @@ from typing import Iterable
 
 import pkg_resources
 
-from req_compile import utils
 import req_compile.compile
+import req_compile.dists
+import req_compile.errors
+import req_compile.metadata
+import req_compile.metadata.metadata
+import req_compile.repos.pypi
+from req_compile import utils
 from req_compile.compile import perform_compile
 from req_compile.config import read_pip_default_index
 from req_compile.containers import DistInfo, RequirementsFile
-import req_compile.dists
-import req_compile.errors
 from req_compile.errors import NoCandidateException
-import req_compile.metadata
-import req_compile.metadata.metadata
 from req_compile.repos.findlinks import FindLinksRepository
 from req_compile.repos.multi import MultiRepository
-import req_compile.repos.pypi
 from req_compile.repos.pypi import PyPIRepository
 from req_compile.repos.repository import (
     CantUseReason,
@@ -220,7 +220,9 @@ def _create_req_from_path(path):
 
     if dist is None:
         raise ValueError(
-            'Input arg "{}" is not directory containing a valid setup.py or pyproject.toml'.format(path)
+            'Input arg "{}" is not directory containing a valid setup.py or pyproject.toml'.format(
+                path
+            )
         )
     return dist
 

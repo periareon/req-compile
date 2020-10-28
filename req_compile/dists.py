@@ -3,14 +3,18 @@ from __future__ import print_function
 import collections
 import itertools
 import logging
-from typing import Dict, Iterable, List, Optional, Set, Union, Any
+from typing import Any, Dict, Iterable, List, Optional, Set, Union
 
 import pkg_resources
 import six
 
 from req_compile.containers import RequirementContainer
 from req_compile.repos import Repository
-from req_compile.utils import merge_requirements, normalize_project_name, parse_requirement
+from req_compile.utils import (
+    merge_requirements,
+    normalize_project_name,
+    parse_requirement,
+)
 
 
 class DependencyNode(object):
@@ -24,7 +28,9 @@ class DependencyNode(object):
         # type: (str, Optional[RequirementContainer]) -> None
         self.key = key
         self.metadata = metadata
-        self.dependencies = {}  # type: Dict[DependencyNode, Optional[pkg_resources.Requirement]]
+        self.dependencies = (
+            {}
+        )  # type: Dict[DependencyNode, Optional[pkg_resources.Requirement]]
         self.reverse_deps = set()  # type: Set[DependencyNode]
         self.repo = None  # type: Optional[Repository]
         self.complete = (
@@ -52,7 +58,9 @@ class DependencyNode(object):
         # type: () -> Set[str]
         extras = set()
         for rdep in self.reverse_deps:
-            assert rdep.metadata is not None, "Reverse dependency should already have a solution"
+            assert (
+                rdep.metadata is not None
+            ), "Reverse dependency should already have a solution"
             reason = rdep.dependencies[self]
             if reason is not None:
                 extras |= set(reason.extras)
@@ -67,7 +75,9 @@ class DependencyNode(object):
         result = None
 
         for rdep_node in self.reverse_deps:
-            assert rdep_node.metadata is not None, "Reverse dependency should already have a solution"
+            assert (
+                rdep_node.metadata is not None
+            ), "Reverse dependency should already have a solution"
             all_reqs = set(rdep_node.metadata.requires())
             for extra in rdep_node.extras:
                 all_reqs |= set(rdep_node.metadata.requires(extra=extra))
@@ -94,7 +104,9 @@ def _build_constraints(root_node):
     # type: (DependencyNode) -> Iterable[str]
     constraints = []  # type: List[str]
     for node in root_node.reverse_deps:
-        assert node.metadata is not None, "Reverse dependency should already have a solution"
+        assert (
+            node.metadata is not None
+        ), "Reverse dependency should already have a solution"
         all_reqs = set(node.metadata.requires())
         for extra in node.extras:
             all_reqs |= set(node.metadata.requires(extra=extra))
@@ -136,11 +148,12 @@ class DistributionCollection(object):
     def _build_key(name):
         return normalize_project_name(name)
 
-    def add_dist(self,
-                 name_or_metadata,  # type: Union[str, RequirementContainer]
-                 source,  # type: Optional[DependencyNode]
-                 reason,  # type: Optional[pkg_resources.Requirement]
-             ):
+    def add_dist(
+        self,
+        name_or_metadata,  # type: Union[str, RequirementContainer]
+        source,  # type: Optional[DependencyNode]
+        reason,  # type: Optional[pkg_resources.Requirement]
+    ):
         # type: (...) -> Set[DependencyNode]
         """
         Add a distribution as a placeholder or as a solution

@@ -1,9 +1,9 @@
 """Repository to handle pulling packages from online package indexes"""
-from hashlib import sha256
 import logging
 import os
 import re
 import sys
+from hashlib import sha256
 from typing import Optional, Sequence, Tuple
 
 import pkg_resources

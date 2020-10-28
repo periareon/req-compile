@@ -1,6 +1,6 @@
 import os
 import shutil
-from typing import Optional, Iterable, Tuple, Any
+from typing import Any, Iterable, Optional, Tuple
 
 import packaging.version
 import pkg_resources

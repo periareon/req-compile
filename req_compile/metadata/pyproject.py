@@ -7,8 +7,8 @@ import sys
 import tempfile
 from typing import Any, Mapping, Optional
 
-from six.moves import StringIO
 import toml
+from six.moves import StringIO
 
 from ..containers import DistInfo
 from .dist_info import _fetch_from_wheel, _parse_flat_metadata

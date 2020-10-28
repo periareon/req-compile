@@ -2,11 +2,9 @@
 """Parsing of metadata that comes from setup.py"""
 from __future__ import print_function
 
-from contextlib import closing
 import functools
 import imp
 import io
-from io import BytesIO, StringIO
 import logging
 import os
 import os.path
@@ -17,6 +15,8 @@ import sys
 import tempfile
 import threading
 import time
+from contextlib import closing
+from io import BytesIO, StringIO
 from types import ModuleType
 
 import pkg_resources
@@ -27,6 +27,7 @@ from six.moves import configparser
 from req_compile import utils
 from req_compile.errors import MetadataError
 from req_compile.filename import parse_source_filename
+
 from ..containers import DistInfo, PkgResourcesDistInfo
 from .dist_info import _fetch_from_wheel
 from .extractor import NonExtractor

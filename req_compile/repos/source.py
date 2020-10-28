@@ -7,11 +7,11 @@ import os
 
 from six.moves import map
 
-from req_compile import utils
 import req_compile.errors
 import req_compile.metadata
 import req_compile.metadata.metadata
 import req_compile.repos.repository
+from req_compile import utils
 from req_compile.repos.repository import Repository
 
 # Special directories that will never be considered
