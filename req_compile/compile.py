@@ -42,7 +42,7 @@ class CompileOptions(object):
     """Static options for a compile_roots"""
 
     extras = None  # type: Optional[Iterable[str]]
-    allow_circular_dependencies = False
+    allow_circular_dependencies = True
     pinned_requirements = {}  # type: Mapping[str, pkg_resources.Requirement]
 
 
@@ -78,14 +78,13 @@ def compile_roots(
                 for req in sorted(node.dependencies):
                     if not req.complete or req.metadata is None:
                         is_circular = False
-
-                        for rdep in dists.visit_nodes([req], reverse=True):
-                            if rdep is req:
+                        for descendent in dists.visit_nodes([req]):
+                            if descendent is node:
                                 is_circular = True
                                 if options.allow_circular_dependencies:
                                     logger.debug(
                                         "Skipping node %s because it includes this node",
-                                        rdep,
+                                        descendent,
                                     )
                                     break
                                 raise ValueError(

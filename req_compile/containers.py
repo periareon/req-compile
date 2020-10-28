@@ -1,9 +1,9 @@
 import os
 import shutil
+from typing import Optional, Iterable, Tuple, Any
 
 import packaging.version
 import pkg_resources
-from typing import Optional, Iterable, Tuple, Any
 
 from req_compile import utils
 from req_compile.utils import filter_req, reduce_requirements
