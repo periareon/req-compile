@@ -20,5 +20,5 @@ install:
 - req-compile . test-requirements.txt > install-reqs.txt
 - pip install -r install-reqs.txt
 script:
-- pylint -rn req_compile --disable unused-import,line-too-long,wrong-import-order
+- pylint -rn req_compile --disable unused-import,line-too-long,wrong-import-order,ungrouped-imports
 - pytest tests
