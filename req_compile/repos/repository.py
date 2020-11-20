@@ -7,17 +7,18 @@ import platform
 import struct
 import sys
 import sysconfig
-from typing import Iterable, Optional, Sequence, Tuple
+from typing import Iterable, Optional, Sequence, Tuple, Any
 
+import packaging.version
 import pkg_resources
 import six
 
 import req_compile.errors
 import req_compile.utils
-from req_compile.containers import DistInfo
+from req_compile.containers import DistInfo, RequirementContainer
 from req_compile.errors import NoCandidateException
 from req_compile.filename import parse_source_filename
-from req_compile.utils import have_compatible_glibc, normalize_project_name
+from req_compile.utils import have_compatible_glibc, normalize_project_name, parse_version
 
 INTERPRETER_TAGS = {
     "CPython": "cp",
@@ -153,14 +154,16 @@ def _all_py_tags_in_major(up_to):
 
 class WheelVersionTags(PythonVersionRequirement):
     WHEEL_VERSION_TAGS = (
-        "py2" if six.PY2 else "py3",
         INTERPRETER_TAG + PY_VERSION_NUM,
+        "py2" if six.PY2 else "py3",
     ) + tuple(_all_py_tags_in_major(PY_VERSION_NUM))
 
     def __init__(self, py_version):
+        # type: (Iterable[str]) -> None
         self.py_version = py_version
 
     def check_compatibility(self):
+        # type: () -> bool
         if not self.py_version:
             return True
         return any(
@@ -169,7 +172,8 @@ class WheelVersionTags(PythonVersionRequirement):
         )
 
     def __str__(self):
-        if self.py_version is None or self.py_version == ():
+        # type: () -> str
+        if not self.py_version:
             return "any"
 
         return ".".join(sorted(self.py_version))
@@ -179,40 +183,45 @@ class WheelVersionTags(PythonVersionRequirement):
 
     @property
     def tag_score(self):
-        result = 100
-        version_val = None
-        if len(self.py_version) == 1:
-            version_val = self.py_version[0]
+        # type: () -> int
+        """Calculate a score based on the quality of the version tags
+        on the wheel"""
+        result = 0
 
-        if version_val is not None:
-            for tag_type in tuple(INTERPRETER_TAGS.values()) + ("py",):
-                version_val = version_val.replace(tag_type, "")
+        best_score = sys.maxsize
+        best = ''
+        for version in self.py_version:
             try:
-                result += int(version_val)
+                score = WheelVersionTags.WHEEL_VERSION_TAGS.index(version)
+                best_score = min(score, best_score)
+                if best_score == score:
+                    best = version
             except ValueError:
                 pass
-
+        result += len(WheelVersionTags.WHEEL_VERSION_TAGS) - best_score
         return result
 
 
 class Candidate(object):  # pylint: disable=too-many-instance-attributes
+    """A candidate representing come kind of distribution to resolve"""
+
     def __init__(
         self,
-        name,
-        filename,
-        version,
-        py_version,
-        abi,
-        plat,
-        link,
-        candidate_type=DistributionType.SDIST,
-        extra_sort_info="",
+        name,  # type: str
+        filename,  # type: str
+        version,  # type: packaging.version.Version
+        py_version,  # type: Optional[WheelVersionTags]
+        abi,  # type: Optional[str]
+        plat,  # type: str
+        link,  # type: Optional[str]
+        candidate_type=DistributionType.SDIST,  # type: DistributionType
+        extra_sort_info="",  # type: str
     ):
+        # type: (...) -> None
         """
-
         Args:
-            name:
-            filename:
+            name: Name of the candidate
+            filename: The filename of the source of the candidate
             version:
             py_version (RequiresPython): Python version
             abi (str, None)
@@ -222,7 +231,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
         """
         self.name = name
         self.filename = filename
-        self.version = version or pkg_resources.parse_version("0.0.0")
+        self.version = version or parse_version("0.0.0")  # type: packaging.version.Version
         self.py_version = py_version
         self.abi = abi
         self.platform = plat
@@ -231,13 +240,14 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
 
         # Sort based on tags to make sure the most specific distributions
         # are matched first
-        self._sortkey = None
+        self._sortkey = None  # type: Optional[Tuple[packaging.version.Version, str, int, Tuple[int, int, int, int]]]
         self._extra_sort_info = extra_sort_info
 
         self.preparsed = None
 
     @property
     def sortkey(self):
+        # type: () -> Tuple[packaging.version.Version, str, int, Tuple[int, int, int, int]]
         if self._sortkey is None:
             self._sortkey = (
                 self.version,
@@ -249,6 +259,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
 
     @property
     def tag_score(self):
+        # type: () -> Tuple[int, int, int, int]
         py_version_score = (
             self.py_version.tag_score if self.py_version is not None else 0
         )
@@ -269,6 +280,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
         return py_version_score, plat_score, abi_score, extra_score
 
     def __eq__(self, other):
+        # type: (Any) -> bool
         return (
             self.name == other.name
             and self.filename == other.filename
@@ -281,6 +293,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
         )
 
     def __repr__(self):
+        # type: () -> str
         return "Candidate(name={}, filename={}, version={}, py_version={}, abi={}, platform={}, link={})".format(
             self.name,
             self.filename,
@@ -292,6 +305,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
         )
 
     def __str__(self):
+        # type: () -> str
         py_version_str = str(self.py_version) + "-"
         return "{} {}-{}-{}{}-{}".format(
             self.type.name,
@@ -304,6 +318,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
 
 
 def process_distribution(source, filename):
+    # type: (str, str) -> Optional[Candidate]
     candidate = None
     if filename.endswith(".egg"):
         return None
@@ -323,6 +338,7 @@ def process_distribution(source, filename):
 
 
 def _wheel_candidate(source, filename):
+    # type: (str, str) -> Optional[Candidate]
     filename = os.path.basename(filename)
     data_parts = filename.split("-")
     if len(data_parts) < 5:
@@ -338,7 +354,7 @@ def _wheel_candidate(source, filename):
     name = data_parts[0]
     abi = data_parts[3]
     #  Convert old-style post-versions to new style so it will sort correctly
-    version = pkg_resources.parse_version(data_parts[1].replace("_", "-"))
+    version = parse_version(data_parts[1].replace("_", "-"))
     plat = data_parts[4].split(".")[0]
 
     requires_python = WheelVersionTags(tuple(data_parts[2].split(".")))
@@ -357,6 +373,7 @@ def _wheel_candidate(source, filename):
 
 
 def _tar_gz_candidate(source, filename):
+    # type: (str, str) -> Candidate
     name, version = parse_source_filename(os.path.basename(filename))
     return Candidate(
         name,
@@ -371,16 +388,18 @@ def _tar_gz_candidate(source, filename):
 
 
 def _check_platform_compatibility(py_platform):
+    # type: (str) -> bool
     return py_platform == "any" or (py_platform.lower() in PLATFORM_TAGS)
 
 
 def _check_abi_compatibility(abi):
+    # type: (str) -> bool
     return abi in ABI_TAGS
 
 
 class BaseRepository(object):
     def get_candidate(self, req, max_downgrade=None):
-        # type: (pkg_resources.Requirement, int) -> Tuple[DistInfo, bool]
+        # type: (pkg_resources.Requirement, int) -> Tuple[RequirementContainer, bool]
         """Fetch the best matching candidate for the given requirement
 
         Args:
@@ -389,7 +408,7 @@ class BaseRepository(object):
                 metadata parsing fails
 
         Returns:
-            (Candidate) The best matching candidate
+            Tuple of the best matching candidate and whether or not the result came from a cache
         """
         raise NotImplementedError()
 
@@ -406,13 +425,14 @@ class CantUseReason(enum.Enum):
 
 
 def sort_candidates(candidates):
-    """
+    # type: (Iterable[Candidate]) -> Sequence[Candidate]
+    """Sort candidates for highest compatibility and version
 
     Args:
-        candidates:
+        candidates: Candidates to sort
 
     Returns:
-        (list[Candidate])
+        The sorted list, starting with the best matching candidate
     """
     return sorted(candidates, key=lambda x: x.sortkey, reverse=True)
 
@@ -462,6 +482,7 @@ def filter_candidates(req, candidates, allow_prereleases=False):
 
 
 def _is_all_prereleases(candidates):
+    # type: (Iterable[Candidate]) -> bool
     all_prereleases = True
     for candidate in candidates:
         all_prereleases = all_prereleases and candidate.version.is_prerelease
@@ -484,6 +505,7 @@ class Repository(BaseRepository):
         return iter([self])
 
     def get_candidates(self, req):
+        # type: (pkg_resources.Requirement) -> Iterable[Candidate]
         """
         Fetch all available candidates for a project_name
         Args:
@@ -495,13 +517,15 @@ class Repository(BaseRepository):
         raise NotImplementedError()
 
     def resolve_candidate(self, candidate):
+        # type: (Candidate) -> Tuple[Optional[RequirementContainer], bool]
         raise NotImplementedError()
 
     def close(self):
+        # type: () -> None
         raise NotImplementedError()
 
     def get_candidate(self, req, max_downgrade=None):
-        # type: (pkg_resources.Requirement, int) -> Tuple[DistInfo, bool]
+        # type: (pkg_resources.Requirement, int) -> Tuple[RequirementContainer, bool]
         self.logger.info("Getting candidate for %s", req)
         candidates = self.get_candidates(req)
         return self.do_get_candidate(req, candidates, max_downgrade=max_downgrade)
@@ -509,15 +533,19 @@ class Repository(BaseRepository):
     def do_get_candidate(
         self, req, candidates, force_allow_prerelease=False, max_downgrade=None
     ):
-        # type: (pkg_resources.Requirement, Iterable[Candidate], bool, int) -> Tuple[DistInfo, bool]
+        # type: (pkg_resources.Requirement, Iterable[Candidate], bool, int) -> Tuple[RequirementContainer, bool]
         """
-
         Args:
             req: Requirement to fetch candidate for
             candidates: Available candidates (any versions, unsorted)
             force_allow_prerelease: Override the allow prerelease setting
             max_downgrade: Number of different versions to try. Does not limit number of candidates
                 per version nor make any judgements about the semver
+
+        Raises:
+            NoCandidateException if no candidate could be found, or IO errors related to failing
+                to fetch the desired candidate
+
         Returns:
             The distribution and whether or not it was cached
         """
@@ -541,12 +569,12 @@ class Repository(BaseRepository):
                     )
 
                 try:
-                    candidate, cached = self.resolve_candidate(candidate)
-                    if candidate is not None:
+                    dist, cached = self.resolve_candidate(candidate)
+                    if dist is not None:
                         if normalize_project_name(
                             candidate.name
                         ) == normalize_project_name(req.project_name):
-                            return candidate, cached
+                            return dist, cached
                 except req_compile.errors.MetadataError as ex:
                     self.logger.warning(
                         "Could not use candidate %s - %s", candidate, ex

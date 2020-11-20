@@ -213,9 +213,9 @@ def mock_py_version(mocker):
         mocker.patch(
             "req_compile.repos.repository.WheelVersionTags.WHEEL_VERSION_TAGS",
             (
-                "py" + major_version,
-                "py" + major_version + minor_version,
                 "cp" + major_version + minor_version,
+                "py" + major_version + minor_version,
+                "py" + major_version,
             ),
         )
 

@@ -9,6 +9,7 @@ try:
 except ImportError:
     from functools import lru_cache
 
+import packaging.version
 import pkg_resources
 
 
@@ -85,11 +86,12 @@ def parse_requirement(req_text):
 
 @lru_cache(maxsize=None)
 def parse_version(version):
+    # type: (str) -> packaging.version.Version
     """
     Args:
         version (str): Version to parse
     """
-    return pkg_resources.parse_version(version)
+    return pkg_resources.parse_version(version)  # type: ignore
 
 
 def parse_requirements(reqs):

@@ -10,7 +10,7 @@ import pkg_resources
 import requests
 from six.moves import html_parser, urllib
 
-from req_compile.containers import RequirementContainer
+from req_compile.containers import RequirementContainer, DistInfo
 from req_compile.errors import MetadataError
 from req_compile.metadata import extract_metadata
 from req_compile.repos.repository import Candidate, Repository, process_distribution
