@@ -189,13 +189,10 @@ class WheelVersionTags(PythonVersionRequirement):
         result = 0
 
         best_score = sys.maxsize
-        best = ''
         for version in self.py_version:
             try:
                 score = WheelVersionTags.WHEEL_VERSION_TAGS.index(version)
                 best_score = min(score, best_score)
-                if best_score == score:
-                    best = version
             except ValueError:
                 pass
         result += len(WheelVersionTags.WHEEL_VERSION_TAGS) - best_score

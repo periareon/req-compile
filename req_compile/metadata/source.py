@@ -16,12 +16,12 @@ import tempfile
 import threading
 import time
 from contextlib import closing
-from io import BytesIO, StringIO
 from types import ModuleType
 
 import pkg_resources
 import setuptools  # type: ignore
 import six
+from six import BytesIO, StringIO
 from six.moves import configparser
 
 from req_compile import utils
