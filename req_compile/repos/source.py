@@ -101,7 +101,7 @@ class SourceRepository(Repository):
 
         # Loading source distributions via threads can be significantly faster because
         # it is a lot of I/O
-        pool = ThreadPool()
+        pool = ThreadPool(8)
         try:
             for source_dir, result in pool.imap_unordered(
                 functools.partial(self._extract_metadata, False), source_dirs
