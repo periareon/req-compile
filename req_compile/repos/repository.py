@@ -240,7 +240,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
         self._sortkey = None  # type: Optional[Tuple[packaging.version.Version, str, int, Tuple[int, int, int, int]]]
         self._extra_sort_info = extra_sort_info
 
-        self.preparsed = None
+        self.preparsed = None  # type: Optional[RequirementContainer]
 
     @property
     def sortkey(self):

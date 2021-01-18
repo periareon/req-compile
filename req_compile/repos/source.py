@@ -2,8 +2,11 @@
 from __future__ import print_function
 
 import collections
+import functools
 import itertools
 import os
+from multiprocessing.pool import ThreadPool
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from six.moves import map
 
@@ -12,9 +15,12 @@ import req_compile.metadata
 import req_compile.metadata.metadata
 import req_compile.repos.repository
 from req_compile import utils
+from req_compile.containers import RequirementContainer
 from req_compile.repos.repository import Repository
 
 # Special directories that will never be considered
+from req_compile.utils import parse_version
+
 SPECIAL_DIRS = {
     "site-packages",
     "dist-packages",
@@ -36,6 +42,7 @@ MARKER_FILES = {"__init__.py"}
 
 class SourceRepository(Repository):
     def __init__(self, path, excluded_paths=None, marker_files=None):
+        # type: (str, Iterable[str], Iterable[str]) -> None
         """
         A repository for Python projects source code on the filesystem. Directories containing a setup.py
         or PEP517 pyproject.toml are included in the list of potential distributions
@@ -55,19 +62,28 @@ class SourceRepository(Repository):
             )
 
         self.path = os.path.abspath(path)
-        self.distributions = collections.defaultdict(list)
+        self.distributions = collections.defaultdict(
+            list
+        )  # type: Dict[str, List[req_compile.repos.repository.Candidate]]
         self.marker_files = set(MARKER_FILES)
 
         if marker_files:
             self.marker_files |= set(marker_files)
 
+        self._find_later = []  # type: List[str]
         self._find_all_distributions(
             [os.path.abspath(path) for path in (excluded_paths or [])]
         )
 
-    def _extract_metadata(self, source_dir):
+    def _extract_metadata(self, allow_setup_py, source_dir):
+        # type: (bool, str) -> Tuple[str, Optional[RequirementContainer]]
+        if not allow_setup_py:
+            if os.path.exists(os.path.join(source_dir, "setup.py")):
+                self._find_later.append(source_dir)
+                return source_dir, None
+
         try:
-            self.logger.debug("Processing %s (cwd = %s)", source_dir, os.getcwd())
+            self.logger.debug("Processing %s", source_dir)
             return (
                 source_dir,
                 req_compile.metadata.extract_metadata(source_dir, origin=self),
@@ -79,25 +95,47 @@ class SourceRepository(Repository):
             return source_dir, None
 
     def _find_all_distributions(self, excluded_paths):
+        # type: (Iterable[str]) -> None
+        """Find all source distribution possible locations"""
         source_dirs = set(self._find_all_source_dirs(excluded_paths))
 
-        results = map(self._extract_metadata, source_dirs)
-        for source_dir, result in results:
-            if result is not None:
-                candidate = req_compile.repos.repository.Candidate(
-                    result.name,
-                    source_dir,
-                    result.version,
-                    None,
-                    None,
-                    "any",
-                    None,
-                    req_compile.repos.repository.DistributionType.SOURCE,
-                )
-                candidate.preparsed = result
-                self.distributions[utils.normalize_project_name(result.name)].append(
-                    candidate
-                )
+        # Loading source distributions via threads can be significantly faster because
+        # it is a lot of I/O
+        pool = ThreadPool()
+        try:
+            for source_dir, result in pool.imap_unordered(
+                functools.partial(self._extract_metadata, False), source_dirs
+            ):
+                if result is not None:
+                    self._add_distribution(source_dir, result)
+        finally:
+            if pool is not None:
+                pool.close()
+
+        if self._find_later:
+            for source_dir, result in map(
+                functools.partial(self._extract_metadata, True), self._find_later
+            ):
+                if result is not None:
+                    self._add_distribution(source_dir, result)
+
+    def _add_distribution(self, source_dir, result):
+        # type: (str, RequirementContainer) -> None
+        if result.version is None:
+            self.logger.debug("Source dir %s did not provide a version")
+            result.version = parse_version("0")
+        candidate = req_compile.repos.repository.Candidate(
+            result.name,
+            source_dir,
+            result.version,
+            None,
+            None,
+            "any",
+            None,
+            req_compile.repos.repository.DistributionType.SOURCE,
+        )
+        candidate.preparsed = result
+        self.distributions[utils.normalize_project_name(result.name)].append(candidate)
 
     def _find_all_source_dirs(self, excluded_paths):
         for root, dirs, files in os.walk(self.path):

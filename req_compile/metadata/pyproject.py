@@ -5,6 +5,7 @@ import os
 import shutil
 import sys
 import tempfile
+import threading
 from typing import Any, Mapping, Optional
 
 import toml
@@ -15,6 +16,7 @@ from .dist_info import _fetch_from_wheel, _parse_flat_metadata
 from .patch import patch
 
 LOG = logging.getLogger("req_compile.metadata.source")
+LOCK = threading.Lock()
 
 
 def _create_build_backend(build_system):
@@ -27,26 +29,34 @@ def _create_build_backend(build_system):
     return backend
 
 
-def _parse_from_prepared_metadata(source_file, backend):
-    # type: (str, Any) -> Optional[DistInfo]
+def _parse_from_prepared_metadata(source_file, backend, pyproject):
+    # type: (str, Any, Mapping) -> Optional[DistInfo]
     prepare = getattr(backend, "prepare_metadata_for_build_wheel", None)
     if prepare is None:
         return None
 
     dest = tempfile.mkdtemp(suffix="metadata")
-    old_cwd = os.getcwd()
     try:
-        os.chdir(source_file)
-        fake_out = StringIO()
-        with patch(sys, "stdout", fake_out, sys, "stderr", fake_out):
-            info = prepare(dest)
+        try:
+            info = prepare(dest, proj=pyproject, cwd=source_file)
+        except TypeError:
+            # We can only manipulate the working dir one at a time
+            with LOCK:
+                old_cwd = os.getcwd()
+                try:
+                    os.chdir(source_file)
+                    fake_out = StringIO()
+                    with patch(sys, "stdout", fake_out, sys, "stderr", fake_out):
+                        info = prepare(dest)
+                finally:
+                    os.chdir(old_cwd)
+
         meta_info = os.path.join(dest, info, "METADATA")
         if os.path.exists(meta_info):
             with open(meta_info, "r") as file_handle:
                 return _parse_flat_metadata(file_handle.read())
     finally:
         shutil.rmtree(dest)
-        os.chdir(old_cwd)
 
     return None
 
@@ -90,7 +100,7 @@ def fetch_from_pyproject(source_file):
         )
         return None
 
-    result = _parse_from_prepared_metadata(source_file, backend)
+    result = _parse_from_prepared_metadata(source_file, backend, pyproject)
     if result is not None:
         return result
 
