@@ -3,6 +3,7 @@ from __future__ import print_function
 import collections
 import itertools
 import logging
+import sys
 from typing import Any, Dict, Iterable, List, Optional, Set, Union
 
 import pkg_resources
@@ -40,6 +41,10 @@ class DependencyNode(object):
     def __repr__(self):
         # type: () -> str
         return self.key
+
+    def __hash__(self):
+        # type: () -> int
+        return hash(self.key)
 
     def __str__(self):
         # type: () -> str
@@ -190,6 +195,7 @@ class DistributionCollection(object):
             and set(reason.extras) - node.extras
         ):
             metadata_to_apply = node.metadata
+            node.complete = False
 
         if source is not None and source.key in self.nodes:
             node.reverse_deps.add(source)
@@ -263,32 +269,35 @@ class DistributionCollection(object):
         ]
 
     def visit_nodes(
-        self, roots, max_depth=None, reverse=False, _visited=None, _cur_depth=0
+        self, roots, max_depth=sys.maxsize, reverse=False, _visited=None, _cur_depth=0
     ):
         if _visited is None:
             _visited = set()
 
+        if _cur_depth == max_depth:
+            return
+
         if reverse:
             next_nodes = itertools.chain(*[root.reverse_deps for root in roots])
         else:
-            next_nodes = itertools.chain(*[root.dependencies.keys() for root in roots])
+            next_nodes = set()
+            for root in roots:
+                next_nodes |= set(root.dependencies.keys())
+
         for node in next_nodes:
             if node in _visited:
                 continue
 
             _visited.add(node)
-            yield node
 
-            if max_depth is None or _cur_depth < max_depth - 1:
-                results = self.visit_nodes(
-                    [node],
-                    reverse=reverse,
-                    max_depth=max_depth,
-                    _visited=_visited,
-                    _cur_depth=_cur_depth + 1,
-                )
-                for result in results:
-                    yield result
+            self.visit_nodes(
+                [node],
+                reverse=reverse,
+                max_depth=max_depth,
+                _visited=_visited,
+                _cur_depth=_cur_depth + 1,
+            )
+        return _visited
 
     def generate_lines(self, roots, req_filter=None, _visited=None):
         """
