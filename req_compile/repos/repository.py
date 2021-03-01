@@ -92,7 +92,7 @@ def _get_platform_tags():
         tag = (
             ("linux_" + arch_tag),
             ("manylinux1_" + arch_tag),
-        )
+        )  # type: Tuple
         if is_manylinux2010_compatible():
             tag += ("manylinux2010_" + arch_tag,)
         if is_manylinux2014_compatible():

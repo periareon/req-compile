@@ -6,8 +6,9 @@ import functools
 import itertools
 import os
 from multiprocessing.pool import ThreadPool
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Deque, Dict, Iterable, List, Optional, Tuple, Callable
 
+import six
 from six.moves import map
 
 import req_compile.errors
@@ -17,10 +18,9 @@ import req_compile.repos.repository
 from req_compile import utils
 from req_compile.containers import RequirementContainer
 from req_compile.repos.repository import Repository
-
-# Special directories that will never be considered
 from req_compile.utils import parse_version
 
+# Special directories that will never be considered
 SPECIAL_DIRS = {
     "site-packages",
     "dist-packages",
@@ -41,8 +41,8 @@ MARKER_FILES = {"__init__.py"}
 
 
 class SourceRepository(Repository):
-    def __init__(self, path, excluded_paths=None, marker_files=None):
-        # type: (str, Iterable[str], Iterable[str]) -> None
+    def __init__(self, path, excluded_paths=None, marker_files=None, parallelism=1):
+        # type: (str, Iterable[str], Iterable[str], int) -> None
         """
         A repository for Python projects source code on the filesystem. Directories containing a setup.py
         or PEP517 pyproject.toml are included in the list of potential distributions
@@ -53,6 +53,7 @@ class SourceRepository(Repository):
                 those included in `SPECIAL_DIRS`
             marker_files (list[str]): Files or directories, that if present, indicate that a discovered
                 source directory should not be included in the repository
+            parallelism: Number of in-process threads to execute when discovering source projects
         """
         super(SourceRepository, self).__init__("source", allow_prerelease=True)
 
@@ -66,11 +67,12 @@ class SourceRepository(Repository):
             list
         )  # type: Dict[str, List[req_compile.repos.repository.Candidate]]
         self.marker_files = set(MARKER_FILES)
+        self.parallelism = parallelism
 
         if marker_files:
             self.marker_files |= set(marker_files)
 
-        self._find_later = []  # type: List[str]
+        self._find_later = collections.deque()  # type: Deque[str]
         self._find_all_distributions(
             [os.path.abspath(path) for path in (excluded_paths or [])]
         )
@@ -86,7 +88,7 @@ class SourceRepository(Repository):
             self.logger.debug("Processing %s", source_dir)
             return (
                 source_dir,
-                req_compile.metadata.extract_metadata(source_dir, origin=self),
+                req_compile.metadata.extract_metadata(source_dir),
             )
         except req_compile.errors.MetadataError as ex:
             self.logger.error(
@@ -101,9 +103,14 @@ class SourceRepository(Repository):
 
         # Loading source distributions via threads can be significantly faster because
         # it is a lot of I/O
-        pool = ThreadPool(8)
+        if self.parallelism == 1:
+            pool = None  # type: Optional[ThreadPool]
+            map_func = six.moves.map  # type: Callable
+        else:
+            pool = ThreadPool(self.parallelism)
+            map_func = pool.imap_unordered
         try:
-            for source_dir, result in pool.imap_unordered(
+            for source_dir, result in map_func(
                 functools.partial(self._extract_metadata, False), source_dirs
             ):
                 if result is not None:

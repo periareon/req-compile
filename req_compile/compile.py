@@ -54,6 +54,7 @@ def compile_roots(
     options,  # type: CompileOptions
     depth=1,  # type: int
     max_downgrade=MAX_DOWNGRADE,  # type: int
+    _path=None,
 ):  # pylint: disable=too-many-statements,too-many-locals,too-many-branches
     # type: (...) -> None
     """
@@ -65,44 +66,46 @@ def compile_roots(
         options: Static options for the compile (including extras)
         depth: Depth the compilation has descended into
         max_downgrade: The maximum number of version downgrades that will be allowed for conflicts
+        _path: The path back to root - all nodes along the way
     """
-    logger = logging.LoggerAdapter(LOG, dict(depth=depth))
+    if _path is None:
+        _path = set()
+
+    logger = LOG
     logger.debug("Processing node %s", node)
 
     if node.metadata is not None:
-        can_reuse = node.complete and all(dep.complete for dep in node.dependencies)
-        if not can_reuse:
+        if not node.complete:
             if depth > MAX_COMPILE_DEPTH:
                 raise ValueError("Recursion too deep")
             try:
-                for req in sorted(node.dependencies):
-                    if not req.complete or req.metadata is None:
-                        is_circular = False
-                        for descendent in dists.visit_nodes([req]):
-                            if descendent is node:
-                                is_circular = True
-                                if options.allow_circular_dependencies:
-                                    logger.debug(
-                                        "Skipping node %s because it includes this node",
-                                        descendent,
-                                    )
-                                    break
-                                raise ValueError(
-                                    "Circular dependency: {node} -> {req} -> {node}".format(
-                                        node=node,
-                                        req=req,
-                                    )
-                                )
-                        if not is_circular:
-                            compile_roots(
+                for req in sorted(node.dependencies, key=lambda node: node.key):
+                    if req in _path:
+                        if options.allow_circular_dependencies:
+                            logger.error(
+                                "Skipping node %s because it includes this node",
                                 req,
-                                node,
-                                repo,
-                                dists,
-                                options,
-                                depth=depth + 1,
-                                max_downgrade=max_downgrade,
                             )
+                        else:
+                            raise ValueError(
+                                "Circular dependency: {node} -> {req} -> {node}".format(
+                                    node=node,
+                                    req=req,
+                                )
+                            )
+                    else:
+                        compile_roots(
+                            req,
+                            node,
+                            repo,
+                            dists,
+                            options,
+                            depth=depth + 1,
+                            max_downgrade=max_downgrade,
+                            _path=_path | {node}
+                        )
+                node.complete = True
+
             except NoCandidateException:
                 if max_downgrade == 0:
                     raise
@@ -114,6 +117,7 @@ def compile_roots(
                     options,
                     depth=depth,
                     max_downgrade=0,
+                    _path=_path,
                 )
         else:
             logger.info("Reusing dist %s %s", node.metadata.name, node.metadata.version)
@@ -137,30 +141,28 @@ def compile_roots(
             )
             reason = None
             if source is not None:
-                reason = source.dependencies[node]
-                if options.extras and isinstance(metadata.origin, SourceRepository):
-                    reason = merge_requirements(
-                        reason,
-                        parse_requirement(
-                            reason.project_name + "[" + ",".join(options.extras) + "]"
-                        ),
-                    )
+                if node in source.dependencies:
+                    reason = source.dependencies[node]
+                    if options.extras and isinstance(metadata.origin, SourceRepository):
+                        reason = merge_requirements(
+                            reason,
+                            parse_requirement(
+                                reason.project_name + "[" + ",".join(options.extras) + "]"
+                            ),
+                        )
 
             nodes_to_recurse = dists.add_dist(metadata, source, reason)
             for recurse_node in sorted(nodes_to_recurse):
-                for child_node in sorted(recurse_node.dependencies):
-                    if child_node in dists.nodes.values():
-                        compile_roots(
-                            child_node,
-                            recurse_node,
-                            repo,
-                            dists,
-                            options,
-                            depth=depth + 1,
-                            max_downgrade=max_downgrade,
-                        )
-
-            node.complete = True
+                compile_roots(
+                    recurse_node,
+                    source,
+                    repo,
+                    dists,
+                    options,
+                    depth=depth + 1,
+                    max_downgrade=max_downgrade,
+                    _path=_path,
+                )
         except NoCandidateException:
             if max_downgrade == 0:
                 raise
@@ -177,7 +179,7 @@ def compile_roots(
                             revnode.dependencies[node], next_node.dependencies[node]
                         )
                     ):
-                        logger.error("Violating pair: {} {}".format(revnode, next_node))
+                        logger.error("Violating pair: %s %s", revnode, next_node)
                         violate_score[revnode] += 1
                         violate_score[next_node] += 1
 
@@ -205,7 +207,9 @@ def compile_roots(
                 meta=True,
             )
             dists.remove_dists(baddest_node, remove_upstream=False)
+            baddest_node.complete = False
             dists.remove_dists(node, remove_upstream=False)
+            node.complete = False
 
             bad_constraints = dists.add_dist(bad_constraint, None, None)
             try:
@@ -218,6 +222,7 @@ def compile_roots(
                         options,
                         depth=depth,
                         max_downgrade=max_downgrade - 1,
+                        _path=_path,
                     )
 
                 print(
