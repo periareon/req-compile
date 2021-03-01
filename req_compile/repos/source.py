@@ -88,7 +88,7 @@ class SourceRepository(Repository):
             self.logger.debug("Processing %s", source_dir)
             return (
                 source_dir,
-                req_compile.metadata.extract_metadata(source_dir),
+                req_compile.metadata.extract_metadata(source_dir, origin=self),
             )
         except req_compile.errors.MetadataError as ex:
             self.logger.error(
