@@ -7,7 +7,8 @@ import platform
 import struct
 import sys
 import sysconfig
-from typing import Iterable, Optional, Sequence, Tuple, Any
+from typing import Iterable, Optional, Sequence, Tuple, Any, Union
+import distutils.util
 
 import packaging.version
 import pkg_resources
@@ -97,6 +98,8 @@ def _get_platform_tags():
             tag += ("manylinux2010_" + arch_tag,)
         if is_manylinux2014_compatible():
             tag += ("manylinux2014_" + arch_tag,)
+    elif sys.platform == "darwin":
+        tag = (distutils.util.get_platform().replace(".", "_").replace("-", "_"),)
     else:
         raise ValueError("Unsupported platform: {}".format(sys.platform))
     return ("any",) + tag
@@ -209,7 +212,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
         version,  # type: packaging.version.Version
         py_version,  # type: Optional[WheelVersionTags]
         abi,  # type: Optional[str]
-        plat,  # type: str
+        plats,  # type: Union[str, Iterable[str]]
         link,  # type: Optional[str]
         candidate_type=DistributionType.SDIST,  # type: DistributionType
         extra_sort_info="",  # type: str
@@ -222,7 +225,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
             version:
             py_version (RequiresPython): Python version
             abi (str, None)
-            plat (str):
+            plats:
             link:
             candidate_type:
         """
@@ -231,7 +234,10 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
         self.version = version or parse_version("0.0.0")  # type: packaging.version.Version
         self.py_version = py_version
         self.abi = abi
-        self.platform = plat
+        if isinstance(plats, six.string_types):
+            self.platforms = {plats}
+        else:
+            self.platforms = set(plats)
         self.link = link
         self.type = candidate_type
 
@@ -265,7 +271,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
         except ValueError:
             abi_score = 0
         try:
-            plat_score = PLATFORM_TAGS.index(self.platform.lower())
+            plat_score = min(PLATFORM_TAGS.index(platform.lower()) for platform in self.platforms)
         except ValueError:
             plat_score = 0
         # Spaces in source dist filenames penalize them in the search order
@@ -284,7 +290,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
             and self.version == other.version
             and self.py_version == other.py_version
             and self.abi == other.abi
-            and self.platform == other.platform
+            and self.platforms == other.platforms
             and self.link == other.link
             and self.type == other.type
         )
@@ -297,7 +303,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
             self.version,
             self.py_version,
             self.abi,
-            self.platform,
+            self.platforms,
             self.link,
         )
 
@@ -310,7 +316,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
             self.version,
             py_version_str,
             self.abi,
-            self.platform,
+            '.'.join(sorted(self.platforms)),
         )
 
 
@@ -352,8 +358,7 @@ def _wheel_candidate(source, filename):
     abi = data_parts[3]
     #  Convert old-style post-versions to new style so it will sort correctly
     version = parse_version(data_parts[1].replace("_", "-"))
-    plat = data_parts[4].split(".")[0]
-
+    plats = data_parts[4].split(".")
     requires_python = WheelVersionTags(tuple(data_parts[2].split(".")))
 
     return Candidate(
@@ -362,7 +367,7 @@ def _wheel_candidate(source, filename):
         version,
         requires_python,
         abi if abi != "none" else None,
-        plat,
+        plats,
         source,
         candidate_type=DistributionType.WHEEL,
         extra_sort_info=build_tag,
@@ -384,9 +389,9 @@ def _tar_gz_candidate(source, filename):
     )
 
 
-def _check_platform_compatibility(py_platform):
+def _check_platform_compatibility(py_platforms):
     # type: (str) -> bool
-    return py_platform == "any" or (py_platform.lower() in PLATFORM_TAGS)
+    return "any" in py_platforms or any(py_platform.lower() in PLATFORM_TAGS for py_platform in py_platforms)
 
 
 def _check_abi_compatibility(abi):
@@ -445,7 +450,7 @@ def check_usability(req, candidate, has_equality=None, allow_prereleases=False):
     if candidate.abi is not None and not _check_abi_compatibility(candidate.abi):
         return CantUseReason.WRONG_ABI
 
-    if not _check_platform_compatibility(candidate.platform):
+    if not _check_platform_compatibility(candidate.platforms):
         return CantUseReason.WRONG_PLATFORM
 
     if not has_equality and not allow_prereleases and candidate.version.is_prerelease:
