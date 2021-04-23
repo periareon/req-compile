@@ -350,7 +350,7 @@ def process_distribution(source, filename):
 def _wheel_candidate(source, filename):
     # type: (str, str) -> Optional[Candidate]
     filename = os.path.basename(filename)
-    data_parts = filename.split("-")
+    data_parts = filename[:-4].split("-")
     if len(data_parts) < 5:
         logging.getLogger("req_compile.repository").debug(
             "Unable to use %s, improper filename", filename
@@ -397,7 +397,7 @@ def _tar_gz_candidate(source, filename):
 
 
 def _check_platform_compatibility(py_platforms):
-    # type: (str) -> bool
+    # type: (Iterable[str]) -> bool
     return "any" in py_platforms or any(py_platform.lower() in PLATFORM_TAGS for py_platform in py_platforms)
 
 
