@@ -99,7 +99,14 @@ def _get_platform_tags():
         if is_manylinux2014_compatible():
             tag += ("manylinux2014_" + arch_tag,)
     elif sys.platform == "darwin":
-        tag = (distutils.util.get_platform().replace(".", "_").replace("-", "_"),)
+        version, _, arch = platform.mac_ver()
+        major, minor_str, _ = version.split('.')
+        tags = []
+        minor = int(minor_str)
+        while minor >= 9:
+            tags.append(f"macosx_{major}_{minor}_{arch}")
+            minor -= 1
+        tag = tuple(tags)
     else:
         raise ValueError("Unsupported platform: {}".format(sys.platform))
     return ("any",) + tag
