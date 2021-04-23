@@ -103,8 +103,9 @@ def _get_platform_tags():
         major, minor_str, _ = version.split('.')
         tags = []
         minor = int(minor_str)
-        while minor >= 9:
-            tags.append(f"macosx_{major}_{minor}_{arch}")
+        while minor >= 6:
+            tags.append("macosx_{major}_{minor}_{arch}".format(major=major, minor=minor, arch=arch))
+            tags.append("macosx_{major}_{minor}_intel".format(major=major, minor=minor))
             minor -= 1
         tag = tuple(tags)
     else:

@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="req-compile",
-    version="0.10.16pre1",
+    version="0.10.16pre2",
     author="Spencer Putt",
     author_email="sputt@alumni.iu.edu",
     description="Python requirements compiler",
