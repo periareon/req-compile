@@ -5,11 +5,10 @@ import logging
 import os
 import platform
 import re
-import struct
 import sys
 import sysconfig
 from typing import Iterable, Optional, Sequence, Tuple, Any, Union
-import distutils.util
+import distutils.util  # pylint: disable=import-error,no-name-in-module,no-member
 
 import packaging.version
 import pkg_resources
@@ -17,7 +16,7 @@ import six
 
 import req_compile.errors
 import req_compile.utils
-from req_compile.containers import DistInfo, RequirementContainer
+from req_compile.containers import RequirementContainer
 from req_compile.errors import NoCandidateException
 from req_compile.filename import parse_source_filename
 from req_compile.utils import get_glibc_version, normalize_project_name, parse_version
@@ -78,10 +77,10 @@ def manylinux_tag_is_compatible_with_this_system(tag):
         return False
 
     tag = LEGACY_ALIASES.get(tag, tag)
-    m = re.match(MANYLINUX_REGEX, tag)
-    if not m:
+    manylinux_match = re.match(MANYLINUX_REGEX, tag)
+    if not manylinux_match:
         return False
-    tag_major_str, tag_minor_str, tag_arch = m.groups()
+    tag_major_str, tag_minor_str, tag_arch = manylinux_match.groups()
     tag_major = int(tag_major_str)
     tag_minor = int(tag_minor_str)
 
@@ -94,7 +93,7 @@ def manylinux_tag_is_compatible_with_this_system(tag):
 
     # Check for manual override
     try:
-        import _manylinux
+        import _manylinux  # pylint: disable=import-outside-toplevel
     except ImportError:
         pass
     else:
@@ -293,9 +292,9 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
             )
         except ValueError:
             plat_score = 0
-            for platform in self.platforms:
-                platform = LEGACY_ALIASES.get(platform, platform)
-                manylinux_match = re.match(MANYLINUX_REGEX, platform)
+            for plat in self.platforms:
+                plat = LEGACY_ALIASES.get(plat, plat)
+                manylinux_match = re.match(MANYLINUX_REGEX, plat)
                 if manylinux_match is not None:
                     plat_score = max(
                         plat_score,
