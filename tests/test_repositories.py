@@ -3,7 +3,12 @@ import random
 import pkg_resources
 import pytest
 
-from req_compile.repos.repository import WheelVersionTags, Candidate, sort_candidates, _wheel_candidate
+from req_compile.repos.repository import (
+    WheelVersionTags,
+    Candidate,
+    sort_candidates,
+    _wheel_candidate,
+)
 
 
 @pytest.mark.parametrize(
@@ -22,7 +27,11 @@ def test_version_compatible(mock_py_version, sys_py_version, py_requires):
 
 
 @pytest.mark.parametrize(
-    "sys_py_version, py_requires", [("3.6.3", ("py2",)), ("2.7.16", ("py3",)),]
+    "sys_py_version, py_requires",
+    [
+        ("3.6.3", ("py2",)),
+        ("2.7.16", ("py3",)),
+    ],
 )
 def test_version_incompatible(mock_py_version, sys_py_version, py_requires):
     mock_py_version(sys_py_version)
@@ -74,20 +83,41 @@ def test_sort_non_semver():
 
 def test_sort_specific_platforms(mock_py_version, mocker):
     mock_py_version("3.7.4")
-    mocker.patch("req_compile.repos.repository._get_platform_tags", return_value=("this_platform",))
+    mocker.patch(
+        "req_compile.repos.repository._get_platform_tags",
+        return_value=("this_platform",),
+    )
     candidate_wheels = (
         "sounddevice-0.4.1-cp32.cp33.cp34.cp35.cp36.cp37.cp38.cp39.pp32.pp33.pp34.pp35.pp36.pp37.py3-None-this_platform.whl",
         "sounddevice-0.4.1-py3-None-any.whl",
     )
     candidates = []
     for wheel in candidate_wheels:
-        candidates.append(
-            _wheel_candidate(
-                "pypi", wheel
-            )
-        )
+        candidates.append(_wheel_candidate("pypi", wheel))
 
     reference = list(candidates)
 
     candidates = sort_candidates(reversed(candidates))
     assert reference == candidates
+
+
+def test_sort_manylinux():
+    candidate1 = Candidate(
+        "pytz",
+        None,
+        pkg_resources.parse_version("1.0"),
+        WheelVersionTags("cp37"),
+        "cp37m",
+        ["manylinux_2_12_x86_64", "manylinux2010_x86_64"],
+        None,
+    )
+    candidate2 = Candidate(
+        "pytz",
+        None,
+        pkg_resources.parse_version("1.0"),
+        WheelVersionTags("cp37"),
+        "cp37m",
+        ["manylinux_2_11_x86_64"],
+        None,
+    )
+    assert candidate1.sortkey > candidate2.sortkey

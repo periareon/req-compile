@@ -2,7 +2,7 @@ import itertools
 import logging
 import os
 from collections import defaultdict
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, Optional, Tuple
 
 try:
     from functools32 import lru_cache  # type: ignore
@@ -212,8 +212,10 @@ def has_prerelease(req):
     return any(parse_version(spec.version).is_prerelease for spec in req.specifier)
 
 
-def have_compatible_glibc(major, minimum_minor):
-    """Pulled from PEP 513"""
+@lru_cache(maxsize=None)
+def get_glibc_version():
+    # type: () -> Optional[Tuple[int, int]]
+    """Based on PEP 513/600"""
     import ctypes  # pylint: disable=bad-option-value,import-outside-toplevel
 
     process_namespace = ctypes.CDLL(None)
@@ -222,7 +224,7 @@ def have_compatible_glibc(major, minimum_minor):
     except AttributeError:
         # Symbol doesn't exist -> therefore, we are not linked to
         # glibc.
-        return False
+        return None
 
     # Call gnu_get_libc_version, which returns a string like "2.5".
     gnu_get_libc_version.restype = ctypes.c_char_p
@@ -234,8 +236,4 @@ def have_compatible_glibc(major, minimum_minor):
     # Parse string and check against requested version.
     version = [int(piece) for piece in version_str.split(".")]
     assert len(version) == 2
-    if major != version[0]:
-        return False
-    if minimum_minor > version[1]:
-        return False
-    return True
+    return version[0], version[1]

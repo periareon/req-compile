@@ -4,6 +4,7 @@ import enum
 import logging
 import os
 import platform
+import re
 import struct
 import sys
 import sysconfig
@@ -19,7 +20,7 @@ import req_compile.utils
 from req_compile.containers import DistInfo, RequirementContainer
 from req_compile.errors import NoCandidateException
 from req_compile.filename import parse_source_filename
-from req_compile.utils import have_compatible_glibc, normalize_project_name, parse_version
+from req_compile.utils import get_glibc_version, normalize_project_name, parse_version
 
 INTERPRETER_TAGS = {
     "CPython": "cp",
@@ -31,86 +32,89 @@ INTERPRETER_TAGS = {
 INTERPRETER_TAG = INTERPRETER_TAGS.get(platform.python_implementation(), "cp")
 PY_VERSION_NUM = str(sys.version_info.major) + str(sys.version_info.minor)
 
-
-def is_manylinux2010_compatible():
-    # type: () -> bool
-    # Check for presence of _manylinux module
-    try:
-        import _manylinux  # type: ignore  # pylint: disable=bad-option-value,import-outside-toplevel
-
-        return bool(_manylinux.manylinux2010_compatible)
-    except (ImportError, AttributeError):
-        # Fall through to heuristic check below
-        pass
-
-    # Check glibc version. CentOS 6 uses glibc 2.12.
-    # PEP 513 contains an implementation of this function.
-    return have_compatible_glibc(2, 12)
-
-
-def is_manylinux2014_compatible():
-    # type: () -> bool
-    # Only Linux, and only supported architectures
-    if platform.machine() not in (
-        "x86_64",
-        "i686",
-        "aarch64",
-        "armv7l",
-        "ppc64",
-        "ppc64le",
-        "s390x",
-    ):
-        return False
-
-    # Check for presence of _manylinux module
-    try:
-        import _manylinux  # pylint: disable=bad-option-value,import-outside-toplevel
-
-        return bool(_manylinux.manylinux2014_compatible)
-    except (ImportError, AttributeError):
-        # Fall through to heuristic check below
-        pass
-
-    # Check glibc version. CentOS 7 uses glibc 2.17.
-    # PEP 513 contains an implementation of this function.
-    return have_compatible_glibc(2, 17)
+# PEP-600 legacy platform tags
+LEGACY_ALIASES = {
+    "manylinux1_x86_64": "manylinux_2_5_x86_64",
+    "manylinux1_i686": "manylinux_2_5_i686",
+    "manylinux2010_x86_64": "manylinux_2_12_x86_64",
+    "manylinux2010_i686": "manylinux_2_12_i686",
+    "manylinux2014_x86_64": "manylinux_2_17_x86_64",
+    "manylinux2014_i686": "manylinux_2_17_i686",
+}
+MANYLINUX_REGEX = r"manylinux_([0-9]+)_([0-9]+)_(.*)"
 
 
 def _get_platform_tags():
     # type: () -> Sequence[str]
-    is_32 = struct.calcsize("P") == 4
-    if sys.platform == "win32":
-        if is_32:
-            tag = ("win32",)
-        else:
-            tag = ("win_amd64",)
-    elif sys.platform.startswith("linux"):
-        if is_32:
-            arch_tag = platform.machine()
-        else:
-            arch_tag = "x86_64"
-
-        tag = (
-            ("linux_" + arch_tag),
-            ("manylinux1_" + arch_tag),
-        )  # type: Tuple
-        if is_manylinux2010_compatible():
-            tag += ("manylinux2010_" + arch_tag,)
-        if is_manylinux2014_compatible():
-            tag += ("manylinux2014_" + arch_tag,)
-    elif sys.platform == "darwin":
+    if sys.platform == "darwin":
         version, _, arch = platform.mac_ver()
-        major, minor_str, _ = version.split('.')
+        major, minor_str, _ = version.split(".")
         tags = []
         minor = int(minor_str)
         while minor >= 6:
-            tags.append("macosx_{major}_{minor}_{arch}".format(major=major, minor=minor, arch=arch))
+            tags.append(
+                "macosx_{major}_{minor}_{arch}".format(
+                    major=major, minor=minor, arch=arch
+                )
+            )
             tags.append("macosx_{major}_{minor}_intel".format(major=major, minor=minor))
             minor -= 1
         tag = tuple(tags)
     else:
-        raise ValueError("Unsupported platform: {}".format(sys.platform))
+        tag = (distutils.util.get_platform().replace(".", "_").replace("-", "_"),)
     return ("any",) + tag
+
+
+def get_system_arch():
+    uname_info = platform.uname()
+    return uname_info[4]
+
+
+def manylinux_tag_is_compatible_with_this_system(tag):
+    # Pulled from PEP 600
+    # Normalize and parse the tag
+    glibc_version = get_glibc_version()
+    if glibc_version is None:
+        return False
+
+    tag = LEGACY_ALIASES.get(tag, tag)
+    m = re.match(MANYLINUX_REGEX, tag)
+    if not m:
+        return False
+    tag_major_str, tag_minor_str, tag_arch = m.groups()
+    tag_major = int(tag_major_str)
+    tag_minor = int(tag_minor_str)
+
+    sys_major, sys_minor = glibc_version
+    if (sys_major, sys_minor) < (tag_major, tag_minor):
+        return False
+    sys_arch = get_system_arch()
+    if sys_arch != tag_arch:
+        return False
+
+    # Check for manual override
+    try:
+        import _manylinux
+    except ImportError:
+        pass
+    else:
+        if hasattr(_manylinux, "manylinux_compatible"):
+            result = _manylinux.manylinux_compatible(
+                tag_major,
+                tag_minor,
+                tag_arch,
+            )
+            if result is not None:
+                return bool(result)
+        else:
+            if (tag_major, tag_minor) == (2, 5):
+                if hasattr(_manylinux, "manylinux1_compatible"):
+                    return bool(_manylinux.manylinux1_compatible)
+            if (tag_major, tag_minor) == (2, 12):
+                if hasattr(_manylinux, "manylinux2010_compatible"):
+                    return bool(_manylinux.manylinux2010_compatible)
+
+    return True
 
 
 def _get_abi_tag():
@@ -216,7 +220,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
     def __init__(
         self,
         name,  # type: str
-        filename,  # type: str
+        filename,  # type: Optional[str]
         version,  # type: packaging.version.Version
         py_version,  # type: Optional[WheelVersionTags]
         abi,  # type: Optional[str]
@@ -230,16 +234,18 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
         Args:
             name: Name of the candidate
             filename: The filename of the source of the candidate
-            version:
+            version: Version of the candidate
             py_version (RequiresPython): Python version
-            abi (str, None)
-            plats:
-            link:
-            candidate_type:
+            abi: The ABI implemented
+            plats: Platforms supported by this candidate
+            link: URL from which to obtain the wheel
+            candidate_type: The nature of the candidate, describing the distribution
         """
         self.name = name
         self.filename = filename
-        self.version = version or parse_version("0.0.0")  # type: packaging.version.Version
+        self.version = version or parse_version(
+            "0.0.0"
+        )  # type: packaging.version.Version
         self.py_version = py_version
         self.abi = abi
         if isinstance(plats, six.string_types):
@@ -251,7 +257,9 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
 
         # Sort based on tags to make sure the most specific distributions
         # are matched first
-        self._sortkey = None  # type: Optional[Tuple[packaging.version.Version, str, int, Tuple[int, int, int, int]]]
+        self._sortkey = (
+            None
+        )  # type: Optional[Tuple[packaging.version.Version, str, int, Tuple[int, int, int, int]]]
         self._extra_sort_info = extra_sort_info
 
         self.preparsed = None  # type: Optional[RequirementContainer]
@@ -278,10 +286,23 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
             abi_score = ABI_TAGS.index(self.abi) if self.abi is not None else 0
         except ValueError:
             abi_score = 0
+
         try:
-            plat_score = min(PLATFORM_TAGS.index(platform.lower()) for platform in self.platforms)
+            plat_score = len(self.platforms) - min(
+                PLATFORM_TAGS.index(platform.lower()) for platform in self.platforms
+            )
         except ValueError:
             plat_score = 0
+            for platform in self.platforms:
+                platform = LEGACY_ALIASES.get(platform, platform)
+                manylinux_match = re.match(MANYLINUX_REGEX, platform)
+                if manylinux_match is not None:
+                    plat_score = max(
+                        plat_score,
+                        int(manylinux_match.groups()[0]) * 10
+                        + int(manylinux_match.groups()[1]),
+                    )
+
         # Spaces in source dist filenames penalize them in the search order
         extra_score = (
             0
@@ -324,7 +345,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
             self.version,
             py_version_str,
             self.abi,
-            '.'.join(sorted(self.platforms)),
+            ".".join(sorted(self.platforms)),
         )
 
 
@@ -399,7 +420,14 @@ def _tar_gz_candidate(source, filename):
 
 def _check_platform_compatibility(py_platforms):
     # type: (Iterable[str]) -> bool
-    return "any" in py_platforms or any(py_platform.lower() in PLATFORM_TAGS for py_platform in py_platforms)
+    return (
+        "any" in py_platforms
+        or any(py_platform.lower() in PLATFORM_TAGS for py_platform in py_platforms)
+        or any(
+            manylinux_tag_is_compatible_with_this_system(py_platform)
+            for py_platform in py_platforms
+        )
+    )
 
 
 def _check_abi_compatibility(abi):
