@@ -96,7 +96,9 @@ class MockRepository(Repository):
 
     def resolve_candidate(self, candidate):
         return (
-            req_compile.metadata.metadata.extract_metadata(candidate.filename, origin=self),
+            req_compile.metadata.metadata.extract_metadata(
+                candidate.filename, origin=self
+            ),
             False,
         )
 
@@ -111,7 +113,9 @@ def mock_pypi():
 
 @pytest.fixture
 def mock_metadata(mocker, metadata_provider):
-    mocker.patch("req_compile.metadata.metadata.extract_metadata", side_effect=metadata_provider)
+    mocker.patch(
+        "req_compile.metadata.metadata.extract_metadata", side_effect=metadata_provider
+    )
 
 
 @pytest.yield_fixture
@@ -193,11 +197,17 @@ def load_solution():
     return _load
 
 
+VersionInfo = collections.namedtuple("VersionInfo", "major,minor,patch")
+
+
 @pytest.fixture
 def mock_py_version(mocker):
     def _mock_version(version):
         major_version = version.split(".")[0]
         minor_version = version.split(".")[1]
+        mocker.patch(
+            "sys.version_info", VersionInfo(int(major_version), int(minor_version), 0)
+        )
         mocker.patch(
             "req_compile.repos.pypi.SYS_PY_VERSION",
             pkg_resources.parse_version(version),
@@ -209,14 +219,6 @@ def mock_py_version(mocker):
         mocker.patch(
             "req_compile.repos.pypi.SYS_PY_MAJOR_MINOR",
             pkg_resources.parse_version(".".join(version.split(".")[:2])),
-        )
-        mocker.patch(
-            "req_compile.repos.repository.WheelVersionTags.WHEEL_VERSION_TAGS",
-            (
-                "cp" + major_version + minor_version,
-                "py" + major_version + minor_version,
-                "py" + major_version,
-            ),
         )
 
     return _mock_version

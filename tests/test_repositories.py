@@ -8,6 +8,8 @@ from req_compile.repos.repository import (
     Candidate,
     sort_candidates,
     _wheel_candidate,
+    _impl_major_minor,
+    _py_version_score,
 )
 
 
@@ -152,3 +154,29 @@ def test_sort_macos():
         None,
     )
     assert candidate1.sortkey > candidate2.sortkey > candidate3.sortkey
+
+
+@pytest.mark.parametrize(
+    ["py_version", "results"],
+    [
+        ("py3", ("py", 3, 0)),
+        ("cp37", ("cp", 3, 7)),
+        ("cp3x", ("cp", 3, 0)),
+        ("", ("", 0, 0)),
+    ],
+)
+def test_impl_major_minor(py_version, results):
+    """Verify python version tags are decomposed correctly"""
+    assert _impl_major_minor(py_version) == results
+
+
+def test_py_version_score():
+    """Test some basic rules about py version sorting"""
+    score1 = _py_version_score("cp37")
+    score2 = _py_version_score("jy37")
+    score3 = _py_version_score("cp36")
+    score4 = _py_version_score("py3")
+
+    assert score1 > score2
+    assert score2 > score3
+    assert score3 > score4

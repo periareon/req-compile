@@ -7,7 +7,7 @@ import platform
 import re
 import sys
 import sysconfig
-from typing import Iterable, Optional, Sequence, Tuple, Any, Union
+from typing import Iterable, Optional, Sequence, Tuple, Any, Union, Set
 import distutils.util  # pylint: disable=import-error,no-name-in-module,no-member
 
 import packaging.version
@@ -60,8 +60,8 @@ def _get_platform_tags():
             minor -= 1
         tag = tuple(tags)
     else:
-        # pylint: disable=no-member
-        tag = (distutils.util.get_platform().replace(".", "_").replace("-", "_"),)
+        plat = distutils.util.get_platform()  # pylint: disable=no-member
+        tag = (plat.replace(".", "_").replace("-", "_"),)
     return ("any",) + tag
 
 
@@ -94,7 +94,7 @@ def manylinux_tag_is_compatible_with_this_system(tag):
 
     # Check for manual override
     try:
-        import _manylinux  # pylint: disable=bad-option-value,import-outside-toplevel
+        import _manylinux  # type: ignore  # pylint: disable=bad-option-value,import-outside-toplevel
     except ImportError:
         pass
     else:
@@ -158,61 +158,92 @@ class PythonVersionRequirement(object):
         raise NotImplementedError
 
 
-def _all_py_tags_in_major(up_to):
-    up_to = int(up_to)
-    while (up_to % 10) > 0:
-        yield INTERPRETER_TAG + str(up_to)
-        yield "py" + str(up_to)
-        up_to -= 1
-    yield "py" + str(up_to)
+def _impl_major_minor(py_version):
+    # type: (str) -> Tuple[str, int, int]
+    """Split a python version tag into the implementation and a major and
+    minor version. If the minor version is not reported, return zero. If any
+    parts are invalid, choose results that should sort them last"""
+    impl = py_version[:2]
+    major = 0
+    minor = 0
+    try:
+        if not impl[0].isalpha() or not impl[1].isalpha():
+            impl = "xx"
+        major = int(py_version[2])
+        minor = int(py_version[3:])
+    except (ValueError, IndexError):
+        pass
+    return impl, major, minor
+
+
+def _is_py_version_compatible(py_version):
+    # type: (str) -> bool
+    impl, major, minor = _impl_major_minor(py_version)
+    if impl == "py" or impl == INTERPRETER_TAG:
+        if major == sys.version_info.major and minor <= sys.version_info.minor:
+            return True
+    return False
+
+
+def _py_version_score(py_version):
+    # Integer will look like:
+    # 0xMNAABB where
+    # A is the first digit of the implementation code (e.g. cp for Cython)
+    # B is the second digit
+    # M is the implementation major version
+    # N is the implementation minor version (0 if omitted)
+
+    # Bias CPython higher, and naked py always at the bottom
+    impl_score_defaults = {
+        "cp": 0xFFFF,
+        "py": 0x0000,
+    }
+
+    impl, major, minor = _impl_major_minor(py_version)
+    impl_score = impl_score_defaults.get(impl)
+
+    if impl_score is None:
+        impl_score = ord(impl[0]) << 8 | ord(impl[1])
+
+    score = impl_score | (major << 20) | (minor << 16)
+    return score
 
 
 class WheelVersionTags(PythonVersionRequirement):
-    WHEEL_VERSION_TAGS = (
-        INTERPRETER_TAG + PY_VERSION_NUM,
-        "py2" if six.PY2 else "py3",
-    ) + tuple(_all_py_tags_in_major(PY_VERSION_NUM))
-
-    def __init__(self, py_version):
+    def __init__(self, py_versions):
         # type: (Iterable[str]) -> None
-        assert not isinstance(py_version, str)
-        self.py_version = py_version
+        assert not isinstance(py_versions, str)
+        if py_versions is None:
+            self.py_versions = None  # type: Optional[Set[str]]
+        else:
+            self.py_versions = set(py_versions)
 
     def check_compatibility(self):
         # type: () -> bool
-        if not self.py_version:
+        if not self.py_versions:
             return True
+
         return any(
-            version in WheelVersionTags.WHEEL_VERSION_TAGS
-            for version in self.py_version
+            _is_py_version_compatible(py_version) for py_version in self.py_versions
         )
 
     def __str__(self):
         # type: () -> str
-        if not self.py_version:
+        if not self.py_versions:
             return "any"
 
-        return ".".join(sorted(self.py_version))
+        return ".".join(sorted(self.py_versions))
 
     def __eq__(self, other):
-        return self.py_version == other.py_version
+        return self.py_versions == other.py_versions
 
     @property
     def tag_score(self):
         # type: () -> int
-        """Calculate a score based on the quality of the version tags
-        on the wheel"""
-        result = 0
-
-        best_score = sys.maxsize
-        for version in self.py_version:
-            try:
-                score = WheelVersionTags.WHEEL_VERSION_TAGS.index(version)
-                best_score = min(score, best_score)
-            except ValueError:
-                pass
-        result += len(WheelVersionTags.WHEEL_VERSION_TAGS) - best_score
-        return result
+        """Calculate a score based on how specific the versions given are"""
+        if not self.py_versions:
+            return 0
+        return max(_py_version_score(py_version) for py_version in self.py_versions)
 
 
 class Candidate(object):  # pylint: disable=too-many-instance-attributes
@@ -327,7 +358,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
 
     def __repr__(self):
         # type: () -> str
-        return "Candidate(name={}, filename={}, version={}, py_version={}, abi={}, platform={}, link={})".format(
+        return "Candidate(name={}, filename={}, version={}, py_versions={}, abi={}, platform={}, link={})".format(
             self.name,
             self.filename,
             self.version,

@@ -45,9 +45,7 @@ def _cantusereason_to_text(reason):  # pylint: disable=too-many-return-statement
     if reason == CantUseReason.WRONG_PLATFORM:
         return "platform mismatch {}".format(req_compile.repos.repository.PLATFORM_TAGS)
     if reason == CantUseReason.WRONG_PYTHON_VERSION:
-        return "python version/interpreter mismatch ({})".format(
-            ", ".join(req_compile.repos.repository.WheelVersionTags.WHEEL_VERSION_TAGS)
-        )
+        return "python version/interpreter mismatch"
     if reason == CantUseReason.IS_PRERELEASE:
         return "prereleases not used"
     if reason == CantUseReason.BAD_METADATA:
