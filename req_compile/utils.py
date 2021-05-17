@@ -218,10 +218,10 @@ def get_glibc_version():
     """Based on PEP 513/600"""
     import ctypes  # pylint: disable=bad-option-value,import-outside-toplevel
 
-    process_namespace = ctypes.CDLL(None)
     try:
+        process_namespace = ctypes.CDLL(None)
         gnu_get_libc_version = process_namespace.gnu_get_libc_version
-    except AttributeError:
+    except (AttributeError, TypeError):
         # Symbol doesn't exist -> therefore, we are not linked to
         # glibc.
         return None
