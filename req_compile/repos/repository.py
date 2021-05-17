@@ -60,6 +60,7 @@ def _get_platform_tags():
             minor -= 1
         tag = tuple(tags)
     else:
+        # pylint: disable=no-member
         tag = (distutils.util.get_platform().replace(".", "_").replace("-", "_"),)
     return ("any",) + tag
 
@@ -93,7 +94,7 @@ def manylinux_tag_is_compatible_with_this_system(tag):
 
     # Check for manual override
     try:
-        import _manylinux  # pylint: disable=import-outside-toplevel
+        import _manylinux  # pylint: disable=bad-option-value,import-outside-toplevel
     except ImportError:
         pass
     else:
@@ -174,6 +175,7 @@ class WheelVersionTags(PythonVersionRequirement):
 
     def __init__(self, py_version):
         # type: (Iterable[str]) -> None
+        assert not isinstance(py_version, str)
         self.py_version = py_version
 
     def check_compatibility(self):
@@ -506,15 +508,13 @@ def filter_candidates(req, candidates, allow_prereleases=False):
     )
 
     for candidate in candidates:
-        if (
-            check_usability(
-                req,
-                candidate,
-                has_equality=has_equality,
-                allow_prereleases=allow_prereleases,
-            )
-            is None
-        ):
+        usability = check_usability(
+            req,
+            candidate,
+            has_equality=has_equality,
+            allow_prereleases=allow_prereleases,
+        )
+        if usability is None:
             yield candidate
 
 

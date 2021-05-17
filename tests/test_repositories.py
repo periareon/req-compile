@@ -106,7 +106,7 @@ def test_sort_manylinux():
         "pytz",
         None,
         pkg_resources.parse_version("1.0"),
-        WheelVersionTags("cp37"),
+        WheelVersionTags(["cp37"]),
         "cp37m",
         ["manylinux_2_12_x86_64", "manylinux2010_x86_64"],
         None,
@@ -115,9 +115,40 @@ def test_sort_manylinux():
         "pytz",
         None,
         pkg_resources.parse_version("1.0"),
-        WheelVersionTags("cp37"),
+        WheelVersionTags(["cp37"]),
         "cp37m",
         ["manylinux_2_11_x86_64"],
         None,
     )
     assert candidate1.sortkey > candidate2.sortkey
+
+
+def test_sort_macos():
+    candidate1 = Candidate(
+        "pytz",
+        None,
+        pkg_resources.parse_version("1.0"),
+        WheelVersionTags(["cp37"]),
+        "cp37",
+        ["macosx_10_9_x86_64"],
+        None,
+    )
+    candidate2 = Candidate(
+        "pytz",
+        None,
+        pkg_resources.parse_version("1.0"),
+        WheelVersionTags(["cp37"]),
+        "cp37",
+        ["macosx_10_8_x86_64"],
+        None,
+    )
+    candidate3 = Candidate(
+        "pytz",
+        None,
+        pkg_resources.parse_version("1.0"),
+        WheelVersionTags(["cp36"]),
+        "cp36",
+        ["macosx_10_9_x86_64"],
+        None,
+    )
+    assert candidate1.sortkey > candidate2.sortkey > candidate3.sortkey
