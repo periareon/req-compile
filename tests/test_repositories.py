@@ -1,4 +1,5 @@
 import random
+import sys
 
 import pkg_resources
 import pytest
@@ -125,6 +126,7 @@ def test_sort_manylinux():
     assert candidate1.sortkey > candidate2.sortkey
 
 
+@pytest.mark.skipif(sys.platform != "darwin", "MacOS only test")
 def test_sort_macos():
     candidate1 = Candidate(
         "pytz",
@@ -153,7 +155,8 @@ def test_sort_macos():
         ["macosx_10_9_x86_64"],
         None,
     )
-    assert candidate1.sortkey > candidate2.sortkey > candidate3.sortkey
+    assert candidate1.sortkey > candidate2.sortkey
+    assert candidate2.sortkey > candidate3.sortkey
 
 
 @pytest.mark.parametrize(
