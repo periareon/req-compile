@@ -126,7 +126,7 @@ def test_sort_manylinux():
     assert candidate1.sortkey > candidate2.sortkey
 
 
-@pytest.mark.skipif(sys.platform != "darwin", "MacOS only test")
+@pytest.mark.skipif(sys.platform != "darwin", reason="MacOS only test")
 def test_sort_macos():
     candidate1 = Candidate(
         "pytz",
