@@ -47,7 +47,7 @@ def _get_platform_tags():
     # type: () -> Sequence[str]
     if sys.platform == "darwin":
         version, _, arch = platform.mac_ver()
-        major, minor_str, _ = version.split(".")
+        major, minor_str = version.split(".")[:2]
         tags = []
         minor = int(minor_str)
         while minor >= 6:

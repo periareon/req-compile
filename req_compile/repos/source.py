@@ -164,6 +164,7 @@ class SourceRepository(Repository):
                     break
 
             if root != self.path and has_marker:
+                dirs[:] = []
                 continue
 
             root_is_valid = False
