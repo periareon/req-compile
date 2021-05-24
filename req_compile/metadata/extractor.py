@@ -34,15 +34,15 @@ class Extractor(object):
         """Add a rename entry for a file in the archive"""
         self.renames[self.to_relative(new_name)] = self.to_relative(name)
 
-    def open(self, filename, mode="r", encoding=None, **_kwargs):
+    def open(self, file, mode="r", encoding=None, **_kwargs):
         """Open a real file or a file within the archive"""
-        relative_filename = self.to_relative(filename)
+        relative_filename = self.to_relative(file)
         if (
-            isinstance(filename, int)
-            or filename == os.devnull
+            isinstance(file, int)
+            or file == os.devnull
             or os.path.isabs(relative_filename)
         ):
-            return self.io_open(filename, mode=mode, encoding=encoding)
+            return self.io_open(file, mode=mode, encoding=encoding)
 
         kwargs = {}
         if "b" not in mode:
