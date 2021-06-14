@@ -48,7 +48,7 @@ def _to_path(scenario, req):
         specific_path = os.path.join(
             os.path.dirname(__file__),
             scenario,
-            req.name + "-" + req.specs[0][1] + ".METADATA",
+            req.name.lower() + "-" + req.specs[0][1] + ".METADATA",
         )
         if os.path.exists(specific_path):
             return specific_path
@@ -61,18 +61,28 @@ class MockRepository(Repository):
         self.scenario = None
         self.index_map = None
 
-    def load_scenario(self, scenario, index_map=None):
-        self.scenario = scenario
-        if index_map:
-            results = collections.defaultdict(list)
-            for req in index_map:
-                results[req.name].append(req)
-            index_map = results
+    def load_scenario(self, scenario, limit_reqs=None):
+        """
+        Load a scenario from the tests directory into the repository
 
-        self.index_map = index_map
+        Args:
+            scenario: Name of the scenario to load
+            limit_reqs: If provided, limit the domain to reqs that match this list
+        """
+        self.scenario = scenario
+
+        scenario_dir = os.path.join(os.path.dirname(__file__), scenario)
+        metadata_entries = os.listdir(scenario_dir)
+
+        self.index_map = collections.defaultdict(list)
+        for entry in metadata_entries:
+            name = entry.split("-")[0]
+            version = entry.rsplit(".", 1)[0].split("-")[1]
+            req = pkg_resources.Requirement.parse("{}=={}".format(name, version))
+            if limit_reqs is None or req in limit_reqs:
+                self.index_map[entry.split("-")[0].lower()].append(req)
 
     def _build_candidate(self, req):
-        version = ""
         path = _to_path(self.scenario, req)
         full_name = (
             path
@@ -91,7 +101,7 @@ class MockRepository(Repository):
     def get_candidates(self, req):
         if self.index_map is None:
             return [self._build_candidate(req)]
-        avail = self.index_map[req.name]
+        avail = self.index_map[req.name.lower()]
         return [self._build_candidate(req) for req in avail]
 
     def resolve_candidate(self, candidate):

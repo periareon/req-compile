@@ -14,7 +14,7 @@ import req_compile.metadata.source
 
 
 def test_a_with_no_extra(metadata_provider):
-    info = metadata_provider("normal/a.METADATA")
+    info = metadata_provider("normal/a-1.0.0.METADATA")
     assert info.name == "a"
     assert info.version == pkg_resources.parse_version("0.1.0")
     assert list(info.requires()) == []
@@ -57,7 +57,7 @@ def test_parse_flat_metadata_complex_marker():
 
 
 def test_a_with_extra(metadata_provider):
-    info = metadata_provider("normal/a.METADATA")
+    info = metadata_provider("normal/a-1.0.0.METADATA")
     assert info.name == "a"
     assert info.version == pkg_resources.parse_version("0.1.0")
     assert list(info.requires("x1")) == [
@@ -66,7 +66,7 @@ def test_a_with_extra(metadata_provider):
 
 
 def test_a_with_wrong_extra(metadata_provider):
-    info = metadata_provider("normal/a.METADATA", extras=("plop",))
+    info = metadata_provider("normal/a-1.0.0.METADATA", extras=("plop",))
     assert info.name == "a"
     assert info.version == pkg_resources.parse_version("0.1.0")
     assert list(info.requires()) == []

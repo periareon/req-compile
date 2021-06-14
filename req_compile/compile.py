@@ -73,8 +73,9 @@ def compile_roots(
 
     logger = LOG
     logger.debug("Processing node %s", node)
-
-    if node.metadata is not None:
+    if node.key in dists and dists[node.key] is not node:
+        logger.debug("No need to process this node, it has been removed")
+    elif node.metadata is not None:
         if not node.complete:
             if depth > MAX_COMPILE_DEPTH:
                 raise ValueError("Recursion too deep")
@@ -102,7 +103,7 @@ def compile_roots(
                             options,
                             depth=depth + 1,
                             max_downgrade=max_downgrade,
-                            _path=_path | {node}
+                            _path=_path | {node},
                         )
                 node.complete = True
 
@@ -147,7 +148,10 @@ def compile_roots(
                         reason = merge_requirements(
                             reason,
                             parse_requirement(
-                                reason.project_name + "[" + ",".join(options.extras) + "]"
+                                reason.project_name
+                                + "["
+                                + ",".join(options.extras)
+                                + "]"
                             ),
                         )
 
@@ -179,7 +183,12 @@ def compile_roots(
                             revnode.dependencies[node], next_node.dependencies[node]
                         )
                     ):
-                        logger.error("Violating pair: %s %s", revnode, next_node)
+                        logger.error(
+                            "Requirement %s was not possible. Violating pair: %s %s",
+                            node.build_constraints(),
+                            revnode,
+                            next_node,
+                        )
                         violate_score[revnode] += 1
                         violate_score[next_node] += 1
 
@@ -196,6 +205,7 @@ def compile_roots(
 
             bad_meta = baddest_node.metadata
             assert bad_meta is not None
+            logger.debug("The node %s had the most conflicts", baddest_node)
 
             new_constraints = [
                 parse_requirement("{}!={}".format(bad_meta.name, bad_meta.version))
@@ -213,6 +223,7 @@ def compile_roots(
 
             bad_constraints = dists.add_dist(bad_constraint, None, None)
             try:
+                logger.debug("Finding new solutions for %s and %s", node, baddest_node)
                 for node_to_compile in (node, baddest_node):
                     compile_roots(
                         node_to_compile,
@@ -288,7 +299,7 @@ def perform_compile(
     options.allow_circular_dependencies = allow_circular_dependencies
     options.extras = extras
 
-    if all_pinned:
+    if all_pinned and constraint_reqs:
         LOG.info("All constraints were pins - no need to solve the constraints")
         options.pinned_requirements = pinned_requirements
 
