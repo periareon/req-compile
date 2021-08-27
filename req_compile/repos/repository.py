@@ -48,21 +48,22 @@ def _get_platform_tags():
     if sys.platform == "darwin":
         version, _, arch = platform.mac_ver()
         major, minor_str = version.split(".")[:2]
-        tags = []
+        mac_tags = []
         minor = int(minor_str)
         while minor >= 6:
-            tags.append(
+            mac_tags.append(
                 "macosx_{major}_{minor}_{arch}".format(
                     major=major, minor=minor, arch=arch
                 )
             )
-            tags.append("macosx_{major}_{minor}_intel".format(major=major, minor=minor))
+            mac_tags.append(
+                "macosx_{major}_{minor}_intel".format(major=major, minor=minor)
+            )
             minor -= 1
-        tag = tuple(tags)
-    else:
-        plat = distutils.util.get_platform()  # pylint: disable=no-member
-        tag = (plat.replace(".", "_").replace("-", "_"),)
-    return ("any",) + tag
+        return mac_tags
+
+    plat = distutils.util.get_platform()  # pylint: disable=no-member
+    return (plat.replace(".", "_").replace("-", "_"),)
 
 
 def get_system_arch():
@@ -319,21 +320,27 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
         except ValueError:
             abi_score = 0
 
-        try:
-            plat_score = len(self.platforms) - min(
-                PLATFORM_TAGS.index(platform.lower()) for platform in self.platforms
-            )
-        except ValueError:
-            plat_score = 0
-            for plat in self.platforms:
+        plat_score = -1
+        for plat in self.platforms:
+            if plat == "any":
+                plat_score = 0
+                continue
+            try:
                 plat = LEGACY_ALIASES.get(plat, plat)
                 manylinux_match = re.match(MANYLINUX_REGEX, plat)
                 if manylinux_match is not None:
-                    plat_score = max(
-                        plat_score,
-                        int(manylinux_match.groups()[0]) * 10
-                        + int(manylinux_match.groups()[1]),
+                    this_score = int(manylinux_match.groups()[0]) * 10 + int(
+                        manylinux_match.groups()[1]
                     )
+                else:
+                    this_score = len(PLATFORM_TAGS) - PLATFORM_TAGS.index(plat.lower())
+                plat_score = max(plat_score, this_score * 100)
+            except ValueError:
+                pass
+
+        # Give a bonus to wheels that support more platforms
+        if plat_score > 0:
+            plat_score += len(self.platforms)
 
         # Spaces in source dist filenames penalize them in the search order
         extra_score = (

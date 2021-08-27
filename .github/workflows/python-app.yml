@@ -36,7 +36,6 @@ jobs:
     - name: Build a binary wheel and a source tarball
       run: >-
         pyproject-build
-        build
         --sdist
         --wheel
         --outdir dist/

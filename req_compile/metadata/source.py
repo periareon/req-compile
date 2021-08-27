@@ -3,7 +3,7 @@
 from __future__ import print_function
 
 import functools
-import imp
+import imp  # pylint: disable=deprecated-module
 import io
 import logging
 import os
