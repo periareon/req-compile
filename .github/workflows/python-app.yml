@@ -35,7 +35,7 @@ jobs:
         pytest
     - name: Build a binary wheel and a source tarball
       run: >-
-        python -m
+        pyproject-build
         build
         --sdist
         --wheel
