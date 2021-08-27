@@ -1,9 +1,6 @@
 README for Req-Compile Python Requirements Compiler
 ===================================================
 
-.. image:: https://travis-ci.org/sputt/req-compile.svg?branch=master
-    :target: https://travis-ci.org/sputt/req-compile
-
 .. image:: https://img.shields.io/pypi/v/req-compile.svg
     :alt: PyPI Package version
     :target: https://pypi.python.org/pypi/req-compile
