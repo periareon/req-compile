@@ -6,3 +6,7 @@ mock
 isort
 mypy ; python_version > '3.5'
 black ; python_version > '3.5'
+types-toml ; python_version > '3.5'
+types-setuptools ; python_version > '3.5'
+types-requests ; python_version > '3.5'
+types-six ; python_version > '3.5'

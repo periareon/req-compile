@@ -23,7 +23,9 @@ except ImportError:
 LOG = logging.getLogger("req_compile.repository.pypi")
 
 
-SYS_PY_VERSION = pkg_resources.parse_version(sys.version.split(" ")[0].replace("+", ""))
+SYS_PY_VERSION = pkg_resources.parse_version(
+    sys.version.split(" ", maxsplit=1)[0].replace("+", "")
+)
 SYS_PY_MAJOR = pkg_resources.parse_version("{}".format(sys.version_info.major))
 SYS_PY_MAJOR_MINOR = pkg_resources.parse_version(
     "{}.{}".format(sys.version_info.major, sys.version_info.minor)
@@ -80,7 +82,7 @@ def _check_py_constraint(version_constraint):
     if operator == "~=":
         # Convert ~= to the >=, < equivalent check
         # See: https://packaging.python.org/guides/distributing-packages-using-setuptools/#python-requires
-        major_num = int(str(version_part).split(".")[0])
+        major_num = int(str(version_part).split(".", maxsplit=1)[0])
         equivalent_check = ">={},<{}".format(version_part, major_num + 1)
         return check_python_compatibility(equivalent_check)
     try:

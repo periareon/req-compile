@@ -13,5 +13,6 @@ disable=
   raise-missing-from,
   bad-continuation,
   unused-import,  # Python 2 pylint is confused by the typing imports
+  unspecified-encoding,  # Can't specify encoding in Python 2
 
 ignored-modules=distutils.core
