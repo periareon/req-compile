@@ -14,5 +14,6 @@ disable=
   bad-continuation,
   unused-import,  # Python 2 pylint is confused by the typing imports
   unspecified-encoding,  # Can't specify encoding in Python 2
+  consider-using-f-string,
 
 ignored-modules=distutils.core
