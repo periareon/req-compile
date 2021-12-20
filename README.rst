@@ -24,6 +24,7 @@ Req-Compile is a Python requirements compiler geared toward large Python project
 Why use it?
 -----------
 **pip** and **pip-tools** are missing features and lack usability for some important workflows:
+
 * Using a previous solution as an input file to avoid hitting the network
 * pip-compile can't consider constraints that are not included in the final output. While pip accepts a constraints file, there is no way to stop at the "solving" phase, which would be used to push a fully solved solution to your repo
 * Track down where conflicting constraints originate
