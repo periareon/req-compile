@@ -25,12 +25,10 @@ Why use it?
 -----------
 **pip** and **pip-tools** are missing features and lack usability for some important workflows:
 * Using a previous solution as an input file to avoid hitting the network
-* pip-compile can't consider constraints that are not included in the final output. While pip accepts a constraints
-  file, there is no way to stop at the "solving" phase, which would be used to push a fully solved solution to your repo
+* pip-compile can't consider constraints that are not included in the final output. While pip accepts a constraints file, there is no way to stop at the "solving" phase, which would be used to push a fully solved solution to your repo
 * Track down where conflicting constraints originate
 * Treating source directories recursively as sources of requirements, like with --find-links
-* Configuring a storage location for downloaded distributions. Finding a solution to a set of input
-  requirements always requires downloading distributions
+* Configuring a storage location for downloaded distributions. Finding a fresh solution to a set of input requirements always requires downloading distributions
 
 A common workflow that is difficult to achieve with other tools:
 
