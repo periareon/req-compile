@@ -44,7 +44,8 @@ FAILED_BUILDS = set()
 THREADLOCAL = threading.local()
 
 
-def find_in_archive(extractor, filename, max_depth=None) -> Optional[str]:
+def find_in_archive(extractor, filename, max_depth=None):
+    # type: (Extractor, str, int) -> Optional[str]
     if extractor.exists(filename):
         return filename
 
@@ -95,7 +96,8 @@ def _fetch_from_source(source_file, extractor_type, run_setup_py=True):
 
 def _fetch_from_setup_py(
     source_file, name, version, extractor
-) -> Optional[DistInfo]:  # pylint: disable=too-many-branches
+):  # pylint: disable=too-many-branches
+    # type: (str, str, str, Extractor) -> Optional[RequirementContainer]
     """Attempt a set of executions to obtain metadata from the setup.py without having to build
     a wheel.  First attempt without mocking __import__ at all. This means that projects
     which import a package inside of themselves will not succeed, but all other simple
