@@ -109,6 +109,10 @@ class Extractor(object):
         with self.open(name, encoding="utf-8") as handle:
             return handle.read()
 
+    def extract(self, target_dir):
+        # type: (str) -> None
+        raise NotImplementedError
+
 
 class NonExtractor(Extractor):
     """An extractor that operates on the filesystem directory instead of an archive"""

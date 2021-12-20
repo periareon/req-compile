@@ -13,7 +13,7 @@ README for Req-Compile Python Requirements Compiler
 Req-Compile Python Requirements Compiler
 ========================================
 
-Req-Compile is a Python work-in-progress requirements compiler geared toward large Python projects. It allows you to:
+Req-Compile is a Python requirements compiler geared toward large Python projects. It allows you to:
 
 * Produce an output file consisting of fully constrained exact versions of your requirements
 * Identify sources of constraints on your requirements
@@ -23,16 +23,16 @@ Req-Compile is a Python work-in-progress requirements compiler geared toward lar
 
 Why use it?
 -----------
-**pip-tools** is the de-facto requirements compiler for Python, but is missing some important features.
+**pip** and **pip-tools** are missing features and lack usability for some important workflows:
+* Using a previous solution as an input file to avoid hitting the network
+* pip-compile can't consider constraints that are not included in the final output. While pip accepts a constraints
+  file, there is no way to stop at the "solving" phase, which would be used to push a fully solved solution to your repo
+* Track down where conflicting constraints originate
+* Treating source directories recursively as sources of requirements, like with --find-links
+* Configuring a storage location for downloaded distributions. Finding a solution to a set of input
+  requirements always requires downloading distributions
 
-* Does not allow you to use constraints that are not included in the final output
-* Provides no tools to track down where conflicting constraints originate
-* Cannot treat source directories recursively as sources of requirements (like with --find-links)
-* Does not allow you to configure a storage location for downloaded distributions
-
-Req-Compile has these features, making it an effective tool for large Python projects.
-
-This situation is very common:
+A common workflow that is difficult to achieve with other tools:
 
 You have a project with requirements ``requirements.txt`` and test requirements ``test-requirements.txt``. You want
 to produce a fully constrained output of ``requirements.txt`` to use to deploy your application. Easy, right? Just
@@ -61,19 +61,20 @@ To produce a fully constrained set of requirements for a given number of input r
 files to req-compile::
 
     > cat requirements.txt
-    astroid>=2.0.0
+    astroid >= 2.0.0
     isort >= 4.2.5
     mccabe
 
-    > req-compile requirements.txt
-    astroid==2.1.0                          #
-    futures==3.2.0                          # isort
-    isort==4.3.4                            #
-    lazy-object-proxy==1.3.1                #
-    mccabe==0.6.1                           #
-    six==1.12.0                             # astroid
-    typing==3.6.6                           # astroid
-    wrapt==1.11.1                           # astroid
+    > req-compile req-compile requirements.txt
+    astroid==2.9.0            # requirements.txt (>=2.0.0)
+    isort==5.10.1             # requirements.txt (>=4.2.5)
+    lazy-object-proxy==1.7.1  # astroid (>=1.4.0)
+    mccabe==0.6.1             # requirements.txt
+    setuptools==60.0.1        # astroid (>=20.0)
+    typed-ast==1.5.1          # astroid (<2.0,>=1.4.0)
+    typing_extensions==4.0.1  # astroid (>=3.10)
+    wrapt==1.13.3             # astroid (<1.14,>=1.11)
+
 
 Output is always emitted to stdout. Possible inputs include::
 
@@ -81,20 +82,17 @@ Output is always emitted to stdout. Possible inputs include::
     > req-compile .
     # Compiles the current directory (looks for a setup.py or pyproject.toml)
 
-    > req-compile . --extra test
-    # Compiles the current directory with the extra "test"
-
     > req-compile subdir/project
     # Compiles the project in the subdir/project directory
-
-    > req-compile subdir/project2[test,docs]
-    # Compiles the project in the subdir/project2 directory with the test and docs extra requirements included
 
     > req-candidates --paths-only | req-compile
     # Search for candidates and compile them piped in via stdin
 
     > echo flask | req-compile
     # Compile the requirement 'flask' using the default remote index (PyPI)
+
+    > req-compile . --extra test
+    # Compiles the current directory with the extra "test"
 
 
 Specifying source of distributions
@@ -137,6 +135,9 @@ Why did I just get version 1.11.0 of ``six``? Find out by examining the output::
     six==1.11.0  # astroid, pathlib2, pymodbus (==1.11.0), pytest (>=1.10.0), more_itertools (<2.0.0,>=1.0.0)
 
 
+In the above output, the (==1.11.0) indicates that pymodbus, the requirement name listed before the
+parenthesis, specifically requested version 1.11.0 of six.
+
 Constraining output
 ~~~~~~~~~~~~~~~~~~~
 Constrain production outputs with test requirements using the ``--constraints`` flag. More than one file can be
@@ -149,10 +150,11 @@ passed::
     pylint<1.6
 
     > req-compile requirements.txt --constraints test-requirements.txt
-    astroid==1.4.9                          # pylint (<1.5.0,>=1.4.5)
-    lazy-object-proxy==1.3.1                # astroid
-    six==1.12.0                             # astroid
-    wrapt==1.11.1                           # astroid
+    astroid==1.4.9            # pylint (<1.5.0,>=1.4.5), requirements.txt
+    lazy-object-proxy==1.7.1  # astroid
+    six==1.16.0               # astroid, pylint
+    wrapt==1.13.3             # astroid
+
 
 Note that astroid is constrained by ``pylint``, even though ``pylint`` is not included in the output.
 

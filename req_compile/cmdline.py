@@ -218,7 +218,7 @@ def _create_req_from_path(path):
 
     if dist is None:
         raise ValueError(
-            'Input arg "{}" is not directory containing a valid setup.py or pyproject.toml'.format(
+            'Input arg "{}" is not a directory containing a valid setup.py or pyproject.toml'.format(
                 path
             )
         )

@@ -172,10 +172,11 @@ class DistributionCollection(object):
         """
         self.logger.debug("Adding dist: %s %s %s", name_or_metadata, source, reason)
 
-        if isinstance(name_or_metadata, str):
+        if isinstance(name_or_metadata, six.string_types):
             req_name = name_or_metadata
             metadata_to_apply = None  # type: Optional[RequirementContainer]
         else:
+            assert isinstance(name_or_metadata, RequirementContainer)
             metadata_to_apply = name_or_metadata
             req_name = metadata_to_apply.name
 

@@ -24,7 +24,7 @@ LOG = logging.getLogger("req_compile.repository.pypi")
 
 
 SYS_PY_VERSION = pkg_resources.parse_version(
-    sys.version.split(" ", maxsplit=1)[0].replace("+", "")
+    sys.version.split(" ", 1)[0].replace("+", "")
 )
 SYS_PY_MAJOR = pkg_resources.parse_version("{}".format(sys.version_info.major))
 SYS_PY_MAJOR_MINOR = pkg_resources.parse_version(
