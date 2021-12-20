@@ -2,11 +2,11 @@ from setuptools import setup, find_packages
 
 setup(
     name="req-compile",
-    version="0.10.20",
+    version="0.10.21",
     author="Spencer Putt",
     author_email="sputt@alumni.iu.edu",
     description="Python requirements compiler",
-    long_description=open("README.rst").read(),
+    long_description=open("CHANGELOG.rst").read() + "\n" + open("README.rst").read(),
     url="https://github.com/sputt/req-compile",
     install_requires=open("requirements.txt").readlines(),
     packages=find_packages(include=["req_compile*"]),
@@ -23,6 +23,7 @@ setup(
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
         "Operating System :: OS Independent",
         "Environment :: Console",
         "Topic :: Software Development",

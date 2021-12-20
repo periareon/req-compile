@@ -17,6 +17,7 @@ import threading
 import time
 from contextlib import closing
 from types import ModuleType
+from typing import Optional
 
 import pkg_resources
 import setuptools  # type: ignore
@@ -28,9 +29,9 @@ from req_compile import utils
 from req_compile.errors import MetadataError
 from req_compile.filename import parse_source_filename
 
-from ..containers import DistInfo, PkgResourcesDistInfo
+from ..containers import DistInfo, PkgResourcesDistInfo, RequirementContainer
 from .dist_info import _fetch_from_wheel
-from .extractor import NonExtractor
+from .extractor import NonExtractor, Extractor
 from .patch import begin_patch, end_patch, patch
 
 LOG = logging.getLogger("req_compile.metadata.source")
@@ -43,7 +44,7 @@ FAILED_BUILDS = set()
 THREADLOCAL = threading.local()
 
 
-def find_in_archive(extractor, filename, max_depth=None):
+def find_in_archive(extractor, filename, max_depth=None) -> Optional[str]:
     if extractor.exists(filename):
         return filename
 
@@ -94,7 +95,7 @@ def _fetch_from_source(source_file, extractor_type, run_setup_py=True):
 
 def _fetch_from_setup_py(
     source_file, name, version, extractor
-):  # pylint: disable=too-many-branches
+) -> Optional[DistInfo]:  # pylint: disable=too-many-branches
     """Attempt a set of executions to obtain metadata from the setup.py without having to build
     a wheel.  First attempt without mocking __import__ at all. This means that projects
     which import a package inside of themselves will not succeed, but all other simple
@@ -157,10 +158,13 @@ def _fetch_from_setup_py(
             return None
 
         if setup_file is None:
-            LOG.warning(
-                "Could not find a setup.py in %s", os.path.basename(source_file)
-            )
-            return None
+            setup_cfg = find_in_archive(extractor, "setup.cfg", max_depth=1)
+            if setup_cfg is None:
+                LOG.warning(
+                    "Could not find a setup.py or setup.cfg in %s",
+                    os.path.basename(source_file),
+                )
+                return None
 
         try:
             LOG.info("Parsing setup.py %s", setup_file)
@@ -293,6 +297,10 @@ SETUPTOOLS_SHIM = (
 
 
 def _build_egg_info(name, extractor, setup_file):
+    # type: (str, Extractor, Optional[str]) -> Optional[RequirementContainer]
+    if setup_file is None:
+        return None
+
     temp_tar = tempfile.mkdtemp()
 
     extractor.extract(temp_tar)
@@ -517,6 +525,8 @@ def _parse_setup_py(
 ):  # pylint: disable=too-many-locals,too-many-statements
     # pylint: disable=bad-option-value,no-name-in-module,no-member,import-outside-toplevel,too-many-branches
     # Capture warnings.warn, which is sometimes used in setup.py files
+    if setup_file is None:
+        return None
 
     logging.captureWarnings(True)
 
