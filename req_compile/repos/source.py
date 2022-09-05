@@ -1,4 +1,4 @@
-"""Definition of source repository"""
+"""Definition of source repository."""
 from __future__ import print_function
 
 import collections
@@ -6,10 +6,9 @@ import functools
 import itertools
 import os
 from multiprocessing.pool import ThreadPool
-from typing import Deque, Dict, Iterable, List, Optional, Tuple, Callable
+from typing import Any, Callable, Deque, Dict, Iterable, List, Optional, Sequence, Tuple
 
-import six
-from six.moves import map
+import pkg_resources
 
 import req_compile.errors
 import req_compile.metadata
@@ -17,7 +16,7 @@ import req_compile.metadata.metadata
 import req_compile.repos.repository
 from req_compile import utils
 from req_compile.containers import RequirementContainer
-from req_compile.repos.repository import Repository
+from req_compile.repos.repository import Candidate, Repository
 from req_compile.utils import parse_version
 
 # Special directories that will never be considered
@@ -41,11 +40,15 @@ MARKER_FILES = {"__init__.py"}
 
 
 class SourceRepository(Repository):
+    """Repository for Python projects source code on the filesystem.
+
+    Directories containing a setup.py or PEP517 pyproject.toml are included in the list
+    of potential distributions.
+    """
+
     def __init__(self, path, excluded_paths=None, marker_files=None, parallelism=1):
         # type: (str, Iterable[str], Iterable[str], int) -> None
-        """
-        A repository for Python projects source code on the filesystem. Directories containing a setup.py
-        or PEP517 pyproject.toml are included in the list of potential distributions
+        """Constructor.
 
         Args:
             path (str): Base directory of the source tree
@@ -105,7 +108,7 @@ class SourceRepository(Repository):
         # it is a lot of I/O
         if self.parallelism == 1:
             pool = None  # type: Optional[ThreadPool]
-            map_func = six.moves.map  # type: Callable
+            map_func = map  # type: Callable
         else:
             pool = ThreadPool(self.parallelism)
             map_func = pool.imap_unordered
@@ -144,7 +147,7 @@ class SourceRepository(Repository):
         candidate.preparsed = result
         self.distributions[utils.normalize_project_name(result.name)].append(candidate)
 
-    def _find_all_source_dirs(self, excluded_paths):
+    def _find_all_source_dirs(self, excluded_paths: Iterable[str]) -> Iterable[str]:
         for root, dirs, files in os.walk(self.path):
             has_marker = False
             for dir_ in list(dirs):
@@ -174,7 +177,7 @@ class SourceRepository(Repository):
                     root_is_valid = False
                     break
 
-                if filename in ("setup.py", "pyproject.toml"):
+                if filename in ("setup.py", "setup.cfg", "pyproject.toml"):
                     root_is_valid = True
 
             if root_is_valid:
@@ -189,38 +192,53 @@ class SourceRepository(Repository):
                         dirs.remove(dir_)
                 yield root
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "--source {}".format(self.path)
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         return (
             isinstance(other, SourceRepository)
             and super(SourceRepository, self).__eq__(other)
             and self.path == other.path
         )
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash("source") ^ hash(self.path)
 
-    def get_candidates(self, req):
+    def get_candidates(
+        self, req: Optional[pkg_resources.Requirement]
+    ) -> Sequence[Candidate]:
         if req is None:
-            return itertools.chain(*self.distributions.values())
+            return list(itertools.chain(*self.distributions.values()))
 
         project_name = utils.normalize_project_name(req.name)
         return self.distributions.get(project_name, [])
 
-    def resolve_candidate(self, candidate):
+    def resolve_candidate(
+        self, candidate: Candidate
+    ) -> Tuple[RequirementContainer, bool]:
+        if candidate.preparsed is None:
+            raise req_compile.errors.NoCandidateException(
+                req_compile.utils.parse_requirement(candidate.name)
+            )
         return candidate.preparsed, True
 
-    def close(self):
+    def close(self) -> None:
         pass
 
 
 class ReferenceSourceRepository(SourceRepository):
-    """Represents a source that shows up in solution files but may not itself be present"""
+    """Represents a source that shows up in solution files but may not itself be present."""
 
-    def __init__(self, dist):
+    def __init__(self, dist: RequirementContainer) -> None:
+        """Constructor."""
         # Skip the SourceRepository super call
         # pylint: disable=bad-super-call
         super(SourceRepository, self).__init__("ref-source", allow_prerelease=True)
-        self.distributions = {dist.name: dist}
+        if dist.version is None:
+            raise ValueError(f"Version of {dist.name} must be known")
+        self.distributions = {
+            dist.name: [
+                Candidate(dist.name, None, dist.version, None, None, "any", None)
+            ]
+        }

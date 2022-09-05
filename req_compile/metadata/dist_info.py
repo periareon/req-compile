@@ -7,6 +7,7 @@ from typing import Iterable, Optional
 
 from req_compile import utils
 from req_compile.containers import DistInfo
+from req_compile.errors import MetadataError
 
 LOG = logging.getLogger("req_compile.metadata.dist_info")
 
@@ -49,19 +50,26 @@ def _fetch_from_wheel(wheel):
     """
     project_name = os.path.basename(wheel).split("-")[0]
 
-    zfile = zipfile.ZipFile(wheel, "r")
-    with closing(zfile):
-        # Reverse since metadata details are supposed to be written at the end of the zip
-        infos = list(reversed(zfile.namelist()))
-        result = _find_dist_info_metadata(project_name, infos)
-        if result is not None:
-            return _parse_flat_metadata(zfile.read(result).decode("utf-8", "ignore"))
+    result = None
+    zfile = None
+    try:
+        zfile = zipfile.ZipFile(wheel, "r")
+        with closing(zfile):
+            # Reverse since metadata details are supposed to be written at the end of the zip
+            infos = list(reversed(zfile.namelist()))
+            result = _find_dist_info_metadata(project_name, infos)
 
+            if result is not None:
+                return _parse_flat_metadata(
+                    zfile.read(result).decode("utf-8", "ignore")
+                )
         LOG.warning("Could not find .dist-info/METADATA in the zip archive")
-        return None
+    except zipfile.BadZipfile as ex:
+        LOG.warning("Bad zip file: %s", ex)
+    return None
 
 
-def _parse_flat_metadata(contents):
+def _parse_flat_metadata(contents: str) -> DistInfo:
     name = None
     version = None
     raw_reqs = []
@@ -75,4 +83,8 @@ def _parse_flat_metadata(contents):
         elif lower_line.startswith("requires-dist:"):
             raw_reqs.append(line.partition(":")[2].strip())
 
+    if name is None:
+        raise MetadataError(
+            "unknown", version, ValueError("Missing name metadata for package")
+        )
     return DistInfo(name, version, list(utils.parse_requirements(raw_reqs)))

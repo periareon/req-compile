@@ -9,7 +9,6 @@ from collections import defaultdict
 from typing import Dict, Iterable, Mapping, Optional, Set, Tuple
 
 import pkg_resources
-import six
 
 import req_compile.containers
 import req_compile.dists
@@ -20,10 +19,11 @@ import req_compile.repos.repository
 import req_compile.utils
 from req_compile.containers import RequirementContainer
 from req_compile.dists import DependencyNode, DistributionCollection
-from req_compile.errors import NoCandidateException
-from req_compile.repos.repository import BaseRepository
+from req_compile.errors import MetadataError, NoCandidateException
+from req_compile.repos.repository import Repository
 from req_compile.repos.source import SourceRepository
 from req_compile.utils import (
+    NormName,
     is_pinned_requirement,
     merge_requirements,
     normalize_project_name,
@@ -43,20 +43,19 @@ class CompileOptions(object):
 
     extras = None  # type: Optional[Iterable[str]]
     allow_circular_dependencies = True
-    pinned_requirements = {}  # type: Mapping[str, pkg_resources.Requirement]
+    pinned_requirements: Mapping[NormName, pkg_resources.Requirement] = {}
 
 
 def compile_roots(
-    node,  # type: DependencyNode
-    source,  # type: Optional[DependencyNode]
-    repo,  # type: BaseRepository
-    dists,  # type: DistributionCollection
-    options,  # type: CompileOptions
-    depth=1,  # type: int
-    max_downgrade=MAX_DOWNGRADE,  # type: int
-    _path=None,
-):  # pylint: disable=too-many-statements,too-many-locals,too-many-branches
-    # type: (...) -> None
+    node: DependencyNode,
+    source: Optional[DependencyNode],
+    repo: Repository,
+    dists: DistributionCollection,
+    options: CompileOptions,
+    depth: int = 1,
+    max_downgrade: int = MAX_DOWNGRADE,
+    _path: Set[DependencyNode] = None,
+) -> None:  # pylint: disable=too-many-statements,too-many-locals,too-many-branches
     """
     Args:
         node: The node to compile
@@ -84,14 +83,12 @@ def compile_roots(
                     if req in _path:
                         if options.allow_circular_dependencies:
                             logger.error(
-                                "Skipping node %s because it includes this node",
-                                req,
+                                "Skipping node %s because it includes this node", req,
                             )
                         else:
                             raise ValueError(
                                 "Circular dependency: {node} -> {req} -> {node}".format(
-                                    node=node,
-                                    req=req,
+                                    node=node, req=req,
                                 )
                             )
                     else:
@@ -132,7 +129,7 @@ def compile_roots(
             spec_req = merge_requirements(spec_req, pin)
 
         try:
-            metadata, cached = repo.get_candidate(spec_req, max_downgrade=max_downgrade)
+            metadata, cached = repo.get_dist(spec_req, max_downgrade=max_downgrade)
             logger.debug(
                 "Acquired candidate %s %s [%s] (%s)",
                 metadata,
@@ -140,11 +137,15 @@ def compile_roots(
                 metadata.origin,
                 "cached" if cached else "download",
             )
-            reason = None
+            reason: Optional[pkg_resources.Requirement] = None
             if source is not None:
                 if node in source.dependencies:
                     reason = source.dependencies[node]
-                    if options.extras and isinstance(metadata.origin, SourceRepository):
+                    if (
+                        reason is not None
+                        and options.extras
+                        and isinstance(metadata.origin, SourceRepository)
+                    ):
                         reason = merge_requirements(
                             reason,
                             parse_requirement(
@@ -167,11 +168,9 @@ def compile_roots(
                     max_downgrade=max_downgrade,
                     _path=_path,
                 )
-        except NoCandidateException:
+        except NoCandidateException as ex:
             if max_downgrade == 0:
                 raise
-
-            exc_info = sys.exc_info()
 
             nodes = sorted(node.reverse_deps)
 
@@ -201,7 +200,7 @@ def compile_roots(
                     if node.metadata is not None and not node.metadata.meta
                 )
             except StopIteration:
-                six.reraise(*exc_info)
+                raise ex
 
             bad_meta = baddest_node.metadata
             assert bad_meta is not None
@@ -248,7 +247,7 @@ def compile_roots(
 
 def perform_compile(
     input_reqs,  # type: Iterable[RequirementContainer]
-    repo,  # type: BaseRepository
+    repo,  # type: Repository
     constraint_reqs=None,  # type: Iterable[RequirementContainer]
     extras=None,  # type: Iterable[str]
     allow_circular_dependencies=True,  # type: bool
@@ -274,7 +273,7 @@ def perform_compile(
     constraint_nodes = set()
     nodes = set()
     all_pinned = True
-    pinned_requirements = {}
+    pinned_requirements: Dict[NormName, pkg_resources.Requirement] = {}
 
     if constraint_reqs is not None:
         for constraint_source in constraint_reqs:
@@ -306,7 +305,7 @@ def perform_compile(
     try:
         for node in sorted(nodes):
             compile_roots(node, None, repo, results, options)
-    except (NoCandidateException, req_compile.errors.MetadataError) as ex:
+    except (NoCandidateException, MetadataError) as ex:
         _add_constraints(all_pinned, constraint_reqs, results)
         ex.results = results
         raise

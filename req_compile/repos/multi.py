@@ -1,35 +1,49 @@
 import itertools
+from typing import Iterable, Iterator, List, Optional, Tuple
 
+import pkg_resources
+from overrides import overrides
+
+from req_compile.containers import RequirementContainer
 from req_compile.errors import NoCandidateException
-from req_compile.repos.repository import BaseRepository
+from req_compile.repos.repository import Candidate, Repository
 
 
-class MultiRepository(BaseRepository):
-    def __init__(self, *repositories):
-        super(MultiRepository, self).__init__()
+class MultiRepository(Repository):
+    """Repository that sources from inner repositories, in order."""
+
+    def __init__(self, *repositories: Repository) -> None:
+        """Constructor."""
+        super(MultiRepository, self).__init__("multi")
         self.repositories = list(repositories)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return ", ".join(repr(repo) for repo in self)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Repository]:
         # Expand nested MultiRepositories as well
         return itertools.chain(*(iter(repo) for repo in self.repositories))
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.repositories)
 
-    def get_candidate(self, req, max_downgrade=None):
+    @overrides
+    def get_dist(
+        self, req: pkg_resources.Requirement, max_downgrade: int = None
+    ) -> Tuple[RequirementContainer, bool]:
         last_ex = NoCandidateException(req)
         for repo in self.repositories:
             try:
-                return repo.get_candidate(req, max_downgrade=max_downgrade)
+                return repo.get_dist(req, max_downgrade=max_downgrade)
             except NoCandidateException as ex:
                 last_ex = ex
         raise last_ex
 
-    def get_candidates(self, req):
-        candidates = []
+    @overrides
+    def get_candidates(
+        self, req: Optional[pkg_resources.Requirement]
+    ) -> Iterable[Candidate]:
+        candidates: List[Candidate] = []
         for repo in self.repositories:
             try:
                 repo_candidates = repo.get_candidates(req)
@@ -37,3 +51,13 @@ class MultiRepository(BaseRepository):
             except NoCandidateException:
                 pass
         return candidates
+
+    @overrides
+    def resolve_candidate(
+        self, candidate: Candidate
+    ) -> Tuple[RequirementContainer, bool]:
+        raise NotImplementedError
+
+    @overrides
+    def close(self) -> None:
+        pass

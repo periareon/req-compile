@@ -1,32 +1,44 @@
 from __future__ import print_function
 
-import collections
+import collections.abc
 import itertools
 import logging
 import sys
-from typing import Any, Dict, Iterable, List, Optional, Set, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
+import packaging.requirements
+import packaging.version
 import pkg_resources
-import six
 
 from req_compile.containers import RequirementContainer
 from req_compile.repos import Repository
 from req_compile.utils import (
+    NormName,
     merge_requirements,
     normalize_project_name,
     parse_requirement,
 )
 
 
-class DependencyNode(object):
+class DependencyNode:
     """
     Class representing a node in the dependency graph of a resolution. Contains information
     about whether or not this node has a solution yet -- meaning, is it resolved to a
     concrete requirement resolved from a Repository
     """
 
-    def __init__(self, key, metadata):
-        # type: (str, Optional[RequirementContainer]) -> None
+    def __init__(self, key: NormName, metadata: Optional[RequirementContainer]) -> None:
         self.key = key
         self.metadata = metadata
         self.dependencies = (
@@ -105,7 +117,7 @@ class DependencyNode(object):
         return result
 
 
-def _build_constraints(root_node):
+def build_constraints(root_node):
     # type: (DependencyNode) -> Iterable[str]
     constraints = []  # type: List[str]
     for node in root_node.reverse_deps:
@@ -138,7 +150,7 @@ def _process_constraint_req(req, node, constraints):
     constraints.extend([source + specifics])
 
 
-class DistributionCollection(object):
+class DistributionCollection:
     """A collection of dependencies and their distributions. This is the main representation
     of the graph of dependencies when putting together a resolution. As distributions are
     added to the collection and provide a concrete RequirementContainer (like a DistInfo from
@@ -146,33 +158,31 @@ class DistributionCollection(object):
 
     def __init__(self):
         # type: () -> None
-        self.nodes = {}  # type: Dict[str, DependencyNode]
+        self.nodes: Dict[NormName, DependencyNode] = {}
         self.logger = logging.getLogger("req_compile.dists")
 
     @staticmethod
-    def _build_key(name):
+    def _build_key(name: str) -> NormName:
         return normalize_project_name(name)
 
     def add_dist(
         self,
-        name_or_metadata,  # type: Union[str, RequirementContainer]
-        source,  # type: Optional[DependencyNode]
-        reason,  # type: Optional[pkg_resources.Requirement]
-    ):
-        # type: (...) -> Set[DependencyNode]
-        """
-        Add a distribution as a placeholder or as a solution
+        name_or_metadata: Union[str, RequirementContainer],
+        source: Optional[DependencyNode],
+        reason: Optional[pkg_resources.Requirement],
+    ) -> Set[DependencyNode]:
+        """Add a distribution as a placeholder or as a solution.
 
         Args:
             name_or_metadata: Distribution info to add, or if it is unknown, the
-                name of hte distribution so it can be added as a placeholder
-            source: The source of the distribution. This is used to build the graph
+                name of the distribution, so it can be added as a placeholder.
+            source: The source of the distribution. This is used to build the graph.
             reason: The requirement that caused this distribution to be added to the
-                graph. This is used to constrain which solutions will be allowed
+                graph. This is used to constrain which solutions will be allowed.
         """
         self.logger.debug("Adding dist: %s %s %s", name_or_metadata, source, reason)
 
-        if isinstance(name_or_metadata, six.string_types):
+        if isinstance(name_or_metadata, str):
             req_name = name_or_metadata
             metadata_to_apply = None  # type: Optional[RequirementContainer]
         else:
@@ -213,7 +223,9 @@ class DistributionCollection(object):
 
         return nodes
 
-    def _discard_metadata_if_necessary(self, node, reason):
+    def _discard_metadata_if_necessary(
+        self, node: DependencyNode, reason: Optional[pkg_resources.Requirement]
+    ) -> None:
         if node.metadata is not None and not node.metadata.meta and reason is not None:
             if node.metadata.version is not None and not reason.specifier.contains(
                 node.metadata.version, prereleases=True
@@ -224,7 +236,9 @@ class DistributionCollection(object):
                 # Discard the metadata
                 self.remove_dists(node, remove_upstream=False)
 
-    def _update_dists(self, node, metadata):
+    def _update_dists(
+        self, node: DependencyNode, metadata: RequirementContainer
+    ) -> Set[DependencyNode]:
         node.metadata = metadata
         add_nodes = {node}
         for extra in {None} | node.extras:
@@ -233,9 +247,12 @@ class DistributionCollection(object):
                 add_nodes |= self.add_dist(req.name, node, req)
         return add_nodes
 
-    def remove_dists(self, node, remove_upstream=True):
-        # type: (Union[DependencyNode, Iterable[DependencyNode]], bool) -> None
-        if isinstance(node, collections.Iterable):
+    def remove_dists(
+        self,
+        node: Union[DependencyNode, Iterable[DependencyNode]],
+        remove_upstream: bool = True,
+    ) -> None:
+        if isinstance(node, collections.abc.Iterable):
             for single_node in node:
                 self.remove_dists(single_node, remove_upstream=remove_upstream)
             return
@@ -262,7 +279,9 @@ class DistributionCollection(object):
             node.metadata = None
             node.complete = False
 
-    def build(self, roots):
+    def build(
+        self, roots: Iterable[DependencyNode]
+    ) -> Iterable[pkg_resources.Requirement]:
         results = self.generate_lines(roots)
         return [
             parse_requirement("==".join([result[0][0], str(result[0][1])]))
@@ -270,16 +289,23 @@ class DistributionCollection(object):
         ]
 
     def visit_nodes(
-        self, roots, max_depth=sys.maxsize, reverse=False, _visited=None, _cur_depth=0
-    ):
+        self,
+        roots: Iterable[DependencyNode],
+        max_depth: int = sys.maxsize,
+        reverse: bool = False,
+        _visited: Set[DependencyNode] = None,
+        _cur_depth: int = 0,
+    ) -> Iterable[DependencyNode]:
         if _visited is None:
             _visited = set()
 
         if _cur_depth == max_depth:
-            return
+            return _visited
 
         if reverse:
-            next_nodes = itertools.chain(*[root.reverse_deps for root in roots])
+            next_nodes: Iterable[DependencyNode] = itertools.chain(
+                *[root.reverse_deps for root in roots]
+            )
         else:
             next_nodes = set()
             for root in roots:
@@ -300,37 +326,47 @@ class DistributionCollection(object):
             )
         return _visited
 
-    def generate_lines(self, roots, req_filter=None, _visited=None):
+    def generate_lines(
+        self,
+        roots: Iterable[DependencyNode],
+        req_filter: Callable[[DependencyNode], bool] = None,
+        strip_extras: bool = False,
+    ) -> Iterable[
+        Tuple[Tuple[str, Optional[packaging.version.Version], Optional[str]], str]
+    ]:
         """
         Generate the lines of a results file from this collection
         Args:
             roots (iterable[DependencyNode]): List of roots to generate lines from
             req_filter (Callable): Filter to apply to each element of the collection.
                 Return True to keep a node, False to exclude it
-            _visited (set): Internal set to make sure each node is only visited once
         Returns:
             (list[str]) List of rendered node entries in the form of
                 reqname==version   # reasons
         """
         req_filter = req_filter or (lambda _: True)
-        results = []
+        results: List[
+            Tuple[Tuple[str, Optional[packaging.version.Version], Optional[str]], str]
+        ] = []
         for node in self.visit_nodes(roots):
             if node.metadata is None:
                 continue
             if not node.metadata.meta and req_filter(node):
-                constraints = _build_constraints(node)
-                req_expr = node.metadata.to_definition(node.extras)
+                constraints = build_constraints(node)
+                name, version = node.metadata.to_definition(node.extras)
+                if strip_extras:
+                    name = name.split("[", 1)[0]
                 constraint_text = ", ".join(sorted(constraints))
-                results.append((req_expr, constraint_text))
+                results.append(((name, version, node.metadata.hash), constraint_text))
         return results
 
-    def __contains__(self, project_name):
+    def __contains__(self, project_name: str) -> bool:
         req_name = project_name.split("[")[0]
         return normalize_project_name(req_name) in self.nodes
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[DependencyNode]:
         return iter(self.nodes.values())
 
-    def __getitem__(self, project_name):
+    def __getitem__(self, project_name: str) -> DependencyNode:
         req_name = project_name.split("[")[0]
         return self.nodes[normalize_project_name(req_name)]

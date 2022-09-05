@@ -5,12 +5,12 @@ import pkg_resources
 import pytest
 
 from req_compile.repos.repository import (
-    WheelVersionTags,
     Candidate,
-    sort_candidates,
-    _wheel_candidate,
+    WheelVersionTags,
     _impl_major_minor,
     _py_version_score,
+    _wheel_filename_to_candidate,
+    sort_candidates,
 )
 
 
@@ -30,11 +30,7 @@ def test_version_compatible(mock_py_version, sys_py_version, py_requires):
 
 
 @pytest.mark.parametrize(
-    "sys_py_version, py_requires",
-    [
-        ("3.6.3", ("py2",)),
-        ("2.7.16", ("py3",)),
-    ],
+    "sys_py_version, py_requires", [("3.6.3", ("py2",)), ("2.7.16", ("py3",)),],
 )
 def test_version_incompatible(mock_py_version, sys_py_version, py_requires):
     mock_py_version(sys_py_version)
@@ -87,8 +83,7 @@ def test_sort_non_semver():
 def test_sort_specific_platforms(mock_py_version, mocker):
     mock_py_version("3.7.4")
     mocker.patch(
-        "req_compile.repos.repository.PLATFORM_TAGS",
-        ("this_platform",),
+        "req_compile.repos.repository.PLATFORM_TAGS", ("this_platform",),
     )
     candidate_wheels = (
         "sounddevice-0.4.1-cp32.cp33.cp34.cp35.cp36.cp37.cp38.cp39.pp32.pp33.pp34.pp35.pp36.pp37.py3-None-this_platform.whl",
@@ -96,7 +91,7 @@ def test_sort_specific_platforms(mock_py_version, mocker):
     )
     candidates = []
     for wheel in candidate_wheels:
-        candidates.append(_wheel_candidate("pypi", wheel))
+        candidates.append(_wheel_filename_to_candidate("pypi", wheel))
 
     reference = list(candidates)
 
@@ -107,8 +102,7 @@ def test_sort_specific_platforms(mock_py_version, mocker):
 def test_sort_wheels_with_any(mock_py_version, mocker):
     mock_py_version("3.7.4")
     mocker.patch(
-        "req_compile.repos.repository.PLATFORM_TAGS",
-        ("this_platform",),
+        "req_compile.repos.repository.PLATFORM_TAGS", ("this_platform",),
     )
     candidate_wheels = (
         "pyenchant-3.2.1-py3-None-this_platform.and_another.whl",
@@ -117,7 +111,9 @@ def test_sort_wheels_with_any(mock_py_version, mocker):
         "pyenchant-3.2.1-py3-None-unsupported_platform.whl",
         "pyenchant-3.2.1-None-None-any.whl",
     )
-    candidates = [_wheel_candidate("pypi", wheel) for wheel in candidate_wheels]
+    candidates = [
+        _wheel_filename_to_candidate("pypi", wheel) for wheel in candidate_wheels
+    ]
     sorted_candidates = sort_candidates(reversed(candidates))
     assert sorted_candidates == list(candidates)
 
