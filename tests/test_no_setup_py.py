@@ -1,7 +1,7 @@
 import os
 
 from req_compile.metadata import extract_metadata
-from req_compile.utils import parse_version, parse_requirements
+from req_compile.utils import parse_requirements, parse_version
 
 
 def test_no_setup_py():

@@ -1,10 +1,11 @@
 *.whl
 *.tar.gz
+*.pyc
 .pytest_cache
 /venv
 /venv3
 /wheeldir
-.idea
+/.idea
 build
 dist
 /req_compile.egg-info

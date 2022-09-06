@@ -3,10 +3,10 @@ import pkg_resources
 import pytest
 
 from req_compile.containers import DistInfo
+from req_compile.errors import NoCandidateException
 from req_compile.repos import Repository
 from req_compile.repos.multi import MultiRepository
 from req_compile.repos.repository import Candidate
-from req_compile.errors import NoCandidateException
 
 
 class FakeRepository(Repository):
@@ -62,7 +62,7 @@ def test_not_found():
     repo1 = FakeRepository("1")
     multi1 = MultiRepository(repo1)
     with pytest.raises(NoCandidateException):
-        multi1.get_candidate(pkg_resources.Requirement("nonsense"))
+        multi1.get_dist(pkg_resources.Requirement("nonsense"))
 
 
 def test_fetch_in_order():
@@ -78,7 +78,7 @@ def test_fetch_in_order():
     ]
     multi = MultiRepository(repo1, repo2, repo3)
 
-    result, cached = multi.get_candidate(pkg_resources.Requirement("nonsense"))
+    result, cached = multi.get_dist(pkg_resources.Requirement("nonsense"))
 
     assert repo1.get_candidates.called
     assert repo2.get_candidates.called

@@ -5,19 +5,19 @@ import pytest
 from pytest import fixture
 
 import req_compile.compile
+from req_compile.containers import DistInfo
 import req_compile.errors
+from req_compile.repos.multi import MultiRepository
 import req_compile.repos.pypi
 import req_compile.repos.repository
-import req_compile.utils
-from req_compile.containers import DistInfo
-from req_compile.repos.multi import MultiRepository
 from req_compile.repos.source import SourceRepository
+import req_compile.utils
 
 
 def test_mock_pypi(mock_metadata, mock_pypi):
     mock_pypi.load_scenario("normal")
 
-    metadata, cached = mock_pypi.get_candidate(pkg_resources.Requirement.parse("test"))
+    metadata, cached = mock_pypi.get_dist(pkg_resources.Requirement.parse("test"))
     assert metadata.name == "test"
     assert metadata.version == req_compile.utils.parse_version("1.0.0")
 

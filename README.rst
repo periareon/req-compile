@@ -118,14 +118,20 @@ can be specified, resolved in the same order (e.g. source takes precedence over 
 
   URL of a remote index to search for packages in. When compiling, it's necessary to download
   a package to determine its requirements. ``--wheel-dir`` can be supplied to specify where to save
-  these distributions. Otherwise they will be deleted after compilation is complete.
+  these distributions. Otherwise they will be deleted after compilation is complete. When specified,
+  replaces the default index that is located in pip.conf/pip.ini on your system.
+* ``--extra-index-url``
+
+  Extra remote index to search. Same semantics as index-url, but searched afterward. Additionally,
+  does not replace the default index URL so it can be used as a supplemental source of requirements
+  without knowing (or recording in the solution) the default index URL.
 
 All options can be repeated multiple times, with the resolution order within types matching what
 was passed on the commandline. However, overall resolution order will always match the order
 of the list above.
 
 By default, PyPI (https://pypi.org/) is added as a default source. It can be removed by passing
-``--no-index`` on the commandline.
+``--no-index`` on the commandline or passing a different index via ``--index-url``.
 
 Identifying source of constraints
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

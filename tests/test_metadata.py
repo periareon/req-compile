@@ -3,12 +3,11 @@ import sys
 
 import pkg_resources
 import pytest
-import six
 
+import req_compile.filename
+import req_compile.metadata
 import req_compile.metadata.dist_info
 import req_compile.metadata.extractor
-import req_compile.metadata
-import req_compile.filename
 import req_compile.metadata.metadata
 import req_compile.metadata.source
 
@@ -49,11 +48,7 @@ def test_parse_flat_metadata_complex_marker():
             os.path.join(os.path.dirname(__file__), "METADATA-implementation-marker")
         ).read()
     )
-    assert (
-        {req.name for req in results.requires()} == {"ordereddict", "yaml.clib"}
-        if six.PY2
-        else {"yaml.clib"}
-    )
+    assert {req.name for req in results.requires()} == {"yaml.clib"}
 
 
 def test_a_with_extra(metadata_provider):
@@ -77,39 +72,16 @@ def test_pylint_python(metadata_provider):
     assert info.name == "pylint"
     assert info.version == pkg_resources.parse_version("1.9.4")
 
-    if six.PY2:
-        if sys.platform == "win32":
-            expected_reqs = [
-                "astroid (<2.0,>=1.6)",
-                "six",
-                "isort (>=4.2.5)",
-                "mccabe",
-                'singledispatch; python_version<"3.4"',
-                'configparser; python_version=="2.7"',
-                'backports.functools-lru-cache; python_version=="2.7"',
-                'colorama; sys_platform=="win32"',
-            ]
-        else:
-            expected_reqs = [
-                "astroid (<2.0,>=1.6)",
-                "six",
-                "isort (>=4.2.5)",
-                "mccabe",
-                'singledispatch; python_version<"3.4"',
-                'configparser; python_version=="2.7"',
-                'backports.functools-lru-cache; python_version=="2.7"',
-            ]
+    if sys.platform == "win32":
+        expected_reqs = [
+            "astroid (<2.0,>=1.6)",
+            "six",
+            "isort (>=4.2.5)",
+            "mccabe",
+            'colorama; sys_platform=="win32"',
+        ]
     else:
-        if sys.platform == "win32":
-            expected_reqs = [
-                "astroid (<2.0,>=1.6)",
-                "six",
-                "isort (>=4.2.5)",
-                "mccabe",
-                'colorama; sys_platform=="win32"',
-            ]
-        else:
-            expected_reqs = ["astroid (<2.0,>=1.6)", "six", "isort (>=4.2.5)", "mccabe"]
+        expected_reqs = ["astroid (<2.0,>=1.6)", "six", "isort (>=4.2.5)", "mccabe"]
     assert set(info.requires()) == set(pkg_resources.parse_requirements(expected_reqs))
 
 
@@ -209,10 +181,7 @@ sources = [
     ["version-writer-1.2", "version-writer", "1.2", []],
     ["tinyrpc-1.0.4", "tinyrpc", "1.0.4", ["six"]],
 ]
-if six.PY3:
-    sources.append(["spec-loading-1.0", "spec-loading", "1.0", ["et_xmlfile", "jdcal"]])
-if six.PY2:
-    sources.append(["print-1.1.0b8", "print", "1.1.0b8", None])
+sources.append(["spec-loading-1.0", "spec-loading", "1.0", ["et_xmlfile", "jdcal"]])
 
 
 @pytest.mark.parametrize("archive_fixture", ["mock_targz", "mock_zip", "mock_fs"])

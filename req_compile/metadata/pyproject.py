@@ -6,10 +6,10 @@ import shutil
 import sys
 import tempfile
 import threading
+from io import StringIO
 from typing import Any, Mapping, Optional
 
 import toml
-from six.moves import StringIO
 
 from ..containers import DistInfo
 from .dist_info import _fetch_from_wheel, _parse_flat_metadata
@@ -86,6 +86,10 @@ def fetch_from_pyproject(source_file):
 
     try:
         build_system = pyproject["build-system"]
+        backend_name = build_system["build-backend"]
+        # If the backend is setuptools, rely on req-compile's setup.py heuristics instead
+        if backend_name == "setuptools.build_meta":
+            return None
         backend = _create_build_backend(build_system)
     except KeyError:
         LOG.debug("No build-system in the pyproject.toml")

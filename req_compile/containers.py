@@ -1,43 +1,154 @@
+import itertools
+import logging
 import os
 import shutil
-from typing import Any, Iterable, Optional, Tuple
+from dataclasses import dataclass, field
+from typing import Any, Iterable, Iterator, List, Optional, Tuple
 
+import packaging.requirements
 import packaging.version
 import pkg_resources
 
 from req_compile import utils
-from req_compile.utils import filter_req, reduce_requirements
+from req_compile.utils import reduce_requirements
+
+
+def req_uses_extra(req: pkg_resources.Requirement, extra: Optional[str]) -> bool:
+    """Determine if this requirement would be used with the given extra.
+
+    If a distribution is requested with one of its extras, this filter will determine
+    if the given requirement in its install requirements is provided. All base
+    requirements that don't require the extra will also be included.
+    """
+    if extra and not req.marker:
+        return False
+    keep_req = True
+    if req.marker:
+        extras = {"extra": ""}
+        if extra:
+            extras = {"extra": extra}
+        keep_req = req.marker.evaluate(extras)
+    return keep_req
 
 
 class RequirementContainer(object):
-    """A container for a list of requirements"""
+    """A container for a list of requirements."""
 
-    def __init__(self, name, reqs, meta=False):
-        # type: (str, Iterable[pkg_resources.Requirement], bool) -> None
+    def __init__(
+        self,
+        name: str,
+        reqs: Iterable[pkg_resources.Requirement],
+        meta: bool = False,
+    ) -> None:
         self.name = name
         self.reqs = list(reqs) if reqs else []
-        self.origin = None
+        self.origin: Any = None
         self.meta = meta
-        self.version = None  # type: Optional[packaging.version.Version]
+        self.version: Optional[packaging.version.Version] = None
+        self.hash: Optional[str] = None
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[pkg_resources.Requirement]:
         return iter(self.reqs)
 
     def requires(self, extra=None):
         # type: (str) -> Iterable[pkg_resources.Requirement]
-        return reduce_requirements(req for req in self.reqs if filter_req(req, extra))
+        return reduce_requirements(
+            req for req in self.reqs if req_uses_extra(req, extra)
+        )
 
-    def to_definition(self, extras):
-        # type: (Optional[Iterable[str]]) -> Tuple[str, Optional[packaging.version.Version]]
+    def to_definition(
+        self, extras: Optional[Iterable[str]]
+    ) -> Tuple[str, Optional[packaging.version.Version]]:
         raise NotImplementedError()
+
+
+def _req_iter_from_file(
+    reqfile_name: str, parameters: List[str]
+) -> Iterable[pkg_resources.Requirement]:
+    """Create an iterator to step through a requirements file."""
+    with open(reqfile_name, "r") as reqfile:
+        full_line = ""
+        continuation = False
+
+        for req_line in reqfile:
+            req_line = req_line.strip()
+            if not req_line:
+                continue
+
+            if req_line.startswith("#"):
+                continue
+
+            if continuation or not full_line:
+                full_line += req_line
+
+            if "\\" in req_line:
+                if req_line[-1] != "\\":
+                    raise ValueError(
+                        "Line continuation marker \\ must be last character in a line"
+                    )
+                continuation = True
+                continue
+
+            continuation = False
+
+            line_parts = full_line.split()
+            if line_parts[0] in ("-r", "--requirement"):
+                for req in _req_iter_from_file(
+                    os.path.join(
+                        os.path.dirname(reqfile_name), full_line.split(" ")[1].strip()
+                    ),
+                    parameters,
+                ):
+                    yield req
+            elif line_parts[0].startswith("-"):
+                parameters.extend(line_parts)
+            else:
+                try:
+                    yield utils.parse_requirement(full_line)
+                except ValueError:
+                    logging.getLogger("req_compile.utils").exception(
+                        "Failed to parse %s", full_line
+                    )
+                    raise
+
+            full_line = ""
+
+
+def reqs_from_files(
+    requirements_files: Iterable[str], parameters: List[str] = None
+) -> Iterable[pkg_resources.Requirement]:
+    """Produce a list of requirements from multiple requirements files.
+
+    Args:
+        requirements_files: Paths to requirements files to load.
+        parameters: Container gathering all extra parameters in the files.
+
+    Returns:
+        Iterable of requirements in order loaded from the given requirements files.
+    """
+    if parameters is None:
+        parameters = []
+    raw_reqs: Iterable[pkg_resources.Requirement] = iter([])
+    for reqfile_name in requirements_files:
+        raw_reqs = itertools.chain(
+            raw_reqs, _req_iter_from_file(reqfile_name, parameters=parameters)
+        )
+
+    return list(raw_reqs)
 
 
 class RequirementsFile(RequirementContainer):
     """Represents a requirements file - a text file containing a list of requirements"""
 
-    def __init__(self, filename, reqs, **_kwargs):
-        # type: (str, Iterable[pkg_resources.Requirement], **Any) -> None
+    def __init__(
+        self,
+        filename: str,
+        reqs: Iterable[pkg_resources.Requirement],
+        parameters: List[str] = None,
+        **_kwargs: Any
+    ) -> None:
         super(RequirementsFile, self).__init__(filename, reqs, meta=True)
+        self.parameters = parameters
 
     def __repr__(self):
         # type: () -> str
@@ -54,10 +165,11 @@ class RequirementsFile(RequirementContainer):
         Keyword Args:
             Additional arguments to forward to the class constructor
         """
-        reqs = utils.reqs_from_files([full_path])
-        return cls(full_path, reqs, **kwargs)
+        parameters: List[str] = []
+        reqs = reqs_from_files([full_path], parameters=parameters)
+        return cls(full_path, reqs, parameters=parameters, **kwargs)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
     def to_definition(self, extras):
@@ -69,7 +181,7 @@ class DistInfo(RequirementContainer):
     """Metadata describing a distribution of a project"""
 
     def __init__(self, name, version, reqs, meta=False):
-        # type: (str, packaging.version.Version, Iterable[pkg_resources.Requirement], bool) -> None
+        # type: (str, Optional[packaging.version.Version], Iterable[pkg_resources.Requirement], bool) -> None
         """
         Args:
             name: The project name
@@ -104,35 +216,26 @@ class DistInfo(RequirementContainer):
 
 
 class PkgResourcesDistInfo(RequirementContainer):
-    def __init__(self, dist):
-        # type: (pkg_resources.Distribution) -> None
+    def __init__(self, dist: pkg_resources.Distribution) -> None:
         """
         Args:
             dist: The distribution to wrap
         """
         super(PkgResourcesDistInfo, self).__init__(dist.project_name, [])
         self.dist = dist
-        self.version = dist.parsed_version  # type: ignore
+        self.version = dist.parsed_version
 
-    def __str__(self):
-        # type: () -> str
+    def __str__(self) -> str:
         return "{}=={}".format(*self.to_definition(None))
 
-    def requires(self, extra=None):
-        # type: (str) -> Iterable[pkg_resources.Requirement]
+    def requires(self, extra: str = None) -> Iterable[pkg_resources.Requirement]:
         return self.dist.requires(extras=(extra,) if extra else ())
 
-    def to_definition(self, extras):
-        # type: (Optional[Iterable[str]]) -> Tuple[str, Optional[packaging.version.Version]]
+    def to_definition(
+        self, extras: Optional[Iterable[str]]
+    ) -> Tuple[str, Optional[packaging.version.Version]]:
         req_expr = "{}{}".format(
             self.dist.project_name,
             ("[" + ",".join(sorted(extras)) + "]") if extras else "",
         )
         return req_expr, self.version
-
-    def __del__(self):
-        # type: () -> None
-        try:
-            shutil.rmtree(os.path.join(self.dist.location, ".."))
-        except EnvironmentError:
-            pass

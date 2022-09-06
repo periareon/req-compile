@@ -1,12 +1,10 @@
+from io import StringIO
 import os
 
 import pkg_resources
 import pytest
 
-from six import StringIO
-
-from req_compile.cmdline import compile_main, _create_input_reqs
-
+from req_compile.cmdline import _create_input_reqs, compile_main
 from req_compile.containers import DistInfo
 from req_compile.repos.findlinks import FindLinksRepository
 from req_compile.repos.pypi import PyPIRepository
@@ -28,8 +26,8 @@ def compile_mock(basic_compile_mock, mocker):
     mocker.patch("req_compile.cmdline._create_input_reqs")
     mocker.patch("os.path.exists")
     mocker.patch("os.listdir")
-    mocker.patch("req_compile.repos.solution.load_from_file")
-    mocker.patch("req_compile.repos.repository.process_distribution")
+    mocker.patch("req_compile.repos.solution.SolutionRepository.load_from_file")
+    mocker.patch("req_compile.repos.repository.filename_to_candidate")
     return basic_compile_mock
 
 

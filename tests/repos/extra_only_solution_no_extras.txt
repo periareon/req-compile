@@ -1,0 +1,3 @@
+normal_project==2.8                   # extra_only[an_extra]
+extra_only==1.0                       # input.txt
+

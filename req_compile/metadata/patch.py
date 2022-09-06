@@ -1,9 +1,15 @@
 """Patching modules and objects"""
 import contextlib
 import sys
+import types
+from typing import Any, Iterator, Optional, Tuple, Union
+
+PatchToken = Tuple[types.ModuleType, str, Any]
 
 
-def begin_patch(module, member, new_value):
+def begin_patch(
+    module: Union[str, types.ModuleType], member: str, new_value: Any
+) -> Optional[PatchToken]:
     if isinstance(module, str):
         if module not in sys.modules:
             return None
@@ -18,7 +24,7 @@ def begin_patch(module, member, new_value):
     return module, member, old_member
 
 
-def end_patch(token):
+def end_patch(token: Optional[PatchToken]) -> None:
     if token is None:
         return
 
@@ -30,7 +36,7 @@ def end_patch(token):
 
 
 @contextlib.contextmanager
-def patch(*args):
+def patch(*args: Any) -> Iterator:
     """Manager a patch in a contextmanager"""
     tokens = []
     for idx in range(0, len(args), 3):

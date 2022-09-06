@@ -1,13 +1,14 @@
+import configparser
 import os
 import sys
+from typing import Iterable, Optional
 
 import appdirs  # type: ignore
-from six.moves import configparser
 
 CONFIG_BASENAME = "pip.ini" if sys.platform == "win32" else "pip.conf"
 
 
-def _get_config_paths():
+def _get_config_paths() -> Iterable[str]:
     user_dir = appdirs.user_config_dir("pip", appauthor=False, roaming=True)
     site_dir = appdirs.site_config_dir("pip", appauthor=False, multipath=True)
 
@@ -25,13 +26,13 @@ def _get_config_paths():
     return config_files
 
 
-def read_pip_default_index():
+def read_pip_default_index() -> Optional[str]:
     config_files = _get_config_paths()
 
     config = configparser.ConfigParser()
     config.read(config_files)
 
     try:
-        return config.get("global", "index-url")
+        return config.get("global", "index-url", fallback=None)
     except configparser.NoSectionError:
         return None

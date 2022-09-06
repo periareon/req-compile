@@ -1,10 +1,15 @@
 import os
 import re
+from typing import Optional, Tuple
+
+import packaging.version
 
 from req_compile import utils
 
 
-def parse_source_filename(full_filename):
+def parse_source_filename(
+    full_filename: str,
+) -> Tuple[str, Optional[packaging.version.Version]]:
     filename = full_filename.replace(".tar.gz", "")
     filename = filename.replace(".tar.bz2", "")
     filename = filename.replace(".zip", "")

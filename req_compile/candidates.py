@@ -18,7 +18,7 @@ from req_compile.repos.repository import filter_candidates, sort_candidates
 from req_compile.repos.source import SourceRepository
 
 
-def candidates_main():
+def candidates_main() -> None:
     parser = argparse.ArgumentParser()
     group = parser.add_argument_group("Candidate")
     group.add_argument(
@@ -69,8 +69,8 @@ def candidates_main():
     start = time.time()
     wheeldir = tempfile.mkdtemp(suffix="-wheeldir")
     repo = build_repo(
-        None,
-        None,
+        [],
+        [],
         args.sources,
         args.excluded_sources,
         args.find_links,

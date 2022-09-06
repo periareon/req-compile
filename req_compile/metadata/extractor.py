@@ -1,56 +1,77 @@
 """Extractors for Python distribution archive types"""
+from __future__ import annotations
+
+import abc
+import codecs
 import io
 import logging
 import os
 import shutil
 import tarfile
 import zipfile
+from io import BytesIO
+from types import TracebackType
+from typing import (
+    IO,
+    Any,
+    AnyStr,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Type,
+    Union,
+    cast,
+)
 
-import six
-from six import BytesIO
+from typing_extensions import Literal
 
 LOG = logging.getLogger("req_compile.extractor")
 
 
-class Extractor(object):
+class Extractor(metaclass=abc.ABCMeta):
     """Abstract base class for file extractors. These classes operate on archive files or directories in order
     to expose files to metadata analysis and executing setup.pys.
     """
 
-    def __init__(self, extractor_type, file_or_path):
+    def __init__(self, extractor_type: str, file_or_path: str) -> None:
         self.logger = LOG.getChild(extractor_type)
-        self.fake_root = os.path.abspath(os.sep + os.path.basename(file_or_path))
+        self.fake_root: str = os.path.abspath(os.sep + os.path.basename(file_or_path))
         self.io_open = io.open
-        self.renames = {}
+        self.renames: Dict[Union[str, int], Union[str, int]] = {}
 
-    def contains_path(self, path):
+    def contains_path(self, path: str) -> bool:
         """Whether or not the archive contains the given path, based on the fake root.
         Returns:
             (bool)
         """
         return os.path.abspath(path).startswith(self.fake_root)
 
-    def add_rename(self, name, new_name):
+    def add_rename(self, name: str, new_name: str) -> None:
         """Add a rename entry for a file in the archive"""
         self.renames[self.to_relative(new_name)] = self.to_relative(name)
 
-    def open(self, file, mode="r", encoding=None, **_kwargs):
+    def open(
+        self, file: str, mode: str = "r", encoding: str = None, **_kwargs: Any
+    ) -> IO[str]:
         """Open a real file or a file within the archive"""
         relative_filename = self.to_relative(file)
         if (
-            isinstance(file, int)
+            isinstance(relative_filename, int)
             or file == os.devnull
             or os.path.isabs(relative_filename)
         ):
             return self.io_open(file, mode=mode, encoding=encoding)
 
-        kwargs = {}
-        if "b" not in mode:
-            kwargs = {"encoding": encoding or "ascii"}
         handle = self._open_handle(relative_filename)
-        return WithDecoding(handle, **kwargs)
+        if "b" in mode:
+            return handle
 
-    def names(self):
+        return cast(IO[str], WithDecoding(handle, encoding or "ascii"))
+
+    @abc.abstractmethod
+    def names(self) -> Iterable[str]:
         """Fetch all names within the archive
 
         Returns:
@@ -58,20 +79,26 @@ class Extractor(object):
         """
         raise NotImplementedError
 
-    def _open_handle(self, filename):
+    @abc.abstractmethod
+    def _open_handle(self, filename: str) -> Any:
         raise NotImplementedError
 
-    def _check_exists(self, filename):
+    @abc.abstractmethod
+    def _check_exists(self, filename: str) -> bool:
         raise NotImplementedError
 
-    def exists(self, filename):
+    def exists(self, filename: Union[str, int]) -> bool:
         """Check whether a file or directory exists within the archive. Will not check non-archive files"""
-        return self._check_exists(self.to_relative(filename))
+        relative_fd = self.to_relative(filename)
+        if isinstance(relative_fd, int):
+            return os.path.exists(filename)
 
-    def close(self):
-        pass
+        return self._check_exists(relative_fd)
 
-    def to_relative(self, filename):
+    def close(self) -> None:
+        raise NotImplementedError
+
+    def to_relative(self, filename: Union[str, int]) -> Union[str, int]:
         """Convert a path to an archive relative path if possible. If the target file is not
         within the archive, the path will be returned as is
 
@@ -96,11 +123,12 @@ class Extractor(object):
         if result.startswith("./"):
             result = result[2:]
 
+        mapped_result: Union[str, int] = result
         if result in self.renames:
-            result = self.renames[result]
-        return result
+            mapped_result = self.renames[result]
+        return mapped_result
 
-    def contents(self, name):
+    def contents(self, name: str) -> str:
         """Read the full contents of a file opened with Extractor.open
 
         Returns:
@@ -109,20 +137,20 @@ class Extractor(object):
         with self.open(name, encoding="utf-8") as handle:
             return handle.read()
 
-    def extract(self, target_dir):
-        # type: (str) -> None
+    @abc.abstractmethod
+    def extract(self, target_dir: str) -> None:
         raise NotImplementedError
 
 
 class NonExtractor(Extractor):
     """An extractor that operates on the filesystem directory instead of an archive"""
 
-    def __init__(self, path):
+    def __init__(self, path: str) -> None:
         super(NonExtractor, self).__init__("fs", path)
         self.path = path
         self.os_path_exists = os.path.exists
 
-    def names(self):
+    def names(self) -> Iterable[str]:
         for root, _, files in os.walk(self.path):
             rel_root = root.replace(self.path, ".").replace("\\", "/")
             if rel_root != ".":
@@ -132,7 +160,7 @@ class NonExtractor(Extractor):
             for filename in files:
                 yield rel_root + filename
 
-    def extract(self, target_dir):
+    def extract(self, target_dir: str) -> None:
         # Copy the entire file tree to the target directory
         for filename in os.listdir(self.path):
             path = os.path.join(self.path, filename)
@@ -141,142 +169,120 @@ class NonExtractor(Extractor):
             else:
                 shutil.copy2(path, target_dir)
 
-    def _check_exists(self, filename):
+    def _check_exists(self, filename: str) -> bool:
         return self.os_path_exists(self.path + "/" + filename)
 
-    def _open_handle(self, filename):
-        try:
-            return self.io_open(os.path.join(self.path, filename), "rb")
-        except KeyError:
-            raise IOError("Could not find {}".format(filename))
+    def _open_handle(self, filename: str) -> IO[bytes]:
+        return self.io_open(os.path.join(self.path, filename), "rb")
 
-    def close(self):
+    def close(self) -> None:
         pass
 
 
 class TarExtractor(Extractor):
     """An extractor for tar files. Accepts an additional first parameter for the decoding codec"""
 
-    def __init__(self, ext, filename):
+    def __init__(self, ext: Literal["gz"], filename: str):
         super(TarExtractor, self).__init__("tar", filename)
         self.tar = tarfile.open(filename, "r:" + ext)
         self.io_open = io.open
 
-    def names(self):
+    def names(self) -> Iterable[str]:
         return (info.name for info in self.tar.getmembers() if info.type != b"5")
 
-    def _check_exists(self, filename):
+    def _check_exists(self, filename: str) -> bool:
         try:
             self.tar.getmember(filename)
             return True
         except KeyError:
             return False
 
-    def extract(self, target_dir):
-        old_dir = os.getcwd()
-        os.chdir(target_dir)
-        try:
-            self.tar.extractall()
-        finally:
-            os.chdir(old_dir)
+    def extract(self, target_dir: str) -> None:
+        self.tar.extractall(path=target_dir)
 
-    def _open_handle(self, filename):
+    def _open_handle(self, filename: str) -> Any:
         try:
             return self.tar.extractfile(filename)
         except KeyError:
             raise IOError("Could not find {}".format(filename))
 
-    def close(self):
+    def close(self) -> None:
         self.tar.close()
 
 
 class ZipExtractor(Extractor):
     """An extractor for zip files"""
 
-    def __init__(self, filename):
+    def __init__(self, filename: str) -> None:
         super(ZipExtractor, self).__init__("gz", filename)
         self.zfile = zipfile.ZipFile(os.path.abspath(filename), "r")
         self.io_open = io.open
 
-    def names(self):
+    def names(self) -> Iterable[str]:
         return (name for name in self.zfile.namelist() if name[-1] != "/")
 
-    def _check_exists(self, filename):
+    def _check_exists(self, filename: str) -> bool:
         try:
             self.zfile.getinfo(filename)
             return True
         except KeyError:
             return any(name.startswith(filename + "/") for name in self.names())
 
-    def extract(self, target_dir):
-        old_dir = os.getcwd()
-        os.chdir(target_dir)
-        try:
-            self.zfile.extractall()
-        finally:
-            os.chdir(old_dir)
+    def extract(self, target_dir: str) -> None:
+        self.zfile.extractall(path=target_dir)
 
-    def _open_handle(self, filename):
+    def _open_handle(self, filename: str) -> Any:
         try:
             return BytesIO(self.zfile.read(filename))
         except KeyError:
             raise IOError("Could not find {}".format(filename))
 
-    def close(self):
+    def close(self) -> None:
         self.zfile.close()
 
 
-class WithDecoding(object):
-    """Wrap a file object and handle decoding for Python 2 and Python 3"""
+class WithDecoding:
+    """Wrap a file object and handle decoding."""
 
-    def __init__(self, wrap, encoding=None):
+    def __init__(self, wrap: IO[bytes], encoding: str) -> None:
+        super().__init__()
         if wrap is None:
-            raise IOError("File not found")
-        self.file = wrap
-        self.encoding = encoding
-        self.iter = iter(self)
+            raise FileNotFoundError
 
-    def _do_decode(self, results):
-        if six.PY3 and self.encoding and isinstance(results, bytes):
-            results = results.decode(self.encoding, "ignore")
-        if six.PY2:
-            results = str("".join([i if ord(i) < 128 else " " for i in results]))
-        return results
+        self.wrap = wrap
+        self.reader = codecs.getreader(encoding)(wrap)
 
-    def read(self, nbytes=None):
-        results = self.file.read(nbytes)
-        return self._do_decode(results)
+    def read(self, __n: int = 1024 * 1024) -> str:
+        return self.reader.read(__n)
 
-    def readline(self):
-        results = self.file.readline()
-        return self._do_decode(results)
+    def readline(self, __limit: int = None) -> str:
+        return self.reader.readline(__limit)
 
-    def readlines(self):
-        results = self.file.readlines()
-        return [self._do_decode(result) for result in results]
+    def readlines(self, __hint: int = None) -> List[str]:
+        return self.reader.readlines(__hint)
 
-    def write(self, *args, **kwargs):
+    def write(self, data: Any) -> int:
         pass
 
-    def __getattr__(self, item):
-        return getattr(self.file, item)
+    def __getattr__(self, item: str) -> Any:
+        return getattr(self.wrap, item)
 
-    def __iter__(self):
-        if self.encoding:
-            return (self._do_decode(line) for line in self.file)
-        return iter(self.file)
+    def __iter__(self) -> Iterator[str]:
+        return iter(self.reader)
 
-    def __next__(self):
-        return next(self.iter)
+    def __next__(self) -> str:
+        return next(self.reader)
 
-    def next(self):
-        return next(self.iter)
-
-    def __enter__(self):
+    def __enter__(self) -> WithDecoding:
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc: Optional[BaseException],
+        traceback: Optional[TracebackType],
+    ) -> None:
         pass
 
-    def close(self):
-        pass
+    def close(self) -> None:
+        self.wrap.close()

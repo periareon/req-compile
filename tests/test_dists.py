@@ -1,8 +1,8 @@
 import pkg_resources
 from pkg_resources import Requirement
 
-from req_compile.dists import DistributionCollection
 from req_compile.containers import DistInfo
+from req_compile.dists import DistributionCollection
 
 
 def test_unconstrained():
@@ -155,9 +155,9 @@ def test_repo_with_extra():
 
     lines = dists.generate_lines({root})
     assert sorted(lines) == [
-        (("a[test]", "1.0.0"), "root"),
-        (("b", "2.0.0"), "a[test]"),
-        (("c", "2.0.0"), "a"),
+        (("a[test]", "1.0.0", None), "root"),
+        (("b", "2.0.0", None), "a[test]"),
+        (("c", "2.0.0", None), "a"),
     ]
 
 

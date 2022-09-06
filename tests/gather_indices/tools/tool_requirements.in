@@ -1,0 +1,7 @@
+--index-url https://tools/simple
+
+tool_req1
+
+-e ../../tool_project
+
+--extra-index-url https://tools/prebuilt/simple

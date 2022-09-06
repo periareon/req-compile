@@ -1,5 +1,7 @@
-from __future__ import print_function
+from __future__ import annotations
 
+import abc
+import distutils.util  # pylint: disable=import-error,no-name-in-module,no-member
 import enum
 import logging
 import os
@@ -7,12 +9,10 @@ import platform
 import re
 import sys
 import sysconfig
-from typing import Iterable, Optional, Sequence, Tuple, Any, Union, Set
-import distutils.util  # pylint: disable=import-error,no-name-in-module,no-member
+from typing import Any, Iterable, Iterator, Optional, Sequence, Set, Tuple, Type, Union
 
 import packaging.version
 import pkg_resources
-import six
 
 import req_compile.errors
 import req_compile.utils
@@ -43,22 +43,19 @@ LEGACY_ALIASES = {
 MANYLINUX_REGEX = r"manylinux_([0-9]+)_([0-9]+)_(.*)"
 
 
-def _get_platform_tags():
-    # type: () -> Sequence[str]
+def _get_platform_tags() -> Sequence[str]:
     if sys.platform == "darwin":
         version, _, arch = platform.mac_ver()
         major, minor_str = version.split(".")[:2]
         mac_tags = []
         minor = int(minor_str)
         while minor >= 6:
-            mac_tags.append(
-                "macosx_{major}_{minor}_{arch}".format(
-                    major=major, minor=minor, arch=arch
+            for arch_tag in (arch, "intel", "universal2"):
+                mac_tags.append(
+                    "macosx_{major}_{minor}_{arch}".format(
+                        major=major, minor=minor, arch=arch_tag
+                    )
                 )
-            )
-            mac_tags.append(
-                "macosx_{major}_{minor}_intel".format(major=major, minor=minor)
-            )
             minor -= 1
         return mac_tags
 
@@ -66,12 +63,12 @@ def _get_platform_tags():
     return (plat.replace(".", "_").replace("-", "_"),)
 
 
-def get_system_arch():
+def get_system_arch() -> str:
     uname_info = platform.uname()
     return uname_info[4]
 
 
-def manylinux_tag_is_compatible_with_this_system(tag):
+def manylinux_tag_is_compatible_with_this_system(tag: str) -> bool:
     # Pulled from PEP 600
     # Normalize and parse the tag
     glibc_version = get_glibc_version()
@@ -100,6 +97,7 @@ def manylinux_tag_is_compatible_with_this_system(tag):
         pass
     else:
         if hasattr(_manylinux, "manylinux_compatible"):
+            # pylint: disable=no-member
             result = _manylinux.manylinux_compatible(
                 tag_major,
                 tag_minor,
@@ -110,11 +108,12 @@ def manylinux_tag_is_compatible_with_this_system(tag):
         else:
             if (tag_major, tag_minor) == (2, 5):
                 if hasattr(_manylinux, "manylinux1_compatible"):
+                    # pylint: disable=no-member
                     return bool(_manylinux.manylinux1_compatible)
             if (tag_major, tag_minor) == (2, 12):
                 if hasattr(_manylinux, "manylinux2010_compatible"):
+                    # pylint: disable=no-member
                     return bool(_manylinux.manylinux2010_compatible)
-
     return True
 
 
@@ -143,7 +142,7 @@ ABI_TAGS = ("abi" + str(sys.version_info.major), _get_abi_tag())
 class RepositoryInitializationError(ValueError):
     """Failure to initialize a repository"""
 
-    def __init__(self, repo_type, message):
+    def __init__(self, repo_type: Type[Repository], message: str) -> None:
         super(RepositoryInitializationError, self).__init__(message)
         self.type = repo_type
 
@@ -154,8 +153,8 @@ class DistributionType(enum.IntEnum):
     SDIST = 0
 
 
-class PythonVersionRequirement(object):
-    def check_compatibility(self):
+class PythonVersionRequirement:
+    def check_compatibility(self) -> bool:
         raise NotImplementedError
 
 
@@ -186,7 +185,7 @@ def _is_py_version_compatible(py_version):
     return False
 
 
-def _py_version_score(py_version):
+def _py_version_score(py_version: str) -> int:
     # Integer will look like:
     # 0xMNAABB where
     # A is the first digit of the implementation code (e.g. cp for Cython)
@@ -235,7 +234,9 @@ class WheelVersionTags(PythonVersionRequirement):
 
         return ".".join(sorted(self.py_versions))
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, WheelVersionTags):
+            return False
         return self.py_versions == other.py_versions
 
     @property
@@ -258,7 +259,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
         py_version,  # type: Optional[WheelVersionTags]
         abi,  # type: Optional[str]
         plats,  # type: Union[str, Iterable[str]]
-        link,  # type: Optional[str]
+        link,  # type: Any
         candidate_type=DistributionType.SDIST,  # type: DistributionType
         extra_sort_info="",  # type: str
     ):
@@ -281,7 +282,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
         )  # type: packaging.version.Version
         self.py_version = py_version
         self.abi = abi
-        if isinstance(plats, six.string_types):
+        if isinstance(plats, str):
             self.platforms = {plats}
         else:
             self.platforms = set(plats)
@@ -344,9 +345,7 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
 
         # Spaces in source dist filenames penalize them in the search order
         extra_score = (
-            0
-            if isinstance(self.filename, six.string_types) and " " in self.filename
-            else 1
+            0 if isinstance(self.filename, str) and " " in self.filename else 1
         )
         return py_version_score, plat_score, abi_score, extra_score
 
@@ -388,28 +387,41 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
         )
 
 
-def process_distribution(source, filename):
-    # type: (str, str) -> Optional[Candidate]
-    candidate = None
-    if filename.endswith(".egg"):
+def filename_to_candidate(source: Any, filename: str) -> Optional[Candidate]:
+    """Create a candidate from a given filename. The source is used to download the
+    candidate if necessary.
+
+    Args:
+
+    """
+    _, ext = os.path.splitext(filename)
+    ext = ext.lower()
+    if ext == ".egg":
         return None
-    if ".whl" in filename:
-        candidate = _wheel_candidate(source, filename)
-    elif (
-        ".tar.gz" in filename
-        or ".tgz" in filename
-        or ".zip" in filename
-        or ".tar.bz2" in filename
-    ):
+
+    if ext == ".whl":
+        return _wheel_filename_to_candidate(source, filename)
+
+    if ext in (".gz", ".tgz", ".zip", ".tar", ".bz2"):
         # Best effort skip of dumb binary distributions
         if ".linux-" in filename or ".win-" in filename or ".macosx-" in filename:
             return None
-        candidate = _tar_gz_candidate(source, filename)
-    return candidate
+        return _tar_gz_filename_to_candidate(source, filename)
+    return None
 
 
-def _wheel_candidate(source, filename):
-    # type: (str, str) -> Optional[Candidate]
+def _wheel_filename_to_candidate(source: Any, filename: str) -> Optional[Candidate]:
+    """Produce a candidate from a wheel filename.
+
+    Args:
+        source: Source of the wheel, like a webpage link or a findlinks path.
+        filename: Filename to parse to produce the candidate.
+
+    Returns:
+        The candidate from the wheel name if possible, providing name, version,
+        compatibility information to use when selecting which distributions to actually
+        download.
+    """
     filename = os.path.basename(filename)
     data_parts = filename[:-4].split("-")
     if len(data_parts) < 5:
@@ -442,17 +454,28 @@ def _wheel_candidate(source, filename):
     )
 
 
-def _tar_gz_candidate(source, filename):
-    # type: (str, str) -> Candidate
+def _tar_gz_filename_to_candidate(source: Tuple[str, str], filename: str) -> Candidate:
+    """Create a candidate from a source distribution filename.
+
+    Args:
+        source: The original link or filename that this source dist came from.
+        filename: The filename to parse to produce a candidate.
+
+    Returns:
+        The candidate providing name, version, compatibility information to use when
+            selecting which distributions to actually download.
+    """
     name, version = parse_source_filename(os.path.basename(filename))
+    if version is None:
+        version = parse_version("0.0+missing")
     return Candidate(
         name,
         filename,
         version,
-        None,
-        None,
-        "any",
-        source,
+        py_version=None,  # Can't tell Python versions supported by filename
+        abi=None,
+        plats="any",
+        link=source,
         candidate_type=DistributionType.SDIST,
     )
 
@@ -474,22 +497,6 @@ def _check_abi_compatibility(abi):
     return abi in ABI_TAGS
 
 
-class BaseRepository(object):
-    def get_candidate(self, req, max_downgrade=None):
-        # type: (pkg_resources.Requirement, int) -> Tuple[RequirementContainer, bool]
-        """Fetch the best matching candidate for the given requirement
-
-        Args:
-            req: Requirement to find a match for
-            max_downgrade: Maximum number of different versions to try if
-                metadata parsing fails
-
-        Returns:
-            Tuple of the best matching candidate and whether or not the result came from a cache
-        """
-        raise NotImplementedError()
-
-
 class CantUseReason(enum.Enum):
     U_CAN_USE = 0
     WRONG_PYTHON_VERSION = 2
@@ -501,8 +508,7 @@ class CantUseReason(enum.Enum):
     WRONG_ABI = 8
 
 
-def sort_candidates(candidates):
-    # type: (Iterable[Candidate]) -> Sequence[Candidate]
+def sort_candidates(candidates: Iterable[Candidate]) -> Sequence[Candidate]:
     """Sort candidates for highest compatibility and version
 
     Args:
@@ -514,8 +520,12 @@ def sort_candidates(candidates):
     return sorted(candidates, key=lambda x: x.sortkey, reverse=True)
 
 
-def check_usability(req, candidate, has_equality=None, allow_prereleases=False):
-    # type: (pkg_resources.Requirement, Candidate, bool, bool) -> Optional[CantUseReason]
+def check_usability(
+    req: Optional[pkg_resources.Requirement],
+    candidate: Candidate,
+    has_equality: bool = False,
+    allow_prereleases: bool = False,
+) -> Optional[CantUseReason]:
     if (
         candidate.py_version is not None
         and not candidate.py_version.check_compatibility()
@@ -539,21 +549,26 @@ def check_usability(req, candidate, has_equality=None, allow_prereleases=False):
     return None
 
 
-def filter_candidates(req, candidates, allow_prereleases=False):
-    # type: (pkg_resources.Requirement, Iterable[Candidate], bool) -> Iterable[Candidate]
+def filter_candidates(
+    req: Optional[pkg_resources.Requirement],
+    candidates: Iterable[Candidate],
+    allow_prereleases: bool = False,
+) -> Iterable[Candidate]:
     has_equality = (
         req_compile.utils.is_pinned_requirement(req) if req is not None else False
     )
 
-    for candidate in candidates:
-        usability = check_usability(
+    return [
+        candidate
+        for candidate in candidates
+        if check_usability(
             req,
             candidate,
             has_equality=has_equality,
             allow_prereleases=allow_prereleases,
         )
-        if usability is None:
-            yield candidate
+        is None
+    ]
 
 
 def _is_all_prereleases(candidates):
@@ -564,51 +579,72 @@ def _is_all_prereleases(candidates):
     return all_prereleases
 
 
-class Repository(BaseRepository):
-    def __init__(self, logger_name, allow_prerelease=None):
-        # type: (str, bool) -> None
+class Repository(metaclass=abc.ABCMeta):
+    def __init__(self, logger_name: str, allow_prerelease: bool = None) -> None:
         super(Repository, self).__init__()
         if allow_prerelease is None:
             allow_prerelease = False
         self.logger = logging.getLogger("req_compile.repository").getChild(logger_name)
         self.allow_prerelease = allow_prerelease
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Repository):
+            return False
         return self.allow_prerelease == other.allow_prerelease
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Repository]:
         return iter([self])
 
-    def get_candidates(self, req):
-        # type: (pkg_resources.Requirement) -> Iterable[Candidate]
+    @abc.abstractmethod
+    def get_candidates(
+        self, req: Optional[pkg_resources.Requirement]
+    ) -> Iterable[Candidate]:
         """
-        Fetch all available candidates for a project_name
+        Fetch all available candidates for a given requirement.
+
         Args:
-            req (Requirement): Requirement to get candidates for
+            req (Requirement): Requirement to get candidates for. If None, return all
+                candidates for any requirement in the repository.
 
         Returns:
-            (list[Candidate]) List of candidates
+            List of candidates, provided in the order of best matching the given requirement.
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
-    def resolve_candidate(self, candidate):
-        # type: (Candidate) -> Tuple[Optional[RequirementContainer], bool]
-        raise NotImplementedError()
+    @abc.abstractmethod
+    def resolve_candidate(
+        self, candidate: Candidate
+    ) -> Tuple[RequirementContainer, bool]:
+        """Resolve a candidate into actual usable requirements."""
+        raise NotImplementedError
 
-    def close(self):
-        # type: () -> None
-        raise NotImplementedError()
+    def close(self) -> None:
+        """Clean up any open files or connections."""
 
-    def get_candidate(self, req, max_downgrade=None):
-        # type: (pkg_resources.Requirement, int) -> Tuple[RequirementContainer, bool]
+    def get_dist(
+        self, req: pkg_resources.Requirement, max_downgrade: int = None
+    ) -> Tuple[RequirementContainer, bool]:
+        """Fetch the best matching distribution for the given requirement.
+
+        Args:
+            req: Requirement to find a match for
+            max_downgrade: Maximum number of different versions to try if
+                metadata parsing fails
+
+        Returns:
+            Tuple of the best matching candidate and whether the result came from a cache
+        """
         self.logger.info("Getting candidate for %s", req)
         candidates = self.get_candidates(req)
         return self.do_get_candidate(req, candidates, max_downgrade=max_downgrade)
 
     def do_get_candidate(
-        self, req, candidates, force_allow_prerelease=False, max_downgrade=None
-    ):
-        # type: (pkg_resources.Requirement, Iterable[Candidate], bool, int) -> Tuple[RequirementContainer, bool]
+        self,
+        req: pkg_resources.Requirement,
+        candidates: Iterable[Candidate],
+        force_allow_prerelease: bool = False,
+        max_downgrade: int = None,
+    ) -> Tuple[RequirementContainer, bool]:
         """
         Args:
             req: Requirement to fetch candidate for
@@ -682,5 +718,13 @@ class Repository(BaseRepository):
             allow_prereleases=self.allow_prerelease,
         )
         if reason is None:
+            try:
+                self.resolve_candidate(candidate)
+            except req_compile.errors.MetadataError:
+                return CantUseReason.BAD_METADATA
             return CantUseReason.U_CAN_USE
+
         return reason
+
+
+BaseRepository = Repository

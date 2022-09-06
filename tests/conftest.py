@@ -1,20 +1,19 @@
 import collections
 import logging
 import os
+import tarfile
+import tempfile
 from zipfile import ZipFile
 
 import pkg_resources
 import pytest
 
-import tarfile
-import tempfile
-
 import req_compile.metadata
 import req_compile.metadata.dist_info
 import req_compile.metadata.metadata
+from req_compile.repos.repository import Candidate, Repository
+from req_compile.repos.solution import SolutionRepository
 import req_compile.utils
-from req_compile.repos.repository import Repository, Candidate
-from req_compile.repos.solution import load_from_file
 
 
 @pytest.fixture(autouse=True)
@@ -128,7 +127,7 @@ def mock_metadata(mocker, metadata_provider):
     )
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def mock_targz():
     files_to_delete = []
 
@@ -146,10 +145,11 @@ def mock_targz():
         files_to_delete.append(tar_archive)
         return tar_archive
 
-    yield build_targz
-
-    for archive in files_to_delete:
-        os.remove(archive)
+    try:
+        yield build_targz
+    finally:
+        for archive in files_to_delete:
+            os.remove(archive)
 
 
 @pytest.yield_fixture
@@ -202,7 +202,10 @@ def mock_source():
 @pytest.fixture
 def load_solution():
     def _load(filename):
-        return load_from_file(os.path.join(os.path.dirname(__file__), filename))
+        this_dir = os.path.abspath(os.path.dirname(__file__))
+
+        repo = SolutionRepository(os.path.join(this_dir, filename))
+        return repo.solution
 
     return _load
 
@@ -229,6 +232,10 @@ def mock_py_version(mocker):
         mocker.patch(
             "req_compile.repos.pypi.SYS_PY_MAJOR_MINOR",
             pkg_resources.parse_version(".".join(version.split(".")[:2])),
+        )
+        mocker.patch(
+            "req_compile.repos.repository.ABI_TAGS",
+            (f"abi{major_version}", f"cp{major_version}{minor_version}m"),
         )
 
     return _mock_version

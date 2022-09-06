@@ -1,13 +1,13 @@
 import os
+
 import pkg_resources
-import requests
-
-import responses
 import pytest
+import requests
+import responses
 
-from req_compile.repos.repository import Candidate, WheelVersionTags, DistributionType
 import req_compile.repos.pypi
 from req_compile.repos.pypi import PyPIRepository, check_python_compatibility
+from req_compile.repos.repository import Candidate, DistributionType, WheelVersionTags
 
 INDEX_URL = "https://pypi.org"
 
@@ -64,7 +64,11 @@ def test_pypi_500(mocked_responses, tmpdir):
         repo.get_candidates(pkg_resources.Requirement.parse("numpy"))
 
 
-def test_resolve_new_numpy(mocked_responses, tmpdir, read_contents, mocker):
+def test_resolve_new_numpy(
+    mocked_responses, tmpdir, read_contents, mocker, mock_py_version
+):
+    mock_py_version("3.7.12")
+
     wheeldir = str(tmpdir)
     mocked_responses.add(
         responses.GET,
@@ -88,7 +92,7 @@ def test_resolve_new_numpy(mocked_responses, tmpdir, read_contents, mocker):
     mock_extract.return_value.name = "numpy"
 
     mocker.patch("req_compile.repos.pypi.extract_metadata", mock_extract)
-    candidate, cached = repo.get_candidate(pkg_resources.Requirement.parse("numpy"))
+    candidate, cached = repo.get_dist(pkg_resources.Requirement.parse("numpy"))
     assert candidate is not None
     assert not cached
 
@@ -228,7 +232,9 @@ def test_links_parser_tar_gz_hyph():
 
 def test_tar_gz_dot():
     filename = "backports.html-1.1.0.tar.gz"
-    candidate = req_compile.repos.repository._tar_gz_candidate("test", filename)
+    candidate = req_compile.repos.repository._tar_gz_filename_to_candidate(
+        "test", filename
+    )
 
     assert candidate == Candidate(
         "backports.html",
@@ -244,7 +250,9 @@ def test_tar_gz_dot():
 
 def test_wheel_dot():
     filename = "backports.html-1.1.0-py2.py3-none-any.whl"
-    candidate = req_compile.repos.repository._wheel_candidate("test", filename)
+    candidate = req_compile.repos.repository._wheel_filename_to_candidate(
+        "test", filename
+    )
 
     assert candidate == Candidate(
         "backports.html",
@@ -260,7 +268,9 @@ def test_wheel_dot():
 
 def test_wheel_platform_specific_tags():
     filename = "pywin32-224-cp27-cp27m-win_amd64.whl"
-    candidate = req_compile.repos.repository._wheel_candidate("test", filename)
+    candidate = req_compile.repos.repository._wheel_filename_to_candidate(
+        "test", filename
+    )
 
     assert candidate == Candidate(
         "pywin32",
