@@ -61,14 +61,14 @@ def parse_requirements(reqs):
     # type: (Iterable[str]) -> Iterable[pkg_resources.Requirement]
     """Parse a list of strings into Requirements."""
     for req in reqs:
-        req = req.strip()
+        req = req.strip().rstrip("\\")
         if "\n" in req:
             for inner_req in parse_requirements(req.split("\n")):
                 yield inner_req
         else:
             if not req:
                 continue
-            if req[0] == "#":
+            if req[0] == "#" or req.startswith("--"):
                 continue
             result = parse_requirement(req)
             if result is not None:
