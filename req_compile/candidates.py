@@ -12,9 +12,18 @@ import time
 
 import pkg_resources
 
-from req_compile.cmdline import add_logging_args, add_repo_args, build_repo
+from req_compile.cmdline import (
+    SplitProjectsFilter,
+    add_logging_args,
+    add_repo_args,
+    build_repo,
+)
 from req_compile.repos.pypi import PyPIRepository
-from req_compile.repos.repository import filter_candidates, sort_candidates
+from req_compile.repos.repository import (
+    DistributionType,
+    filter_candidates,
+    sort_candidates,
+)
 from req_compile.repos.source import SourceRepository
 
 
@@ -55,6 +64,12 @@ def candidates_main() -> None:
         action="store_true",
         help="Print projects as paths",
     )
+    group.add_argument(
+        "--only-binary",
+        action=SplitProjectsFilter,
+        default=set(),
+        help="Only accept wheels for the given distributions.",
+    )
     add_logging_args(parser)
     add_repo_args(parser)
     args = parser.parse_args()
@@ -69,14 +84,15 @@ def candidates_main() -> None:
     start = time.time()
     wheeldir = tempfile.mkdtemp(suffix="-wheeldir")
     repo = build_repo(
-        [],
-        [],
-        args.sources,
-        args.excluded_sources,
-        args.find_links,
-        args.index_urls,
-        args.no_index,
-        wheeldir,
+        solutions=[],
+        upgrade_packages=[],
+        sources=args.sources,
+        excluded_sources=args.excluded_sources,
+        find_links=args.find_links,
+        index_urls=args.index_urls,
+        extra_index_urls=args.extra_index_urls,
+        no_index=args.no_index,
+        wheeldir=wheeldir,
         allow_prerelease=args.allow_prerelease,
     )
 
@@ -96,6 +112,12 @@ def candidates_main() -> None:
             )
 
         for candidate in sort_candidates(candidates):
+            if (
+                candidate.type == DistributionType.SDIST
+                and candidate.name in args.only_binary
+            ):
+                continue
+
             if args.paths or args.paths_only:
                 print(candidate.filename, end="")
                 if not args.paths_only:
@@ -114,6 +136,8 @@ def candidates_main() -> None:
             % (total_candidates, " compatible" if not args.all else "", (end - start)),
             file=sys.stderr,
         )
+        if total_candidates == 0:
+            print(f"Searched:\n{repo}", file=sys.stderr)
 
 
 if __name__ == "__main__":

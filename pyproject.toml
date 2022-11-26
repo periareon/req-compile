@@ -2,12 +2,6 @@
 requires = [ "setuptools", "wheel" ]
 build-backend = "setuptools.build_meta"
 
-[tool.sx_setuptools.commands]
-mypy = {}
-pylint = { tests_dir = [] }
-pytest = {}
-
-[tool.sx_setuptools.metadata]
-name = "req-compile"
-compatible_pythons = ["py3"]
-compatible_platforms = ["darwin", "linux", "windows"]
+[tool.mypy]
+implicit_optional = true
+namespace_packages = false

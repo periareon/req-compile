@@ -26,7 +26,8 @@ jobs:
         pip install -r requirements.txt -r test-requirements.txt build --user
     - name: Run mypy
       run: |
-        mypy --install-types req_compile
+        export MYPYPATH=req-compile/stubs
+        mypy req_compile
     - name: Run pylint
       run: |
         pylint req_compile

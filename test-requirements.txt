@@ -2,13 +2,13 @@ pytest
 pytest-mock
 responses
 pylint
-mock
 isort
-mypy ; python_version > '3.5'
-black ; python_version > '3.5'
+mypy
+black
+six
 
 # Type stubs for mypy
-types-toml ; python_version > '3.5'
-types-setuptools ; python_version > '3.5'
-types-requests ; python_version > '3.5'
-types-six ; python_version > '3.5'
+types-toml
+types-setuptools
+types-requests
+types-appdirs

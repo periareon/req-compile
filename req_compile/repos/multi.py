@@ -29,12 +29,19 @@ class MultiRepository(Repository):
 
     @overrides
     def get_dist(
-        self, req: pkg_resources.Requirement, max_downgrade: int = None
+        self,
+        req: pkg_resources.Requirement,
+        allow_source_dist: bool = True,
+        max_downgrade: int = None,
     ) -> Tuple[RequirementContainer, bool]:
         last_ex = NoCandidateException(req)
         for repo in self.repositories:
             try:
-                return repo.get_dist(req, max_downgrade=max_downgrade)
+                return repo.get_dist(
+                    req,
+                    allow_source_dist=allow_source_dist,
+                    max_downgrade=max_downgrade,
+                )
             except NoCandidateException as ex:
                 last_ex = ex
         raise last_ex

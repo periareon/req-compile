@@ -262,7 +262,8 @@ class WithDecoding:
         return self.reader.readlines(__hint)
 
     def write(self, data: Any) -> int:
-        pass
+        del data
+        return 0
 
     def __getattr__(self, item: str) -> Any:
         return getattr(self.wrap, item)

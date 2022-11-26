@@ -19,7 +19,12 @@ import req_compile.utils
 from req_compile.containers import RequirementContainer
 from req_compile.errors import NoCandidateException
 from req_compile.filename import parse_source_filename
-from req_compile.utils import get_glibc_version, normalize_project_name, parse_version
+from req_compile.utils import (
+    NormName,
+    get_glibc_version,
+    normalize_project_name,
+    parse_version,
+)
 
 INTERPRETER_TAGS = {
     "CPython": "cp",
@@ -98,11 +103,7 @@ def manylinux_tag_is_compatible_with_this_system(tag: str) -> bool:
     else:
         if hasattr(_manylinux, "manylinux_compatible"):
             # pylint: disable=no-member
-            result = _manylinux.manylinux_compatible(
-                tag_major,
-                tag_minor,
-                tag_arch,
-            )
+            result = _manylinux.manylinux_compatible(tag_major, tag_minor, tag_arch,)
             if result is not None:
                 return bool(result)
         else:
@@ -506,6 +507,7 @@ class CantUseReason(enum.Enum):
     BAD_METADATA = 6
     NAME_DOESNT_MATCH = 7
     WRONG_ABI = 8
+    SOURCE_DIST_NOT_ALLOWED = 9
 
 
 def sort_candidates(candidates: Iterable[Candidate]) -> Sequence[Candidate]:
@@ -622,26 +624,36 @@ class Repository(metaclass=abc.ABCMeta):
         """Clean up any open files or connections."""
 
     def get_dist(
-        self, req: pkg_resources.Requirement, max_downgrade: int = None
+        self,
+        req: pkg_resources.Requirement,
+        allow_source_dist: bool = True,
+        max_downgrade: int = None,
     ) -> Tuple[RequirementContainer, bool]:
         """Fetch the best matching distribution for the given requirement.
 
         Args:
             req: Requirement to find a match for
+            allow_source_dist: Whether to allow a source distribution for this project.
             max_downgrade: Maximum number of different versions to try if
-                metadata parsing fails
+                metadata parsing fails.
 
         Returns:
             Tuple of the best matching candidate and whether the result came from a cache
         """
         self.logger.info("Getting candidate for %s", req)
         candidates = self.get_candidates(req)
-        return self.do_get_candidate(req, candidates, max_downgrade=max_downgrade)
+        return self.do_get_candidate(
+            req,
+            candidates,
+            allow_source_dist=allow_source_dist,
+            max_downgrade=max_downgrade,
+        )
 
     def do_get_candidate(
         self,
         req: pkg_resources.Requirement,
         candidates: Iterable[Candidate],
+        allow_source_dist: bool = True,
         force_allow_prerelease: bool = False,
         max_downgrade: int = None,
     ) -> Tuple[RequirementContainer, bool]:
@@ -649,6 +661,7 @@ class Repository(metaclass=abc.ABCMeta):
         Args:
             req: Requirement to fetch candidate for
             candidates: Available candidates (any versions, unsorted)
+            allow_source_dist: Whether to allow a source distribution for this project.
             force_allow_prerelease: Override the allow prerelease setting
             max_downgrade: Number of different versions to try. Does not limit number of candidates
                 per version nor make any judgements about the semver
@@ -675,9 +688,16 @@ class Repository(metaclass=abc.ABCMeta):
                     continue
 
                 if candidate.type == DistributionType.SDIST:
-                    self.logger.warning(
-                        "Considering source distribution for %s", candidate.name
-                    )
+                    if allow_source_dist:
+                        self.logger.warning(
+                            "Considering source distribution for %s", candidate.name
+                        )
+                    else:
+                        self.logger.debug(
+                            "Skipping source distribution for %s (due to --only-binary)",
+                            candidate.name,
+                        )
+                        continue
 
                 try:
                     dist, cached = self.resolve_candidate(candidate)
@@ -710,14 +730,21 @@ class Repository(metaclass=abc.ABCMeta):
 
         raise NoCandidateException(req)
 
-    def why_cant_I_use(self, req, candidate):  # pylint: disable=invalid-name
-        # type: (pkg_resources.Requirement, Candidate) -> CantUseReason
+    def why_cant_I_use(
+        self, req, candidate, only_binary=None
+    ):  # pylint: disable=invalid-name
+        # type: (pkg_resources.Requirement, Candidate, Set[NormName]) -> CantUseReason
         reason = check_usability(
-            req,
-            candidate,
-            allow_prereleases=self.allow_prerelease,
+            req, candidate, allow_prereleases=self.allow_prerelease,
         )
-        if reason is None:
+        if reason is None or reason == CantUseReason.U_CAN_USE:
+            if (
+                candidate.type == DistributionType.SDIST
+                and only_binary is not None
+                and candidate.name in only_binary
+            ):
+                return CantUseReason.SOURCE_DIST_NOT_ALLOWED
+
             try:
                 self.resolve_candidate(candidate)
             except req_compile.errors.MetadataError:

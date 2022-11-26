@@ -1,4 +1,5 @@
-import mock
+from unittest import mock
+
 import pkg_resources
 import pytest
 

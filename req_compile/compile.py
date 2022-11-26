@@ -38,12 +38,20 @@ MAX_DOWNGRADE = 3
 LOG = logging.getLogger("req_compile.compile")
 
 
-class CompileOptions(object):
+class AllOnlyBinarySet(set):
+    """A set which contains any item."""
+
+    def __contains__(self, item: object) -> bool:
+        return True
+
+
+class CompileOptions:
     """Static options for a compile_roots"""
 
-    extras = None  # type: Optional[Iterable[str]]
-    allow_circular_dependencies = True
+    extras: Optional[Iterable[str]] = None
+    allow_circular_dependencies: bool = True
     pinned_requirements: Mapping[NormName, pkg_resources.Requirement] = {}
+    only_binary: Set[NormName] = set()
 
 
 def compile_roots(
@@ -122,14 +130,17 @@ def compile_roots(
     else:
         spec_req = node.build_constraints()
 
+        spec_name = normalize_project_name(spec_req.project_name)
         if options.pinned_requirements:
-            pin = options.pinned_requirements.get(
-                normalize_project_name(spec_req.project_name), spec_req
-            )
+            pin = options.pinned_requirements.get(spec_name, spec_req)
             spec_req = merge_requirements(spec_req, pin)
 
         try:
-            metadata, cached = repo.get_dist(spec_req, max_downgrade=max_downgrade)
+            metadata, cached = repo.get_dist(
+                spec_req,
+                allow_source_dist=spec_name not in options.only_binary,
+                max_downgrade=max_downgrade,
+            )
             logger.debug(
                 "Acquired candidate %s %s [%s] (%s)",
                 metadata,
@@ -246,15 +257,14 @@ def compile_roots(
 
 
 def perform_compile(
-    input_reqs,  # type: Iterable[RequirementContainer]
-    repo,  # type: Repository
-    constraint_reqs=None,  # type: Iterable[RequirementContainer]
-    extras=None,  # type: Iterable[str]
-    allow_circular_dependencies=True,  # type: bool
-):
-    # type: (...) -> Tuple[DistributionCollection, Set[DependencyNode]]
-    """
-    Perform a compilation using the given inputs and constraints
+    input_reqs: Iterable[RequirementContainer],
+    repo: Repository,
+    constraint_reqs: Iterable[RequirementContainer] = None,
+    extras: Iterable[str] = None,
+    allow_circular_dependencies: bool = True,
+    only_binary: Set[NormName] = None,
+) -> Tuple[DistributionCollection, Set[DependencyNode]]:
+    """Perform a compilation using the given inputs and constraints.
 
     Args:
         input_reqs:
@@ -265,6 +275,8 @@ def perform_compile(
         extras: Extras to apply automatically to source projects
         constraint_reqs: Constraints to use when compiling
         allow_circular_dependencies: Whether or not to allow circular dependencies
+        only_binary: Set of projects that should only consider binary distributions.
+
     Returns:
         the solution and root nodes used to generate it
     """
@@ -297,6 +309,7 @@ def perform_compile(
     options = CompileOptions()
     options.allow_circular_dependencies = allow_circular_dependencies
     options.extras = extras
+    options.only_binary = only_binary or set()
 
     if all_pinned and constraint_reqs:
         LOG.info("All constraints were pins - no need to solve the constraints")
