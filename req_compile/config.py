@@ -9,8 +9,12 @@ CONFIG_BASENAME = "pip.ini" if sys.platform == "win32" else "pip.conf"
 
 
 def _get_config_paths() -> Iterable[str]:
-    user_dir = appdirs.user_config_dir("pip", appauthor=False, roaming=True)
-    site_dir = appdirs.site_config_dir("pip", appauthor=False, multipath=True)
+    user_dir = appdirs.user_config_dir(
+        "pip", appauthor=False, roaming=True  # type: ignore[arg-type]
+    )
+    site_dir = appdirs.site_config_dir(
+        "pip", appauthor=False, multipath=True  # type: ignore[arg-type]
+    )
 
     config_files = [
         os.path.join(user_dir, CONFIG_BASENAME),
@@ -34,5 +38,7 @@ def read_pip_default_index() -> Optional[str]:
 
     try:
         return config.get("global", "index-url", fallback=None)
+    except configparser.NoOptionError:
+        return None
     except configparser.NoSectionError:
         return None

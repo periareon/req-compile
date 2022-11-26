@@ -152,7 +152,7 @@ def mock_targz():
             os.remove(archive)
 
 
-@pytest.yield_fixture
+@pytest.fixture
 def mock_zip():
     files_to_delete = []
 

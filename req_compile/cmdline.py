@@ -9,8 +9,8 @@ import shutil
 import sys
 import tempfile
 from collections import OrderedDict
-from itertools import groupby, repeat
-from typing import IO, Iterable, List, Mapping, Optional, Sequence, Set
+from itertools import repeat
+from typing import IO, Any, Iterable, List, Mapping, Optional, Sequence, Set, Union
 
 import pkg_resources
 
@@ -21,7 +21,7 @@ import req_compile.metadata
 import req_compile.metadata.metadata
 import req_compile.repos.pypi
 from req_compile import utils
-from req_compile.compile import perform_compile
+from req_compile.compile import AllOnlyBinarySet, perform_compile
 from req_compile.config import read_pip_default_index
 from req_compile.containers import DistInfo, RequirementContainer, RequirementsFile
 from req_compile.errors import NoCandidateException
@@ -30,6 +30,7 @@ from req_compile.repos.multi import MultiRepository
 from req_compile.repos.pypi import IndexType, PyPIRepository
 from req_compile.repos.repository import (
     CantUseReason,
+    DistributionType,
     Repository,
     RepositoryInitializationError,
     sort_candidates,
@@ -40,7 +41,7 @@ from req_compile.repos.solution import (
     SolutionRepository,
 )
 from req_compile.repos.source import SourceRepository
-from req_compile.utils import parse_requirement
+from req_compile.utils import NormName, normalize_project_name, parse_requirement
 from req_compile.versions import is_possible
 
 # Blacklist of requirements that will be filtered out of the output
@@ -64,6 +65,8 @@ def _cantusereason_to_text(
         return "name doesn't match"
     if reason == CantUseReason.WRONG_ABI:
         return "extension ABI mismatch"
+    if reason == CantUseReason.SOURCE_DIST_NOT_ALLOWED:
+        return "source dist not allowed"
     return f"unknown ({reason})"
 
 
@@ -94,6 +97,7 @@ def _generate_no_candidate_display(
     repo: Repository,
     dists: DistributionCollection,
     failure: Exception,
+    only_binary: Set[NormName] = None,
 ) -> None:
     """Print a human friendly display to stderr when compilation fails"""
     failing_node = dists[req.name]
@@ -150,7 +154,7 @@ def _generate_no_candidate_display(
     _print_paths_to_root(failing_node, paths, True)
 
     if can_satisfy and not no_candidates:
-        _dump_repo_candidates(req, repo)
+        _dump_repo_candidates(req, repo, only_binary=only_binary)
 
 
 def _print_paths_to_root(
@@ -197,7 +201,9 @@ def _print_paths_to_root(
 
 
 def _dump_repo_candidates(
-    req: pkg_resources.Requirement, repos: Iterable[Repository]
+    req: pkg_resources.Requirement,
+    repos: Iterable[Repository],
+    only_binary: Set[NormName] = None,
 ) -> None:
     """
     Args:
@@ -211,21 +217,32 @@ def _dump_repo_candidates(
         if candidates:
             attempted_versions = set()
             for num, candidate in enumerate(sort_candidates(candidates)):
+                if not req.specifier.contains(candidate.version):
+                    continue
                 attempted_versions.add(candidate.version)
                 if len(attempted_versions) > req_compile.compile.MAX_DOWNGRADE:
-                    too_old_count = len(candidates) - num
-                    if too_old_count:
+                    remainder = len(candidates) - num
+                    if remainder > 1:
                         print(
-                            "  -- Attempts stopped here ({} versions too "
-                            "old to try)".format(too_old_count),
+                            "  -- Omitting {} additional candidate(s)".format(
+                                remainder
+                            ),
                             file=sys.stderr,
                         )
-                    break
+                        print(
+                            f"\nRun \"req-candidates '{req}'\" to see all candidates.",
+                            file=sys.stderr,
+                        )
+                        break
                 try:
                     print(
                         "  {}: {}".format(
                             candidate,
-                            _cantusereason_to_text(repo.why_cant_I_use(req, candidate)),
+                            _cantusereason_to_text(
+                                repo.why_cant_I_use(
+                                    req, candidate, only_binary=only_binary
+                                )
+                            ),
                         ),
                         file=sys.stderr,
                     )
@@ -573,6 +590,29 @@ class IndentFilter(logging.Filter):
         return True
 
 
+class SplitProjectsFilter(argparse.Action):
+    """Split comma-separate project sets into a set."""
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Union[str, Sequence[Any], None],
+        option_string: str = None,
+    ) -> None:
+        """Parse the string into a set, checking for special cases."""
+        # Set the AllOnlyBinarySet to ensure all projects match the set.
+        assert isinstance(values, str)
+        if values == ":all:" or not values:
+            setattr(namespace, self.dest, AllOnlyBinarySet())
+        else:
+            setattr(
+                namespace,
+                self.dest,
+                {normalize_project_name(value) for value in values.split(",")},
+            )
+
+
 def compile_main(raw_args: Sequence[str] = None) -> None:
     parser = argparse.ArgumentParser(
         description="Req-Compile: Python requirements compiler"
@@ -582,44 +622,42 @@ def compile_main(raw_args: Sequence[str] = None) -> None:
         "requirement_files",
         nargs="*",
         metavar="requirements_file",
-        help="Input requirements file or project directory to compile. Pass - to compile"
-        "from stdin",
+        help="Input requirements file or project directory to compile. Pass - to compile "
+        "from stdin.",
     )
     group.add_argument(
-        "-c",
-        "--constraints",
+        "-c,--constraints",
         action="append",
+        dest="constraints",
         metavar="constraints_file",
-        help="Constraints file or project directory to use as constraints. ",
+        help="Constraints file or project directory to use as constraints.",
     )
     group.add_argument(
-        "-e",
-        "--extra",
+        "-e,--extra",
         action="append",
         dest="extras",
         default=[],
         metavar="extra",
-        help="Extras to apply automatically to source packages",
+        help="Extras to apply automatically to source packages.",
     )
     group.add_argument(
-        "-P",
-        "--upgrade-package",
+        "-P,--upgrade-package",
         action="append",
         dest="upgrade_packages",
         metavar="package_name",
-        help="Package to omit from solutions. Use this to upgrade packages",
+        help="Package to omit from solutions. Use this to upgrade packages.",
     )
     group.add_argument(
         "--remove-source",
         default=False,
         action="store_true",
-        help="Remove distributions satisfied via --source from the output",
+        help="Remove distributions satisfied via --source from the output.",
     )
     group.add_argument(
         "--remove-non-source",
         default=False,
         action="store_true",
-        help="Remove distributions not satisfied via --source from the output",
+        help="Remove distributions not satisfied via --source from the output.",
     )
     group.add_argument(
         "-p",
@@ -627,31 +665,39 @@ def compile_main(raw_args: Sequence[str] = None) -> None:
         dest="allow_prerelease",
         default=False,
         action="store_true",
-        help="Allow prereleases from all sources",
+        help="Allow prereleases from all sources.",
     )
     group.add_argument(
         "--annotate",
         default=False,
         action="store_true",
-        help="Annotate the output file with the sources of each requirement",
+        help="Annotate the output file with the sources of each requirement.",
     )
     group.add_argument(
         "--no-comments",
         default=False,
         action="store_true",
-        help="Disable comments in the output",
+        help="Disable comments in the output.",
     )
     group.add_argument(
         "--no-pins",
         default=False,
         action="store_true",
-        help="Disable version pins, just list distributions",
+        help="Disable version pins, just list distributions.",
     )
     group.add_argument(
         "--hashes,--generate-hashes",
         dest="hashes",
         action="store_true",
-        help="Write hashes of the exact files used during solving to the solution",
+        help="Write hashes of the exact files used during solving to the solution.",
+    )
+    group.add_argument(
+        "--only-binary",
+        action=SplitProjectsFilter,
+        default=set(),
+        metavar="PROJECT1,PROJECT2,... or :all:",
+        help="Only accept wheels for the given projects. Provide comma separated "
+        "project names or :all: to require all projects to be binary.",
     )
     add_logging_args(parser)
     add_repo_args(parser)
@@ -755,7 +801,11 @@ def compile_main(raw_args: Sequence[str] = None) -> None:
     )
     try:
         results, roots = perform_compile(
-            input_reqs, repo, extras=args.extras, constraint_reqs=constraint_reqs
+            input_reqs,
+            repo,
+            extras=args.extras,
+            constraint_reqs=constraint_reqs,
+            only_binary=args.only_binary,
         )
     except RepositoryInitializationError as ex:
         logger.exception("Error initialization repository")
@@ -763,7 +813,9 @@ def compile_main(raw_args: Sequence[str] = None) -> None:
         sys.exit(1)
     except req_compile.errors.NoCandidateException as ex:
         assert ex.results is not None
-        _generate_no_candidate_display(ex.req, repo, ex.results, ex)
+        _generate_no_candidate_display(
+            ex.req, repo, ex.results, ex, only_binary=args.only_binary
+        )
         sys.exit(1)
     except req_compile.errors.MetadataError as ex:
         assert ex.results is not None

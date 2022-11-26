@@ -1,8 +1,4 @@
 requests[security]
-functools32 ; python_version < "3.0"
-enum34 ; python_version < "3.0"
-typing ; python_version < "3.0"
-six
 toml
 appdirs
 packaging
