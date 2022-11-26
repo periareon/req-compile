@@ -1,17 +1,22 @@
 import os
+from typing import Iterable, Optional, Tuple
+from unittest import mock
 
 import pkg_resources
 import pytest
 from pytest import fixture
 
 import req_compile.compile
-from req_compile.containers import DistInfo
+from req_compile.compile import AllOnlyBinarySet
+from req_compile.containers import DistInfo, RequirementContainer
 import req_compile.errors
 from req_compile.repos.multi import MultiRepository
 import req_compile.repos.pypi
 import req_compile.repos.repository
+from req_compile.repos.repository import Repository, Candidate, filename_to_candidate
 from req_compile.repos.source import SourceRepository
 import req_compile.utils
+from req_compile.utils import normalize_project_name
 
 
 def test_mock_pypi(mock_metadata, mock_pypi):
@@ -70,12 +75,7 @@ def perform_compile(mock_metadata, mock_pypi):
         ("normal", ["a"], None, ["a==0.1.0"]),
         ("normal", ["a[x1]"], None, ["a[x1]==0.1.0", "b==1.1.0", "c==1.0.0"]),
         ("normal", ["a", "b", "c"], None, ["a==0.1.0", "b==1.1.0", "c==1.0.0"]),
-        (
-            "normal",
-            ["d"],
-            None,
-            ["a[x1]==0.1.0", "b==1.1.0", "c==1.0.0", "d==0.9.0"],
-        ),
+        ("normal", ["d"], None, ["a[x1]==0.1.0", "b==1.1.0", "c==1.0.0", "d==0.9.0"],),
         (
             "normal",
             ["e", "d"],
@@ -97,12 +97,7 @@ def perform_compile(mock_metadata, mock_pypi):
         ),
         ("multi", ["x<1"], None, ["x==0.9.0"]),
         # Test that top level pins apply regardless of source
-        (
-            "multi",
-            {"a.txt": ["x"], "b.txt": ["x<1"]},
-            None,
-            ["x==0.9.0"],
-        ),
+        ("multi", {"a.txt": ["x"], "b.txt": ["x<1"]}, None, ["x==0.9.0"],),
         # Check for a transitive pin violation
         (
             "multi",
@@ -111,25 +106,10 @@ def perform_compile(mock_metadata, mock_pypi):
             ["x==0.9.0", "y==4.0.0"],
         ),
         ("multi", ["x"], ["x<1"], ["x==0.9.0"]),
-        (
-            "multi",
-            ["x==1"],
-            ["y==5"],
-            ["x==1.0.0"],
-        ),
+        ("multi", ["x==1"], ["y==5"], ["x==1.0.0"],),
         # Check that metadata that declares to requirements on the same dependency is processed correctly
-        (
-            "multi",
-            ["z"],
-            None,
-            ["z==1.0.0", "y==4.0.0", "x==0.9.0"],
-        ),
-        (
-            "walk-back",
-            ["a<3.7", "b"],
-            None,
-            ["a==3.6", "b==1.0"],
-        ),
+        ("multi", ["z"], None, ["z==1.0.0", "y==4.0.0", "x==0.9.0"],),
+        ("walk-back", ["a<3.7", "b"], None, ["a==3.6", "b==1.0"],),
         (
             "early-violated",
             ["a", "y"],
@@ -233,4 +213,49 @@ def test_compile_source_user2_recursive_root():
         "framework==1.0.1",
         "user-2==1.1.0",
         "util==8.0.0",
+    }
+
+
+class OnlyBinaryRepository(Repository):
+    def get_candidates(
+        self, req: Optional[pkg_resources.Requirement]
+    ) -> Iterable[Candidate]:
+        result = [
+            filename_to_candidate(None, "test-2.0.0.tar.gz"),
+            filename_to_candidate(None, "test-1.0.0-py2.py3-none-any.whl"),
+        ]
+        return result
+
+    def resolve_candidate(
+        self, candidate: Candidate
+    ) -> Tuple[RequirementContainer, bool]:
+        dist = mock.MagicMock(spec=RequirementContainer)
+        dist.origin = None
+        dist.name = candidate.name
+        dist.version = candidate.version
+        dist.meta = False
+        dist.to_definition.return_value = candidate.name, candidate.version
+        dist.hash = ""
+        return dist, False
+
+
+def test_only_binary_skips_source():
+    """Verify the newer source dist is skipped."""
+    repo = OnlyBinaryRepository("test", True)
+    input = [DistInfo("-", None, [pkg_resources.Requirement.parse("test")])]
+    results = req_compile.compile.perform_compile(input, repo,)
+    assert _real_outputs(results) == {
+        "test==2.0.0",
+    }
+    results = req_compile.compile.perform_compile(
+        input, repo, only_binary={normalize_project_name("test")},
+    )
+    assert _real_outputs(results) == {
+        "test==1.0.0",
+    }
+    results = req_compile.compile.perform_compile(
+        input, repo, only_binary=AllOnlyBinarySet(),
+    )
+    assert _real_outputs(results) == {
+        "test==1.0.0",
     }

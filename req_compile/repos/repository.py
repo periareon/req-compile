@@ -377,13 +377,12 @@ class Candidate(object):  # pylint: disable=too-many-instance-attributes
 
     def __str__(self):
         # type: () -> str
-        py_version_str = str(self.py_version) + "-"
-        return "{} {}-{}-{}{}-{}".format(
+        return "{} {}-{}-{}-{}-{}".format(
             self.type.name,
             self.name,
             self.version,
-            py_version_str,
-            self.abi,
+            self.py_version if self.py_version else "none",
+            self.abi if self.abi is not None else "none",
             ".".join(sorted(self.platforms)),
         )
 
@@ -471,7 +470,7 @@ def _tar_gz_filename_to_candidate(source: Tuple[str, str], filename: str) -> Can
         version = parse_version("0.0+missing")
     return Candidate(
         name,
-        filename,
+        os.path.basename(filename),
         version,
         py_version=None,  # Can't tell Python versions supported by filename
         abi=None,
