@@ -41,6 +41,9 @@ LOG = logging.getLogger("req_compile.compile")
 class AllOnlyBinarySet(set):
     """A set which contains any item."""
 
+    def __bool__(self) -> bool:
+        return True
+
     def __contains__(self, item: object) -> bool:
         return True
 
