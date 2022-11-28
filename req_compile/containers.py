@@ -1,8 +1,6 @@
 import itertools
 import logging
 import os
-import shutil
-from dataclasses import dataclass, field
 from typing import Any, Iterable, Iterator, List, Optional, Tuple
 
 import packaging.requirements
@@ -31,14 +29,11 @@ def req_uses_extra(req: pkg_resources.Requirement, extra: Optional[str]) -> bool
     return keep_req
 
 
-class RequirementContainer(object):
+class RequirementContainer:
     """A container for a list of requirements."""
 
     def __init__(
-        self,
-        name: str,
-        reqs: Iterable[pkg_resources.Requirement],
-        meta: bool = False,
+        self, name: str, reqs: Iterable[pkg_resources.Requirement], meta: bool = False,
     ) -> None:
         self.name = name
         self.reqs = list(reqs) if reqs else []
@@ -46,6 +41,7 @@ class RequirementContainer(object):
         self.meta = meta
         self.version: Optional[packaging.version.Version] = None
         self.hash: Optional[str] = None
+        self.candidate: Any = None
 
     def __iter__(self) -> Iterator[pkg_resources.Requirement]:
         return iter(self.reqs)

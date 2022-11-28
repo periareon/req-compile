@@ -5,6 +5,7 @@ import pkg_resources
 import pytest
 
 import req_compile.compile
+from req_compile.cmdline import write_requirements_file
 from req_compile.containers import DistInfo
 from req_compile.repos import RepositoryInitializationError
 from req_compile.repos.solution import SolutionRepository
@@ -113,13 +114,13 @@ def test_load_remove_root_removes_all(load_solution):
 
 
 @pytest.mark.parametrize(
-    "scenario, roots",
-    [
-        ("normal", ["a", "d"]),
-        ("normal", ["a[x1]"]),
-    ],
+    "scenario, roots", [("normal", ["a", "d"]), ("normal", ["a[x1]"]),],
 )
-def test_round_trip(scenario, roots, mock_metadata, mock_pypi):
+@pytest.mark.parametrize("multiline", [True, False])
+@pytest.mark.parametrize("hashes", [True, False])
+def test_round_trip(
+    scenario, roots, mock_metadata, multiline, hashes, mock_pypi, tmp_path
+):
     mock_pypi.load_scenario("normal")
 
     results, nodes = req_compile.compile.perform_compile(
@@ -127,15 +128,31 @@ def test_round_trip(scenario, roots, mock_metadata, mock_pypi):
         mock_pypi,
     )
 
-    fd, name = tempfile.mkstemp()
-    for line in results.generate_lines(nodes):
-        print("{}=={}  # {}".format(line[0][0], line[0][1], line[1]))
-        os.write(
-            fd, "{}=={}  # {}\n".format(line[0][0], line[0][1], line[1]).encode("utf-8")
+    solution_path = tmp_path / "solution.txt"
+    with solution_path.open("w", encoding="utf-8") as fh:
+        write_requirements_file(
+            results,
+            nodes,
+            repo=mock_pypi,
+            hashes=hashes,
+            multiline=multiline,
+            write_to=fh,
         )
-    os.close(fd)
 
-    solution_result = SolutionRepository(name)
+    # Make some assertions about what the solution file looks like
+    # to ensure we're testing the right things.
+    with open(solution_path, "r") as fh:
+        contents = fh.read()
+        print(contents)
+        if hashes:
+            assert "--hash" in contents
+            if multiline:
+                assert "\\" in contents
+        else:
+            if multiline:
+                assert "via" in contents
+
+    solution_result = SolutionRepository(str(solution_path))
     for node in results:
         if isinstance(node.metadata, DistInfo) and node.key != "test":
             assert node.key in solution_result.solution

@@ -24,6 +24,11 @@ def reduce_requirements(
     return list(req for req in reqs.values() if req is not None)
 
 
+class CommentError(ValueError):
+    def __str__(self):
+        return "Text given is a comment"
+
+
 @lru_cache(maxsize=None)
 def parse_requirement(req_text: str) -> pkg_resources.Requirement:
     """Parse a string into a Requirement object.
@@ -42,7 +47,7 @@ def parse_requirement(req_text: str) -> pkg_resources.Requirement:
     if not req_text:
         raise ValueError("No requirement given")
     if req_text[0] == "#":
-        raise ValueError("Text given is a comment")
+        raise CommentError
     return pkg_resources.Requirement.parse(req_text)
 
 
