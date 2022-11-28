@@ -33,10 +33,10 @@ def test_no_candidates(tmp_path):
     assert "0" in result.stderr
 
 
-def test_compile_req_compile():
+def test_compile_req_compile(tmp_path):
     """Test compiling this project from source."""
     result = subprocess.run(
-        [sys.executable, "-m", "req_compile", "."],
+        [sys.executable, "-m", "req_compile", ".", "--wheel-dir", str(tmp_path)],
         encoding="utf-8",
         capture_output=True,
         cwd=ROOT_DIR,
@@ -45,3 +45,7 @@ def test_compile_req_compile():
     assert "req-compile" in result.stdout
     assert "toml" in result.stdout
     assert result.stderr == ""
+
+    # Ensure that setup requires are included.
+    all_items = {path.name.split("-", 1)[0] for path in tmp_path.iterdir()}
+    assert "setuptools" in all_items

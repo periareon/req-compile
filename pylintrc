@@ -2,18 +2,13 @@
 max-line-length=120
 
 [MESSAGES CONTROL]
-
 disable=
   R,
   missing-docstring,
   too-few-public-methods,
-  useless-object-inheritance,
-  useless-return,
   too-many-arguments,
   raise-missing-from,
   bad-continuation,
-  unused-import,  # Python 2 pylint is confused by the typing imports
-  unspecified-encoding,  # Can't specify encoding in Python 2
   consider-using-f-string,
 
 ignored-modules=distutils.core

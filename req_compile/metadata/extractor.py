@@ -14,7 +14,6 @@ from types import TracebackType
 from typing import (
     IO,
     Any,
-    AnyStr,
     Dict,
     Iterable,
     Iterator,
@@ -31,8 +30,8 @@ LOG = logging.getLogger("req_compile.extractor")
 
 
 class Extractor(metaclass=abc.ABCMeta):
-    """Abstract base class for file extractors. These classes operate on archive files or directories in order
-    to expose files to metadata analysis and executing setup.pys.
+    """Abstract base class for file extractors. These classes operate on archive files
+    or directories in order to expose files to metadata analysis and executing setup.pys.
     """
 
     def __init__(self, extractor_type: str, file_or_path: str) -> None:
@@ -88,7 +87,8 @@ class Extractor(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     def exists(self, filename: Union[str, int]) -> bool:
-        """Check whether a file or directory exists within the archive. Will not check non-archive files"""
+        """Check whether a file or directory exists within the archive.
+        Will not check non-archive files"""
         relative_fd = self.to_relative(filename)
         if isinstance(relative_fd, int):
             return os.path.exists(filename)

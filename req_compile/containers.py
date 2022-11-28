@@ -37,6 +37,8 @@ class RequirementContainer:
     ) -> None:
         self.name = name
         self.reqs = list(reqs) if reqs else []
+        # Store setup requirements for use when populating a wheeldir.
+        self.setup_reqs: List[pkg_resources.Requirement] = []
         self.origin: Any = None
         self.meta = meta
         self.version: Optional[packaging.version.Version] = None
@@ -62,7 +64,7 @@ def _req_iter_from_file(
     reqfile_name: str, parameters: List[str]
 ) -> Iterable[pkg_resources.Requirement]:
     """Create an iterator to step through a requirements file."""
-    with open(reqfile_name, "r") as reqfile:
+    with open(reqfile_name, "r", encoding="utf-8") as reqfile:
         full_line = ""
         continuation = False
 

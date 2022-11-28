@@ -2,7 +2,9 @@ import functools
 import logging
 import os
 import zipfile
-from typing import Optional
+from typing import List, Optional
+
+import pkg_resources
 
 from req_compile.containers import RequirementContainer
 from req_compile.errors import MetadataError
@@ -34,6 +36,10 @@ def extract_metadata(
     basename, ext = os.path.splitext(filename)
     result: Optional[RequirementContainer] = None
     ext = ext.lower()
+
+    # Gather setup requires from setup.py and pyproject.toml.
+    setup_requires: List[pkg_resources.Requirement] = []
+
     if ext == ".whl":
         LOG.debug("Extracting from wheel")
         try:
@@ -61,7 +67,7 @@ def extract_metadata(
         raise MetadataError(basename, None, ValueError(".egg files are not supported"))
     elif os.path.exists(os.path.join(filename, "pyproject.toml")):
         LOG.debug("Extracting from a pyproject.toml")
-        result = fetch_from_pyproject(filename)
+        result, setup_requires = fetch_from_pyproject(filename)
 
     if result is None:
         LOG.debug("Extracting directly from a source directory")
@@ -74,4 +80,6 @@ def extract_metadata(
 
     if result is None:
         raise MetadataError(basename, None, ValueError("Could not extract metadata"))
+
+    result.setup_reqs.extend(setup_requires)
     return result

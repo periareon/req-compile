@@ -300,8 +300,9 @@ class Candidate:  # pylint: disable=too-many-instance-attributes
         self.preparsed = None  # type: Optional[RequirementContainer]
 
     @property
-    def sortkey(self):
-        # type: () -> Tuple[packaging.version.Version, str, int, Tuple[int, int, int, int]]
+    def sortkey(
+        self,
+    ) -> Tuple[packaging.version.Version, str, int, Tuple[int, int, int, int]]:
         if self._sortkey is None:
             self._sortkey = (
                 self.version,
@@ -365,14 +366,17 @@ class Candidate:  # pylint: disable=too-many-instance-attributes
 
     def __repr__(self):
         # type: () -> str
-        return "Candidate(name={}, filename={}, version={}, py_versions={}, abi={}, platform={}, link={})".format(
-            self.name,
-            self.filename,
-            self.version,
-            self.py_version,
-            self.abi,
-            self.platforms,
-            self.link,
+        return (
+            "Candidate(name={}, filename={}, version={}, py_versions={}, "
+            "abi={}, platform={}, link={})".format(
+                self.name,
+                self.filename,
+                self.version,
+                self.py_version,
+                self.abi,
+                self.platforms,
+                self.link,
+            )
         )
 
     def __str__(self):

@@ -3,6 +3,7 @@ from __future__ import print_function
 
 import argparse
 import datetime
+import itertools
 import logging
 import os
 import shutil
@@ -905,6 +906,35 @@ def compile_main(raw_args: Sequence[str] = None) -> None:
     finally:
         if delete_wheeldir:
             shutil.rmtree(wheeldir)
+
+    if not delete_wheeldir:
+        # Download all the setup requires if applicable
+        for node in itertools.chain(results.visit_nodes(roots), roots):
+            if node.metadata is None:
+                continue
+
+            if (
+                node.metadata.candidate is not None
+                and node.metadata.candidate.type
+                not in (DistributionType.SOURCE, DistributionType.SDIST,)
+            ):
+                continue
+
+            logger.info("Downloading setup requirements for %s", node.metadata)
+            # Include wheel automatically if a source dist was selected at all.
+            # This is because pip will attempt to build a wheel for the given
+            # source dist when installing it.
+            setup_meta = DistInfo(
+                node.metadata.name + "-setup",
+                None,
+                reqs=node.metadata.setup_reqs + [parse_requirement("wheel")],
+                meta=True,
+            )
+            # Compiling will cause wheels to be downloaded to the wheeldir.
+            # Note: each can be compiled separately to make sure all of their
+            #  separately required versions of projects are available in the
+            #  output wheeldir.
+            perform_compile([setup_meta], repo)
 
     write_requirements_file(
         results,

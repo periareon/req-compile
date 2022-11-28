@@ -39,6 +39,7 @@ def candidates_main() -> None:
         "will print all candidates for any project in the repository",
     )
     group.add_argument(
+        "-a",
         "--all",
         default=False,
         action="store_true",

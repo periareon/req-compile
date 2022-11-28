@@ -3,7 +3,6 @@ from collections import defaultdict
 from functools import lru_cache
 from typing import DefaultDict, Dict, Iterable, Optional, Tuple
 
-import packaging.requirements
 import packaging.version
 import pkg_resources
 
@@ -52,8 +51,7 @@ def parse_requirement(req_text: str) -> pkg_resources.Requirement:
 
 
 @lru_cache(maxsize=None)
-def parse_version(version):
-    # type: (str) -> packaging.version.Version
+def parse_version(version: str) -> packaging.version.Version:
     """Parse a string into a packaging version.
 
     Args:
