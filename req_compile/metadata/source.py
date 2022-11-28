@@ -32,11 +32,9 @@ from typing import (
     Iterable,
     Iterator,
     List,
-    Mapping,
     Optional,
     Sequence,
     Set,
-    Type,
     Union,
 )
 
@@ -422,6 +420,7 @@ def setup(
     name = kwargs.get("name", None)
     version = kwargs.get("version", None)
     reqs = kwargs.get("install_requires", [])
+    setup_reqs = kwargs.get("setup_requires", [])
     extra_reqs = kwargs.get("extras_require", {})
 
     if version is not None:
@@ -461,7 +460,10 @@ def setup(
 
     if name is not None:
         name = name.replace(" ", "-")
-    results.append(DistInfo(name, version, all_reqs))
+
+    dist_info = DistInfo(name, version, all_reqs)
+    dist_info.setup_reqs = list(utils.parse_requirements(setup_reqs))
+    results.append(dist_info)
 
     # Some projects inspect the setup() result
     class FakeResult(object):
@@ -613,7 +615,7 @@ def _parse_setup_py(
         exec(extractor.contents(path), spy_globals, spy_globals)
 
     def _fake_file_input(path: str, **_kwargs: Any) -> IO[str]:
-        return open(path, "r")
+        return open(path, "r", encoding="utf-8")
 
     old_cythonize = None
     try:
