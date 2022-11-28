@@ -104,10 +104,12 @@ class MockRepository(Repository):
         return [self._build_candidate(req) for req in avail]
 
     def resolve_candidate(self, candidate):
+        metadata = req_compile.metadata.metadata.extract_metadata(
+            candidate.filename, origin=self
+        )
+        metadata.hash = "sha256=123456"
         return (
-            req_compile.metadata.metadata.extract_metadata(
-                candidate.filename, origin=self
-            ),
+            metadata,
             False,
         )
 

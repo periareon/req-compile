@@ -249,7 +249,7 @@ class WheelVersionTags(PythonVersionRequirement):
         return max(_py_version_score(py_version) for py_version in self.py_versions)
 
 
-class Candidate(object):  # pylint: disable=too-many-instance-attributes
+class Candidate:  # pylint: disable=too-many-instance-attributes
     """A candidate representing come kind of distribution to resolve"""
 
     def __init__(
@@ -704,6 +704,7 @@ class Repository(metaclass=abc.ABCMeta):
                         if normalize_project_name(
                             candidate.name
                         ) == normalize_project_name(req.project_name):
+                            dist.candidate = candidate
                             return dist, cached
                 except req_compile.errors.MetadataError as ex:
                     self.logger.warning(

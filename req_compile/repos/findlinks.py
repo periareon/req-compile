@@ -46,8 +46,9 @@ class FindLinksRepository(Repository):
                 FindLinksRepository, "Directory {} not found.".format(self.path)
             )
         for filename in os.listdir(self.path):
+            full_path = os.path.join(self.path, filename)
             candidate = req_compile.repos.repository.filename_to_candidate(
-                self.path, os.path.join(self.path, filename)
+                (self.path, full_path), full_path,
             )
             if candidate is not None:
                 self.links.append(candidate)

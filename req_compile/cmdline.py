@@ -1,4 +1,4 @@
-# coding=utf-8
+# pylint: disable=too-many-lines
 from __future__ import print_function
 
 import argparse
@@ -9,6 +9,7 @@ import shutil
 import sys
 import tempfile
 from collections import OrderedDict
+from io import StringIO
 from itertools import repeat
 from typing import IO, Any, Iterable, List, Mapping, Optional, Sequence, Set, Union
 
@@ -41,7 +42,12 @@ from req_compile.repos.solution import (
     SolutionRepository,
 )
 from req_compile.repos.source import SourceRepository
-from req_compile.utils import NormName, normalize_project_name, parse_requirement
+from req_compile.utils import (
+    CommentError,
+    NormName,
+    normalize_project_name,
+    parse_requirement,
+)
 from req_compile.versions import is_possible
 
 # Blacklist of requirements that will be filtered out of the output
@@ -295,7 +301,7 @@ def _create_input_reqs(
             except ValueError:
                 try:
                     return utils.parse_requirement(line)
-                except ValueError:
+                except CommentError:
                     return None
 
         reqs = (
@@ -303,7 +309,9 @@ def _create_input_reqs(
             for line in stdin_contents
             if line.strip()
         )
-        non_none_reqs = (req for req in reqs if req is not None)
+        non_none_reqs = [req for req in reqs if req is not None]
+        if not non_none_reqs:
+            raise ValueError("No requirements given to compile.")
         return DistInfo("-", None, non_none_reqs, meta=True)
 
     if os.path.isfile(input_arg):
@@ -333,17 +341,48 @@ def _non_source_req_filter(req: DependencyNode) -> bool:
     return _blacklist_filter(req) and not _is_not_from_source(req)
 
 
+class ExplanationRender:
+    def __init__(self, node: DependencyNode, multiline):
+        self.node = node
+        self.multiline = multiline
+
+    def __str__(self):
+        write_to = StringIO()
+        constraints = list(req_compile.dists.build_constraints(self.node))
+
+        if len(constraints) == 1:
+            if self.multiline:
+                write_to.write("via ")
+            write_to.write(f"{constraints[0]}")
+        else:
+            if self.multiline:
+                write_to.write("via\n")
+            for idx, constraint in enumerate(
+                sorted(constraints, key=lambda val: val.lower())
+            ):
+                if self.multiline:
+                    write_to.write("    #   ")
+                write_to.write(constraint)
+                if idx != len(constraints) - 1:
+                    write_to.write("\n" if self.multiline else ", ")
+
+        return write_to.getvalue()
+
+
 def write_requirements_file(
     results: DistributionCollection,
     roots: Set[DependencyNode],
     repo: Repository,
     annotate_source: bool = False,
+    urls: bool = False,
     input_reqs: Iterable[RequirementContainer] = None,
     remove_non_source: bool = False,
     remove_source: bool = False,
     no_pins: bool = False,
     no_comments: bool = False,
+    no_explanations: bool = False,
     hashes: bool = False,
+    multiline: bool = True,
     write_to: IO[str] = sys.stdout,
 ) -> None:
     """
@@ -359,12 +398,20 @@ def write_requirements_file(
             provided to display them in the header
         repo (Repository): The repository that was the source of the requirements. In the case of annotate_source,
             all requirements will belong to this repository unless it is a MultiRepository
+        urls: If True, include URLs that supplied the requirements in the output.
         remove_non_source (bool): Requirements that don't come from source directories will be omitted
         remove_source (bool): Requirements that come from source directories will be omitted
         no_pins (bool): If True, omit the solved version from the requirement lines
-        no_comments (bool): If True, omit the comment containing the reverse dependencies
+        no_comments (bool): If True, omit the comment containing the reverse dependencies.
+        no_explanations: If True, omit the constraints explanations.
+        hashes: If True, include hashes in the output.
+        multiline: If True, output in a multi-line format. If None, allow the format to be
+            selected dynamically.
         write_to (file-like object): Object that implements "write" that takes a string
     """
+    if multiline is None and (hashes or urls):
+        multiline = True
+
     req_filter = _blacklist_filter
     if remove_source or remove_non_source:
         if not any(isinstance(r, SourceRepository) for r in repo):
@@ -375,88 +422,94 @@ def write_requirements_file(
         else:
             req_filter = _source_req_filter
 
-    if hashes:
-        _write_index_directives(list(repo), write_to)
-        for node in sorted(
-            results.visit_nodes(roots),
-            key=lambda x: str(x.metadata and x.metadata.name.lower()),
-        ):
-            if node.metadata is None:
-                continue
-            if node.metadata.meta or not req_filter(node):
-                continue
+    if annotate_source:
+        assert (
+            input_reqs is not None
+        ), "Input requirements must be given for source annotations."
+        repo_mapping = _generate_repo_header(input_reqs, list(repo), write_to)
 
-            write_to.write(f"{node.metadata.name}=={node.metadata.version}")
-            if hashes and node.metadata.hash:
-                write_to.write(" \\\n")
-                write_to.write("    --hash=")
-                write_to.write(node.metadata.hash)
+    _write_index_directives(list(repo), write_to)
 
-            constraints = req_compile.dists.build_constraints(node)
-            all_constraints = list(constraints)
-            if all_constraints:
-                write_to.write("\n")
-                if len(all_constraints) == 1:
-                    write_to.write(f"    # via {all_constraints[0]}\n")
-                else:
-                    write_to.write("    # via\n")
-                    for constraint in sorted(constraints, key=lambda val: val.lower()):
-                        write_to.write("    #   ")
-                        write_to.write(constraint)
-                        write_to.write("\n")
-            else:
-                write_to.write("\n")
+    if multiline:
+        pass_one_write_to = write_to
     else:
-        lines = sorted(
-            results.generate_lines(roots, req_filter=req_filter, strip_extras=True),
-            key=lambda x: x[0][0].lower(),
-        )
+        pass_one_write_to = StringIO()
 
-        # pylint: disable=unnecessary-lambda-assignment
-        fmt = "{key}"
-        line_len = lambda x: len(x[0][0])
-        if not no_pins:
-            fmt += "=={version}"
-            line_len = lambda x: len(x[0][0]) + len(str(x[0][1]))
-        if hashes:
-            fmt += " --hash={hash}"
-            line_len = lambda x: len(x[0][0]) + len(str(x[0][1])) + 8 + len(x[0][2])
-        if not no_comments:
-            fmt += "{padding}# {annotation}{constraints}"
-        if annotate_source:
-            if input_reqs is None:
-                raise ValueError(
-                    "Input requirements are required if annotating source."
-                )
-            repo_mapping = _generate_repo_header(input_reqs, list(repo), write_to)
+    for node in sorted(
+        results.visit_nodes(roots),
+        key=lambda x: str(x.metadata and x.metadata.name.lower()),
+    ):
+        if node.metadata is None:
+            continue
+        if node.metadata.meta or not req_filter(node):
+            continue
+
+        if no_pins:
+            pass_one_write_to.write(node.metadata.name)
         else:
-            _write_index_directives(list(repo), write_to)
-        if lines:
-            left_column_len = max(line_len(x) + 2 for x in lines)
-            annotation = ""
-            for line in lines:
-                if annotate_source:
-                    key = line[0][0]
-                    source_meta = results[key].metadata
-                    assert source_meta is not None
+            pass_one_write_to.write(f"{node.metadata.name}=={node.metadata.version}")
 
-                    source = source_meta.origin
-                    if source is None or source not in repo_mapping:
-                        annotation = "[?] "
-                    else:
-                        annotation = "[{}] ".format(repo_mapping[source])
+        if hashes and node.metadata.hash:
+            if multiline:
+                pass_one_write_to.write(" \\\n    ")
+            else:
+                pass_one_write_to.write(" ")
+            pass_one_write_to.write(f"--hash={node.metadata.hash}")
 
-                padding = " " * (left_column_len - line_len(line))
-                write_to.write(
-                    fmt.format(
-                        key=line[0][0],
-                        version=line[0][1],
-                        hash=line[0][2],
-                        padding=padding,
-                        annotation=annotation,
-                        constraints=line[1],
-                    )
-                )
+        if not no_comments:
+            comment = StringIO()
+
+            source = node.metadata.origin
+            if annotate_source:
+                if multiline:
+                    comment.write("\n    # ")
+                else:
+                    comment.write(" ")
+                comment.write(f"[{repo_mapping.get(source, '?')}]")
+
+            if not no_explanations:
+                if multiline:
+                    comment.write("\n    # ")
+                else:
+                    comment.write(" ")
+                comment.write(str(ExplanationRender(node, multiline)))
+
+            if urls and node.metadata.candidate.link is not None:
+                if multiline:
+                    comment.write("\n    # ")
+                else:
+                    comment.write(" ")
+                comment.write(f"{node.metadata.candidate.link[1]}")
+
+            if comment.getvalue():
+                if not multiline:
+                    pass_one_write_to.write(" #")
+                pass_one_write_to.write(comment.getvalue())
+
+        pass_one_write_to.write("\n")
+
+    if not multiline:
+        assert isinstance(pass_one_write_to, StringIO)
+        pass_one_lines = pass_one_write_to.getvalue().split("\n")
+        solution_none_and_data = [
+            line.partition(" ") for line in pass_one_lines if line.strip()
+        ]
+        solution_and_data = [
+            (solution, data) for solution, _, data in solution_none_and_data
+        ]
+        if not solution_and_data:
+            return
+
+        max_solution = max(len(solution) for solution, _ in solution_and_data)
+        any_comments = any(data.strip("# ") for _, data, in solution_and_data)
+
+        for solution, data in solution_and_data:
+            if any_comments:
+                write_to.write(solution.ljust(max_solution + 2, " "))
+                write_to.write(data)
+                write_to.write("\n")
+            else:
+                write_to.write(solution)
                 write_to.write("\n")
 
 
@@ -674,6 +727,12 @@ def compile_main(raw_args: Sequence[str] = None) -> None:
         help="Annotate the output file with the sources of each requirement.",
     )
     group.add_argument(
+        "--urls",
+        default=False,
+        action="store_true",
+        help="Add the URL used to solve each requirement to the comment.",
+    )
+    group.add_argument(
         "--no-comments",
         default=False,
         action="store_true",
@@ -686,10 +745,28 @@ def compile_main(raw_args: Sequence[str] = None) -> None:
         help="Disable version pins, just list distributions.",
     )
     group.add_argument(
+        "--no-explanations",
+        default=False,
+        action="store_true",
+        help="Disable the 'via' explanations.",
+    )
+    group.add_argument(
         "--hashes,--generate-hashes",
         dest="hashes",
         action="store_true",
         help="Write hashes of the exact files used during solving to the solution.",
+    )
+    group.add_argument(
+        "--multiline",
+        action="store_true",
+        default=None,
+        help="Output the solution in a multi-line format.",
+    )
+    group.add_argument(
+        "--no-multiline",
+        dest="multiline",
+        action="store_false",
+        help="Force output the solution in a single-line per requirement format.",
     )
     group.add_argument(
         "--only-binary",
@@ -734,9 +811,13 @@ def compile_main(raw_args: Sequence[str] = None) -> None:
             input_args = (".",)
 
     extra_sources: List[str] = []
-    input_reqs = [
-        _create_input_reqs(input_arg, extra_sources) for input_arg in input_args
-    ]
+    try:
+        input_reqs = [
+            _create_input_reqs(input_arg, extra_sources) for input_arg in input_args
+        ]
+    except ValueError as ex:
+        print(f"ERROR: {ex}", file=sys.stderr)
+        sys.exit(1)
 
     for req in list(input_reqs):
         if isinstance(req, RequirementsFile):
@@ -829,13 +910,16 @@ def compile_main(raw_args: Sequence[str] = None) -> None:
         results,
         roots,
         annotate_source=args.annotate,
+        urls=args.urls,
         input_reqs=input_reqs,
         repo=repo,
         remove_non_source=args.remove_non_source,
         remove_source=args.remove_source,
         no_pins=args.no_pins,
         no_comments=args.no_comments,
+        no_explanations=args.no_explanations,
         hashes=args.hashes,
+        multiline=args.multiline,
     )
 
 
