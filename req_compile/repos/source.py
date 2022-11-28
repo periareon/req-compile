@@ -237,6 +237,7 @@ class ReferenceSourceRepository(SourceRepository):
         super(SourceRepository, self).__init__("ref-source", allow_prerelease=True)
         if dist.version is None:
             raise ValueError(f"Version of {dist.name} must be known")
+        self.path = dist.name
         self.distributions = {
             dist.name: [
                 Candidate(dist.name, None, dist.version, None, None, "any", None)

@@ -8,7 +8,7 @@ setup(
     description="Python requirements compiler",
     long_description=open("CHANGELOG.rst").read() + "\n" + open("README.rst").read(),
     url="https://github.com/sputt/req-compile",
-    install_requires=open("requirements.txt").readlines(),
+    install_requires=open("requirements.in").readlines(),
     packages=find_packages(include=["req_compile*"]),
     license="MIT License",
     entry_points={

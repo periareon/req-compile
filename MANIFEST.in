@@ -1,5 +1,7 @@
 include *.py
-prune tests .idea
-include requirements.txt
+prune tests .idea requirements.txt
+include requirements.in
+include pyproject.toml
+include CHANGELOG.rst
 include README.rst
 include LICENSE.txt

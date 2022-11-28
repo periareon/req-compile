@@ -134,8 +134,9 @@ class SolutionRepository(Repository):
 
     def _remove_nodes(self) -> None:
         nodes_to_remove = []
+        missing_ver = req_compile.utils.parse_version("0+missing")
         for node in self.solution:
-            if node.metadata is None:
+            if node.metadata is None or node.metadata.version == missing_ver:
                 nodes_to_remove.append(node)
         for node in nodes_to_remove:
             try:
@@ -250,7 +251,7 @@ class SolutionRepository(Repository):
         if req.project_name in self.solution:
             metadata = self.solution[req.project_name].metadata
         if metadata is None:
-            metadata = req_compile.containers.DistInfo(req.project_name, version, [])
+            metadata = req_compile.containers.DistInfo(req.name, version, [])
 
         metadata.hash = dist_hash
 
@@ -277,9 +278,7 @@ class SolutionRepository(Repository):
                 reverse_dep = self.solution[name]
                 if reverse_dep.metadata is None:
                     inner_meta = req_compile.containers.DistInfo(
-                        proj_name,
-                        req_compile.utils.parse_version("0+missing"),
-                        [],
+                        proj_name, req_compile.utils.parse_version("0+missing"), [],
                     )
                     inner_meta.origin = ReferenceSourceRepository(inner_meta)
                     reverse_dep.metadata = inner_meta

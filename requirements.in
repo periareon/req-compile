@@ -1,0 +1,7 @@
+requests[security]
+toml
+appdirs
+packaging
+wheel
+overrides
+typing_extensions
