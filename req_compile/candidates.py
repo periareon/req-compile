@@ -98,7 +98,7 @@ def candidates_main() -> None:
     )
 
     if isinstance(repo, PyPIRepository) and args.project_name is None:
-        repo = SourceRepository(".")
+        repo = SourceRepository(".", excluded_paths=args.excluded_sources)
 
     total_candidates = 0
     try:
