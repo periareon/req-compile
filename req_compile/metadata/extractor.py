@@ -149,21 +149,10 @@ class NonExtractor(Extractor):
             for filename in files:
                 yield rel_root + filename
 
-    def _ignore_git(self, _src: str, names: List[str]) -> Iterable[str]:
-        """Ignore git directory when copying source dirs."""
-        if ".git" in names:
-            names.remove(".git")
-        return names
-
     def extract(self, target_dir: str) -> None:
         # Copy the entire file tree to the target directory
-        for filename in os.listdir(self.path):
-            path = os.path.join(self.path, filename)
-
-            if os.path.isdir(path):
-                shutil.copytree(path, os.path.join(target_dir, filename), ignore=self._ignore_git)
-            else:
-                shutil.copy2(path, target_dir)
+        os.rmdir(target_dir)
+        shutil.copytree(self.path, target_dir, ignore=shutil.ignore_patterns(".git"))
 
     def _check_exists(self, filename: str) -> bool:
         return self.os_path_exists(self.path + "/" + filename)

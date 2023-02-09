@@ -298,7 +298,9 @@ def _create_input_reqs(input_arg: str, parameters: List[str]) -> RequirementCont
         ]
 
         if all(os.path.isdir(line.strip()) for line in stdin_contents):
-            reqs: Iterable[pkg_resources.Requirement] = [_create_req_from_path(line) for line in stdin_contents]
+            reqs: Iterable[pkg_resources.Requirement] = [
+                _create_req_from_path(line) for line in stdin_contents
+            ]
             parameters.extend(f"--source={line}" for line in stdin_contents)
         else:
             reqs = req_iter_from_lines(stdin_contents, parameters)
