@@ -12,7 +12,7 @@ import tempfile
 from collections import OrderedDict
 from io import StringIO
 from itertools import repeat
-from typing import IO, Any, Iterable, List, Mapping, Optional, Sequence, Set, Union
+from typing import IO, Any, Iterable, List, Mapping, Sequence, Set, Union
 
 import pkg_resources
 
@@ -44,7 +44,6 @@ from req_compile.repos.solution import (
 )
 from req_compile.repos.source import SourceRepository
 from req_compile.utils import (
-    CommentError,
     NormName,
     normalize_project_name,
     parse_requirement,
@@ -808,7 +807,6 @@ def compile_main(raw_args: Sequence[str] = None) -> None:
         ]
     except ValueError as ex:
         print(f"ERROR: {ex}", file=sys.stderr)
-        raise
         sys.exit(1)
 
     for req in list(input_reqs):

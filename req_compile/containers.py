@@ -1,13 +1,10 @@
 import itertools
-import logging
-import os
 from typing import Any, Iterable, Iterator, List, Optional, Tuple
 
 import packaging.requirements
 import packaging.version
 import pkg_resources
 
-from req_compile import utils
 from req_compile.utils import reduce_requirements, req_iter_from_file
 
 

@@ -1,6 +1,6 @@
 import os
 from hashlib import sha256
-from typing import Any, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, List, Optional, Sequence, Tuple
 
 import pkg_resources
 from overrides import overrides
