@@ -11,18 +11,7 @@ import tarfile
 import zipfile
 from io import BytesIO
 from types import TracebackType
-from typing import (
-    IO,
-    Any,
-    Dict,
-    Iterable,
-    Iterator,
-    List,
-    Optional,
-    Type,
-    Union,
-    cast,
-)
+from typing import IO, Any, Dict, Iterable, Iterator, List, Optional, Type, Union, cast
 
 from typing_extensions import Literal
 
@@ -160,12 +149,19 @@ class NonExtractor(Extractor):
             for filename in files:
                 yield rel_root + filename
 
+    def _ignore_git(self, _src: str, names: List[str]) -> Iterable[str]:
+        """Ignore git directory when copying source dirs."""
+        if ".git" in names:
+            names.remove(".git")
+        return names
+
     def extract(self, target_dir: str) -> None:
         # Copy the entire file tree to the target directory
         for filename in os.listdir(self.path):
             path = os.path.join(self.path, filename)
+
             if os.path.isdir(path):
-                shutil.copytree(path, os.path.join(target_dir, filename))
+                shutil.copytree(path, os.path.join(target_dir, filename), ignore=self._ignore_git)
             else:
                 shutil.copy2(path, target_dir)
 

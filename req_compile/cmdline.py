@@ -48,6 +48,7 @@ from req_compile.utils import (
     NormName,
     normalize_project_name,
     parse_requirement,
+    req_iter_from_lines,
 )
 from req_compile.versions import is_possible
 
@@ -262,14 +263,19 @@ def _dump_repo_candidates(
             print("  No candidates found", file=sys.stderr)
 
 
-def _create_req_from_path(path: str) -> RequirementContainer:
-    """
+def _create_req_from_path(path: str) -> pkg_resources.Requirement:
+    dist = _create_dist_from_path(path)
+    return utils.parse_requirement("{}=={}".format(*dist.to_definition(None)))
+
+
+def _create_dist_from_path(path: str) -> RequirementContainer:
+    """Create a requirement container from a path.
 
     Args:
-        path (str):
+        path (str): Path that should contain a setup.py or pyproject.toml.
 
     Returns:
-
+        A requirement container to compiling requirements for this path.
     """
     try:
         dist = req_compile.metadata.extract_metadata(path)
@@ -285,40 +291,24 @@ def _create_req_from_path(path: str) -> RequirementContainer:
     return dist
 
 
-def _create_input_reqs(
-    input_arg: str, extra_sources: List[str]
-) -> RequirementContainer:
+def _create_input_reqs(input_arg: str, parameters: List[str]) -> RequirementContainer:
     input_arg = input_arg.strip()
     if input_arg == "-":
-        stdin_contents = sys.stdin.readlines()
+        stdin_contents = [
+            line.strip() for line in sys.stdin.readlines() if line.strip()
+        ]
 
-        def _create_stdin_input_req(line: str) -> Optional[pkg_resources.Requirement]:
-            try:
-                result = _create_req_from_path(line)
-                extra_sources.append(line)
-                return utils.parse_requirement(
-                    "{}=={}".format(*result.to_definition(None))
-                )
-            except ValueError:
-                try:
-                    return utils.parse_requirement(line)
-                except CommentError:
-                    return None
-
-        reqs = (
-            _create_stdin_input_req(line.strip())
-            for line in stdin_contents
-            if line.strip()
-        )
-        non_none_reqs = [req for req in reqs if req is not None]
-        if not non_none_reqs:
-            raise ValueError("No requirements given to compile.")
-        return DistInfo("-", None, non_none_reqs, meta=True)
+        if all(os.path.isdir(line.strip()) for line in stdin_contents):
+            reqs = [_create_req_from_path(line) for line in stdin_contents]
+            parameters.extend(f"--source={line}" for line in stdin_contents)
+        else:
+            reqs = req_iter_from_lines(stdin_contents, parameters)
+        return DistInfo("-", None, reqs, meta=True)
 
     if os.path.isfile(input_arg):
         return RequirementsFile.from_file(input_arg)
 
-    return _create_req_from_path(input_arg)
+    return _create_dist_from_path(input_arg)
 
 
 def _blacklist_filter(req: DependencyNode) -> bool:
@@ -811,49 +801,52 @@ def compile_main(raw_args: Sequence[str] = None) -> None:
         else:
             input_args = (".",)
 
-    extra_sources: List[str] = []
+    extra_parameters: List[str] = []
     try:
         input_reqs = [
-            _create_input_reqs(input_arg, extra_sources) for input_arg in input_args
+            _create_input_reqs(input_arg, extra_parameters) for input_arg in input_args
         ]
     except ValueError as ex:
         print(f"ERROR: {ex}", file=sys.stderr)
+        raise
         sys.exit(1)
 
     for req in list(input_reqs):
         if isinstance(req, RequirementsFile):
-            req_param_parser = argparse.ArgumentParser()
-            add_repo_args(req_param_parser)
-            req_param_parser.add_argument(
-                "-e",
-                "--editable",
-                dest="editable_sources",
-                action="append",
-                default=[],
-                help="A local project directory",
-            )
+            extra_parameters.extend(req.parameters)
 
-            req_args = req_param_parser.parse_args(req.parameters)
+    if extra_parameters:
+        req_param_parser = argparse.ArgumentParser()
+        add_repo_args(req_param_parser)
+        req_param_parser.add_argument(
+            "-e",
+            "--editable",
+            dest="editable_sources",
+            action="append",
+            default=[],
+            help="A local project directory",
+        )
 
-            all_index_urls = OrderedDict(zip(args.index_urls, repeat(None)))
-            for url in req_args.index_urls:
-                all_index_urls[url] = None
-            args.index_urls = list(all_index_urls)
+        req_args = req_param_parser.parse_args(extra_parameters)
 
-            all_extra_index_urls = OrderedDict(zip(args.extra_index_urls, repeat(None)))
-            for url in req_args.extra_index_urls:
-                all_extra_index_urls[url] = None
-            args.extra_index_urls = list(all_extra_index_urls)
+        all_index_urls = OrderedDict(zip(args.index_urls, repeat(None)))
+        for url in req_args.index_urls:
+            all_index_urls[url] = None
+        args.index_urls = list(all_index_urls)
 
-            for editable_source in req_args.editable_sources:
-                input_reqs.append(_create_req_from_path(editable_source))
-            extra_sources += req_args.editable_sources
+        all_extra_index_urls = OrderedDict(zip(args.extra_index_urls, repeat(None)))
+        for url in req_args.extra_index_urls:
+            all_extra_index_urls[url] = None
+        args.extra_index_urls = list(all_extra_index_urls)
+
+        for editable_source in req_args.editable_sources:
+            input_reqs.append(_create_dist_from_path(editable_source))
+        args.sources += req_args.editable_sources
 
     constraint_reqs = []
     if args.constraints is not None:
         constraint_reqs = [
-            _create_input_reqs(input_arg, extra_sources)
-            for input_arg in args.constraints
+            _create_input_reqs(input_arg, []) for input_arg in args.constraints
         ]
 
     if args.extras:
@@ -872,7 +865,7 @@ def compile_main(raw_args: Sequence[str] = None) -> None:
     repo = build_repo(
         args.solutions,
         args.upgrade_packages,
-        extra_sources + args.sources,
+        args.sources,
         args.excluded_sources,
         args.find_links,
         args.index_urls,
@@ -916,7 +909,10 @@ def compile_main(raw_args: Sequence[str] = None) -> None:
             if (
                 node.metadata.candidate is not None
                 and node.metadata.candidate.type
-                not in (DistributionType.SOURCE, DistributionType.SDIST,)
+                not in (
+                    DistributionType.SOURCE,
+                    DistributionType.SDIST,
+                )
             ):
                 continue
 

@@ -94,12 +94,14 @@ def compile_roots(
                     if req in _path:
                         if options.allow_circular_dependencies:
                             logger.error(
-                                "Skipping node %s because it includes this node", req,
+                                "Skipping node %s because it includes this node",
+                                req,
                             )
                         else:
                             raise ValueError(
                                 "Circular dependency: {node} -> {req} -> {node}".format(
-                                    node=node, req=req,
+                                    node=node,
+                                    req=req,
                                 )
                             )
                     else:

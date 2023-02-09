@@ -13,9 +13,9 @@ import pkg_resources
 import toml
 
 from ..containers import DistInfo
+from ..utils import parse_requirements
 from .dist_info import _fetch_from_wheel, _parse_flat_metadata
 from .patch import patch
-from ..utils import parse_requirements
 
 LOG = logging.getLogger("req_compile.metadata.source")
 LOCK = threading.Lock()
