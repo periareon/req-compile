@@ -299,7 +299,7 @@ def _create_input_reqs(input_arg: str, parameters: List[str]) -> RequirementCont
         ]
 
         if all(os.path.isdir(line.strip()) for line in stdin_contents):
-            reqs = [_create_req_from_path(line) for line in stdin_contents]
+            reqs: Iterable[pkg_resources.Requirement] = [_create_req_from_path(line) for line in stdin_contents]
             parameters.extend(f"--source={line}" for line in stdin_contents)
         else:
             reqs = req_iter_from_lines(stdin_contents, parameters)
@@ -813,7 +813,8 @@ def compile_main(raw_args: Sequence[str] = None) -> None:
 
     for req in list(input_reqs):
         if isinstance(req, RequirementsFile):
-            extra_parameters.extend(req.parameters)
+            if req.parameters:
+                extra_parameters.extend(req.parameters)
 
     if extra_parameters:
         req_param_parser = argparse.ArgumentParser()

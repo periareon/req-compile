@@ -11,7 +11,6 @@ import packaging.version
 from _typeshed import Self
 from typing_extensions import TypeAlias
 
-_LegacyVersion: TypeAlias = packaging.version.LegacyVersion
 _Version: TypeAlias = packaging.version.Version
 
 _T = TypeVar("_T")
@@ -347,7 +346,7 @@ empty_provider: EmptyProvider
 class FileMetadata(EmptyProvider, IResourceProvider):
     def __init__(self, path_to_pkg_info: str) -> None: ...
 
-def parse_version(v: str) -> _Version | _LegacyVersion: ...
+def parse_version(v: str) -> _Version: ...
 def yield_lines(iterable: _NestedStr) -> Generator[str, None, None]: ...
 def split_sections(
     strs: _NestedStr,
