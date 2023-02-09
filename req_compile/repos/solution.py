@@ -278,7 +278,9 @@ class SolutionRepository(Repository):
                 reverse_dep = self.solution[name]
                 if reverse_dep.metadata is None:
                     inner_meta = req_compile.containers.DistInfo(
-                        proj_name, req_compile.utils.parse_version("0+missing"), [],
+                        proj_name,
+                        req_compile.utils.parse_version("0+missing"),
+                        [],
                     )
                     inner_meta.origin = ReferenceSourceRepository(inner_meta)
                     reverse_dep.metadata = inner_meta

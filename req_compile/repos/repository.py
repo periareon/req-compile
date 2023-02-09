@@ -103,7 +103,11 @@ def manylinux_tag_is_compatible_with_this_system(tag: str) -> bool:
     else:
         if hasattr(_manylinux, "manylinux_compatible"):
             # pylint: disable=no-member
-            result = _manylinux.manylinux_compatible(tag_major, tag_minor, tag_arch,)
+            result = _manylinux.manylinux_compatible(
+                tag_major,
+                tag_minor,
+                tag_arch,
+            )
             if result is not None:
                 return bool(result)
         else:
@@ -739,7 +743,9 @@ class Repository(metaclass=abc.ABCMeta):
     ):  # pylint: disable=invalid-name
         # type: (pkg_resources.Requirement, Candidate, Set[NormName]) -> CantUseReason
         reason = check_usability(
-            req, candidate, allow_prereleases=self.allow_prerelease,
+            req,
+            candidate,
+            allow_prereleases=self.allow_prerelease,
         )
         if reason is None or reason == CantUseReason.U_CAN_USE:
             if (

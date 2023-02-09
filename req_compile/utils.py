@@ -1,3 +1,5 @@
+import logging
+import os
 import typing
 from collections import defaultdict
 from functools import lru_cache
@@ -57,11 +59,10 @@ def parse_version(version: str) -> packaging.version.Version:
     Args:
         version: Version to parse
     """
-    return pkg_resources.parse_version(version)  # type: ignore
+    return pkg_resources.parse_version(version)
 
 
-def parse_requirements(reqs):
-    # type: (Iterable[str]) -> Iterable[pkg_resources.Requirement]
+def parse_requirements(reqs: Iterable[str]) -> Iterable[pkg_resources.Requirement]:
     """Parse a list of strings into Requirements."""
     for req in reqs:
         req = req.strip().rstrip("\\")
@@ -76,6 +77,71 @@ def parse_requirements(reqs):
             result = parse_requirement(req)
             if result is not None:
                 yield result
+
+
+def req_iter_from_file(
+    reqfile_name: str, parameters: typing.List[str]
+) -> Iterable[pkg_resources.Requirement]:
+    """Create an iterator to step through a requirements file."""
+    with open(reqfile_name, "r", encoding="utf-8") as reqfile:
+        lines = reqfile.readlines()
+
+    return req_iter_from_lines(
+        lines, parameters, relative_dir=os.path.dirname(reqfile_name)
+    )
+
+
+def req_iter_from_lines(
+    lines: Iterable[str], parameters: typing.List[str], relative_dir: str = None
+) -> Iterable[pkg_resources.Requirement]:
+    full_line = ""
+    continuation = False
+
+    for req_line in lines:
+        req_line = req_line.strip()
+        if not req_line:
+            continue
+
+        if req_line.startswith("#"):
+            continue
+
+        if continuation or not full_line:
+            full_line += req_line.rstrip("\\")
+
+        if "\\" in req_line:
+            if req_line[-1] != "\\":
+                raise ValueError(
+                    "Line continuation marker \\ must be last character in a line"
+                )
+            continuation = True
+            continue
+
+        continuation = False
+
+        line_parts = full_line.split()
+        if line_parts[0] in ("-r", "--requirement"):
+            for req in req_iter_from_file(
+                os.path.join(relative_dir or ".", line_parts[1].strip()),
+                parameters,
+            ):
+                yield req
+        elif line_parts[0].startswith("-"):
+            parameters.extend(line_parts)
+        else:
+            try:
+                if len(line_parts) > 1:
+                    for idx, part in enumerate(line_parts):
+                        if part.startswith("--hash"):
+                            full_line = " ".join(line_parts[:idx])
+                            break
+                yield parse_requirement(full_line)
+            except ValueError:
+                logging.getLogger("req_compile.utils").exception(
+                    "Failed to parse %s", full_line
+                )
+                raise
+
+        full_line = ""
 
 
 def merge_extras(

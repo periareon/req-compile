@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="req-compile",
-    version="1.0.0pre3",
+    version="1.0.0pre4",
     author="Spencer Putt",
     author_email="sputt@alumni.iu.edu",
     description="Python requirements compiler",
@@ -20,7 +20,6 @@ setup(
     python_requires=">=3.0, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*",
     classifiers=[
         "Programming Language :: Python",
-        "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",

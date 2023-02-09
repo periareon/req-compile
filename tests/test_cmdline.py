@@ -112,7 +112,7 @@ def test_stdin_paths(mock_stdin):
     extra_sources = []
     result = _create_input_reqs("-", extra_sources)
 
-    assert set(extra_sources) == {mono1, mono2, mono3}
+    assert set(extra_sources) == {f"--source={mono1}", f"--source={mono2}", f"--source={mono3}"}
     assert set(result.reqs) == set(
         pkg_resources.parse_requirements(["pkg1==1.0.0", "pkg2==2.0.1", "pkg3==0.0.0"])
     )

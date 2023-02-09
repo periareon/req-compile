@@ -21,16 +21,19 @@ def test_source_candidates():
 
 def test_no_candidates(tmp_path):
     """Verify finding no candidates works correctly."""
+    env_copy = os.environ.copy()
+    env_copy["PYTHONPATH"] = ROOT_DIR
+
     result = subprocess.run(
         [sys.executable, "-m", "req_compile.candidates", "--pre"],
         encoding="utf-8",
         capture_output=True,
-        env={"PYTHONPATH": ROOT_DIR,},
+        env=env_copy,
         cwd=tmp_path,
     )
-    assert result.returncode == 0
+    assert result.returncode == 0, result.stderr
     assert result.stdout == ""
-    assert "0" in result.stderr
+    assert "0" in result.stderr, result.stderr
 
 
 def test_compile_req_compile(tmp_path):

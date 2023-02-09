@@ -1,6 +1,6 @@
 import os
 from hashlib import sha256
-from typing import Any, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, List, Optional, Sequence, Tuple
 
 import pkg_resources
 from overrides import overrides
@@ -48,7 +48,8 @@ class FindLinksRepository(Repository):
         for filename in os.listdir(self.path):
             full_path = os.path.join(self.path, filename)
             candidate = req_compile.repos.repository.filename_to_candidate(
-                (self.path, full_path), full_path,
+                (self.path, full_path),
+                full_path,
             )
             if candidate is not None:
                 self.links.append(candidate)

@@ -1,14 +1,11 @@
 import itertools
-import logging
-import os
 from typing import Any, Iterable, Iterator, List, Optional, Tuple
 
 import packaging.requirements
 import packaging.version
 import pkg_resources
 
-from req_compile import utils
-from req_compile.utils import reduce_requirements
+from req_compile.utils import reduce_requirements, req_iter_from_file
 
 
 def req_uses_extra(req: pkg_resources.Requirement, extra: Optional[str]) -> bool:
@@ -33,7 +30,10 @@ class RequirementContainer:
     """A container for a list of requirements."""
 
     def __init__(
-        self, name: str, reqs: Iterable[pkg_resources.Requirement], meta: bool = False,
+        self,
+        name: str,
+        reqs: Iterable[pkg_resources.Requirement],
+        meta: bool = False,
     ) -> None:
         self.name = name
         self.reqs = list(reqs) if reqs else []
@@ -60,58 +60,6 @@ class RequirementContainer:
         raise NotImplementedError()
 
 
-def _req_iter_from_file(
-    reqfile_name: str, parameters: List[str]
-) -> Iterable[pkg_resources.Requirement]:
-    """Create an iterator to step through a requirements file."""
-    with open(reqfile_name, "r", encoding="utf-8") as reqfile:
-        full_line = ""
-        continuation = False
-
-        for req_line in reqfile:
-            req_line = req_line.strip()
-            if not req_line:
-                continue
-
-            if req_line.startswith("#"):
-                continue
-
-            if continuation or not full_line:
-                full_line += req_line
-
-            if "\\" in req_line:
-                if req_line[-1] != "\\":
-                    raise ValueError(
-                        "Line continuation marker \\ must be last character in a line"
-                    )
-                continuation = True
-                continue
-
-            continuation = False
-
-            line_parts = full_line.split()
-            if line_parts[0] in ("-r", "--requirement"):
-                for req in _req_iter_from_file(
-                    os.path.join(
-                        os.path.dirname(reqfile_name), full_line.split(" ")[1].strip()
-                    ),
-                    parameters,
-                ):
-                    yield req
-            elif line_parts[0].startswith("-"):
-                parameters.extend(line_parts)
-            else:
-                try:
-                    yield utils.parse_requirement(full_line)
-                except ValueError:
-                    logging.getLogger("req_compile.utils").exception(
-                        "Failed to parse %s", full_line
-                    )
-                    raise
-
-            full_line = ""
-
-
 def reqs_from_files(
     requirements_files: Iterable[str], parameters: List[str] = None
 ) -> Iterable[pkg_resources.Requirement]:
@@ -129,7 +77,7 @@ def reqs_from_files(
     raw_reqs: Iterable[pkg_resources.Requirement] = iter([])
     for reqfile_name in requirements_files:
         raw_reqs = itertools.chain(
-            raw_reqs, _req_iter_from_file(reqfile_name, parameters=parameters)
+            raw_reqs, req_iter_from_file(reqfile_name, parameters=parameters)
         )
 
     return list(raw_reqs)
