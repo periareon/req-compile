@@ -39,7 +39,16 @@ def test_no_candidates(tmp_path):
 def test_compile_req_compile(tmp_path):
     """Test compiling this project from source."""
     result = subprocess.run(
-        [sys.executable, "-m", "req_compile", ".", "--wheel-dir", str(tmp_path)],
+        [
+            sys.executable,
+            "-m",
+            "req_compile",
+            "-i",
+            "https://pypi.org/simple",
+            ".",
+            "--wheel-dir",
+            str(tmp_path),
+        ],
         encoding="utf-8",
         capture_output=True,
         cwd=ROOT_DIR,

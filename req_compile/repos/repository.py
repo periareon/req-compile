@@ -103,11 +103,7 @@ def manylinux_tag_is_compatible_with_this_system(tag: str) -> bool:
     else:
         if hasattr(_manylinux, "manylinux_compatible"):
             # pylint: disable=no-member
-            result = _manylinux.manylinux_compatible(
-                tag_major,
-                tag_minor,
-                tag_arch,
-            )
+            result = _manylinux.manylinux_compatible(tag_major, tag_minor, tag_arch,)
             if result is not None:
                 return bool(result)
         else:
@@ -444,8 +440,11 @@ def _wheel_filename_to_candidate(source: Any, filename: str) -> Optional[Candida
         build_tag = data_parts.pop(2)
     name = data_parts[0]
     abi = data_parts[3]
-    #  Convert old-style post-versions to new style so it will sort correctly
-    version = parse_version(data_parts[1].replace("_", "-"))
+    try:
+        #  Convert old-style post-versions to new style so it will sort correctly
+        version = parse_version(data_parts[1].replace("_", "-"))
+    except Exception:  # pylint: disable=broad-except
+        return None
     plats = data_parts[4].split(".")
     requires_python = WheelVersionTags(tuple(data_parts[2].split(".")))
 
@@ -743,9 +742,7 @@ class Repository(metaclass=abc.ABCMeta):
     ):  # pylint: disable=invalid-name
         # type: (pkg_resources.Requirement, Candidate, Set[NormName]) -> CantUseReason
         reason = check_usability(
-            req,
-            candidate,
-            allow_prereleases=self.allow_prerelease,
+            req, candidate, allow_prereleases=self.allow_prerelease,
         )
         if reason is None or reason == CantUseReason.U_CAN_USE:
             if (

@@ -59,5 +59,8 @@ def parse_source_filename(
             version_parts = version_parts[:idx]
             break
 
-    version = utils.parse_version(".".join(version_parts))
+    try:
+        version = utils.parse_version(".".join(version_parts))
+    except Exception:  # pylint: disable=broad-except
+        version = None
     return pkg_name, version

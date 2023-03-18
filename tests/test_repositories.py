@@ -30,7 +30,11 @@ def test_version_compatible(mock_py_version, sys_py_version, py_requires):
 
 
 @pytest.mark.parametrize(
-    "sys_py_version, py_requires", [("3.6.3", ("py2",)), ("2.7.16", ("py3",)),],
+    "sys_py_version, py_requires",
+    [
+        ("3.6.3", ("py2",)),
+        ("2.7.16", ("py3",)),
+    ],
 )
 def test_version_incompatible(mock_py_version, sys_py_version, py_requires):
     mock_py_version(sys_py_version)
@@ -61,9 +65,6 @@ def test_sort_non_semver():
         "2013b0",
         "2012rc0",
         "2012b0",
-        "2009r",
-        "2013d",
-        "2011k",
     )
     candidates = []
     for ver in candidate_vers:
@@ -83,7 +84,8 @@ def test_sort_non_semver():
 def test_sort_specific_platforms(mock_py_version, mocker):
     mock_py_version("3.7.4")
     mocker.patch(
-        "req_compile.repos.repository.PLATFORM_TAGS", ("this_platform",),
+        "req_compile.repos.repository.PLATFORM_TAGS",
+        ("this_platform",),
     )
     candidate_wheels = (
         "sounddevice-0.4.1-cp32.cp33.cp34.cp35.cp36.cp37.cp38.cp39.pp32.pp33.pp34.pp35.pp36.pp37.py3-None-this_platform.whl",
@@ -102,7 +104,8 @@ def test_sort_specific_platforms(mock_py_version, mocker):
 def test_sort_wheels_with_any(mock_py_version, mocker):
     mock_py_version("3.7.4")
     mocker.patch(
-        "req_compile.repos.repository.PLATFORM_TAGS", ("this_platform",),
+        "req_compile.repos.repository.PLATFORM_TAGS",
+        ("this_platform",),
     )
     candidate_wheels = (
         "pyenchant-3.2.1-py3-None-this_platform.and_another.whl",
