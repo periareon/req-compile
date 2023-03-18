@@ -9,6 +9,7 @@ import os
 import shutil
 import sys
 import tempfile
+import urllib.parse
 from collections import OrderedDict
 from io import StringIO
 from itertools import repeat
@@ -471,7 +472,9 @@ def write_requirements_file(
                     comment.write("\n    # ")
                 else:
                     comment.write(" ")
-                comment.write(f"{node.metadata.candidate.link[1]}")
+                link = node.metadata.candidate.link
+                full_link = urllib.parse.urljoin(link[0], link[1])
+                comment.write(full_link)
 
             if comment.getvalue():
                 if not multiline:
