@@ -5,3 +5,4 @@ packaging
 wheel
 overrides
 typing_extensions
+setuptools
