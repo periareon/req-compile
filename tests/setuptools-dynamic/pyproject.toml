@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+dynamic = ["dependencies"]
+name = "setuptools-dynamic"
+version = "1.0.0"
+requires-python = ">=3.7"
+
+[tool.setuptools]
+packages = [
+    "setuptools_dynamic_inner",
+]
+
+[tool.setuptools.dynamic]
+dependencies = {file = "requirements.txt"}

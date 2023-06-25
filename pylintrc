@@ -8,7 +8,4 @@ disable=
   too-few-public-methods,
   too-many-arguments,
   raise-missing-from,
-  bad-continuation,
   consider-using-f-string,
-
-ignored-modules=distutils.core

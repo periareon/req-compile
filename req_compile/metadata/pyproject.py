@@ -31,6 +31,10 @@ def _create_build_backend(build_system):
     return backend
 
 
+def _fake_set_level(*_args: Any, **_kwargs: Any) -> None:
+    """A setLevel method that does nothing."""
+
+
 def _parse_from_prepared_metadata(source_file, backend, pyproject):
     # type: (str, Any, Mapping) -> Optional[DistInfo]
     prepare = getattr(backend, "prepare_metadata_for_build_wheel", None)
@@ -40,15 +44,30 @@ def _parse_from_prepared_metadata(source_file, backend, pyproject):
     dest = tempfile.mkdtemp(suffix="metadata")
     try:
         try:
+            # See if the prepare method allows passing in an already parsed
+            # pyproject.toml file and a current directory.
             info = prepare(dest, proj=pyproject, cwd=source_file)
         except TypeError:
-            # We can only manipulate the working dir one at a time
+            # We can only manipulate the working dir on a single thread, so lock here.
+            # Don't let the backend change the logging level on the
+            # root logger. We will set it based on verbose flags.
             with LOCK:
                 old_cwd = os.getcwd()
                 try:
                     os.chdir(source_file)
                     fake_out = StringIO()
-                    with patch(sys, "stdout", fake_out, sys, "stderr", fake_out):
+                    root_logger = logging.getLogger()
+                    with patch(
+                        sys,
+                        "stdout",
+                        fake_out,
+                        sys,
+                        "stderr",
+                        fake_out,
+                        root_logger,
+                        "setLevel",
+                        _fake_set_level,
+                    ):
                         info = prepare(dest)
                 finally:
                     os.chdir(old_cwd)
@@ -97,7 +116,8 @@ def fetch_from_pyproject(
     try:
         backend_name = build_system["build-backend"]
         # If the backend is setuptools, rely on req-compile's setup.py heuristics instead
-        if backend_name == "setuptools.build_meta":
+        if backend_name == "setuptools.build_meta" and "project" not in pyproject:
+            LOG.debug("Using req-compile heuristics for setuptools backend")
             return None, setup_requires
     except KeyError:
         LOG.debug("No build-backend in build-system.")
