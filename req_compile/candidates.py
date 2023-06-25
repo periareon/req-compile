@@ -81,6 +81,7 @@ def candidates_main() -> None:
         logger.setLevel(logging.DEBUG)
     else:
         logging.basicConfig(level=logging.CRITICAL, stream=sys.stderr)
+        logging.getLogger().setLevel(level=logging.CRITICAL)
 
     start = time.time()
     wheeldir = tempfile.mkdtemp(suffix="-wheeldir")

@@ -374,6 +374,7 @@ def write_requirements_file(
     no_pins: bool = False,
     no_comments: bool = False,
     no_explanations: bool = False,
+    no_directives: bool = False,
     hashes: bool = False,
     multiline: bool = True,
     write_to: IO[str] = sys.stdout,
@@ -397,6 +398,7 @@ def write_requirements_file(
         no_pins (bool): If True, omit the solved version from the requirement lines
         no_comments (bool): If True, omit the comment containing the reverse dependencies.
         no_explanations: If True, omit the constraints explanations.
+        no_directives: Omit --index-url directives.
         hashes: If True, include hashes in the output.
         multiline: If True, output in a multi-line format. If None, allow the format to be
             selected dynamically.
@@ -421,7 +423,8 @@ def write_requirements_file(
         ), "Input requirements must be given for source annotations."
         repo_mapping = _generate_repo_header(input_reqs, list(repo), write_to)
 
-    _write_index_directives(list(repo), write_to)
+    if not no_directives:
+        _write_index_directives(list(repo), write_to)
 
     if multiline:
         pass_one_write_to = write_to
@@ -740,6 +743,12 @@ def compile_main(raw_args: Sequence[str] = None) -> None:
         help="Disable version pins, just list distributions.",
     )
     group.add_argument(
+        "--no-directives",
+        default=False,
+        action="store_true",
+        help="Don't output requirements file directives, such as --index-url, to solutions.",
+    )
+    group.add_argument(
         "--no-explanations",
         default=False,
         action="store_true",
@@ -948,6 +957,7 @@ def compile_main(raw_args: Sequence[str] = None) -> None:
         no_pins=args.no_pins,
         no_comments=args.no_comments,
         no_explanations=args.no_explanations,
+        no_directives=args.no_directives,
         hashes=args.hashes,
         multiline=args.multiline,
     )
