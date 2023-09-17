@@ -732,6 +732,7 @@ class Repository(metaclass=abc.ABCMeta):
                 req,
                 candidates,
                 force_allow_prerelease=True,
+                allow_source_dist=allow_source_dist,
                 max_downgrade=max_downgrade,
             )
 
