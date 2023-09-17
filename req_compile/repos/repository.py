@@ -299,7 +299,7 @@ class Candidate:  # pylint: disable=too-many-instance-attributes
         self._sortkey = (
             None
         )  # type: Optional[Tuple[packaging.version.Version, str, int, Tuple[int, int, int, int]]]
-        self._extra_sort_info = extra_sort_info
+        self.extra_sort_info = extra_sort_info
 
         self.preparsed = None  # type: Optional[RequirementContainer]
 
@@ -313,7 +313,7 @@ class Candidate:  # pylint: disable=too-many-instance-attributes
         if self._sortkey is None:
             self._sortkey = (
                 self.version,
-                self._extra_sort_info,
+                self.extra_sort_info,
                 self.type.value,
                 self.tag_score,
             )

@@ -39,7 +39,7 @@ class MultiRepository(Repository):
                     candidate.source = repo
                     # Make sure we consider earlier repos in this list first if
                     # equally-scoring candidates are provided.
-                    candidate._extra_sort_info = (idx, candidate._extra_sort_info)
+                    candidate.extra_sort_info = (idx, candidate.extra_sort_info)
                 candidates.extend(repo_candidates)
             except NoCandidateException:
                 pass
