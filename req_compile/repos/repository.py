@@ -103,7 +103,11 @@ def manylinux_tag_is_compatible_with_this_system(tag: str) -> bool:
     else:
         if hasattr(_manylinux, "manylinux_compatible"):
             # pylint: disable=no-member
-            result = _manylinux.manylinux_compatible(tag_major, tag_minor, tag_arch,)
+            result = _manylinux.manylinux_compatible(
+                tag_major,
+                tag_minor,
+                tag_arch,
+            )
             if result is not None:
                 return bool(result)
         else:
@@ -262,7 +266,7 @@ class Candidate:  # pylint: disable=too-many-instance-attributes
         plats,  # type: Union[str, Iterable[str]]
         link,  # type: Any
         candidate_type=DistributionType.SDIST,  # type: DistributionType
-        extra_sort_info="",  # type: str
+        extra_sort_info="",  # type: Any
     ):
         # type: (...) -> None
         """
@@ -298,6 +302,9 @@ class Candidate:  # pylint: disable=too-many-instance-attributes
         self._extra_sort_info = extra_sort_info
 
         self.preparsed = None  # type: Optional[RequirementContainer]
+
+        # Repository this candidate came from.
+        self.source: Optional[Repository] = None
 
     @property
     def sortkey(
@@ -700,7 +707,8 @@ class Repository(metaclass=abc.ABCMeta):
                         )
                     else:
                         self.logger.debug(
-                            "Skipping source distribution for %s (due to --only-binary)",
+                            "Skipping source distribution %s for %s (due to --only-binary)",
+                            candidate,
                             candidate.name,
                         )
                         continue
@@ -743,7 +751,9 @@ class Repository(metaclass=abc.ABCMeta):
     ):  # pylint: disable=invalid-name
         # type: (pkg_resources.Requirement, Candidate, Set[NormName]) -> CantUseReason
         reason = check_usability(
-            req, candidate, allow_prereleases=self.allow_prerelease,
+            req,
+            candidate,
+            allow_prereleases=self.allow_prerelease,
         )
         if reason is None or reason == CantUseReason.U_CAN_USE:
             if (

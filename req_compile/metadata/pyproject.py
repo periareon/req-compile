@@ -105,7 +105,6 @@ def fetch_from_pyproject(
     except toml.TomlDecodeError as ex:
         LOG.debug("Failed to load pyproject.toml: %s", ex)
         return None, []
-
     try:
         build_system = pyproject["build-system"]
     except KeyError:

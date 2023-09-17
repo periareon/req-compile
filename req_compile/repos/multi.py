@@ -28,32 +28,18 @@ class MultiRepository(Repository):
         return hash(self.repositories)
 
     @overrides
-    def get_dist(
-        self,
-        req: pkg_resources.Requirement,
-        allow_source_dist: bool = True,
-        max_downgrade: int = None,
-    ) -> Tuple[RequirementContainer, bool]:
-        last_ex = NoCandidateException(req)
-        for repo in self.repositories:
-            try:
-                return repo.get_dist(
-                    req,
-                    allow_source_dist=allow_source_dist,
-                    max_downgrade=max_downgrade,
-                )
-            except NoCandidateException as ex:
-                last_ex = ex
-        raise last_ex
-
-    @overrides
     def get_candidates(
         self, req: Optional[pkg_resources.Requirement]
     ) -> Iterable[Candidate]:
         candidates: List[Candidate] = []
-        for repo in self.repositories:
+        for idx, repo in enumerate(self.repositories):
             try:
                 repo_candidates = repo.get_candidates(req)
+                for candidate in repo_candidates:
+                    candidate.source = repo
+                    # Make sure we consider earlier repos in this list first if
+                    # equally-scoring candidates are provided.
+                    candidate._extra_sort_info = (idx, candidate._extra_sort_info)
                 candidates.extend(repo_candidates)
             except NoCandidateException:
                 pass
@@ -63,7 +49,8 @@ class MultiRepository(Repository):
     def resolve_candidate(
         self, candidate: Candidate
     ) -> Tuple[RequirementContainer, bool]:
-        raise NotImplementedError
+        assert candidate.source is not None
+        return candidate.source.resolve_candidate(candidate)
 
     @overrides
     def close(self) -> None:
