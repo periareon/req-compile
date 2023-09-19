@@ -96,8 +96,13 @@ Output is always emitted to stdout. Possible inputs include::
 
 Specifying source of distributions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Req-Compile supports obtaining python distributions from multiple sources, each of which can be specified more than once. The following sources
-can be specified, resolved in the same order (e.g. source takes precedence over index-url):
+Req-Compile supports obtaining python distributions from multiple sources, each of which can be specified more than once.
+These are referred to as repositories. If a candidate can be found in a provided solution or source directory, the remaining
+repositories will not be considered. This is important for "lazy" requirement updates (e.g. only updating what is necessary
+to find a solution, and otherwise keep the existing solution) and ensure that source directories
+take precedence over remote repositories.
+
+The following repositories can be specified:
 
 * ``--solution``
 
@@ -126,11 +131,10 @@ can be specified, resolved in the same order (e.g. source takes precedence over 
   does not replace the default index URL so it can be used as a supplemental source of requirements
   without knowing (or recording in the solution) the default index URL.
 
-All options can be repeated multiple times, with the resolution order within types matching what
-was passed on the commandline. However, overall resolution order will always match the order
-of the list above.
+All options can be repeated multiple times, with the resolution order within solution and source matching what
+was passed on the commandline.
 
-By default, PyPI (https://pypi.org/) is added as a default source. It can be removed by passing
+By default, PyPI (https://pypi.org/) or the default pip index is added as a default repository. It can be removed by passing
 ``--no-index`` on the commandline or passing a different index via ``--index-url``.
 
 Identifying source of constraints

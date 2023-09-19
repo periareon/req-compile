@@ -29,7 +29,7 @@ from req_compile.config import read_pip_default_index
 from req_compile.containers import DistInfo, RequirementContainer, RequirementsFile
 from req_compile.errors import NoCandidateException
 from req_compile.repos.findlinks import FindLinksRepository
-from req_compile.repos.multi import MultiRepository
+from req_compile.repos.multi import MultiRepository, PooledCandidateMultiRepository
 from req_compile.repos.pypi import IndexType, PyPIRepository
 from req_compile.repos.repository import (
     CantUseReason,
@@ -576,6 +576,44 @@ def build_repo(
     no_index: bool = False,
     allow_prerelease: bool = False,
 ) -> Repository:
+    pooled_repos: List[Repository] = []
+    if find_links:
+        pooled_repos.extend(
+            FindLinksRepository(find_link, allow_prerelease=allow_prerelease)
+            for find_link in find_links
+        )
+    if not no_index:
+        if not index_urls:
+            default_index_url = read_pip_default_index() or "https://pypi.org/simple"
+            pooled_repos.append(
+                PyPIRepository(
+                    default_index_url,
+                    wheeldir,
+                    allow_prerelease=allow_prerelease,
+                    index_type=IndexType.DEFAULT,
+                )
+            )
+        else:
+            pooled_repos.extend(
+                PyPIRepository(
+                    index_url,
+                    wheeldir,
+                    allow_prerelease=allow_prerelease,
+                    index_type=IndexType.INDEX_URL,
+                )
+                for index_url in index_urls
+            )
+        if extra_index_urls is not None:
+            pooled_repos.extend(
+                PyPIRepository(
+                    index_url,
+                    wheeldir,
+                    allow_prerelease=allow_prerelease,
+                    index_type=IndexType.EXTRA_INDEX_URL,
+                )
+                for index_url in extra_index_urls
+            )
+
     repos: List[Repository] = []
     if solutions:
         repos.extend(
@@ -587,44 +625,16 @@ def build_repo(
             SourceRepository(source, excluded_paths=excluded_sources)
             for source in sources
         )
-    if find_links:
-        repos.extend(
-            FindLinksRepository(find_link, allow_prerelease=allow_prerelease)
-            for find_link in find_links
-        )
-    if not no_index:
-        if not index_urls:
-            default_index_url = read_pip_default_index() or "https://pypi.org/simple"
-            repos.append(
-                PyPIRepository(
-                    default_index_url,
-                    wheeldir,
-                    allow_prerelease=allow_prerelease,
-                    index_type=IndexType.DEFAULT,
-                )
-            )
-        else:
-            repos.extend(
-                PyPIRepository(
-                    index_url,
-                    wheeldir,
-                    allow_prerelease=allow_prerelease,
-                    index_type=IndexType.INDEX_URL,
-                )
-                for index_url in index_urls
-            )
-        if extra_index_urls is not None:
-            repos.extend(
-                PyPIRepository(
-                    index_url,
-                    wheeldir,
-                    allow_prerelease=allow_prerelease,
-                    index_type=IndexType.EXTRA_INDEX_URL,
-                )
-                for index_url in extra_index_urls
-            )
+
+    if len(pooled_repos) > 1:
+        repos.append(PooledCandidateMultiRepository(*pooled_repos))
+    elif len(pooled_repos) == 1:
+        repos.append(pooled_repos[0])
+
     if not repos:
-        raise ValueError("At least one Python distributions source must be provided.")
+        raise ValueError(
+            "At least one source of Python distributions must be provided."
+        )
     if len(repos) > 1:
         repo: Repository = MultiRepository(*repos)
     else:

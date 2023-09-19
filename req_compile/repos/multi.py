@@ -28,6 +28,52 @@ class MultiRepository(Repository):
         return hash(self.repositories)
 
     @overrides
+    def get_dist(
+        self,
+        req: pkg_resources.Requirement,
+        allow_source_dist: bool = True,
+        max_downgrade: int = None,
+    ) -> Tuple[RequirementContainer, bool]:
+        last_ex = NoCandidateException(req)
+        for repo in self.repositories:
+            try:
+                return repo.get_dist(
+                    req,
+                    allow_source_dist=allow_source_dist,
+                    max_downgrade=max_downgrade,
+                )
+            except NoCandidateException as ex:
+                last_ex = ex
+        raise last_ex
+
+    @overrides
+    def get_candidates(
+        self, req: Optional[pkg_resources.Requirement]
+    ) -> Iterable[Candidate]:
+        candidates: List[Candidate] = []
+        for repo in self.repositories:
+            try:
+                repo_candidates = repo.get_candidates(req)
+                candidates.extend(repo_candidates)
+            except NoCandidateException:
+                pass
+        return candidates
+
+    @overrides
+    def resolve_candidate(
+        self, candidate: Candidate
+    ) -> Tuple[RequirementContainer, bool]:
+        raise NotImplementedError
+
+    @overrides
+    def close(self) -> None:
+        pass
+
+
+class PooledCandidateMultiRepository(MultiRepository):
+    """Repository that pools all candidates for multiple repositories together."""
+
+    @overrides
     def get_candidates(
         self, req: Optional[pkg_resources.Requirement]
     ) -> Iterable[Candidate]:
@@ -51,7 +97,3 @@ class MultiRepository(Repository):
     ) -> Tuple[RequirementContainer, bool]:
         assert candidate.source is not None
         return candidate.source.resolve_candidate(candidate)
-
-    @overrides
-    def close(self) -> None:
-        pass
