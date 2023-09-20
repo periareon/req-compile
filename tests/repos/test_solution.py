@@ -105,6 +105,16 @@ def test_load_solution_fuzzywuzzy_extras(load_solution):
     }
 
 
+def test_load_solution_urls(load_solution):
+    """Test that URLs can be loaded properly from solutions."""
+    result = load_solution("solutionfile_urls.txt")
+
+    assert (
+        result["pylint"].metadata.candidate.link[1]
+        == "https://files.pythonhosted.org/packages/63/cc/00cbe3f09bd6d98d79ee66cf76451d253fb1a8a59029535ea2b6ba8a824d/pylint-2.17.5-py3-none-any.whl#sha256=73995fb8216d3bed149c8d51bba25b2c52a8251a2c8ac846ec668ce38fab5413"
+    )
+
+
 def test_load_remove_root_removes_all(load_solution):
     result = load_solution("solutionfile.txt")
 
@@ -114,7 +124,11 @@ def test_load_remove_root_removes_all(load_solution):
 
 
 @pytest.mark.parametrize(
-    "scenario, roots", [("normal", ["a", "d"]), ("normal", ["a[x1]"]),],
+    "scenario, roots",
+    [
+        ("normal", ["a", "d"]),
+        ("normal", ["a[x1]"]),
+    ],
 )
 @pytest.mark.parametrize("multiline", [True, False])
 @pytest.mark.parametrize("hashes", [True, False])

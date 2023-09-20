@@ -23,18 +23,7 @@ def _candidate_from_node(node: DependencyNode) -> Candidate:
     if node.metadata.version is None:
         raise ValueError(f"No version given for {node.key}")
 
-    candidate = Candidate(
-        node.key,
-        None,
-        node.metadata.version,
-        None,
-        None,
-        "any",
-        None,
-        DistributionType.SOURCE,
-    )
-    candidate.preparsed = node.metadata
-    return candidate
+    return node.metadata.candidate
 
 
 class SolutionRepository(Repository):
@@ -180,9 +169,18 @@ class SolutionRepository(Repository):
         ):
             parts = source_part.strip().split("#")
             in_sources = False
+            in_url = False
+            url = ""
             sources = []
             for part in parts:
                 part = part.strip()
+                if part.startswith("http"):
+                    in_url = True
+                    in_sources = False
+                    url = part
+                elif in_url:
+                    url += "#" + part
+                    in_url = False
 
                 if in_sources:
                     sources.append(part)
@@ -207,6 +205,7 @@ class SolutionRepository(Repository):
             if source_part[0] == "[":
                 _, _, source_part = source_part.partition("] ")
             sources = source_part.split(", ")
+            url = ""
 
         dist_hash: Optional[str] = None
         if len(hashes) > 1:
@@ -215,7 +214,9 @@ class SolutionRepository(Repository):
                 self.logger.debug("Discarding %d hashes, using first", len(hashes) - 2)
 
         try:
-            self._add_sources(req, sources, dist_hash=dist_hash)
+            self._add_sources(
+                req, sources, url=url if url else None, dist_hash=dist_hash
+            )
         except Exception:
             raise ValueError(f"Failed to parse line: {line}")
 
@@ -236,6 +237,7 @@ class SolutionRepository(Repository):
         self,
         req: pkg_resources.Requirement,
         sources: Iterable[str],
+        url: str = None,
         dist_hash: str = None,
     ) -> None:
         pkg_names = map(lambda x: x.split(" ")[0], sources)
@@ -257,6 +259,20 @@ class SolutionRepository(Repository):
 
         metadata.version = version
         metadata.origin = self
+
+        candidate = Candidate(
+            req.project_name,
+            None,
+            version,
+            None,
+            None,
+            "any",
+            (None, url),
+            DistributionType.SOURCE,
+        )
+        candidate.preparsed = metadata
+        metadata.candidate = candidate
+
         self.solution.add_dist(metadata, None, req)
         for name, constraint in zip(pkg_names, constraints):
             if name and not (
@@ -286,6 +302,7 @@ class SolutionRepository(Repository):
                     reverse_dep.metadata = inner_meta
             else:
                 reverse_dep = None
+
             reason = _create_metadata_req(req, metadata, name, constraint)
             if reverse_dep is not None:
                 assert reverse_dep.metadata is not None
