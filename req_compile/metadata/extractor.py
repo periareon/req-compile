@@ -41,7 +41,7 @@ class Extractor(metaclass=abc.ABCMeta):
         self.renames[self.to_relative(new_name)] = self.to_relative(name)
 
     def open(
-        self, file: str, mode: str = "r", encoding: str = None, **_kwargs: Any
+        self, file: str, mode: str = "r", encoding: Optional[str] = None, **_kwargs: Any
     ) -> IO[str]:
         """Open a real file or a file within the archive"""
         relative_filename = self.to_relative(file)
@@ -240,10 +240,10 @@ class WithDecoding:
     def read(self, __n: int = 1024 * 1024) -> str:
         return self.reader.read(__n)
 
-    def readline(self, __limit: int = None) -> str:
+    def readline(self, __limit: Optional[int] = None) -> str:
         return self.reader.readline(__limit)
 
-    def readlines(self, __hint: int = None) -> List[str]:
+    def readlines(self, __hint: Optional[int] = None) -> List[str]:
         return self.reader.readlines(__hint)
 
     def write(self, data: Any) -> int:

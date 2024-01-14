@@ -1,7 +1,22 @@
 [build-system]
-requires = [ "setuptools", "wheel" ]
+requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.mypy]
-implicit_optional = true
 namespace_packages = false
+
+[tool.pylint.main]
+max-line-length = 120
+
+[tool.pylint."messages control"]
+disable = [
+    "R",
+    "missing-docstring",
+    "too-few-public-methods",
+    "too-many-arguments",
+    "raise-missing-from",
+    "consider-using-f-string",
+]
+
+[tool.isort]
+profile = "black"

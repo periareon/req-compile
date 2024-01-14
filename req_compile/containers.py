@@ -48,8 +48,9 @@ class RequirementContainer:
     def __iter__(self) -> Iterator[pkg_resources.Requirement]:
         return iter(self.reqs)
 
-    def requires(self, extra=None):
-        # type: (str) -> Iterable[pkg_resources.Requirement]
+    def requires(
+        self, extra: Optional[str] = None
+    ) -> Iterable[pkg_resources.Requirement]:
         return reduce_requirements(
             req for req in self.reqs if req_uses_extra(req, extra)
         )
@@ -61,7 +62,7 @@ class RequirementContainer:
 
 
 def reqs_from_files(
-    requirements_files: Iterable[str], parameters: List[str] = None
+    requirements_files: Iterable[str], parameters: Optional[List[str]] = None
 ) -> Iterable[pkg_resources.Requirement]:
     """Produce a list of requirements from multiple requirements files.
 
@@ -90,19 +91,17 @@ class RequirementsFile(RequirementContainer):
         self,
         filename: str,
         reqs: Iterable[pkg_resources.Requirement],
-        parameters: List[str] = None,
+        parameters: Optional[List[str]] = None,
         **_kwargs: Any
     ) -> None:
         super(RequirementsFile, self).__init__(filename, reqs, meta=True)
         self.parameters = parameters
 
-    def __repr__(self):
-        # type: () -> str
+    def __repr__(self) -> str:
         return "RequirementsFile({})".format(self.name)
 
     @classmethod
-    def from_file(cls, full_path, **kwargs):
-        # type: (str, **Any) -> RequirementsFile
+    def from_file(cls, full_path: str, **kwargs: Any) -> "RequirementsFile":
         """Load requirements from a file and build a RequirementsFile
 
         Args:
@@ -118,16 +117,22 @@ class RequirementsFile(RequirementContainer):
     def __str__(self) -> str:
         return self.name
 
-    def to_definition(self, extras):
-        # type: (Optional[Iterable[str]]) -> Tuple[str, Optional[packaging.version.Version]]
+    def to_definition(
+        self, extras: Optional[Iterable[str]]
+    ) -> Tuple[str, Optional[packaging.version.Version]]:
         return self.name, None
 
 
 class DistInfo(RequirementContainer):
     """Metadata describing a distribution of a project"""
 
-    def __init__(self, name, version, reqs, meta=False):
-        # type: (str, Optional[packaging.version.Version], Iterable[pkg_resources.Requirement], bool) -> None
+    def __init__(
+        self,
+        name: str,
+        version: Optional[packaging.version.Version],
+        reqs: Iterable[pkg_resources.Requirement],
+        meta: bool = False,
+    ) -> None:
         """
         Args:
             name: The project name
@@ -139,19 +144,18 @@ class DistInfo(RequirementContainer):
         self.version = version
         self.source = None
 
-    def __str__(self):
-        # type: () -> str
+    def __str__(self) -> str:
         return "{}=={}".format(*self.to_definition(None))
 
-    def to_definition(self, extras):
-        # type: (Optional[Iterable[str]]) -> Tuple[str, Optional[packaging.version.Version]]
+    def to_definition(
+        self, extras: Optional[Iterable[str]]
+    ) -> Tuple[str, Optional[packaging.version.Version]]:
         req_expr = "{}{}".format(
             self.name, ("[" + ",".join(sorted(extras)) + "]") if extras else ""
         )
         return req_expr, self.version
 
-    def __repr__(self):
-        # type: () -> str
+    def __repr__(self) -> str:
         return (
             self.name
             + " "
@@ -174,7 +178,9 @@ class PkgResourcesDistInfo(RequirementContainer):
     def __str__(self) -> str:
         return "{}=={}".format(*self.to_definition(None))
 
-    def requires(self, extra: str = None) -> Iterable[pkg_resources.Requirement]:
+    def requires(
+        self, extra: Optional[str] = None
+    ) -> Iterable[pkg_resources.Requirement]:
         return self.dist.requires(extras=(extra,) if extra else ())
 
     def to_definition(

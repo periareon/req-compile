@@ -19,7 +19,7 @@ class FindLinksRepository(Repository):
     A directory on the filesystem as a source of distributions.
     """
 
-    def __init__(self, path: str, allow_prerelease: bool = None) -> None:
+    def __init__(self, path: str, allow_prerelease: Optional[bool] = None) -> None:
         super(FindLinksRepository, self).__init__(
             "findlinks", allow_prerelease=allow_prerelease
         )

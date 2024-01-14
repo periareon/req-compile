@@ -61,8 +61,9 @@ FAILED_BUILDS: Set[str] = set()
 THREADLOCAL = threading.local()
 
 
-def find_in_archive(extractor, filename, max_depth=None):
-    # type: (Extractor, str, int) -> Optional[str]
+def find_in_archive(
+    extractor: Extractor, filename: str, max_depth: Optional[int] = None
+) -> Optional[str]:
     if extractor.exists(filename):
         return filename
 
@@ -228,7 +229,9 @@ def _fetch_from_setup_py(
     return results
 
 
-def _run_with_output(cmd: Sequence[str], cwd: str = None, timeout: float = 30.0) -> str:
+def _run_with_output(
+    cmd: Sequence[str], cwd: Optional[str] = None, timeout: float = 30.0
+) -> str:
     """Run a subprocess with a timeout and return the output.  Similar check_output with a timeout
 
     Args:
@@ -331,8 +334,9 @@ SETUPTOOLS_SHIM = (
 )
 
 
-def _build_egg_info(name, extractor, setup_file):
-    # type: (str, Extractor, Optional[str]) -> Optional[RequirementContainer]
+def _build_egg_info(
+    name: str, extractor: Extractor, setup_file: Optional[str]
+) -> Optional[RequirementContainer]:
     if setup_file is None:
         return None
 
@@ -586,7 +590,7 @@ def _parse_setup_py(
 
     # pylint: disable=unused-import,unused-variable
     import codecs
-    import distutils.core
+    import distutils.core  # pylint: disable=deprecated-module
     import fileinput
     import multiprocessing
 
@@ -659,15 +663,18 @@ def _parse_setup_py(
             self.path = path
             self.contents = extractor.contents(path)
 
-    # pylint: disable=unused-argument
     def fake_load_source(
         modname: str, filename: str, filehandle: Any = None
     ) -> ModuleType:
+        del filehandle
         return import_contents(modname, filename, extractor.contents(filename))
 
     def fake_spec_from_file_location(
-        modname: str, path: str, submodule_search_locations: Iterable[str] = None
+        modname: str,
+        path: str,
+        submodule_search_locations: Optional[Iterable[str]] = None,
     ) -> ModuleSpec:
+        del submodule_search_locations
         return FakeSpec(modname, path)
 
     def fake_module_from_spec(spec: ModuleType) -> ModuleType:
@@ -734,6 +741,7 @@ def _parse_setup_py(
 
     fake_stdin = StringIO()
 
+    # pylint: disable-next=unused-argument
     def _fake_find_packages(*args: Any, **kwargs: Any) -> Iterable[Any]:
         return []
 

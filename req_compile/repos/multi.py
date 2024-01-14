@@ -32,7 +32,7 @@ class MultiRepository(Repository):
         self,
         req: pkg_resources.Requirement,
         allow_source_dist: bool = True,
-        max_downgrade: int = None,
+        max_downgrade: Optional[int] = None,
     ) -> Tuple[RequirementContainer, bool]:
         last_ex = NoCandidateException(req)
         for repo in self.repositories:

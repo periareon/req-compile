@@ -29,7 +29,9 @@ def _candidate_from_node(node: DependencyNode) -> Candidate:
 class SolutionRepository(Repository):
     """A repository that provides distributions from a previous solution."""
 
-    def __init__(self, filename: str, excluded_packages: Iterable[str] = None) -> None:
+    def __init__(
+        self, filename: str, excluded_packages: Optional[Iterable[str]] = None
+    ) -> None:
         """Constructor."""
         super(SolutionRepository, self).__init__("solution", allow_prerelease=True)
         self.filename = os.path.abspath(filename) if filename != "-" else "-"
@@ -112,7 +114,9 @@ class SolutionRepository(Repository):
 
         self._remove_nodes()
 
-    def _load_from_lines(self, lines: Iterable[str], meta_file: str = None) -> None:
+    def _load_from_lines(
+        self, lines: Iterable[str], meta_file: Optional[str] = None
+    ) -> None:
         for line in lines:
             # Skip directives we don't process in solutions (like --index-url)
             if line.strip().startswith("--") and not self._partial_line:
@@ -133,7 +137,7 @@ class SolutionRepository(Repository):
             except KeyError:
                 pass
 
-    def _parse_line(self, line: str, meta_file: str = None) -> None:
+    def _parse_line(self, line: str, meta_file: Optional[str] = None) -> None:
         if self._partial_line:
             self._parse_multi_line(line, meta_file)
             return
@@ -151,7 +155,7 @@ class SolutionRepository(Repository):
 
         self._parse_single_line(line)
 
-    def _parse_single_line(self, line: str, meta_file: str = None) -> None:
+    def _parse_single_line(self, line: str, meta_file: Optional[str] = None) -> None:
         req_hash_part, _, source_part = line.partition("#")
         req_hash_part = req_hash_part.strip()
         if not req_hash_part:
@@ -220,7 +224,7 @@ class SolutionRepository(Repository):
         except Exception:
             raise ValueError(f"Failed to parse line: {line}")
 
-    def _parse_multi_line(self, line: str, meta_file: str = None) -> None:
+    def _parse_multi_line(self, line: str, meta_file: Optional[str] = None) -> None:
         stripped_line = line.strip()
         stripped_line = stripped_line.rstrip("\\")
 
@@ -237,8 +241,8 @@ class SolutionRepository(Repository):
         self,
         req: pkg_resources.Requirement,
         sources: Iterable[str],
-        url: str = None,
-        dist_hash: str = None,
+        url: Optional[str] = None,
+        dist_hash: Optional[str] = None,
     ) -> None:
         pkg_names = map(lambda x: x.split(" ")[0], sources)
         constraints = map(

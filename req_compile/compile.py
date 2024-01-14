@@ -65,7 +65,7 @@ def compile_roots(
     options: CompileOptions,
     depth: int = 1,
     max_downgrade: int = MAX_DOWNGRADE,
-    _path: Set[DependencyNode] = None,
+    _path: Optional[Set[DependencyNode]] = None,
 ) -> None:  # pylint: disable=too-many-statements,too-many-locals,too-many-branches
     """
     Args:
@@ -190,7 +190,7 @@ def compile_roots(
 
             nodes = sorted(node.reverse_deps)
 
-            violate_score = defaultdict(int)  # type: Dict[DependencyNode, int]
+            violate_score: Dict[DependencyNode, int] = defaultdict(int)
             for idx, revnode in enumerate(nodes):
                 for next_node in nodes[idx + 1 :]:
                     if not is_possible(
@@ -264,10 +264,10 @@ def compile_roots(
 def perform_compile(
     input_reqs: Iterable[RequirementContainer],
     repo: Repository,
-    constraint_reqs: Iterable[RequirementContainer] = None,
-    extras: Iterable[str] = None,
+    constraint_reqs: Optional[Iterable[RequirementContainer]] = None,
+    extras: Optional[Iterable[str]] = None,
     allow_circular_dependencies: bool = True,
-    only_binary: Set[NormName] = None,
+    only_binary: Optional[Set[NormName]] = None,
 ) -> Tuple[DistributionCollection, Set[DependencyNode]]:
     """Perform a compilation using the given inputs and constraints.
 
@@ -335,8 +335,11 @@ def perform_compile(
     return results, roots
 
 
-def _add_constraints(all_pinned, constraint_reqs, results):
-    # type: (bool, Optional[Iterable[RequirementContainer]], DistributionCollection) -> None
+def _add_constraints(
+    all_pinned: bool,
+    constraint_reqs: Optional[Iterable[RequirementContainer]],
+    results: DistributionCollection,
+) -> None:
     if all_pinned and constraint_reqs is not None:
         for constraint_source in constraint_reqs:
             results.add_dist(constraint_source, None, None)

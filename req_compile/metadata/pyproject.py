@@ -21,8 +21,7 @@ LOG = logging.getLogger("req_compile.metadata.source")
 LOCK = threading.Lock()
 
 
-def _create_build_backend(build_system):
-    # type: (Mapping) -> Any
+def _create_build_backend(build_system: Mapping) -> Any:
     backend_name = build_system["build-backend"]
     module, _, obj = backend_name.partition(":")
     backend = importlib.import_module(module)
@@ -35,8 +34,9 @@ def _fake_set_level(*_args: Any, **_kwargs: Any) -> None:
     """A setLevel method that does nothing."""
 
 
-def _parse_from_prepared_metadata(source_file, backend, pyproject):
-    # type: (str, Any, Mapping) -> Optional[DistInfo]
+def _parse_from_prepared_metadata(
+    source_file: str, backend: Any, pyproject: Mapping
+) -> Optional[DistInfo]:
     prepare = getattr(backend, "prepare_metadata_for_build_wheel", None)
     if prepare is None:
         return None
@@ -82,8 +82,7 @@ def _parse_from_prepared_metadata(source_file, backend, pyproject):
     return None
 
 
-def _parse_from_wheel(backend):
-    # type: (Mapping[str, Any]) -> Optional[DistInfo]
+def _parse_from_wheel(backend: Mapping[str, Any]) -> Optional[DistInfo]:
     build_wheel = getattr(backend, "build_wheel", None)
     if build_wheel is None:
         return None

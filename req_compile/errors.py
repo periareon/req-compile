@@ -8,7 +8,7 @@ import pkg_resources
 class ExceptionWithDetails(Exception):
     def __init__(self) -> None:
         super(ExceptionWithDetails, self).__init__()
-        self.results = None  # type: Optional[Any]
+        self.results: Optional[Any] = None
 
 
 class MetadataError(ExceptionWithDetails):

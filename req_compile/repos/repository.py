@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-import distutils.util  # pylint: disable=import-error,no-name-in-module,no-member
+import distutils.util  # pylint: disable=import-error,no-name-in-module,no-member,deprecated-module
 import enum
 import logging
 import os
@@ -122,8 +122,7 @@ def manylinux_tag_is_compatible_with_this_system(tag: str) -> bool:
     return True
 
 
-def _get_abi_tag():
-    # type: () -> str
+def _get_abi_tag() -> str:
     """Build a best effort ABI tag"""
     py_version = (sys.version_info.major, sys.version_info.minor)
     tag = INTERPRETER_TAG + PY_VERSION_NUM
@@ -163,8 +162,7 @@ class PythonVersionRequirement:
         raise NotImplementedError
 
 
-def _impl_major_minor(py_version):
-    # type: (str) -> Tuple[str, int, int]
+def _impl_major_minor(py_version: str) -> Tuple[str, int, int]:
     """Split a python version tag into the implementation and a major and
     minor version. If the minor version is not reported, return zero. If any
     parts are invalid, choose results that should sort them last"""
@@ -181,8 +179,7 @@ def _impl_major_minor(py_version):
     return impl, major, minor
 
 
-def _is_py_version_compatible(py_version):
-    # type: (str) -> bool
+def _is_py_version_compatible(py_version: str) -> bool:
     impl, major, minor = _impl_major_minor(py_version)
     if impl == "py" or impl == INTERPRETER_TAG:
         if major == sys.version_info.major and minor <= sys.version_info.minor:
@@ -215,16 +212,13 @@ def _py_version_score(py_version: str) -> int:
 
 
 class WheelVersionTags(PythonVersionRequirement):
-    def __init__(self, py_versions):
-        # type: (Iterable[str]) -> None
+    def __init__(self, py_versions: Iterable[str]) -> None:
         assert not isinstance(py_versions, str)
-        if py_versions is None:
-            self.py_versions = None  # type: Optional[Set[str]]
-        else:
+        self.py_versions: Optional[Set[str]] = None
+        if py_versions is not None:
             self.py_versions = set(py_versions)
 
-    def check_compatibility(self):
-        # type: () -> bool
+    def check_compatibility(self) -> bool:
         if not self.py_versions:
             return True
 
@@ -232,8 +226,7 @@ class WheelVersionTags(PythonVersionRequirement):
             _is_py_version_compatible(py_version) for py_version in self.py_versions
         )
 
-    def __str__(self):
-        # type: () -> str
+    def __str__(self) -> str:
         if not self.py_versions:
             return "any"
 
@@ -245,8 +238,7 @@ class WheelVersionTags(PythonVersionRequirement):
         return self.py_versions == other.py_versions
 
     @property
-    def tag_score(self):
-        # type: () -> int
+    def tag_score(self) -> int:
         """Calculate a score based on how specific the versions given are"""
         if not self.py_versions:
             return 0
@@ -258,17 +250,16 @@ class Candidate:  # pylint: disable=too-many-instance-attributes
 
     def __init__(
         self,
-        name,  # type: str
-        filename,  # type: Optional[str]
-        version,  # type: packaging.version.Version
-        py_version,  # type: Optional[WheelVersionTags]
-        abi,  # type: Optional[str]
-        plats,  # type: Union[str, Iterable[str]]
-        link,  # type: Any
-        candidate_type=DistributionType.SDIST,  # type: DistributionType
-        extra_sort_info="",  # type: Any
-    ):
-        # type: (...) -> None
+        name: str,
+        filename: Optional[str],
+        version: packaging.version.Version,
+        py_version: Optional[WheelVersionTags],
+        abi: Optional[str],
+        plats: Union[str, Iterable[str]],
+        link: Any,
+        candidate_type: DistributionType = DistributionType.SDIST,
+        extra_sort_info: Any = "",
+    ) -> None:
         """
         Args:
             name: Name of the candidate
@@ -282,9 +273,7 @@ class Candidate:  # pylint: disable=too-many-instance-attributes
         """
         self.name = name
         self.filename = filename
-        self.version = version or parse_version(
-            "0.0.0"
-        )  # type: packaging.version.Version
+        self.version: packaging.version.Version = version or parse_version("0.0.0")
         self.py_version = py_version
         self.abi = abi
         if isinstance(plats, str):
@@ -296,12 +285,12 @@ class Candidate:  # pylint: disable=too-many-instance-attributes
 
         # Sort based on tags to make sure the most specific distributions
         # are matched first
-        self._sortkey = (
-            None
-        )  # type: Optional[Tuple[packaging.version.Version, str, int, Tuple[int, int, int, int]]]
+        self._sortkey: Optional[
+            Tuple[packaging.version.Version, str, int, Tuple[int, int, int, int]]
+        ] = None
         self.extra_sort_info = extra_sort_info
 
-        self.preparsed = None  # type: Optional[RequirementContainer]
+        self.preparsed: Optional[RequirementContainer] = None
 
         # Repository this candidate came from.
         self.source: Optional[Repository] = None
@@ -320,8 +309,7 @@ class Candidate:  # pylint: disable=too-many-instance-attributes
         return self._sortkey
 
     @property
-    def tag_score(self):
-        # type: () -> Tuple[int, int, int, int]
+    def tag_score(self) -> Tuple[int, int, int, int]:
         py_version_score = (
             self.py_version.tag_score if self.py_version is not None else 0
         )
@@ -358,10 +346,10 @@ class Candidate:  # pylint: disable=too-many-instance-attributes
         )
         return py_version_score, plat_score, abi_score, extra_score
 
-    def __eq__(self, other):
-        # type: (Any) -> bool
+    def __eq__(self, other: object) -> bool:
         return (
-            self.name == other.name
+            isinstance(other, Candidate)
+            and self.name == other.name
             and self.filename == other.filename
             and self.version == other.version
             and self.py_version == other.py_version
@@ -371,8 +359,7 @@ class Candidate:  # pylint: disable=too-many-instance-attributes
             and self.type == other.type
         )
 
-    def __repr__(self):
-        # type: () -> str
+    def __repr__(self) -> str:
         return (
             "Candidate(name={}, filename={}, version={}, py_versions={}, "
             "abi={}, platform={}, link={})".format(
@@ -386,8 +373,7 @@ class Candidate:  # pylint: disable=too-many-instance-attributes
             )
         )
 
-    def __str__(self):
-        # type: () -> str
+    def __str__(self) -> str:
         return "{} {}-{}-{}-{}-{}".format(
             self.type.name,
             self.name,
@@ -494,8 +480,7 @@ def _tar_gz_filename_to_candidate(source: Tuple[str, str], filename: str) -> Can
     )
 
 
-def _check_platform_compatibility(py_platforms):
-    # type: (Iterable[str]) -> bool
+def _check_platform_compatibility(py_platforms: Iterable[str]) -> bool:
     return (
         "any" in py_platforms
         or any(py_platform.lower() in PLATFORM_TAGS for py_platform in py_platforms)
@@ -506,8 +491,7 @@ def _check_platform_compatibility(py_platforms):
     )
 
 
-def _check_abi_compatibility(abi):
-    # type: (str) -> bool
+def _check_abi_compatibility(abi: str) -> bool:
     return abi in ABI_TAGS
 
 
@@ -586,8 +570,7 @@ def filter_candidates(
     ]
 
 
-def _is_all_prereleases(candidates):
-    # type: (Iterable[Candidate]) -> bool
+def _is_all_prereleases(candidates: Iterable[Candidate]) -> bool:
     all_prereleases = True
     for candidate in candidates:
         all_prereleases = all_prereleases and candidate.version.is_prerelease
@@ -595,7 +578,9 @@ def _is_all_prereleases(candidates):
 
 
 class Repository(metaclass=abc.ABCMeta):
-    def __init__(self, logger_name: str, allow_prerelease: bool = None) -> None:
+    def __init__(
+        self, logger_name: str, allow_prerelease: Optional[bool] = None
+    ) -> None:
         super(Repository, self).__init__()
         if allow_prerelease is None:
             allow_prerelease = False
@@ -640,7 +625,7 @@ class Repository(metaclass=abc.ABCMeta):
         self,
         req: pkg_resources.Requirement,
         allow_source_dist: bool = True,
-        max_downgrade: int = None,
+        max_downgrade: Optional[int] = None,
     ) -> Tuple[RequirementContainer, bool]:
         """Fetch the best matching distribution for the given requirement.
 
@@ -668,7 +653,7 @@ class Repository(metaclass=abc.ABCMeta):
         candidates: Iterable[Candidate],
         allow_source_dist: bool = True,
         force_allow_prerelease: bool = False,
-        max_downgrade: int = None,
+        max_downgrade: Optional[int] = None,
     ) -> Tuple[RequirementContainer, bool]:
         """
         Args:
@@ -746,10 +731,13 @@ class Repository(metaclass=abc.ABCMeta):
 
         raise NoCandidateException(req)
 
+    # pylint: disable-next=invalid-name
     def why_cant_I_use(
-        self, req, candidate, only_binary=None
-    ):  # pylint: disable=invalid-name
-        # type: (pkg_resources.Requirement, Candidate, Set[NormName]) -> CantUseReason
+        self,
+        req: pkg_resources.Requirement,
+        candidate: Candidate,
+        only_binary: Optional[Set[NormName]] = None,
+    ) -> CantUseReason:
         reason = check_usability(
             req,
             candidate,
