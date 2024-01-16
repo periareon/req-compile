@@ -46,8 +46,13 @@ class SourceRepository(Repository):
     of potential distributions.
     """
 
-    def __init__(self, path, excluded_paths=None, marker_files=None, parallelism=1):
-        # type: (str, Iterable[str], Iterable[str], int) -> None
+    def __init__(
+        self,
+        path: str,
+        excluded_paths: Optional[Iterable[str]] = None,
+        marker_files: Optional[Iterable[str]] = None,
+        parallelism: int = 1,
+    ) -> None:
         """Constructor.
 
         Args:
@@ -66,22 +71,23 @@ class SourceRepository(Repository):
             )
 
         self.path = os.path.abspath(path)
-        self.distributions = collections.defaultdict(
-            list
-        )  # type: Dict[str, List[req_compile.repos.repository.Candidate]]
+        self.distributions: Dict[
+            str, List[req_compile.repos.repository.Candidate]
+        ] = collections.defaultdict(list)
         self.marker_files = set(MARKER_FILES)
         self.parallelism = parallelism
 
         if marker_files:
             self.marker_files |= set(marker_files)
 
-        self._find_later = collections.deque()  # type: Deque[str]
+        self._find_later: Deque[str] = collections.deque()
         self._find_all_distributions(
             [os.path.abspath(path) for path in (excluded_paths or [])]
         )
 
-    def _extract_metadata(self, allow_setup_py, source_dir):
-        # type: (bool, str) -> Tuple[str, Optional[RequirementContainer]]
+    def _extract_metadata(
+        self, allow_setup_py: bool, source_dir: str
+    ) -> Tuple[str, Optional[RequirementContainer]]:
         if not allow_setup_py:
             if os.path.exists(os.path.join(source_dir, "setup.py")):
                 self._find_later.append(source_dir)
@@ -99,16 +105,15 @@ class SourceRepository(Repository):
             )
             return source_dir, None
 
-    def _find_all_distributions(self, excluded_paths):
-        # type: (Iterable[str]) -> None
+    def _find_all_distributions(self, excluded_paths: Iterable[str]) -> None:
         """Find all source distribution possible locations"""
         source_dirs = set(self._find_all_source_dirs(excluded_paths))
 
         # Loading source distributions via threads can be significantly faster because
         # it is a lot of I/O
         if self.parallelism == 1:
-            pool = None  # type: Optional[ThreadPool]
-            map_func = map  # type: Callable
+            pool: Optional[ThreadPool] = None
+            map_func: Callable = map
         else:
             pool = ThreadPool(self.parallelism)
             map_func = pool.imap_unordered
@@ -129,8 +134,7 @@ class SourceRepository(Repository):
                 if result is not None:
                     self._add_distribution(source_dir, result)
 
-    def _add_distribution(self, source_dir, result):
-        # type: (str, RequirementContainer) -> None
+    def _add_distribution(self, source_dir: str, result: RequirementContainer) -> None:
         if result.version is None:
             self.logger.debug("Source dir %s did not provide a version")
             result.version = parse_version("0")

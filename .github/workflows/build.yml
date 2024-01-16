@@ -11,27 +11,54 @@ on:
 
 jobs:
   build:
+    strategy:
+      fail-fast: false 
+      matrix:
+        platform: ["ubuntu-latest"]
+        python_version: ["3.7"]
 
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.platform }}
+
+    name: test ${{ matrix.platform }} (py${{ matrix.python_version }})
 
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.7
+    - name: Set up Python ${{ matrix.python_version }}
       uses: actions/setup-python@v2
       with:
-        python-version: 3.7
+        python-version: "${{ matrix.python_version }}"
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt --user
     - name: Run mypy
       run: |
-        export MYPYPATH=req-compile/stubs
-        mypy req_compile
+        python -m mypy req_compile
+      env:
+        MYPYPATH: req-compile/stubs
     - name: Run pylint
       run: |
-        pylint req_compile
+        python -m pylint req_compile
     - name: Test with pytest
       run: |
-        pytest
+        python -m pytest -v
+
+  formatting:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v2
+      with:
+        python-version: "3.11"
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt --user
+    - name: Run black
+      run: |
+        black --check --diff req_compile
+    - name: Run isort
+      run: |
+        isort --check-only req_compile
 

@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="req-compile",
-    version="1.0.0pre8",
+    version="1.0.0rc9",
     author="Spencer Putt",
     author_email="sputt@alumni.iu.edu",
     description="Python requirements compiler",
@@ -10,6 +10,7 @@ setup(
     url="https://github.com/sputt/req-compile",
     install_requires=open("requirements.in").readlines(),
     packages=find_packages(include=["req_compile*"]),
+    package_data={"": ["py.typed"]},
     license="MIT License",
     entry_points={
         "console_scripts": [

@@ -20,7 +20,7 @@ LOG = logging.getLogger("req_compile.metadata")
 
 
 def extract_metadata(
-    filename: str, allow_run_setup_py: bool = True, origin: Repository = None
+    filename: str, allow_run_setup_py: bool = True, origin: Optional[Repository] = None
 ) -> RequirementContainer:
     """Extract a DistInfo from a file or directory
 

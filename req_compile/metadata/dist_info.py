@@ -12,8 +12,9 @@ from req_compile.errors import MetadataError
 LOG = logging.getLogger("req_compile.metadata.dist_info")
 
 
-def _find_dist_info_metadata(project_name, namelist):
-    # type: (str, Iterable[str]) -> Optional[str]
+def _find_dist_info_metadata(
+    project_name: str, namelist: Iterable[str]
+) -> Optional[str]:
     """
     In a list of zip path entries, find the one that matches the dist-info for this project
 
@@ -38,8 +39,7 @@ def _find_dist_info_metadata(project_name, namelist):
     return None
 
 
-def _fetch_from_wheel(wheel):
-    # type: (str) -> Optional[DistInfo]
+def _fetch_from_wheel(wheel: str) -> Optional[DistInfo]:
     """
     Fetch metadata from a wheel file
     Args:

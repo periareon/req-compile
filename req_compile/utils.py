@@ -92,7 +92,9 @@ def req_iter_from_file(
 
 
 def req_iter_from_lines(
-    lines: Iterable[str], parameters: typing.List[str], relative_dir: str = None
+    lines: Iterable[str],
+    parameters: typing.List[str],
+    relative_dir: Optional[str] = None,
 ) -> Iterable[pkg_resources.Requirement]:
     full_line = ""
     continuation = False
@@ -205,7 +207,7 @@ def merge_requirements(
 
 NormName = typing.NewType("NormName", str)
 
-NAME_CACHE = {}  # type: Dict[str, NormName]
+NAME_CACHE: Dict[str, NormName] = {}
 
 
 def normalize_project_name(project_name: str) -> NormName:
@@ -247,8 +249,7 @@ def has_prerelease(req: pkg_resources.Requirement) -> bool:
 
 
 @lru_cache(maxsize=None)
-def get_glibc_version():
-    # type: () -> Optional[Tuple[int, int]]
+def get_glibc_version() -> Optional[Tuple[int, int]]:
     """Based on PEP 513/600."""
     import ctypes  # pylint: disable=bad-option-value,import-outside-toplevel
 

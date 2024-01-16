@@ -1,4 +1,4 @@
-from __future__ import print_function
+from __future__ import annotations
 
 import collections.abc
 import itertools
@@ -41,38 +41,33 @@ class DependencyNode:
     def __init__(self, key: NormName, metadata: Optional[RequirementContainer]) -> None:
         self.key = key
         self.metadata = metadata
-        self.dependencies = (
-            {}
-        )  # type: Dict[DependencyNode, Optional[pkg_resources.Requirement]]
-        self.reverse_deps = set()  # type: Set[DependencyNode]
-        self.repo = None  # type: Optional[Repository]
+        self.dependencies: Dict[
+            DependencyNode, Optional[pkg_resources.Requirement]
+        ] = {}
+        self.reverse_deps: Set[DependencyNode] = set()
+        self.repo: Optional[Repository] = None
         self.complete = (
             False  # Whether this node and all of its dependency are completely solved
         )
 
-    def __repr__(self):
-        # type: () -> str
+    def __repr__(self) -> str:
         return self.key
 
-    def __hash__(self):
-        # type: () -> int
+    def __hash__(self) -> int:
         return hash(self.key)
 
-    def __str__(self):
-        # type: () -> str
+    def __str__(self) -> str:
         if self.metadata is None:
             return self.key + " [UNSOLVED]"
         if self.metadata.meta:
             return self.metadata.name
         return "==".join(str(x) for x in self.metadata.to_definition(self.extras))
 
-    def __lt__(self, other):
-        # type: (Any) -> bool
+    def __lt__(self, other: Any) -> bool:
         return self.key < other.key
 
     @property
-    def extras(self):
-        # type: () -> Set[str]
+    def extras(self) -> Set[str]:
         extras = set()
         for rdep in self.reverse_deps:
             assert (
@@ -83,12 +78,12 @@ class DependencyNode:
                 extras |= set(reason.extras)
         return extras
 
-    def add_reason(self, node, reason):
-        # type: (DependencyNode, Optional[pkg_resources.Requirement]) -> None
+    def add_reason(
+        self, node: DependencyNode, reason: Optional[pkg_resources.Requirement]
+    ) -> None:
         self.dependencies[node] = reason
 
-    def build_constraints(self):
-        # type: () -> pkg_resources.Requirement
+    def build_constraints(self) -> pkg_resources.Requirement:
         result = None
 
         for rdep_node in self.reverse_deps:
@@ -117,9 +112,8 @@ class DependencyNode:
         return result
 
 
-def build_constraints(root_node):
-    # type: (DependencyNode) -> Iterable[str]
-    constraints = []  # type: List[str]
+def build_constraints(root_node: DependencyNode) -> Iterable[str]:
+    constraints: List[str] = []
     for node in root_node.reverse_deps:
         assert (
             node.metadata is not None
@@ -133,8 +127,9 @@ def build_constraints(root_node):
     return constraints
 
 
-def _process_constraint_req(req, node, constraints):
-    # type: (pkg_resources.Requirement, DependencyNode, List[str]) -> None
+def _process_constraint_req(
+    req: pkg_resources.Requirement, node: DependencyNode, constraints: List[str]
+) -> None:
     assert node.metadata is not None, "Node {} must be solved".format(node)
     extra = None
     if req.marker:
@@ -156,8 +151,7 @@ class DistributionCollection:
     added to the collection and provide a concrete RequirementContainer (like a DistInfo from
     a wheel), the corresponding node in this collection will be marked solved."""
 
-    def __init__(self):
-        # type: () -> None
+    def __init__(self) -> None:
         self.nodes: Dict[NormName, DependencyNode] = {}
         self.logger = logging.getLogger("req_compile.dists")
 
@@ -184,7 +178,7 @@ class DistributionCollection:
 
         if isinstance(name_or_metadata, str):
             req_name = name_or_metadata
-            metadata_to_apply = None  # type: Optional[RequirementContainer]
+            metadata_to_apply: Optional[RequirementContainer] = None
         else:
             assert isinstance(name_or_metadata, RequirementContainer)
             metadata_to_apply = name_or_metadata
@@ -293,7 +287,7 @@ class DistributionCollection:
         roots: Iterable[DependencyNode],
         max_depth: int = sys.maxsize,
         reverse: bool = False,
-        _visited: Set[DependencyNode] = None,
+        _visited: Optional[Set[DependencyNode]] = None,
         _cur_depth: int = 0,
     ) -> Iterable[DependencyNode]:
         if _visited is None:
@@ -329,7 +323,7 @@ class DistributionCollection:
     def generate_lines(
         self,
         roots: Iterable[DependencyNode],
-        req_filter: Callable[[DependencyNode], bool] = None,
+        req_filter: Optional[Callable[[DependencyNode], bool]] = None,
         strip_extras: bool = False,
     ) -> Iterable[
         Tuple[Tuple[str, Optional[packaging.version.Version], Optional[str]], str]

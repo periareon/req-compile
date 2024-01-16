@@ -13,7 +13,7 @@ import urllib.parse
 from collections import OrderedDict
 from io import StringIO
 from itertools import repeat
-from typing import IO, Any, Iterable, List, Mapping, Sequence, Set, Union
+from typing import IO, Any, Iterable, List, Mapping, Optional, Sequence, Set, Union
 
 import pkg_resources
 
@@ -53,7 +53,7 @@ from req_compile.utils import (
 from req_compile.versions import is_possible
 
 # Blacklist of requirements that will be filtered out of the output
-BLACKLIST = []  # type: Iterable[str]
+BLACKLIST: Iterable[str] = []
 
 
 def _cantusereason_to_text(
@@ -79,7 +79,7 @@ def _cantusereason_to_text(
 
 
 def _find_paths_to_root(
-    failing_node: DependencyNode, visited: Set[DependencyNode] = None
+    failing_node: DependencyNode, visited: Optional[Set[DependencyNode]] = None
 ) -> Sequence[Sequence[DependencyNode]]:
     if visited is None:
         visited = set()
@@ -105,7 +105,7 @@ def _generate_no_candidate_display(
     repo: Repository,
     dists: DistributionCollection,
     failure: Exception,
-    only_binary: Set[NormName] = None,
+    only_binary: Optional[Set[NormName]] = None,
 ) -> None:
     """Print a human friendly display to stderr when compilation fails"""
     failing_node = dists[req.name]
@@ -211,7 +211,7 @@ def _print_paths_to_root(
 def _dump_repo_candidates(
     req: pkg_resources.Requirement,
     repos: Iterable[Repository],
-    only_binary: Set[NormName] = None,
+    only_binary: Optional[Set[NormName]] = None,
 ) -> None:
     """
     Args:
@@ -368,7 +368,7 @@ def write_requirements_file(
     repo: Repository,
     annotate_source: bool = False,
     urls: bool = False,
-    input_reqs: Iterable[RequirementContainer] = None,
+    input_reqs: Optional[Iterable[RequirementContainer]] = None,
     remove_non_source: bool = False,
     remove_source: bool = False,
     no_pins: bool = False,
@@ -572,7 +572,7 @@ def build_repo(
     find_links: Iterable[str],
     index_urls: Iterable[str],
     wheeldir: str,
-    extra_index_urls: Iterable[str] = None,
+    extra_index_urls: Optional[Iterable[str]] = None,
     no_index: bool = False,
     allow_prerelease: bool = False,
 ) -> Repository:
@@ -659,7 +659,7 @@ class SplitProjectsFilter(argparse.Action):
         parser: argparse.ArgumentParser,
         namespace: argparse.Namespace,
         values: Union[str, Sequence[Any], None],
-        option_string: str = None,
+        option_string: Optional[str] = None,
     ) -> None:
         """Parse the string into a set, checking for special cases."""
         # Set the AllOnlyBinarySet to ensure all projects match the set.
@@ -674,7 +674,7 @@ class SplitProjectsFilter(argparse.Action):
             )
 
 
-def compile_main(raw_args: Sequence[str] = None) -> None:
+def compile_main(raw_args: Optional[Sequence[str]] = None) -> None:
     parser = argparse.ArgumentParser(
         description="Req-Compile: Python requirements compiler"
     )
