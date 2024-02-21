@@ -1,5 +1,4 @@
 import contextlib
-import logging
 import os
 
 import pytest

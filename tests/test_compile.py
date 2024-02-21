@@ -1,3 +1,4 @@
+# pylint: disable=redefined-outer-name
 import os
 from typing import Iterable, Optional, Tuple
 from unittest import mock
@@ -19,10 +20,11 @@ import req_compile.utils
 from req_compile.utils import normalize_project_name
 
 
-def test_mock_pypi(mock_metadata, mock_pypi):
+@pytest.mark.usefixtures("mock_metadata")
+def test_mock_pypi(mock_pypi):
     mock_pypi.load_scenario("normal")
 
-    metadata, cached = mock_pypi.get_dist(pkg_resources.Requirement.parse("test"))
+    metadata, _ = mock_pypi.get_dist(pkg_resources.Requirement.parse("test"))
     assert metadata.name == "test"
     assert metadata.version == req_compile.utils.parse_version("1.0.0")
 
@@ -34,7 +36,8 @@ def _real_outputs(results):
 
 
 @fixture
-def perform_compile(mock_metadata, mock_pypi):
+# pylint: disable-next=unused-argument
+def perform_compile(mock_pypi, mock_metadata):
     def _compile(scenario, reqs, constraint_reqs=None, limit_reqs=None):
         mock_pypi.load_scenario(scenario, limit_reqs=limit_reqs)
         if constraint_reqs is not None:
@@ -75,7 +78,12 @@ def perform_compile(mock_metadata, mock_pypi):
         ("normal", ["a"], None, ["a==0.1.0"]),
         ("normal", ["a[x1]"], None, ["a[x1]==0.1.0", "b==1.1.0", "c==1.0.0"]),
         ("normal", ["a", "b", "c"], None, ["a==0.1.0", "b==1.1.0", "c==1.0.0"]),
-        ("normal", ["d"], None, ["a[x1]==0.1.0", "b==1.1.0", "c==1.0.0", "d==0.9.0"],),
+        (
+            "normal",
+            ["d"],
+            None,
+            ["a[x1]==0.1.0", "b==1.1.0", "c==1.0.0", "d==0.9.0"],
+        ),
         (
             "normal",
             ["e", "d"],
@@ -97,7 +105,12 @@ def perform_compile(mock_metadata, mock_pypi):
         ),
         ("multi", ["x<1"], None, ["x==0.9.0"]),
         # Test that top level pins apply regardless of source
-        ("multi", {"a.txt": ["x"], "b.txt": ["x<1"]}, None, ["x==0.9.0"],),
+        (
+            "multi",
+            {"a.txt": ["x"], "b.txt": ["x<1"]},
+            None,
+            ["x==0.9.0"],
+        ),
         # Check for a transitive pin violation
         (
             "multi",
@@ -106,10 +119,25 @@ def perform_compile(mock_metadata, mock_pypi):
             ["x==0.9.0", "y==4.0.0"],
         ),
         ("multi", ["x"], ["x<1"], ["x==0.9.0"]),
-        ("multi", ["x==1"], ["y==5"], ["x==1.0.0"],),
+        (
+            "multi",
+            ["x==1"],
+            ["y==5"],
+            ["x==1.0.0"],
+        ),
         # Check that metadata that declares to requirements on the same dependency is processed correctly
-        ("multi", ["z"], None, ["z==1.0.0", "y==4.0.0", "x==0.9.0"],),
-        ("walk-back", ["a<3.7", "b"], None, ["a==3.6", "b==1.0"],),
+        (
+            "multi",
+            ["z"],
+            None,
+            ["z==1.0.0", "y==4.0.0", "x==0.9.0"],
+        ),
+        (
+            "walk-back",
+            ["a<3.7", "b"],
+            None,
+            ["a==3.6", "b==1.0"],
+        ),
         (
             "early-violated",
             ["a", "y"],
@@ -242,19 +270,26 @@ class OnlyBinaryRepository(Repository):
 def test_only_binary_skips_source():
     """Verify the newer source dist is skipped."""
     repo = OnlyBinaryRepository("test", True)
-    input = [DistInfo("-", None, [pkg_resources.Requirement.parse("test")])]
-    results = req_compile.compile.perform_compile(input, repo,)
+    inputs = [DistInfo("-", None, [pkg_resources.Requirement.parse("test")])]
+    results = req_compile.compile.perform_compile(
+        inputs,
+        repo,
+    )
     assert _real_outputs(results) == {
         "test==2.0.0",
     }
     results = req_compile.compile.perform_compile(
-        input, repo, only_binary={normalize_project_name("test")},
+        inputs,
+        repo,
+        only_binary={normalize_project_name("test")},
     )
     assert _real_outputs(results) == {
         "test==1.0.0",
     }
     results = req_compile.compile.perform_compile(
-        input, repo, only_binary=AllOnlyBinarySet(),
+        inputs,
+        repo,
+        only_binary=AllOnlyBinarySet(),
     )
     assert _real_outputs(results) == {
         "test==1.0.0",

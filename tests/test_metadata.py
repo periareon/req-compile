@@ -1,3 +1,4 @@
+# pylint: disable=protected-access
 import os
 import sys
 
@@ -16,36 +17,46 @@ def test_a_with_no_extra(metadata_provider):
     info = metadata_provider("normal/a-1.0.0.METADATA")
     assert info.name == "a"
     assert info.version == pkg_resources.parse_version("0.1.0")
-    assert list(info.requires()) == []
+    assert not list(info.requires())
 
 
 def test_parse_flat_metadata_extra_space():
     results = req_compile.metadata.dist_info._parse_flat_metadata(
-        open(os.path.join(os.path.dirname(__file__), "METADATA-extra-space")).read()
+        open(
+            os.path.join(os.path.dirname(__file__), "METADATA-extra-space"),
+            encoding="utf-8",
+        ).read()
     )
     assert results.requires() == [pkg_resources.Requirement.parse("django")]
 
 
 def test_parse_flat_metadata_two_names():
     results = req_compile.metadata.dist_info._parse_flat_metadata(
-        open(os.path.join(os.path.dirname(__file__), "METADATA-two-names")).read()
+        open(
+            os.path.join(os.path.dirname(__file__), "METADATA-two-names"),
+            encoding="utf-8",
+        ).read()
     )
     assert results.name == "fabio"
 
 
 def test_parse_flat_metadata_bizarre_extra():
     results = req_compile.metadata.dist_info._parse_flat_metadata(
-        open(os.path.join(os.path.dirname(__file__), "METADATA-bizarre-extra")).read()
+        open(
+            os.path.join(os.path.dirname(__file__), "METADATA-bizarre-extra"),
+            encoding="utf-8",
+        ).read()
     )
     assert results.name == "setuptools"
-    assert results.requires() == []
+    assert not list(results.requires())
     assert results.requires(extra="ssl:sys_platform=='win32'")[0].name == "wincertstore"
 
 
 def test_parse_flat_metadata_complex_marker():
     results = req_compile.metadata.dist_info._parse_flat_metadata(
         open(
-            os.path.join(os.path.dirname(__file__), "METADATA-implementation-marker")
+            os.path.join(os.path.dirname(__file__), "METADATA-implementation-marker"),
+            encoding="utf-8",
         ).read()
     )
     assert {req.name for req in results.requires()} == {"yaml.clib"}
@@ -64,7 +75,7 @@ def test_a_with_wrong_extra(metadata_provider):
     info = metadata_provider("normal/a-1.0.0.METADATA", extras=("plop",))
     assert info.name == "a"
     assert info.version == pkg_resources.parse_version("0.1.0")
-    assert list(info.requires()) == []
+    assert not list(info.requires())
 
 
 def test_pylint_python(metadata_provider):
@@ -194,6 +205,7 @@ def test_extern_import(mock_targz):
     archive = mock_targz("extern-importer-1.0")
 
     metadata = req_compile.metadata.metadata.extract_metadata(archive)
+    assert metadata.name == "extern-importer"
 
 
 def test_self_source():

@@ -1,3 +1,4 @@
+# pylint: disable=unused-variable,redefined-outer-name
 import collections
 import logging
 import os
@@ -30,13 +31,15 @@ def clear_caches():
 
 @pytest.fixture
 def metadata_provider():
+    # pylint: disable-next=unused-argument
     def _parse_metadata(filename, origin=None, extras=()):
         full_name = (
             filename
             if os.path.isabs(filename)
             else os.path.join(os.path.dirname(__file__), filename)
         )
-        with open(full_name, "r") as handle:
+        with open(full_name, "r", encoding="utf-8") as handle:
+            # pylint: disable-next=protected-access
             return req_compile.metadata.dist_info._parse_flat_metadata(handle.read())
 
     return _parse_metadata
@@ -88,7 +91,8 @@ class MockRepository(Repository):
             if os.path.isabs(path)
             else os.path.join(os.path.dirname(__file__), path)
         )
-        with open(full_name, "r") as handle:
+        with open(full_name, "r", encoding="utf-8") as handle:
+            # pylint: disable-next=protected-access
             metadata = req_compile.metadata.dist_info._parse_flat_metadata(
                 handle.read()
             )
@@ -169,7 +173,7 @@ def mock_zip():
 
         with ZipFile(zip_archive, "w") as handle:
             handle.write(directory, arcname=os.path.basename(directory))
-            for root, dirs, files in os.walk(directory):
+            for root, _, files in os.walk(directory):
                 for file in files:
                     full_path = os.path.join(root, file)
 

@@ -1,3 +1,4 @@
+# pylint: disable=redefined-outer-name
 from io import StringIO
 import os
 
@@ -112,7 +113,11 @@ def test_stdin_paths(mock_stdin):
     extra_sources = []
     result = _create_input_reqs("-", extra_sources)
 
-    assert set(extra_sources) == {f"--source={mono1}", f"--source={mono2}", f"--source={mono3}"}
+    assert set(extra_sources) == {
+        f"--source={mono1}",
+        f"--source={mono2}",
+        f"--source={mono3}",
+    }
     assert set(result.reqs) == set(
         pkg_resources.parse_requirements(["pkg1==1.0.0", "pkg2==2.0.1", "pkg3==0.0.0"])
     )
@@ -125,7 +130,7 @@ def test_stdin_reqs(mock_stdin):
     extra_sources = []
     result = _create_input_reqs("-", extra_sources)
 
-    assert extra_sources == []
+    assert not extra_sources
     assert set(result.reqs) == set(
         pkg_resources.parse_requirements(["pytest", "pytest-mock"])
     )

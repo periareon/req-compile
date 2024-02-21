@@ -29,7 +29,7 @@ jobs:
         python-version: "${{ matrix.python_version }}"
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
+        python -m pip install --upgrade pip setuptools
         pip install -r requirements.txt --user
     - name: Run mypy
       run: |
@@ -38,7 +38,7 @@ jobs:
         MYPYPATH: req-compile/stubs
     - name: Run pylint
       run: |
-        python -m pylint req_compile
+        python -m pylint req_compile tests
     - name: Test with pytest
       run: |
         python -m pytest -v
