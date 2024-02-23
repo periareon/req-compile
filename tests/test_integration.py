@@ -13,6 +13,7 @@ def test_source_candidates():
         encoding="utf-8",
         capture_output=True,
         cwd=ROOT_DIR,
+        check=True,
     )
     assert "req-compile" in result.stdout
     assert result.stdout.count("\n") == 1
@@ -30,8 +31,8 @@ def test_no_candidates(tmp_path):
         capture_output=True,
         env=env_copy,
         cwd=tmp_path,
+        check=True,
     )
-    assert result.returncode == 0, result.stderr
     assert result.stdout == ""
     assert "0" in result.stderr, result.stderr
 
@@ -49,11 +50,11 @@ def test_compile_req_compile(tmp_path):
             "--wheel-dir",
             str(tmp_path),
         ],
+        check=True,
         encoding="utf-8",
         capture_output=True,
         cwd=ROOT_DIR,
     )
-    assert result.returncode == 0
     assert "req-compile" in result.stdout
     assert "toml" in result.stdout
     assert result.stderr == ""

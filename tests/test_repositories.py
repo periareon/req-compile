@@ -88,7 +88,8 @@ def test_sort_specific_platforms(mock_py_version, mocker):
         ("this_platform",),
     )
     candidate_wheels = (
-        "sounddevice-0.4.1-cp32.cp33.cp34.cp35.cp36.cp37.cp38.cp39.pp32.pp33.pp34.pp35.pp36.pp37.py3-None-this_platform.whl",
+        "sounddevice-0.4.1-cp32.cp33.cp34.cp35.cp36.cp37.cp38.cp39.pp32."
+        + "pp33.pp34.pp35.pp36.pp37.py3-None-this_platform.whl",
         "sounddevice-0.4.1-py3-None-any.whl",
     )
     candidates = []

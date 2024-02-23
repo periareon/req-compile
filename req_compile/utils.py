@@ -245,7 +245,13 @@ def is_pinned_requirement(req: pkg_resources.Requirement) -> bool:
 
 def has_prerelease(req: pkg_resources.Requirement) -> bool:
     """Returns whether an InstallRequirement has a prerelease specifier."""
-    return any(parse_version(spec.version).is_prerelease for spec in req.specifier)
+    for spec in req.specifier:
+        try:
+            if parse_version(spec.version).is_prerelease:
+                return True
+        except Exception:  # pylint: disable=broad-exception-caught
+            pass
+    return False
 
 
 @lru_cache(maxsize=None)
