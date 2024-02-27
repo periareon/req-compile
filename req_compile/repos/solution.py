@@ -178,7 +178,7 @@ class SolutionRepository(Repository):
             sources = []
             for part in parts:
                 part = part.strip()
-                if part.startswith("http"):
+                if part.startswith(("http://", "https://")):
                     in_url = True
                     in_sources = False
                     url = part

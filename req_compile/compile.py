@@ -268,6 +268,7 @@ def perform_compile(
     extras: Optional[Iterable[str]] = None,
     allow_circular_dependencies: bool = True,
     only_binary: Optional[Set[NormName]] = None,
+    max_downgrade: Optional[int] = None,
 ) -> Tuple[DistributionCollection, Set[DependencyNode]]:
     """Perform a compilation using the given inputs and constraints.
 
@@ -281,6 +282,7 @@ def perform_compile(
         constraint_reqs: Constraints to use when compiling
         allow_circular_dependencies: Whether or not to allow circular dependencies
         only_binary: Set of projects that should only consider binary distributions.
+        max_downgrade: The maximum number of version downgrades that will be allowed for conflicts.
 
     Returns:
         the solution and root nodes used to generate it
@@ -320,9 +322,14 @@ def perform_compile(
         LOG.info("All constraints were pins - no need to solve the constraints")
         options.pinned_requirements = pinned_requirements
 
+    if max_downgrade is None:
+        max_downgrade = MAX_DOWNGRADE
+
     try:
         for node in sorted(nodes):
-            compile_roots(node, None, repo, results, options)
+            compile_roots(
+                node, None, repo, results, options, max_downgrade=max_downgrade
+            )
     except (NoCandidateException, MetadataError) as ex:
         _add_constraints(all_pinned, constraint_reqs, results)
         ex.results = results
