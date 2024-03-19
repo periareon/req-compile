@@ -1,4 +1,5 @@
 import os
+import platform
 
 import pkg_resources
 import pytest
@@ -27,7 +28,9 @@ def read_contents():
     return _do_read
 
 
-def test_successful_numpy(mocked_responses, tmpdir, read_contents):
+def test_successful_numpy(mocked_responses, mock_py_version, tmpdir, read_contents):
+    mock_py_version("3.11.6")
+
     wheeldir = str(tmpdir)
     mocked_responses.add(
         responses.GET,
@@ -40,7 +43,7 @@ def test_successful_numpy(mocked_responses, tmpdir, read_contents):
     candidates = repo.get_candidates(pkg_resources.Requirement.parse("numpy"))
 
     # The total is the total number of links - exe links, which we do not support
-    assert len(candidates) == 1127 - 34
+    assert len(candidates) == 2273 - 34
     assert len(mocked_responses.calls) == 1
 
 
@@ -67,7 +70,7 @@ def test_pypi_500(mocked_responses, tmpdir):
 def test_resolve_new_numpy(
     mocked_responses, tmpdir, read_contents, mocker, mock_py_version
 ):
-    mock_py_version("3.7.12")
+    mock_py_version("3.11.6")
 
     wheeldir = str(tmpdir)
     mocked_responses.add(
@@ -80,7 +83,7 @@ def test_resolve_new_numpy(
     repo = PyPIRepository(INDEX_URL, wheeldir)
     candidates = repo.get_candidates(pkg_resources.Requirement.parse("numpy"))
     for candidate in candidates:
-        if "1.16.3" in candidate.link[1]:
+        if "1.26.3" in candidate.link[1]:
             mocked_responses.add(
                 responses.GET,
                 candidate.link[1],
@@ -98,7 +101,7 @@ def test_resolve_new_numpy(
 
     listing = tmpdir.listdir()
     assert len(listing) == 1
-    assert "1.16.3" in str(listing[0])
+    assert "1.26.3" in str(listing[0])
     assert ".whl" in str(listing[0])
 
     # Query the index, and download

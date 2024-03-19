@@ -7,6 +7,9 @@ namespace_packages = false
 
 [tool.pylint.main]
 max-line-length = 120
+disable = [
+    "fixme",  # Developers should be allowed to leave TODO comments as long as they're tracked by another issue
+]
 
 [tool.pylint."messages control"]
 disable = [

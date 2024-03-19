@@ -8,15 +8,15 @@ import pytest
 from pytest import fixture
 
 import req_compile.compile
-from req_compile.compile import AllOnlyBinarySet
-from req_compile.containers import DistInfo, RequirementContainer
 import req_compile.errors
-from req_compile.repos.multi import MultiRepository
 import req_compile.repos.pypi
 import req_compile.repos.repository
-from req_compile.repos.repository import Repository, Candidate, filename_to_candidate
-from req_compile.repos.source import SourceRepository
 import req_compile.utils
+from req_compile.compile import AllOnlyBinarySet
+from req_compile.containers import DistInfo, RequirementContainer
+from req_compile.repos.multi import MultiRepository
+from req_compile.repos.repository import Candidate, Repository, filename_to_candidate
+from req_compile.repos.source import SourceRepository
 from req_compile.utils import normalize_project_name
 
 

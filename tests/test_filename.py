@@ -1,7 +1,6 @@
 import pkg_resources
 import pytest
 
-
 import req_compile.filename
 
 
