@@ -4,7 +4,15 @@ from __future__ import annotations
 
 import configparser
 import functools
-import imp  # pylint: disable=deprecated-module
+import sys
+from types import ModuleType
+
+try:
+    import imp  # type: ignore  # pylint: disable=deprecated-module
+except ImportError:
+    imp = ModuleType("imp")
+    sys.modules["imp"] = imp
+
 import io
 import logging
 import os
@@ -12,18 +20,15 @@ import os.path
 import re
 import shutil
 import subprocess
-import sys
 import tarfile
 import tempfile
 import threading
 import time
-import types
 import zipfile
 from contextlib import closing
 from importlib.abc import Loader, MetaPathFinder
 from importlib.machinery import ModuleSpec
 from io import BytesIO, StringIO
-from types import ModuleType
 from typing import (
     IO,
     Any,
@@ -49,7 +54,7 @@ from req_compile.filename import parse_source_filename
 from ..containers import DistInfo, PkgResourcesDistInfo, RequirementContainer
 from .dist_info import _fetch_from_wheel
 from .extractor import Extractor, NonExtractor
-from .patch import begin_patch, end_patch, patch
+from .patch import PatchToken, begin_patch, end_patch, patch
 
 LOG = logging.getLogger("req_compile.metadata.source")
 
@@ -551,8 +556,8 @@ def remove_encoding_lines(contents: str) -> str:
     return "\n".join(lines)
 
 
-def import_contents(modname: str, filename: str, contents: str) -> types.ModuleType:
-    module = imp.new_module(modname)
+def import_contents(modname: str, filename: str, contents: str) -> ModuleType:
+    module = ModuleType(modname)
     if filename.endswith("__init__.py"):
         setattr(module, "__path__", [os.path.dirname(filename)])
     setattr(module, "__name__", modname)
@@ -590,7 +595,7 @@ def _parse_setup_py(
 
     # pylint: disable=unused-import,unused-variable
     import codecs
-    import distutils.core  # pylint: disable=deprecated-module
+    import distutils.core  # type: ignore  # pylint: disable=deprecated-module
     import fileinput
     import multiprocessing
 
@@ -656,6 +661,7 @@ def _parse_setup_py(
                 pass
 
             def module_repr(self, module: ModuleType) -> str:
+                del module  # Unused
                 return ""
 
         def __init__(self, modname: str, path: str) -> None:
@@ -686,15 +692,30 @@ def _parse_setup_py(
     module_from_spec_patch = begin_patch(
         "importlib.util", "module_from_spec", fake_module_from_spec
     )
-    load_source_patch = begin_patch(imp, "load_source", fake_load_source)
+    load_source_patch: Optional[PatchToken] = None
+    if imp is not None:
+        load_source_patch = begin_patch(imp, "load_source", fake_load_source)
 
     class ArchiveMetaHook(Loader, MetaPathFinder):
         def __init__(self) -> None:
             self.mod_mapping: Dict[str, str] = {}
 
+        def find_spec(
+            self,
+            fullname: str,
+            path: Optional[Sequence[str]],
+            target: Optional[ModuleType] = None,
+        ) -> Optional[ModuleSpec]:
+            del target  # Unused
+            find_result = self.find_module(fullname, path)
+            if find_result is not None:
+                return ModuleSpec(fullname, self)
+            return None
+
         def find_module(
             self, fullname: str, path: Optional[Sequence[Union[bytes, str]]]
         ) -> Optional[Loader]:
+            print("Importing {}".format(fullname))
             path_name = fullname.replace(".", "/")
             dirs_to_search = [abs_setupdir]
             if path is not None:
@@ -707,6 +728,7 @@ def _parse_setup_py(
                 if extractor.contains_path(sys_path):
                     dirs_to_search.append(sys_path)
             for dir_to_search in dirs_to_search:
+                print("Searching {}".format(dir_to_search))
                 for archive_path in (
                     os.path.join(dir_to_search, path_name) + ".py",
                     os.path.join(dir_to_search, path_name, "__init__.py"),
@@ -717,15 +739,16 @@ def _parse_setup_py(
             return None
 
         def module_repr(self, module: ModuleType) -> str:
+            del module  # Unused
             return ""
 
-        def load_module(self, fullname: str) -> types.ModuleType:
+        def load_module(self, fullname: str) -> ModuleType:
             LOG.debug("Importing module %s from archive", fullname)
 
             filename = self.mod_mapping[fullname]
             code = extractor.contents(filename)
             ispkg = filename.endswith("__init__.py")
-            mod = sys.modules.setdefault(fullname, imp.new_module(fullname))
+            mod = sys.modules.setdefault(fullname, ModuleType(fullname))
             mod.__file__ = filename
             mod.__loader__ = self
             if ispkg:
@@ -796,7 +819,8 @@ def _parse_setup_py(
             if abs_setupdir in sys.path:
                 sys.path.remove(abs_setupdir)
 
-            end_patch(load_source_patch)
+            if load_source_patch is not None:
+                end_patch(load_source_patch)
             end_patch(spec_from_file_location_patch)
             end_patch(module_from_spec_patch)
             sys.meta_path.remove(meta_hook)
