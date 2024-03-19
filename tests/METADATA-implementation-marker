@@ -3,5 +3,5 @@ Name: yaml
 Version: 0.16.5
 License: MIT license
 Platform: UNKNOWN
-Requires-Dist: yaml.clib (>=0.1.2); platform_python_implementation=="CPython" and python_version<"3.8"
+Requires-Dist: yaml.clib (>=0.1.2); platform_python_implementation=="CPython" and python_version<"3.99"
 Requires-Dist: ordereddict; platform_python_implementation=="CPython" and python_version<="2.7"

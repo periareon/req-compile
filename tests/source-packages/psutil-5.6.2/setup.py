@@ -294,7 +294,7 @@ def main():
         url='https://github.com/giampaolo/psutil',
         platforms='Platform Independent',
         license='BSD',
-        packages=['psutil', 'psutil.tests'],
+        packages=['psutil'],
         ext_modules=extensions,
         # see: python setup.py register --list-classifiers
         classifiers=[

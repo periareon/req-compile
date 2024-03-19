@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="req-compile",
-    version="1.0.0rc11",
+    version="1.0.0rc12",
     author="Spencer Putt",
     author_email="sputt@alumni.iu.edu",
     description="Python requirements compiler",
@@ -27,6 +27,7 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Operating System :: OS Independent",
         "Environment :: Console",
         "Topic :: Software Development",

@@ -96,8 +96,9 @@ def test_pylint_python(metadata_provider):
     assert set(info.requires()) == set(pkg_resources.parse_requirements(expected_reqs))
 
 
+@pytest.mark.skipif(sys.version_info[:2] > (3, 11), reason="ed not supported on 3.12")
 def test_compound(mock_targz):
-    """Test one tar after another directly that have failed in the passed"""
+    """Test one tar after another directly that have failed in the past."""
     archive = mock_targz("et_xmlfile-1.0.1")
     req_compile.metadata.metadata.extract_metadata(archive)
 
@@ -119,7 +120,6 @@ sources = [
     ["ptl-2015.11.4", "ptl", "2015.11.4", ["pytest>=2.8.1"]],
     ["reloader-1.0", "reloader", "1.0", None],
     ["PyYAML-5.1", "PyYAML", "5.1", None],
-    ["ed-1.4", "ed", None, None],
     ["pyreadline-2.1", "pyreadline", "2.1", None],
     ["termcolor-1.1.0", "termcolor", "1.1.0", None],
     ["wuc-0.5", "wuc", "0.5", None],
@@ -166,6 +166,10 @@ sources = [
     ["tinyrpc-1.0.4", "tinyrpc", "1.0.4", ["six"]],
 ]
 sources.append(["spec-loading-1.0", "spec-loading", "1.0", ["et_xmlfile", "jdcal"]])
+
+if sys.version_info[:2] < (3, 12):
+    # Uses removed configparser methods.
+    sources.append(["ed-1.4", "ed", None, None])
 
 
 @pytest.mark.parametrize("archive_fixture", ["mock_targz", "mock_zip", "mock_fs"])

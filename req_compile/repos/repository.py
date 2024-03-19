@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-import distutils.util  # pylint: disable=import-error,no-name-in-module,no-member,deprecated-module
+import distutils.util  # type: ignore  # pylint: disable=import-error,no-name-in-module,no-member,deprecated-module
 import enum
 import logging
 import os
