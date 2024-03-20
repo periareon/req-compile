@@ -1,6 +1,7 @@
 # pylint: disable=protected-access
 import os
 import sys
+from typing import Callable
 
 import pkg_resources
 import pytest
@@ -52,7 +53,9 @@ def test_parse_flat_metadata_bizarre_extra():
     assert results.requires(extra="ssl:sys_platform=='win32'")[0].name == "wincertstore"
 
 
-def test_parse_flat_metadata_complex_marker():
+def test_parse_flat_metadata_complex_marker(mock_py_version: Callable[[str], None]) -> None:
+    mock_py_version("3.7.12")
+
     results = req_compile.metadata.dist_info._parse_flat_metadata(
         open(
             os.path.join(os.path.dirname(__file__), "METADATA-implementation-marker"),

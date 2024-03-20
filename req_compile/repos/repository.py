@@ -9,8 +9,21 @@ import platform
 import re
 import sys
 import sysconfig
-from typing import Any, Iterable, Iterator, Optional, Sequence, Set, Tuple, Type, Union
+from typing import (
+    Any,
+    DefaultDict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Type,
+    Union,
+)
 
+import packaging.tags
 import packaging.version
 import pkg_resources
 
@@ -46,23 +59,42 @@ LEGACY_ALIASES = {
     "manylinux2014_i686": "manylinux_2_17_i686",
 }
 MANYLINUX_REGEX = r"manylinux_([0-9]+)_([0-9]+)_(.*)"
+MACOSX_REGEX = r"macosx_([0-9]+)_([0-9]+)_(.*)"
 
 
 def _get_platform_tags() -> Sequence[str]:
     if sys.platform == "darwin":
-        version, _, arch = platform.mac_ver()
-        major, minor_str = version.split(".")[:2]
-        mac_tags = []
-        minor = int(minor_str)
-        while minor >= 6:
-            for arch_tag in (arch, "intel", "universal2"):
-                mac_tags.append(
-                    "macosx_{major}_{minor}_{arch}".format(
-                        major=major, minor=minor, arch=arch_tag
-                    )
-                )
-            minor -= 1
-        return mac_tags
+        # Compile a sorted list where later entries are considered
+        # higher ranked platform tags.
+        mac_platforms = DefaultDict(set)
+
+        for plat in packaging.tags.mac_platforms():
+            match = re.match(MACOSX_REGEX, plat)
+            if not match:
+                raise ValueError(f"Unexpected MacOS platform: {plat}")
+
+            major, minor, arch = (
+                int(match.group(1)),
+                int(match.group(2)),
+                match.group(3),
+            )
+            key = (major, minor)
+
+            # Universal and arm tags are ranked higher.
+            mac_platforms[key].add(plat)
+
+            if major == 10 and arch == "universal2":
+                mac_platforms[key].add(plat.replace(arch, "x86_64"))
+                if int(minor) <= 10:
+                    mac_platforms[key].add(plat.replace(arch, "intel"))
+
+        # Combine all collections of tags where older versions of MacOS
+        # are ranked lower than more modern ones
+        ordered_mac_plats: List[str] = []
+        for ver in reversed(sorted(mac_platforms.keys())):
+            ordered_mac_plats.extend(mac_platforms[ver])
+
+        return ordered_mac_plats
 
     plat = distutils.util.get_platform()  # pylint: disable=no-member
     return (plat.replace(".", "_").replace("-", "_"),)

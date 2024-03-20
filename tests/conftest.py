@@ -2,8 +2,10 @@
 import collections
 import logging
 import os
+import sys
 import tarfile
 import tempfile
+from typing import Callable
 from zipfile import ZipFile
 
 import pkg_resources
@@ -12,9 +14,9 @@ import pytest
 import req_compile.metadata
 import req_compile.metadata.dist_info
 import req_compile.metadata.metadata
+import req_compile.utils
 from req_compile.repos.repository import Candidate, Repository
 from req_compile.repos.solution import SolutionRepository
-import req_compile.utils
 
 
 @pytest.fixture(autouse=True)
@@ -220,12 +222,33 @@ VersionInfo = collections.namedtuple("VersionInfo", "major,minor,patch")
 
 
 @pytest.fixture
-def mock_py_version(mocker):
-    def _mock_version(version):
-        major_version = version.split(".")[0]
-        minor_version = version.split(".")[1]
+def mock_py_version(mocker: pytest.MonkeyPatch) -> Callable[[str], None]:
+    def _mock_version(version: str) -> None:
+        split = version.split(".")
+        assert len(split) > 2
+        major_version = split.pop(0)
+        minor_version = split.pop(0)
+        patch_version = split.pop(0)
+        if patch_version is None:
+            patch_version = "0"
+
+        abi_suffix = ""
+        if (major_version, minor_version) == ("3", "7"):
+            abi_suffix = "m"
+
+            # TODO: Python3.7 tests used to have patch versions dropped
+            # so that behavior is temporarily maintained here
+            patch_version = "0"
+
+        _, _, build_info = sys.version.partition(" ")
+
         mocker.patch(
-            "sys.version_info", VersionInfo(int(major_version), int(minor_version), 0)
+            "sys.version_info",
+            VersionInfo(int(major_version), int(minor_version), int(patch_version)),
+        )
+        mocker.patch(
+            "sys.version",
+            f"{major_version}.{minor_version}.{patch_version} {build_info}",
         )
         mocker.patch(
             "req_compile.repos.pypi.SYS_PY_VERSION",
@@ -237,11 +260,11 @@ def mock_py_version(mocker):
         )
         mocker.patch(
             "req_compile.repos.pypi.SYS_PY_MAJOR_MINOR",
-            pkg_resources.parse_version(".".join(version.split(".")[:2])),
+            pkg_resources.parse_version(f"{major_version}.{minor_version}"),
         )
         mocker.patch(
             "req_compile.repos.repository.ABI_TAGS",
-            (f"abi{major_version}", f"cp{major_version}{minor_version}m"),
+            (f"abi{major_version}", f"cp{major_version}{minor_version}{abi_suffix}"),
         )
 
     return _mock_version

@@ -595,7 +595,7 @@ def _parse_setup_py(
 
     # pylint: disable=unused-import,unused-variable
     import codecs
-    import distutils.core  # type: ignore  # pylint: disable=deprecated-module
+    import distutils.core  # type: ignore  # pylint: disable=deprecated-module,import-error
     import fileinput
     import multiprocessing
 
@@ -770,34 +770,35 @@ def _parse_setup_py(
 
     # fmt: off
     patches = patch(
-            sys, 'stderr', StringIO(),
-            sys, 'stdout', StringIO(),
-            sys, 'stdin', fake_stdin,
-            os, '_exit', sys.exit,
-            os, 'symlink', lambda *_: None,
-            'builtins', 'open', extractor.open,
-            '__builtin__', 'open', extractor.open,
-            '__builtin__', 'execfile', _fake_execfile,
-            subprocess, 'check_call', os_error_call,
-            subprocess, 'check_output', os_error_call,
-            subprocess, 'Popen', FakePopen,
-            multiprocessing, 'Pool', os_error_call,
-            multiprocessing, 'Process', os_error_call,
-            'urllib.request', 'urlretrieve', io_error_call,
-            requests, 'Session', io_error_call,
-            requests, 'get', io_error_call,
-            requests, 'post', io_error_call,
-            os, 'listdir', lambda path: [],
-            os.path, 'exists', _fake_exists,
-            os.path, 'isfile', _fake_exists,
-            os, 'rename', _fake_rename,
-            io, 'open', extractor.open,
-            codecs, 'open', extractor.open,
-            setuptools, 'setup', setup_with_results,
-            distutils.core, 'setup', setup_with_results,
-            fileinput, 'input', _fake_file_input,
-            setuptools, 'find_packages', _fake_find_packages,
-            sys, 'argv', ['setup.py', 'egg_info'])
+        sys, 'stderr', StringIO(),
+        sys, 'stdout', StringIO(),
+        sys, 'stdin', fake_stdin,
+        os, '_exit', sys.exit,
+        os, 'symlink', lambda *_: None,
+        'builtins', 'open', extractor.open,
+        '__builtin__', 'open', extractor.open,
+        '__builtin__', 'execfile', _fake_execfile,
+        subprocess, 'check_call', os_error_call,
+        subprocess, 'check_output', os_error_call,
+        subprocess, 'Popen', FakePopen,
+        multiprocessing, 'Pool', os_error_call,
+        multiprocessing, 'Process', os_error_call,
+        'urllib.request', 'urlretrieve', io_error_call,
+        requests, 'Session', io_error_call,
+        requests, 'get', io_error_call,
+        requests, 'post', io_error_call,
+        os, 'listdir', lambda path: [],
+        os.path, 'exists', _fake_exists,
+        os.path, 'isfile', _fake_exists,
+        os, 'rename', _fake_rename,
+        io, 'open', extractor.open,
+        codecs, 'open', extractor.open,
+        setuptools, 'setup', setup_with_results,
+        distutils.core, 'setup', setup_with_results,
+        fileinput, 'input', _fake_file_input,
+        setuptools, 'find_packages', _fake_find_packages,
+        sys, 'argv', ['setup.py', 'egg_info'],
+    )
     # fmt: on
     with patches:
         try:
