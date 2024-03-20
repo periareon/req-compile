@@ -1,0 +1,24 @@
+load("@req_compile_deps//:requirements.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_binary")
+
+py_binary(
+    name = "req_compile",
+    srcs = glob(["**/*.py"]),
+    data = [
+        "py.typed",
+    ] + glob([
+        "**/*.pyi",
+    ]),
+    main = "__main__.py",
+    visibility = ["//visibility:public"],
+    deps = [
+        requirement("appdirs"),
+        requirement("overrides"),
+        requirement("packaging"),
+        requirement("requests"),
+        requirement("setuptools"),
+        requirement("toml"),
+        requirement("typing_extensions"),
+        requirement("wheel"),
+    ],
+)

@@ -1,8 +1,24 @@
 from setuptools import setup, find_packages
 
+
+def load_version(path: str) -> str:
+    """Load the current version from a file expected to contain `VERSION = "{version}"`."""
+    version = None
+    with open(path, "r", encoding="utf-8") as file:
+        for line in file.readlines():
+            if not line.startswith("VERSION = "):
+                continue
+            version = line[len("VERSION = ") :].strip(' \n"')
+
+    if not version:
+        raise ValueError(f"No version data found in {path}")
+
+    return version
+
+
 setup(
     name="req-compile",
-    version="1.0.0rc12",
+    version=load_version("version.bzl"),
     author="Spencer Putt",
     author_email="sputt@alumni.iu.edu",
     description="Python requirements compiler",

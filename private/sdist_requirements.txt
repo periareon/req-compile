@@ -1,0 +1,12 @@
+pip==24.0 \
+    --hash=sha256:ba0d021a166865d2265246961bec0152ff124de910c5cc39f1156ce3fa7c69dc
+    # via private/sdist-requirements.in
+    # https://files.pythonhosted.org/packages/8a/6a/19e9fe04fca059ccf770861c7d5721ab4c2aebc539889e97c7977528a53b/pip-24.0-py3-none-any.whl#sha256=ba0d021a166865d2265246961bec0152ff124de910c5cc39f1156ce3fa7c69dc
+setuptools==69.2.0 \
+    --hash=sha256:c21c49fb1042386df081cb5d86759792ab89efca84cf114889191cd09aacc80c
+    # via private/sdist-requirements.in
+    # https://files.pythonhosted.org/packages/92/e1/1c8bb3420105e70bdf357d57dd5567202b4ef8d27f810e98bb962d950834/setuptools-69.2.0-py3-none-any.whl#sha256=c21c49fb1042386df081cb5d86759792ab89efca84cf114889191cd09aacc80c
+wheel==0.43.0 \
+    --hash=sha256:55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81
+    # via private/sdist-requirements.in
+    # https://files.pythonhosted.org/packages/7d/cd/d7460c9a869b16c3dd4e1e403cce337df165368c71d6af229a74699622ce/wheel-0.43.0-py3-none-any.whl#sha256=55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81

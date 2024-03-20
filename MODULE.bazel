@@ -1,0 +1,6 @@
+"""req-compile"""
+
+module(
+    name = "req_compile",
+    version = "1.0.0rc12",
+)

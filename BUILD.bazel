@@ -1,0 +1,6 @@
+exports_files([
+    "MODULE.bazel",
+    "requirements.in",
+    "test-requirements.in",
+    "version.bzl",
+])
