@@ -90,7 +90,7 @@ def compile_roots(
             if depth > MAX_COMPILE_DEPTH:
                 raise ValueError("Recursion too deep")
             try:
-                for req in sorted(node.dependencies, key=lambda node: node.key):
+                for req in sorted(node.dependencies, key=lambda each_node: each_node.key):
                     if req in _path:
                         if options.allow_circular_dependencies:
                             logger.error(
@@ -280,7 +280,7 @@ def perform_compile(
         repo: Repository to use as a source of Python packages.
         extras: Extras to apply automatically to source projects
         constraint_reqs: Constraints to use when compiling
-        allow_circular_dependencies: Whether or not to allow circular dependencies
+        allow_circular_dependencies: Whether to allow circular dependencies
         only_binary: Set of projects that should only consider binary distributions.
         max_downgrade: The maximum number of version downgrades that will be allowed for conflicts.
 
@@ -335,7 +335,7 @@ def perform_compile(
         ex.results = results
         raise
 
-    # Add the constraints in so it will show up as a contributor in the results.
+    # Add the constraints in, so it will show up as a contributor in the results.
     # The same is done in the exception block above
     _add_constraints(all_pinned, constraint_reqs, results)
 
