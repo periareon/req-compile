@@ -1,0 +1,12 @@
+# {version}
+
+```python
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "req_compile",
+    sha256 = "{sha256}",
+    urls = ["https://github.com/sputt/req-compile/releases/download/{version}/req_compile_src-v{version}.tar.gz"],
+)
+```
+
+Additional documentation can be found at: https://github.com/sputt/req-compile

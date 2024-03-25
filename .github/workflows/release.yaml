@@ -1,0 +1,76 @@
+---
+name: Release
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    paths:
+      # Only trigger for new releases
+      - "version.bzl"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  release:
+    if: ${{ github.repository_owner == 'sputt' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
+      - name: Build a binary wheel and a source tarball
+        run: |
+          python -m pip install -U setuptools wheel
+          python setup.py bdist_wheel sdist
+          WHEEL_NAME="$(find dist -name '*.whl' -exec basename {} \;)"
+          echo "WHEEL_NAME=${WHEEL_NAME}" >> $GITHUB_ENV
+      - name: Detect the current version
+        run: |
+          version="$(grep 'VERSION =' ./version.bzl | sed 's/VERSION = "//' | sed 's/"//')"
+          echo "RELEASE_VERSION=${version}" >> $GITHUB_ENV
+      - name: Create release artifact
+        run: |
+          tar -czf ${{ github.workspace }}/.github/req_compile_src.tar.gz --exclude=".git" --exclude=".github" --exclude="scripts" --exclude="dist" --exclude="build" -C ${{ github.workspace }} .
+          sha256="$(shasum --algorithm 256 ${{ github.workspace }}/.github/req_compile_src.tar.gz | awk '{ print $1 }')"
+          echo "ARCHIVE_SHA256=${sha256}" >> $GITHUB_ENV
+      - name: Generate release notes
+        run: |
+          # Generate the release notes
+          sed 's/{version}/${{env.RELEASE_VERSION}}/g' ${{ github.workspace }}/.github/release_notes.template \
+          | sed 's/{sha256}/${{env.ARCHIVE_SHA256}}/g' \
+          > ${{ github.workspace }}/.github/release_notes.txt
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        id: rules_release
+        with:
+          generate_release_notes: true
+          tag_name: ${{ env.RELEASE_VERSION }}
+          body_path: ${{ github.workspace }}/.github/release_notes.txt
+          target_commitish: ${{ github.base_ref }}
+      - name: "Upload the rules archive"
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.rules_release.outputs.upload_url }}
+          asset_name: req_compile_src-v${{ env.RELEASE_VERSION }}.tar.gz
+          asset_path: ${{ github.workspace }}/.github/req_compile_src.tar.gz
+          asset_content_type: application/gzip
+      - name: "Upload the wheel"
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.rules_release.outputs.upload_url }}
+          asset_name: ${{ env.WHEEL_NAME }}
+          asset_path: ${{ github.workspace }}/dist/${{ env.WHEEL_NAME }}
+          asset_content_type: application/gzip
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
