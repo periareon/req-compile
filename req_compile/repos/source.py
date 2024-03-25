@@ -1,4 +1,5 @@
 """Definition of source repository."""
+
 from __future__ import print_function
 
 import collections

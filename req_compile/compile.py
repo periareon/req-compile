@@ -90,7 +90,9 @@ def compile_roots(
             if depth > MAX_COMPILE_DEPTH:
                 raise ValueError("Recursion too deep")
             try:
-                for req in sorted(node.dependencies, key=lambda each_node: each_node.key):
+                for req in sorted(
+                    node.dependencies, key=lambda each_node: each_node.key
+                ):
                     if req in _path:
                         if options.allow_circular_dependencies:
                             logger.error(

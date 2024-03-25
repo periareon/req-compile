@@ -5,7 +5,7 @@ import os
 import sys
 import tarfile
 import tempfile
-from typing import Callable
+from typing import Callable, Iterable, NamedTuple, Optional, Tuple
 from zipfile import ZipFile
 
 import pkg_resources
@@ -15,6 +15,7 @@ import req_compile.metadata
 import req_compile.metadata.dist_info
 import req_compile.metadata.metadata
 import req_compile.utils
+from req_compile.containers import RequirementContainer
 from req_compile.repos.repository import Candidate, Repository
 from req_compile.repos.solution import SolutionRepository
 
@@ -61,11 +62,11 @@ def _to_path(scenario, req):
 
 class MockRepository(Repository):
     def __init__(self):
-        super(MockRepository, self).__init__("mock")
+        super().__init__("mock")
         self.scenario = None
         self.index_map = None
 
-    def load_scenario(self, scenario, limit_reqs=None):
+    def load_scenario(self, scenario: str, limit_reqs=None) -> None:
         """
         Load a scenario from the tests directory into the repository
 
@@ -86,7 +87,7 @@ class MockRepository(Repository):
             if limit_reqs is None or req in limit_reqs:
                 self.index_map[entry.split("-")[0].lower()].append(req)
 
-    def _build_candidate(self, req):
+    def _build_candidate(self, req: Optional[pkg_resources.Requirement]) -> Candidate:
         path = _to_path(self.scenario, req)
         full_name = (
             path
@@ -103,13 +104,18 @@ class MockRepository(Repository):
             req.project_name, path, metadata.version, None, None, "any", None
         )
 
-    def get_candidates(self, req):
+    def get_candidates(
+        self, req: Optional[pkg_resources.Requirement]
+    ) -> Iterable[Candidate]:
+        assert req, "Other Repository interfaces allow for None but not MockRepository"
         if self.index_map is None:
             return [self._build_candidate(req)]
         avail = self.index_map[req.name.lower()]
         return [self._build_candidate(req) for req in avail]
 
-    def resolve_candidate(self, candidate):
+    def resolve_candidate(
+        self, candidate: Candidate
+    ) -> Tuple[RequirementContainer, bool]:
         metadata = req_compile.metadata.metadata.extract_metadata(
             candidate.filename, origin=self
         )
@@ -218,7 +224,10 @@ def load_solution():
     return _load
 
 
-VersionInfo = collections.namedtuple("VersionInfo", "major,minor,patch")
+class VersionInfo(NamedTuple):
+    major: int
+    minor: int
+    patch: int
 
 
 @pytest.fixture

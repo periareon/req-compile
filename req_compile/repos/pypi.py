@@ -1,4 +1,5 @@
 """Repository to handle pulling packages from online package indexes."""
+
 import enum
 import logging
 import os
@@ -11,7 +12,8 @@ import warnings
 from functools import lru_cache
 from hashlib import sha256
 from html.parser import HTMLParser
-from typing import Any, List, Optional, Sequence, Tuple
+from pathlib import Path
+from typing import Any, List, Optional, Sequence, Tuple, Union
 
 import pkg_resources
 import requests
@@ -238,7 +240,7 @@ class PyPIRepository(Repository):
     def __init__(
         self,
         index_url: str,
-        wheeldir: str,
+        wheeldir: Union[str, Path],
         allow_prerelease: bool = False,
         retries: int = 3,
         index_type: IndexType = IndexType.INDEX_URL,

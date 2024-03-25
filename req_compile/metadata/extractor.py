@@ -1,4 +1,5 @@
 """Extractors for Python distribution archive types"""
+
 from __future__ import annotations
 
 import abc

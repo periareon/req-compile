@@ -13,6 +13,7 @@ import urllib.parse
 from collections import OrderedDict
 from io import StringIO
 from itertools import repeat
+from pathlib import Path
 from typing import IO, Any, Iterable, List, Mapping, Optional, Sequence, Set, Union
 
 import pkg_resources
@@ -193,10 +194,12 @@ def _print_paths_to_root(
                     node_str = "{}{}{}".format(
                         node.metadata.name,
                         "[{}]".format(",".join(node.extras)) if node.extras else "",
-                        (" " + str(node.metadata.version))
-                        if node.metadata is not None
-                        and node.metadata.version is not None
-                        else "",
+                        (
+                            (" " + str(node.metadata.version))
+                            if node.metadata is not None
+                            and node.metadata.version is not None
+                            else ""
+                        ),
                     )
                 if node_str == "-":
                     node_str = "<stdin>"
@@ -548,20 +551,24 @@ def _generate_repo_header(
 
 
 def _write_index_directives(repos: Sequence[Repository], write_to: IO[str]) -> None:
-    """Write the --index-url and --extra-index-url lines in the requirement files.
+    """Write the `--index-url`, `--extra-index-url`, and `--find-links` lines in the requirement files.
 
     Args:
         repos: All repos used in the solution.
         write_to: Output to write to.
     """
-    wrote_any = False
+    index_content = ""
+    links_content = ""
     for repo in repos:
         if isinstance(repo, PyPIRepository) and repo.index_type != IndexType.DEFAULT:
-            wrote_any = True
-            write_to.write(str(repo) + "\n")
+            index_content += str(repo) + "\n"
+        elif isinstance(repo, FindLinksRepository):
+            links_content += str(repo) + "\n"
 
-    if wrote_any:
-        write_to.write("\n")
+    if index_content or links_content:
+        # Ensure `--find-links` is written last to better reflect
+        # the resolution order of values in the output file.
+        write_to.write(index_content + links_content + "\n")
 
 
 def build_repo(
@@ -569,9 +576,9 @@ def build_repo(
     upgrade_packages: Iterable[str],
     sources: Iterable[str],
     excluded_sources: Iterable[str],
-    find_links: Iterable[str],
+    find_links: Union[Iterable[str], Mapping[str, Path]],
     index_urls: Iterable[str],
-    wheeldir: str,
+    wheeldir: Union[str, Path],
     extra_index_urls: Optional[Iterable[str]] = None,
     no_index: bool = False,
     allow_prerelease: bool = False,
@@ -579,7 +586,13 @@ def build_repo(
     pooled_repos: List[Repository] = []
     if find_links:
         pooled_repos.extend(
-            FindLinksRepository(find_link, allow_prerelease=allow_prerelease)
+            FindLinksRepository(
+                find_link,
+                allow_prerelease=allow_prerelease,
+                relative_to=(
+                    find_links[find_link] if isinstance(find_links, Mapping) else None
+                ),
+            )
             for find_link in find_links
         )
     if not no_index:

@@ -1,5 +1,6 @@
 import itertools
-from typing import Any, Iterable, Iterator, List, Optional, Tuple
+from pathlib import Path
+from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
 
 import packaging.requirements
 import packaging.version
@@ -101,7 +102,9 @@ class RequirementsFile(RequirementContainer):
         return "RequirementsFile({})".format(self.name)
 
     @classmethod
-    def from_file(cls, full_path: str, **kwargs: Any) -> "RequirementsFile":
+    def from_file(
+        cls, full_path: Union[str, Path], **kwargs: Any
+    ) -> "RequirementsFile":
         """Load requirements from a file and build a RequirementsFile
 
         Args:
@@ -111,8 +114,8 @@ class RequirementsFile(RequirementContainer):
             Additional arguments to forward to the class constructor
         """
         parameters: List[str] = []
-        reqs = reqs_from_files([full_path], parameters=parameters)
-        return cls(full_path, reqs, parameters=parameters, **kwargs)
+        reqs = reqs_from_files([str(full_path)], parameters=parameters)
+        return cls(str(full_path), reqs, parameters=parameters, **kwargs)
 
     def __str__(self) -> str:
         return self.name
