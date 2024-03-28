@@ -15,42 +15,6 @@ from req_compile.repos import Repository, RepositoryInitializationError
 from req_compile.repos.repository import Candidate
 
 
-def _relativize(from_path: Path, to_path: Path) -> Path:
-    """Compute the relative path from one location to another.
-
-    Unlike `pathlib.Path.relative_to`, this handles the case where a path
-    is trying to traverse up to a parent.
-
-    Args:
-        from_path: The starting location
-        to_path: The target location
-
-    Returns:
-        The relativized path
-    """
-    try:
-        return to_path.relative_to(from_path)
-    except ValueError:
-        # In the event from_path is not a parent of to_path, we will
-        # ignore the exception raised by `pathlib.Path.relative_to` and
-        # instead try to manually find a common parent so the path up
-        # to this location can be computed to then return the relative path.
-        pass
-
-    root = None
-    for parent in from_path.parents:
-        if parent in to_path.parents:
-            root = parent
-            break
-
-    if not root:
-        raise ValueError(f"{from_path} and {to_path} do not have a common parent")
-
-    to_root = Path("../" * len(from_path.relative_to(root).parents))
-
-    return to_root / to_path.relative_to(root)
-
-
 class FindLinksRepository(Repository):
     """
     A directory on the filesystem as a source of distributions.
@@ -65,7 +29,7 @@ class FindLinksRepository(Repository):
         super().__init__("findlinks", allow_prerelease=allow_prerelease)
         self.path = str(path)
         self.relative_path = (
-            _relativize(Path(relative_to), Path(self.path)) if relative_to else None
+            os.path.relpath(self.path, relative_to) if relative_to else None
         )
         self.links: List[Candidate] = []
         self._find_all_links()
