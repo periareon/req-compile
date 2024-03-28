@@ -1,4 +1,5 @@
 """Errors describing problems that can occur when extracting metadata"""
+
 from typing import Any, Optional
 
 import packaging.version

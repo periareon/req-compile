@@ -1,6 +1,7 @@
 import os
 from hashlib import sha256
-from typing import Any, List, Optional, Sequence, Tuple
+from pathlib import Path
+from typing import Any, List, Optional, Sequence, Tuple, Union
 
 import pkg_resources
 from overrides import overrides
@@ -19,16 +20,22 @@ class FindLinksRepository(Repository):
     A directory on the filesystem as a source of distributions.
     """
 
-    def __init__(self, path: str, allow_prerelease: Optional[bool] = None) -> None:
-        super(FindLinksRepository, self).__init__(
-            "findlinks", allow_prerelease=allow_prerelease
+    def __init__(
+        self,
+        path: Union[str, Path],
+        allow_prerelease: Optional[bool] = None,
+        relative_to: Optional[Union[str, Path]] = None,
+    ) -> None:
+        super().__init__("findlinks", allow_prerelease=allow_prerelease)
+        self.path = str(path)
+        self.relative_path = (
+            os.path.relpath(self.path, relative_to) if relative_to else None
         )
-        self.path = path
         self.links: List[Candidate] = []
         self._find_all_links()
 
     def __repr__(self) -> str:
-        return "--find-links {}".format(self.path)
+        return "--find-links {}".format(self.relative_path or self.path)
 
     def __eq__(self, other: Any) -> bool:
         return (
@@ -48,7 +55,10 @@ class FindLinksRepository(Repository):
         for filename in os.listdir(self.path):
             full_path = os.path.join(self.path, filename)
             candidate = req_compile.repos.repository.filename_to_candidate(
-                (self.path, full_path),
+                (
+                    str(self.relative_path) if self.relative_path else self.path,
+                    os.path.join(self.relative_path or self.path, filename),
+                ),
                 full_path,
             )
             if candidate is not None:

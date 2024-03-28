@@ -1,5 +1,6 @@
 import os
-import tempfile
+from io import StringIO
+from textwrap import dedent
 
 import pkg_resources
 import pytest
@@ -8,6 +9,9 @@ import req_compile.compile
 from req_compile.cmdline import write_requirements_file
 from req_compile.containers import DistInfo
 from req_compile.repos import RepositoryInitializationError
+from req_compile.repos.findlinks import FindLinksRepository
+from req_compile.repos.multi import MultiRepository
+from req_compile.repos.pypi import IndexType, PyPIRepository
 from req_compile.repos.solution import SolutionRepository
 from req_compile.utils import parse_requirement, parse_version
 
@@ -135,7 +139,7 @@ def test_load_remove_root_removes_all(load_solution):
 def test_round_trip(
     scenario, roots, mock_metadata, multiline, hashes, mock_pypi, tmp_path
 ):
-    mock_pypi.load_scenario("normal")
+    mock_pypi.load_scenario(scenario)
 
     results, nodes = req_compile.compile.perform_compile(
         [DistInfo("test", None, pkg_resources.parse_requirements(roots), meta=True)],
@@ -155,9 +159,8 @@ def test_round_trip(
 
     # Make some assertions about what the solution file looks like
     # to ensure we're testing the right things.
-    with open(solution_path, "r") as fh:
+    with solution_path.open("r") as fh:
         contents = fh.read()
-        print(contents)
         if hashes:
             assert "--hash" in contents
             if multiline:
@@ -166,10 +169,52 @@ def test_round_trip(
             if multiline:
                 assert "via" in contents
 
-    solution_result = SolutionRepository(str(solution_path))
+    solution_result = SolutionRepository(solution_path)
     for node in results:
         if isinstance(node.metadata, DistInfo) and node.key != "test":
             assert node.key in solution_result.solution
+
+
+def test_writing_repo_sources(mock_metadata, mock_pypi, tmp_path):
+
+    mock_pypi.load_scenario("normal")
+
+    results, nodes = req_compile.compile.perform_compile(
+        [DistInfo("foo", None, pkg_resources.parse_requirements(["a"]), meta=True)],
+        mock_pypi,
+    )
+
+    buffer = StringIO()
+    write_requirements_file(
+        results,
+        set(nodes),
+        repo=MultiRepository(
+            [
+                mock_pypi,
+                FindLinksRepository(path=str(tmp_path)),
+                PyPIRepository(
+                    index_url="https://index.com",
+                    wheeldir=tmp_path,
+                    index_type=IndexType.INDEX_URL,
+                ),
+                PyPIRepository(
+                    index_url="https://extra.com",
+                    wheeldir=tmp_path,
+                    index_type=IndexType.EXTRA_INDEX_URL,
+                ),
+            ]
+        ),
+        write_to=buffer,
+    )
+
+    header = dedent(
+        f"""\
+        --index-url https://index.com
+        --extra-index-url https://extra.com
+        --find-links {tmp_path}
+        """
+    ).strip()
+    assert header in buffer.getvalue()
 
 
 def test_load_additive_constraints():

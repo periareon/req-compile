@@ -3,6 +3,7 @@ from __future__ import print_function
 
 import argparse
 import datetime
+import enum
 import itertools
 import logging
 import os
@@ -10,9 +11,11 @@ import shutil
 import sys
 import tempfile
 import urllib.parse
+import warnings
 from collections import OrderedDict
 from io import StringIO
 from itertools import repeat
+from pathlib import Path
 from typing import IO, Any, Iterable, List, Mapping, Optional, Sequence, Set, Union
 
 import pkg_resources
@@ -193,10 +196,12 @@ def _print_paths_to_root(
                     node_str = "{}{}{}".format(
                         node.metadata.name,
                         "[{}]".format(",".join(node.extras)) if node.extras else "",
-                        (" " + str(node.metadata.version))
-                        if node.metadata is not None
-                        and node.metadata.version is not None
-                        else "",
+                        (
+                            (" " + str(node.metadata.version))
+                            if node.metadata is not None
+                            and node.metadata.version is not None
+                            else ""
+                        ),
                     )
                 if node_str == "-":
                     node_str = "<stdin>"
@@ -362,6 +367,39 @@ class ExplanationRender:
         return write_to.getvalue()
 
 
+class DirectiveType(enum.Enum):
+    """Index directives such as `--index-url`, `--find-links`, etc."""
+
+    INDEX_URL = 0
+    """`--index-url`"""
+
+    EXTRA_INDEX_URL = 1
+    """`--extra-index-url`"""
+
+    FIND_LINKS = 2
+    """`--find-links`"""
+
+    def to_index_type(self) -> Optional[IndexType]:
+        """Convert the directive type to a pypi IndexType
+
+        Returns:
+            None if the current type is not an index type.
+        """
+        if self == DirectiveType.INDEX_URL:
+            return IndexType.INDEX_URL
+        elif self == DirectiveType.EXTRA_INDEX_URL:
+            return IndexType.EXTRA_INDEX_URL
+        else:
+            return None
+
+
+ALL_DIRECTIVES = [
+    DirectiveType.INDEX_URL,
+    DirectiveType.EXTRA_INDEX_URL,
+    DirectiveType.FIND_LINKS,
+]
+
+
 def write_requirements_file(
     results: DistributionCollection,
     roots: Set[DependencyNode],
@@ -374,7 +412,7 @@ def write_requirements_file(
     no_pins: bool = False,
     no_comments: bool = False,
     no_explanations: bool = False,
-    no_directives: bool = False,
+    no_directives: Optional[Union[bool, Sequence[DirectiveType]]] = None,
     hashes: bool = False,
     multiline: bool = True,
     write_to: IO[str] = sys.stdout,
@@ -398,7 +436,7 @@ def write_requirements_file(
         no_pins (bool): If True, omit the solved version from the requirement lines
         no_comments (bool): If True, omit the comment containing the reverse dependencies.
         no_explanations: If True, omit the constraints explanations.
-        no_directives: Omit --index-url directives.
+        no_directives: Omit a set of specified directives (`--index-url`, `--find-lins`, etc).
         hashes: If True, include hashes in the output.
         multiline: If True, output in a multi-line format. If None, allow the format to be
             selected dynamically.
@@ -423,8 +461,24 @@ def write_requirements_file(
         ), "Input requirements must be given for source annotations."
         repo_mapping = _generate_repo_header(input_reqs, list(repo), write_to)
 
-    if not no_directives:
-        _write_index_directives(list(repo), write_to)
+    if no_directives is None:
+        no_directives = []
+
+    if isinstance(no_directives, bool):
+        warnings.warn(
+            "`no_directives` as bool is deprecated. Please update this to `Optional[Sequence[DirectiveType]]`.",
+            category=DeprecationWarning,
+        )
+        if no_directives:
+            no_directives = [
+                DirectiveType.INDEX_URL,
+                DirectiveType.EXTRA_INDEX_URL,
+                DirectiveType.FIND_LINKS,
+            ]
+        else:
+            no_directives = [DirectiveType.FIND_LINKS]
+
+    _write_index_directives(list(repo), no_directives, write_to)
 
     if multiline:
         pass_one_write_to = write_to
@@ -547,21 +601,37 @@ def _generate_repo_header(
     return repo_mapping
 
 
-def _write_index_directives(repos: Sequence[Repository], write_to: IO[str]) -> None:
-    """Write the --index-url and --extra-index-url lines in the requirement files.
+def _write_index_directives(
+    repos: Sequence[Repository], excludes: Sequence[DirectiveType], write_to: IO[str]
+) -> None:
+    """Write the `--index-url`, `--extra-index-url`, and `--find-links` lines in the requirement files.
+
+    This function may write nothing depending on the repositories and given `excludes`.
 
     Args:
         repos: All repos used in the solution.
+        excludes: Directive types to exclude.
         write_to: Output to write to.
     """
-    wrote_any = False
+    exclude_index_types = [
+        exc.to_index_type() for exc in excludes if exc.to_index_type() is not None
+    ]
+    index_content = ""
+    links_content = ""
     for repo in repos:
         if isinstance(repo, PyPIRepository) and repo.index_type != IndexType.DEFAULT:
-            wrote_any = True
-            write_to.write(str(repo) + "\n")
+            if repo.index_type in exclude_index_types:
+                continue
+            index_content += str(repo) + "\n"
+        elif isinstance(repo, FindLinksRepository):
+            if DirectiveType in excludes:
+                continue
+            links_content += str(repo) + "\n"
 
-    if wrote_any:
-        write_to.write("\n")
+    if index_content or links_content:
+        # Ensure `--find-links` is written last to better reflect
+        # the resolution order of values in the output file.
+        write_to.write(index_content + links_content + "\n")
 
 
 def build_repo(
@@ -569,9 +639,9 @@ def build_repo(
     upgrade_packages: Iterable[str],
     sources: Iterable[str],
     excluded_sources: Iterable[str],
-    find_links: Iterable[str],
+    find_links: Union[Iterable[str], Mapping[str, Path]],
     index_urls: Iterable[str],
-    wheeldir: str,
+    wheeldir: Union[str, Path],
     extra_index_urls: Optional[Iterable[str]] = None,
     no_index: bool = False,
     allow_prerelease: bool = False,
@@ -579,7 +649,13 @@ def build_repo(
     pooled_repos: List[Repository] = []
     if find_links:
         pooled_repos.extend(
-            FindLinksRepository(find_link, allow_prerelease=allow_prerelease)
+            FindLinksRepository(
+                find_link,
+                allow_prerelease=allow_prerelease,
+                relative_to=(
+                    find_links[find_link] if isinstance(find_links, Mapping) else None
+                ),
+            )
             for find_link in find_links
         )
     if not no_index:
@@ -967,7 +1043,9 @@ def compile_main(raw_args: Optional[Sequence[str]] = None) -> None:
         no_pins=args.no_pins,
         no_comments=args.no_comments,
         no_explanations=args.no_explanations,
-        no_directives=args.no_directives,
+        no_directives=ALL_DIRECTIVES
+        if args.no_directives
+        else [DirectiveType.FIND_LINKS],
         hashes=args.hashes,
         multiline=args.multiline,
     )

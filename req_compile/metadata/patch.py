@@ -1,4 +1,5 @@
 """Patching modules and objects"""
+
 import contextlib
 import sys
 import types

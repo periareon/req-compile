@@ -2,7 +2,8 @@ from __future__ import print_function
 
 import os
 import sys
-from typing import Any, Iterable, Optional, Sequence, Tuple
+from pathlib import Path
+from typing import Any, Iterable, Optional, Sequence, Tuple, Union
 
 import pkg_resources
 from overrides import overrides
@@ -30,11 +31,13 @@ class SolutionRepository(Repository):
     """A repository that provides distributions from a previous solution."""
 
     def __init__(
-        self, filename: str, excluded_packages: Optional[Iterable[str]] = None
+        self,
+        filename: Union[str, Path],
+        excluded_packages: Optional[Iterable[str]] = None,
     ) -> None:
         """Constructor."""
         super(SolutionRepository, self).__init__("solution", allow_prerelease=True)
-        self.filename = os.path.abspath(filename) if filename != "-" else "-"
+        self.filename = os.path.abspath(filename) if str(filename) != "-" else "-"
         self.excluded_packages = excluded_packages or []
         if excluded_packages:
             self.excluded_packages = [
@@ -178,7 +181,9 @@ class SolutionRepository(Repository):
             sources = []
             for part in parts:
                 part = part.strip()
-                if part.startswith(("http://", "https://")):
+                if part.startswith(("http://", "https://")) or part.endswith(
+                    (".whl", ".gz", ".tgz", ".zip", ".tar", ".bz2")
+                ):
                     in_url = True
                     in_sources = False
                     url = part
@@ -246,9 +251,9 @@ class SolutionRepository(Repository):
     ) -> None:
         pkg_names = map(lambda x: x.split(" ")[0], sources)
         constraints = map(
-            lambda x: x.split(" ")[1].replace("(", "").replace(")", "")
-            if "(" in x
-            else None,
+            lambda x: (
+                x.split(" ")[1].replace("(", "").replace(")", "") if "(" in x else None
+            ),
             sources,
         )
         version = req_compile.utils.parse_version(list(req.specs)[0][1])

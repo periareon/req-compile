@@ -1,6 +1,6 @@
 # pylint: disable=redefined-outer-name
-from io import StringIO
 import os
+from io import StringIO
 
 import pkg_resources
 import pytest
