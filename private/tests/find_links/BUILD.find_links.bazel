@@ -1,0 +1,11 @@
+load("@req_compile_test_find_links//:defs.bzl", "requirement")
+load("@rules_python//python:defs.bzl", "py_test")
+
+py_test(
+    name = "find_links",
+    srcs = ["@req_compile//private/tests/find_links:find_links.py"],
+    main = "@req_compile//private/tests/find_links:find_links.py",
+    deps = [
+        requirement("pyspark"),
+    ],
+)

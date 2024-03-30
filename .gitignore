@@ -2,11 +2,12 @@
 *.tar.gz
 *.pyc
 .pytest_cache
-/venv
-/venv3
+/venv*
 /.venv*
 /wheeldir
 /.idea
 build
 dist
 /req_compile.egg-info
+/bazel-*
+user.bazelrc

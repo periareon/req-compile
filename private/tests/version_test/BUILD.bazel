@@ -1,0 +1,13 @@
+load("@rules_python//python:defs.bzl", "py_test")
+
+py_test(
+    name = "version_test",
+    srcs = ["version_test.py"],
+    data = [
+        "//:MODULE.bazel",
+        "//:version.bzl",
+    ],
+    deps = [
+        "@rules_python//python/runfiles",
+    ],
+)
