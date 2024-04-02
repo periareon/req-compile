@@ -2,5 +2,5 @@
 
 module(
     name = "req_compile",
-    version = "1.0.0rc12",
+    version = "1.0.0rc13",
 )
