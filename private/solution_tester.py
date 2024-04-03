@@ -7,7 +7,7 @@ import sys
 from rules_python.python.runfiles import Runfiles
 
 # pylint: disable-next=import-error
-from private.compiler import compile_main, parse_args, rlocation
+from private.compiler import compile_main, init_logging, parse_args, rlocation
 
 _WARNING = """\
 
@@ -34,6 +34,8 @@ def main() -> None:
         argv = args_file.read_text(encoding="utf-8").splitlines()
 
     args = parse_args(argv)
+
+    init_logging(args.verbose)
 
     try:
         compile_main(args, runfiles)
