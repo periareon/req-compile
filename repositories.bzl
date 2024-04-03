@@ -17,6 +17,7 @@ def req_compile_dependencies():
     maybe(
         py_requirements_repository,
         name = "req_compile_sdist_compiler",
+        # This solution file is cross-platform as of 2024/04/03
         requirements_lock = Label("//private:sdist_requirements.txt"),
     )
 
