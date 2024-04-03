@@ -1,13 +1,17 @@
 load("@rules_python//python:defs.bzl", "py_binary")
 
-exports_files([
-    "sdist-requirements.in",
-    "sdist-requirements.txt",
-])
+exports_files(
+    [
+        "sdist_requirements.in",
+        "sdist_requirements.txt",
+    ],
+    visibility = ["//visibility:public"],
+)
 
 py_binary(
     name = "compiler",
     srcs = ["compiler.py"],
+    visibility = ["//visibility:public"],
     deps = [
         "//req_compile",
         "@rules_python//python/runfiles",
@@ -17,6 +21,7 @@ py_binary(
 py_binary(
     name = "solution_tester",
     srcs = ["solution_tester.py"],
+    visibility = ["//visibility:public"],
     deps = [
         ":compiler",
         "@rules_python//python/runfiles",
