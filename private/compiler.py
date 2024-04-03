@@ -6,6 +6,7 @@ import logging
 import os
 import platform
 import shutil
+import subprocess
 import sys
 import tempfile
 from io import StringIO
@@ -36,6 +37,7 @@ from req_compile.containers import RequirementsFile
 from req_compile.dists import DependencyNode, DistributionCollection
 from req_compile.errors import NoCandidateException
 from req_compile.repos import Repository
+from req_compile.repos.repository import DistributionType
 
 _HEADER = """\
 ################################################################################
@@ -104,6 +106,13 @@ def parse_args(args: Optional[Sequence[str]]) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--wheel-dir",
+        "--wheel_dir",
+        dest="wheel_dir",
+        type=Path,
+        help="When set, failed compilations will write wheels for sdist requirements found to this locaiton.",
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Enable verbose logging.",
@@ -166,19 +175,21 @@ def compile_requirements(
     promote_extra_index_urls: bool = False,
     wheeldir: Optional[Union[str, Path]] = None,
 ) -> CompilationResult:
-    """_summary_
+    """Compile a solution for a set of requirements.
 
     Args:
-        requirements_ins (Mapping[str, Path]): _description_
-        solution (Optional[Path], optional): _description_. Defaults to None.
-        constraints (Optional[Mapping[str, Path]], optional): _description_. Defaults to None.
-        no_index (bool, optional): _description_. Defaults to False.
-        only_binary (bool, optional): _description_. Defaults to False.
-        promote_extra_index_urls (bool, optional): _description_. Defaults to False.
-        wheeldir (Optional[Union[str, Path]], optional): _description_. Defaults to None.
+        requirements_ins: Map of pretty names to input files containing the requirements.
+        solution: Input solution file.
+        upgrade: Whether or not to ignore the solution when compiling.
+        constraints: Constraints to use when compiling a solution.
+        no_index: If True, requirements will be compiled with no index and only rely on
+            existing constraints in the solutions file.
+        only_binary: Ensure the solution is composed exclusively of wheels.
+        promote_extra_index_urls: Promote extra index urls to index urls.
+        wheeldir: An optional wheeldir to use during compilation.
 
     Returns:
-        _type_: _description_
+        The results of the compilation if successful.
     """
     input_reqs: List[RequirementsFile] = []
     index_urls: Set[str] = set()
@@ -272,32 +283,110 @@ def rlocation(runfiles: Runfiles, rlocationpath: str) -> Path:
     return path
 
 
-def main() -> None:
-    """The main entrypoint."""
+def _is_wheel(node: DependencyNode) -> Optional[bool]:
+    """Determine if a node is a wheel.
 
-    runfiles = Runfiles.Create()
-    if not runfiles:
-        raise EnvironmentError("Failed to locate runfiles.")
+    If there isn't sufficient information to determine this, None is returned.
+    """
+    if not node.metadata:
+        return None
 
-    argv = None
-    if "PY_REQ_COMPILER_ARGS_FILE" in os.environ:
-        args_file = rlocation(runfiles, os.environ["PY_REQ_COMPILER_ARGS_FILE"])
-        argv = args_file.read_text(encoding="utf-8").splitlines() + sys.argv[1:]
+    if not node.metadata.candidate:
+        return None
 
-    args = parse_args(argv)
+    if node.metadata.candidate.type is None:
+        return None
 
-    compile_main(args, runfiles)
+    return bool(node.metadata.candidate.type == DistributionType.WHEEL)
+
+
+def init_logging(verbose: bool) -> None:
+    """Initialize logging"""
+    logger = logging.getLogger("req_compile")
+
+    if verbose:
+        logging.basicConfig(level=logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
+        logger.setLevel(logging.WARNING)
+
+    logger.getChild("compile").addFilter(IndentFilter())
+
+
+def wheelmaker_main(args: argparse.Namespace, runfiles: Runfiles) -> None:
+    """The entrypoint for building wheels for sdist requirements."""
+
+    if not args.wheel_dir:
+        raise ValueError("--wheel-dir is expected to be found in `args`")
+
+    wheel_dir = args.wheel_dir
+
+    requirements_files: Dict[str, Path] = {}
+    for requirement_file in args.requirements_files:
+        requirements_files[requirement_file] = rlocation(runfiles, requirement_file)
+    solution = rlocation(runfiles, args.solution)
+
+    result = compile_requirements(
+        requirements_ins=requirements_files,
+        solution=solution,
+        upgrade=args.upgrade,
+        only_binary=False,
+        no_index=args.no_index,
+    )
+
+    sdists = sorted(req for req in result.solution if _is_wheel(req) is False)
+
+    if not sdists:
+        logging.info("No sdist packages found!")
+        return
+
+    logging.info("Found sdist packages: %s", sdists)
+
+    logging.info("Building wheels into %s", wheel_dir)
+
+    targets = []
+    for req in sdists:
+        assert (
+            req.metadata
+        ), "Requirements will have metadata if they've been identified as sdist."
+        if req.metadata.version:
+            targets.append(f"{req.key}=={req.metadata.version}")
+        else:
+            targets.append(req.key)
+
+    # Spawn python with a clean environment
+    env = dict(os.environ)
+    if "PYTHONPATH" in env:
+        del env["PYTHONPATH"]
+
+    proc_result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "wheel",
+            "--isolated",
+            "--no-cache-dir",
+            "--no-deps",
+            "--disable-pip-version-check",
+            "--wheel-dir",
+            str(wheel_dir),
+        ]
+        + sorted(targets),
+        check=False,
+        env=env,
+        stderr=None if args.verbose else subprocess.STDOUT,
+        stdout=None if args.verbose else subprocess.PIPE,
+    )
+
+    if proc_result.returncode:
+        print(proc_result.stdout.decode("utf-8"), file=sys.stderr)
+        sys.exit(proc_result.returncode)
 
 
 def compile_main(args: argparse.Namespace, runfiles: Runfiles) -> None:
-    """The entrypoint for performing compilation"""
-    if args.verbose:
-        logger = logging.getLogger("req_compile")
-
-        logging.basicConfig(level=logging.DEBUG, stream=sys.stderr)
-        logger.setLevel(logging.DEBUG)
-
-        logger.getChild("compile").addFilter(IndentFilter())
+    """The entrypoint for performing compilation."""
 
     requirements_files: Dict[str, Path] = {}
     for requirement_file in args.requirements_files:
@@ -320,6 +409,10 @@ def compile_main(args: argparse.Namespace, runfiles: Runfiles) -> None:
             cast(DistributionCollection, exc.parent.results),
             exc.parent,
         )
+
+        if args.wheel_dir:
+            logging.info("Attempting to build wheels for sdist dependencies.")
+            wheelmaker_main(args, runfiles)
         sys.exit(1)
 
     # Write out the requirements file if a location was provided.
@@ -362,6 +455,25 @@ def compile_main(args: argparse.Namespace, runfiles: Runfiles) -> None:
             if args.verbose:
                 print(output.read_text(encoding="utf-8"))
             print(f"Successfully compiled {output}")
+
+
+def main() -> None:
+    """The main entrypoint."""
+
+    runfiles = Runfiles.Create()
+    if not runfiles:
+        raise EnvironmentError("Failed to locate runfiles.")
+
+    argv = None
+    if "PY_REQ_COMPILER_ARGS_FILE" in os.environ:
+        args_file = rlocation(runfiles, os.environ["PY_REQ_COMPILER_ARGS_FILE"])
+        argv = args_file.read_text(encoding="utf-8").splitlines() + sys.argv[1:]
+
+    args = parse_args(argv)
+
+    init_logging(args.verbose)
+
+    compile_main(args, runfiles)
 
 
 if __name__ == "__main__":
