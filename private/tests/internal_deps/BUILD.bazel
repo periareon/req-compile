@@ -1,0 +1,8 @@
+load("//private:compiler.bzl", "py_reqs_solution_test")
+
+py_reqs_solution_test(
+    name = "sdist_requirements_test",
+    custom_compile_command = "python3 -m req_compile --multiline --hashes --urls --solution $(rootpath //private:sdist_requirements.txt) $(rootpath //private:sdist_requirements.in)",
+    requirements_in = "//private:sdist_requirements.in",
+    requirements_txt = "//private:sdist_requirements.txt",
+)

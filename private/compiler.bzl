@@ -68,10 +68,10 @@ def _symlink_py_executable(ctx, target):
 def _py_reqs_compiler_impl(ctx):
     compiler, runfiles = _symlink_py_executable(ctx, ctx.attr._compiler)
 
-    if ctx.attr.custom_compile_command:
-        custom_compile_command = ctx.attr.custom_compile_command
-    else:
-        custom_compile_command = "bazel run {}".format(ctx.label)
+    custom_compile_command = ctx.expand_location(ctx.attr.custom_compile_command.replace("{label}", str(ctx.label)), [
+        ctx.attr.requirements_in,
+        ctx.attr.requirements_txt,
+    ])
 
     args = [
         "--requirements_file",
@@ -165,7 +165,11 @@ bazel run //:requirements.update -- --upgrade
             default = False,
         ),
         "custom_compile_command": attr.string(
-            doc = "The command to display in the header of the generated lock file (`requirements_txt`). Defaults to `bazel run ${label}`.",
+            doc = (
+                "The command to display in the header of the generated lock file (`requirements_txt`). " +
+                "Any references to `{label}` will be replaced with the label of this target."
+            ),
+            default = "bazel run {label}",
         ),
         "requirements_in": attr.label(
             doc = "The input requirements file",
@@ -189,27 +193,74 @@ bazel run //:requirements.update -- --upgrade
 def _py_reqs_solution_test_impl(ctx):
     tester, runfiles = _symlink_py_executable(ctx, ctx.attr._tester)
 
-    compile_info = ctx.attr.compiler[PyReqsCompilerInfo]
+    if ctx.attr.compiler and ctx.attr.requirements_in:
+        fail("`compiler` and (`requirements_in` + `requirements_txt`) are mutually exclusive. Please update {}".format(
+            ctx.label,
+        ))
 
+    args = []
     args_file = ctx.actions.declare_file("{}.args.txt".format(ctx.label.name))
+    runfiles = runfiles.merge(ctx.runfiles(files = [args_file]))
+
+    if ctx.attr.compiler:
+        compile_info = ctx.attr.compiler[PyReqsCompilerInfo]
+        args.extend(compile_info.args)
+
+        runfiles = runfiles.merge_all([
+            ctx.runfiles(
+                transitive_files = depset(transitive = [
+                    compile_info.requirements_in[DefaultInfo].files,
+                    compile_info.solution[DefaultInfo].files,
+                ]),
+            ),
+            compile_info.requirements_in[DefaultInfo].default_runfiles,
+            compile_info.solution[DefaultInfo].default_runfiles,
+        ])
+    elif ctx.attr.requirements_in or ctx.attr.requirements_txt:
+        if not ctx.attr.requirements_in and not ctx.attr.requirements_txt:
+            fail("Both `requirements_in` and `requirements_txt` are required when either are set. Please update {}".format(
+                ctx.label,
+            ))
+        if not ctx.attr.custom_compile_command:
+            fail("`custom_compile_command` is required with `requirements_in` and `requirements_txt`. Please update {}".format(
+                ctx.label,
+            ))
+
+        custom_compile_command = ctx.expand_location(ctx.attr.custom_compile_command, [
+            ctx.attr.requirements_in,
+            ctx.attr.requirements_txt,
+        ])
+
+        args.extend([
+            "--requirements_file",
+            _rlocationpath(ctx.file.requirements_in, ctx.workspace_name),
+            "--solution",
+            _rlocationpath(ctx.file.requirements_txt, ctx.workspace_name),
+            "--custom_compile_command",
+            json.encode(custom_compile_command),
+        ])
+
+        runfiles = runfiles.merge_all([
+            ctx.runfiles(
+                transitive_files = depset(transitive = [
+                    ctx.attr.requirements_in[DefaultInfo].files,
+                    ctx.attr.requirements_txt[DefaultInfo].files,
+                ]),
+            ),
+            ctx.attr.requirements_in[DefaultInfo].default_runfiles,
+            ctx.attr.requirements_txt[DefaultInfo].default_runfiles,
+        ])
+    else:
+        fail("Either `compiler` or (`requirements_in` + `requirements_txt`) are required. Please update {}".format(
+            ctx.label,
+        ))
+
     ctx.actions.write(
         output = args_file,
-        content = "\n".join(compile_info.args + [
+        content = "\n".join(args + [
             "--no_index",
         ]),
     )
-
-    runfiles = runfiles.merge_all([
-        ctx.runfiles(
-            files = [args_file],
-            transitive_files = depset(transitive = [
-                compile_info.requirements_in[DefaultInfo].files,
-                compile_info.solution[DefaultInfo].files,
-            ]),
-        ),
-        compile_info.requirements_in[DefaultInfo].default_runfiles,
-        compile_info.solution[DefaultInfo].default_runfiles,
-    ])
 
     return [
         RunEnvironmentInfo(
@@ -237,18 +288,49 @@ py_reqs_compiler(
     requirements_txt = "requirements.txt",
 )
 
-py_reqs_compiler(
+py_reqs_solution_test(
     name = "requirements_test",
-    compiler = ":requirements.update",
+    requirements_in = "requirements.in",
+    requirements_txt = "requirements.txt",
+)
+```
+
+Alternatively, a test can be defined in isolation using just the requirements files:
+
+```python
+load("@req_compile//:defs.bzl", "py_reqs_solution_test")
+
+py_reqs_solution_test(
+    name = "requirements_test",
+    custom_compile_command = "python3 -m req_compile --multiline --hashes --urls --solution requirements.txt requirements.in",
+    requirements_in = "requirements.in",
+    requirements_txt = "requirements.txt",
 )
 ```
 """,
     implementation = _py_reqs_solution_test_impl,
     attrs = {
         "compiler": attr.label(
-            doc = "The `py_reqs_compiler` target to test.",
-            mandatory = True,
+            doc = (
+                "The `py_reqs_compiler` target to test. This attribute is " +
+                "mutally exclusive with `requirements_in` and `requirements_txt` " +
+                "and does not do any string formatting like `py_reqs_compiler` does."
+            ),
             providers = [PyReqsCompilerInfo],
+        ),
+        "custom_compile_command": attr.string(
+            doc = (
+                "The command to display in the header of the generated lock file (`requirements_txt`). " +
+                "This attribute is required with `requirements_in` and `requirements_txt`."
+            ),
+        ),
+        "requirements_in": attr.label(
+            doc = "The input requirements file. This attribute is mutually exclusive with `compiler`.",
+            allow_single_file = True,
+        ),
+        "requirements_txt": attr.label(
+            doc = "The solution file. This attribute is mutually exclusive with `compiler`.",
+            allow_single_file = True,
         ),
         "_tester": attr.label(
             cfg = "exec",
