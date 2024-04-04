@@ -169,7 +169,7 @@ bazel run //:requirements.update -- --upgrade
                 "The command to display in the header of the generated lock file (`requirements_txt`). " +
                 "Any references to `{label}` will be replaced with the label of this target."
             ),
-            default = "bazel run {label}",
+            default = "bazel run \"{label}\"",
         ),
         "requirements_in": attr.label(
             doc = "The input requirements file",
