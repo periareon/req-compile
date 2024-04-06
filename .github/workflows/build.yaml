@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false 
       matrix:
-        platform: ["ubuntu-latest", "macos-latest"]
+        platform: ["ubuntu-latest", "macos-latest", "windows-latest"]
         python_version: ["3.7", "3.8", "3.9", "3.10", "3.11", "3.12"]
 
     runs-on: ${{ matrix.platform }}
@@ -72,7 +72,7 @@ jobs:
     strategy:
       fail-fast: false 
       matrix:
-        platform: ["ubuntu-latest", "macos-14"]
+        platform: ["ubuntu-latest", "macos-14", "windows-latest"]
     runs-on: ${{ matrix.platform }}
     name: bazel test ${{ matrix.platform }}
     steps:
@@ -80,6 +80,9 @@ jobs:
     - name: Run Tests
       run: |
         bazel test //...
+    - name: Perform compilation
+      run: |
+        bazel run //3rdparty:requirements_compiler "--" --upgrade
 
   bazel_lint:
     runs-on: ubuntu-latest

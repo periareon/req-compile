@@ -1,4 +1,4 @@
-workspace(name = "req_compile")
+workspace(name = "rules_req_compile")
 
 load("//:repositories.bzl", "req_compile_dependencies")
 

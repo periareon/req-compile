@@ -9,6 +9,15 @@ filegroup(
     ],
 )
 
+alias(
+    name = "requirements_compiler",
+    actual = select({
+        "@platforms//os:linux": ":requirements_linux_311",
+        "@platforms//os:macos": ":requirements_macos_311",
+        "@platforms//os:windows": ":requirements_windows_311",
+    }),
+)
+
 py_reqs_compiler(
     name = "requirements_linux_311",
     requirements_in = ":requirements",

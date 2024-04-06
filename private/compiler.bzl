@@ -127,7 +127,7 @@ A Bazel rule for compiling python requirements for the current platform.
 
 
 ```python
-load("@req_compile//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
+load("@rules_req_compile//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
 
 filegroup(
     name = "requriements",
@@ -280,7 +280,7 @@ py_reqs_solution_test = rule(
 A Bazel test rule for ensuring the solution file for a `py_reqs_compiler` target satisifes the given requirements (`requirements_in`).
 
 ```python
-load("@req_compile//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
+load("@rules_req_compile//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
 
 py_reqs_compiler(
     name = "requirements.update",
@@ -298,7 +298,7 @@ py_reqs_solution_test(
 Alternatively, a test can be defined in isolation using just the requirements files:
 
 ```python
-load("@req_compile//:defs.bzl", "py_reqs_solution_test")
+load("@rules_req_compile//:defs.bzl", "py_reqs_solution_test")
 
 py_reqs_solution_test(
     name = "requirements_test",

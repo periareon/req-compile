@@ -11,11 +11,11 @@ http_archive(
     urls = ["{see_release}"],
 )
 
-load("@req_compile//:repositories.bzl", "req_compile_dependencies")
+load("@rules_req_compile//:repositories.bzl", "req_compile_dependencies")
 
 req_compile_dependencies()
 
-load("@req_compile//:repositories_transitive.bzl", "req_compile_transitive_dependencies")
+load("@rules_req_compile//:repositories_transitive.bzl", "req_compile_transitive_dependencies")
 
 req_compile_transitive_dependencies()
 ```

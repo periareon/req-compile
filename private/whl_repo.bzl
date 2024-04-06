@@ -50,7 +50,7 @@ if __name__ == "__main__":
 
 _BUILD_TEMPLATE = """\
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
-load("@req_compile//private:utils.bzl", "whl_repo_name")
+load("@rules_req_compile//private:utils.bzl", "whl_repo_name")
 load("@rules_python//python:defs.bzl", "py_library", "py_binary")
 
 package(default_visibility = ["//visibility:public"])
@@ -201,7 +201,7 @@ def _whl_repository_impl(repository_ctx):
             whl_name = whl_file.basename
 
             whl_result = repository_ctx.download(
-                "file://{}".format(whl_file),
+                "file:///{}".format(whl_file),
                 output = whl_name,
                 sha256 = repository_ctx.attr.sha256,
             )
@@ -232,7 +232,7 @@ def _whl_repository_impl(repository_ctx):
             # wheel from the data file is ignored in the repository rule results but
             # __is__ used here to ensure there is no funny business when copying.
             repository_ctx.download(
-                "file://{}".format(whl_file),
+                "file:///{}".format(whl_file),
                 output = whl_name,
                 sha256 = expected_sha256,
             )

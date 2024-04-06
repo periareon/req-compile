@@ -35,8 +35,8 @@ jobs:
           echo "RELEASE_VERSION=${version}" >> $GITHUB_ENV
       - name: Create release artifact
         run: |
-          tar -czf ${{ github.workspace }}/.github/req_compile_src.tar.gz --exclude=".git" --exclude=".github" --exclude="scripts" --exclude="dist" --exclude="build" -C ${{ github.workspace }} .
-          sha256="$(shasum --algorithm 256 ${{ github.workspace }}/.github/req_compile_src.tar.gz | awk '{ print $1 }')"
+          tar -czf ${{ github.workspace }}/.github/rules_req_compile.tar.gz --exclude=".git" --exclude=".github" --exclude="scripts" --exclude="dist" --exclude="build" -C ${{ github.workspace }} .
+          sha256="$(shasum --algorithm 256 ${{ github.workspace }}/.github/rules_req_compile.tar.gz | awk '{ print $1 }')"
           echo "ARCHIVE_SHA256=${sha256}" >> $GITHUB_ENV
       - name: Generate release notes
         run: |
@@ -58,8 +58,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.rules_release.outputs.upload_url }}
-          asset_name: req_compile_src-v${{ env.RELEASE_VERSION }}.tar.gz
-          asset_path: ${{ github.workspace }}/.github/req_compile_src.tar.gz
+          asset_name: rules_req_compile-v${{ env.RELEASE_VERSION }}.tar.gz
+          asset_path: ${{ github.workspace }}/.github/rules_req_compile.tar.gz
           asset_content_type: application/gzip
       - name: "Upload the wheel"
         uses: actions/upload-release-asset@v1
