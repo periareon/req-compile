@@ -1,7 +1,7 @@
 """req-compile Bazel integration test dependencies"""
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("@python311//:defs.bzl", "interpreter")
+load("@python_3_11//:defs.bzl", "interpreter")
 load("//:defs.bzl", "py_requirements_repository")
 
 def test_dependencies():

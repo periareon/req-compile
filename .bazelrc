@@ -24,9 +24,6 @@ build --incompatible_default_to_explicit_init_py
 # Ensure errors are logged to the console
 build --test_output=errors
 
-# TODO: Setup bzlmod
-common --noenable_bzlmod
-
 ###############################################################################
 ## Custom user flags
 ###############################################################################
