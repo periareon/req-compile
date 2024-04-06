@@ -6,9 +6,9 @@ _CONSTRAINTS_BZL_TEMPLATE = """\
 \"\"\"Python constraints\"\"\"
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("@req_compile//private:sdist_repo.bzl", "sdist_repository")
-load("@req_compile//private:utils.bzl", "sanitize_package_name")
-load("@req_compile//private:whl_repo.bzl", "whl_repository")
+load("@rules_req_compile//private:sdist_repo.bzl", "sdist_repository")
+load("@rules_req_compile//private:utils.bzl", "sanitize_package_name")
+load("@rules_req_compile//private:whl_repo.bzl", "whl_repository")
 
 def whl_repo_name(package):
     return "{repository_name}__" + sanitize_package_name(package)
@@ -117,7 +117,7 @@ def repositories():
 _RULES_PYTHON_COMPAT = """\
 \"\"\"A compatibility file with rules_python\"\"\"
 
-load("@req_compile//private:utils.bzl", "sanitize_package_name")
+load("@rules_req_compile//private:utils.bzl", "sanitize_package_name")
 load(
     ":defs.bzl",
     "repositories",
@@ -274,7 +274,7 @@ def parse_lockfile(
         content (str): The string content of a requirements lock file.
         repository_name (str): The name of the current repository
         annotations (dict): Annotation data for packages in the current lock file.
-        lockfile (Label): The label of the lockfile contianing `content`.
+        lockfile (Label): The label of the lockfile containing `content`.
         constraint (Label): An optional Label which represents the constraint value of the package.
 
     Returns:
@@ -354,6 +354,7 @@ def parse_lockfile(
 
 def _write_defs_file(repository_ctx, packages, defs_output, id = ""):
     repository_ctx.file(defs_output, _CONSTRAINTS_BZL_TEMPLATE.format(
+        req_compile_repo = repository_ctx.name,
         constraints = json.encode_indent(packages, indent = " " * 4).replace(" null", " None"),
         repository_name = "{}_{}".format(repository_ctx.name, id).rstrip("_"),
         repository_defs = defs_output.basename,
@@ -412,7 +413,7 @@ load(
 
 _INTERFACE_BZL_TEMPLATE = """\
 \"\"\"Python constraints\"\"\"
-load("@req_compile//private:utils.bzl", "sanitize_package_name")
+load("@rules_req_compile//private:utils.bzl", "sanitize_package_name")
 {loads}
 
 def whl_repo_name(package):

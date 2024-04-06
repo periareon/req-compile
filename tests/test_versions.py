@@ -1,3 +1,6 @@
+import os
+import sys
+
 import pkg_resources
 import pytest
 
@@ -39,11 +42,11 @@ def test_equals_not_equals():
 
 
 def test_dev_version():
-    assert not is_possible(parse_req('thing<1.6,<2.0dev,>=1.5,>=1.6.0'))
+    assert not is_possible(parse_req("thing<1.6,<2.0dev,>=1.5,>=1.6.0"))
 
 
 def test_beta_version():
-    assert is_possible(parse_req('thing<20b0'))
+    assert is_possible(parse_req("thing<20b0"))
 
 
 def test_no_constraints():
@@ -77,3 +80,7 @@ def test_gr():
 
 def test_lt():
     assert is_possible(parse_req("thing<1"))
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main(sys.argv[1:]))

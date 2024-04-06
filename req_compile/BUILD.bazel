@@ -1,24 +1,81 @@
-load("@req_compile_deps//:requirements.bzl", "requirement")
-load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+
+package(default_visibility = [
+    "//req_compile:__subpackages__",
+    "//tests:__subpackages__",
+])
+
+py_library(
+    name = "utils",
+    srcs = ["utils.py"],
+    deps = ["@setuptools"],
+)
+
+py_library(
+    name = "config",
+    srcs = ["config.py"],
+    deps = ["@appdirs"],
+)
+
+py_library(
+    name = "containers",
+    srcs = ["containers.py"],
+    deps = [
+        ":utils",
+        "@setuptools",
+    ],
+)
+
+py_library(
+    name = "errors",
+    srcs = ["errors.py"],
+    deps = [
+        "@setuptools",
+    ],
+)
+
+py_library(
+    name = "filename",
+    srcs = ["filename.py"],
+    deps = [
+        ":utils",
+        "@setuptools",
+    ],
+)
+
+py_library(
+    name = "dists",
+    srcs = ["dists.py"],
+    deps = [
+        "@setuptools",
+        ":containers",
+        ":utils",
+        "//req_compile:repos",
+    ],
+)
+
+py_library(
+    name = "versions",
+    srcs = ["versions.py"],
+    deps = [
+        "@setuptools",
+        ":utils",
+    ],
+)
+
+py_library(
+    name = "req_compile_lib",
+    srcs = ["__init__.py"],
+    data = ["py.typed"],
+    deps = [
+        ":containers",
+    ],
+    visibility = ["//visibility:public"],
+)
 
 py_binary(
     name = "req_compile",
-    srcs = glob(["**/*.py"]),
-    data = [
-        "py.typed",
-    ] + glob([
-        "**/*.pyi",
-    ]),
-    main = "__main__.py",
+    srcs = ["__main__.py"],
+    deps = [":req_compile_lib"],
     visibility = ["//visibility:public"],
-    deps = [
-        requirement("appdirs"),
-        requirement("overrides"),
-        requirement("packaging"),
-        requirement("requests"),
-        requirement("setuptools"),
-        requirement("toml"),
-        requirement("typing_extensions"),
-        requirement("wheel"),
-    ],
 )

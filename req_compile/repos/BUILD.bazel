@@ -1,0 +1,28 @@
+load("@rules_python//python:defs.bzl", "py_library")
+
+py_library(
+    name = "repository",
+    srcs = ["repository.py"],
+    deps = [
+        "@setuptools",
+        "//req_compile:errors",
+        "//req_compile:utils",
+        "//req_compile:containers",
+        "//req_compile:filename",
+    ]
+
+)
+
+py_library(
+    name = "repos",
+    srcs = ["__init__.py"],
+    deps = [":repository"],
+)
+
+py_library(
+    name = "findlinks",
+    srcs = ["findlinks.py"],
+    deps = [
+        ":repository",
+    ],
+)

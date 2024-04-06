@@ -1,18 +1,55 @@
 module(
-    name = "rules_req_compile",
-    version = "1.0.0",
-    compatibility_level = 1,
+    name="rules_req_compile",
+    version="1.0.0",
+    compatibility_level=1,
 )
 
-bazel_dep(name = "platforms", version = "0.0.9")
-bazel_dep(name = "rules_python", version = "0.31.0")
+bazel_dep(name="platforms", version="0.0.9")
+bazel_dep(name="rules_python", version="0.31.0")
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
-    configure_coverage_tool = True,
-    is_default = True,
-    python_version = "3.11",
+    configure_coverage_tool=True,
+    is_default=True,
+    python_version="3.11",
 )
 use_repo(python, "python_3_11")
 
-bazel_dep(name = "bazel_skylib", version = "1.5.0")
+bazel_dep(name="bazel_skylib", version="1.5.0")
+
+reqs = use_extension("//:reqs.bzl", "req_compile")
+
+reqs.requirement(name="requests", extras=["security"])
+reqs.requirement(name="toml")
+reqs.requirement(name="appdirs")
+reqs.requirement(name="packaging")
+reqs.requirement(name="wheel")
+reqs.requirement(name="overrides")
+reqs.requirement(name="typing_extensions")
+reqs.requirement(name="setuptools")
+
+test_reqs = use_extension("//:reqs.bzl", "req_compile", dev_dependency=True)
+
+test_reqs.requirement(name="pytest")
+test_reqs.requirement(name="pytest-mock")
+test_reqs.requirement(name="pytest-cov")
+test_reqs.requirement(name="responses")
+test_reqs.requirement(name="pylint")
+test_reqs.requirement(name="isort")
+test_reqs.requirement(name="mypy")
+test_reqs.requirement(name="black")
+test_reqs.requirement(name="six")
+
+use_repo(
+    reqs,
+    "requests",
+    "toml",
+    "appdirs",
+    "packaging",
+    "wheel",
+    "overrides",
+    "typing_extensions",
+    "setuptools",
+    "pytest",
+    "pytest_cov",
+)

@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 
 from req_compile.utils import has_prerelease, parse_requirement
@@ -16,3 +18,7 @@ from req_compile.utils import has_prerelease, parse_requirement
 def test_has_prerelease(expression, result):
     """Verify requirement expressions can be scanned for prerelease."""
     assert has_prerelease(parse_requirement(expression)) == result
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main())
