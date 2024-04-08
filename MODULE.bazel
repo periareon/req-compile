@@ -1,6 +1,6 @@
 """req-compile"""
 
 module(
-    name = "req_compile",
+    name = "rules_req_compile",
     version = "1.0.0rc13",
 )

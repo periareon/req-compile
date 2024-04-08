@@ -6,9 +6,9 @@ _CONSTRAINTS_BZL_TEMPLATE = """\
 \"\"\"Python constraints\"\"\"
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("@req_compile//private:sdist_repo.bzl", "sdist_repository")
-load("@req_compile//private:utils.bzl", "sanitize_package_name")
-load("@req_compile//private:whl_repo.bzl", "whl_repository")
+load("@rules_req_compile//private:sdist_repo.bzl", "sdist_repository")
+load("@rules_req_compile//private:utils.bzl", "sanitize_package_name")
+load("@rules_req_compile//private:whl_repo.bzl", "whl_repository")
 
 def whl_repo_name(package):
     return "{repository_name}__" + sanitize_package_name(package)
@@ -117,7 +117,7 @@ def repositories():
 _RULES_PYTHON_COMPAT = """\
 \"\"\"A compatibility file with rules_python\"\"\"
 
-load("@req_compile//private:utils.bzl", "sanitize_package_name")
+load("@rules_req_compile//private:utils.bzl", "sanitize_package_name")
 load(
     ":defs.bzl",
     "repositories",
@@ -412,7 +412,7 @@ load(
 
 _INTERFACE_BZL_TEMPLATE = """\
 \"\"\"Python constraints\"\"\"
-load("@req_compile//private:utils.bzl", "sanitize_package_name")
+load("@rules_req_compile//private:utils.bzl", "sanitize_package_name")
 {loads}
 
 def whl_repo_name(package):
@@ -562,7 +562,7 @@ A rule for importing `requirements.txt` dependencies into Bazel.
 Those dependencies become available in a generated `defs.bzl` file.
 
 ```python
-load("@req_compile//:defs.bzl", "py_requirements_repository")
+load("@rules_req_compile//:defs.bzl", "py_requirements_repository")
 
 py_requirements_repository(
     name = "py_requirements",

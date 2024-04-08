@@ -1,11 +1,12 @@
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 from req_compile.repos.findlinks import FindLinksRepository
 
 
-def test_find_links(tmpdir):
+def test_find_links(tmpdir: Path) -> None:
     """Verify that a wheel for req-compile can be discovered properly"""
     wheeldir = str(tmpdir.mkdir("wheeldir"))
 
@@ -22,9 +23,10 @@ def test_find_links(tmpdir):
     assert candidates[0].name == "req_compile"
 
 
-def test_relative_to_repr(tmpdir):
+def test_relative_to_repr(tmpdir: Path) -> None:
     (tmpdir / "wheeldir").mkdir()
-    assert str(FindLinksRepository(tmpdir)) == f"--find-links {tmpdir}"
+    expected = Path(tmpdir).as_posix()
+    assert str(FindLinksRepository(tmpdir)) == f"--find-links {expected}"
 
     assert (
         str(FindLinksRepository(tmpdir / "wheeldir", relative_to=tmpdir))

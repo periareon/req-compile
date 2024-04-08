@@ -27,9 +27,11 @@ class FindLinksRepository(Repository):
         relative_to: Optional[Union[str, Path]] = None,
     ) -> None:
         super().__init__("findlinks", allow_prerelease=allow_prerelease)
-        self.path = str(path)
+        self.path = Path(path).as_posix()
         self.relative_path = (
-            os.path.relpath(self.path, relative_to) if relative_to else None
+            Path(os.path.relpath(self.path, relative_to)).as_posix()
+            if relative_to
+            else None
         )
         self.links: List[Candidate] = []
         self._find_all_links()

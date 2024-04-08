@@ -32,7 +32,7 @@ class VersionTest(unittest.TestCase):
         if not runfiles:
             raise EnvironmentError("Failed to locate runfiles.")
 
-        version_bzl = rlocation(runfiles, "req_compile/version.bzl")
+        version_bzl = rlocation(runfiles, "rules_req_compile/version.bzl")
         bzl_version = re.findall(
             r'VERSION = "([\w\d\.]+)"',
             version_bzl.read_text(encoding="utf-8"),
@@ -40,9 +40,9 @@ class VersionTest(unittest.TestCase):
         )
         assert bzl_version, f"Failed to parse version from {version_bzl}"
 
-        module_bazel = rlocation(runfiles, "req_compile/MODULE.bazel")
+        module_bazel = rlocation(runfiles, "rules_req_compile/MODULE.bazel")
         module_version = re.findall(
-            r'module\(\n\s+name = "req_compile",\n\s+version = "([\d\w\.]+)",\n\)',
+            r'module\(\n\s+name = "rules_req_compile",\n\s+version = "([\d\w\.]+)",\n\)',
             module_bazel.read_text(encoding="utf-8"),
             re.MULTILINE,
         )

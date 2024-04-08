@@ -1,5 +1,6 @@
 # pylint: disable=protected-access
 import os
+import platform
 import sys
 from typing import Callable
 
@@ -53,7 +54,9 @@ def test_parse_flat_metadata_bizarre_extra():
     assert results.requires(extra="ssl:sys_platform=='win32'")[0].name == "wincertstore"
 
 
-def test_parse_flat_metadata_complex_marker(mock_py_version: Callable[[str], None]) -> None:
+def test_parse_flat_metadata_complex_marker(
+    mock_py_version: Callable[[str], None]
+) -> None:
     mock_py_version("3.7.12")
 
     results = req_compile.metadata.dist_info._parse_flat_metadata(
@@ -109,7 +112,7 @@ def test_compound(mock_targz):
     req_compile.metadata.metadata.extract_metadata(archive)
 
 
-sources = [
+_SOURCES = [
     ["svn-0.3.46", "svn", "0.3.46", ["python-dateutil>=2.2", "nose"]],
     ["dir-exists-1.0", "dir-exists", "1.0", ["msgpack-python"]],
     ["invalid-extra-2.1", "invalid-extra", "2.1", None],
@@ -159,24 +162,32 @@ sources = [
     ["file-input-1.0", "file-input", "1.0", None],
     ["capital-s-1.0", "capital-s", "1.0", []],
     ["dirsep-1.0", "dirsep", "1.0", []],
-    [
-        "newline-req-1.0",
-        "newline-req",
-        "1.0",
-        ["cfn_flip>=1.0.2", 'awacs>=0.8; extra == "policy"'],
-    ],
     ["version-writer-1.2", "version-writer", "1.2", []],
     ["tinyrpc-1.0.4", "tinyrpc", "1.0.4", ["six"]],
+    ["spec-loading-1.0", "spec-loading", "1.0", ["et_xmlfile", "jdcal"]],
 ]
-sources.append(["spec-loading-1.0", "spec-loading", "1.0", ["et_xmlfile", "jdcal"]])
 
 if sys.version_info[:2] < (3, 12):
     # Uses removed configparser methods.
-    sources.append(["ed-1.4", "ed", None, None])
+    _SOURCES.append(["ed-1.4", "ed", None, None])
+
+# TODO: This should be added to the common list above.
+# See https://github.com/sputt/req-compile/issues/53
+if platform.system() != "Windows":
+    _SOURCES.extend(
+        [
+            [
+                "newline-req-1.0",
+                "newline-req",
+                "1.0",
+                ["cfn_flip>=1.0.2", 'awacs>=0.8; extra == "policy"'],
+            ],
+        ]
+    )
 
 
 @pytest.mark.parametrize("archive_fixture", ["mock_targz", "mock_zip", "mock_fs"])
-@pytest.mark.parametrize("directory,name,version,reqs", sources)
+@pytest.mark.parametrize("directory,name,version,reqs", _SOURCES)
 def test_source_dist(
     archive_fixture, directory, name, version, reqs, mock_targz, mock_zip, mocker
 ):

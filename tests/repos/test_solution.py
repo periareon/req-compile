@@ -1,5 +1,6 @@
 import os
 from io import StringIO
+from pathlib import Path
 from textwrap import dedent
 
 import pkg_resources
@@ -184,6 +185,8 @@ def test_writing_repo_sources(mock_metadata, mock_pypi, tmp_path):
         mock_pypi,
     )
 
+    links_path = Path(tmp_path)
+
     buffer = StringIO()
     write_requirements_file(
         results,
@@ -191,7 +194,7 @@ def test_writing_repo_sources(mock_metadata, mock_pypi, tmp_path):
         repo=MultiRepository(
             [
                 mock_pypi,
-                FindLinksRepository(path=str(tmp_path)),
+                FindLinksRepository(path=links_path),
                 PyPIRepository(
                     index_url="https://index.com",
                     wheeldir=tmp_path,
@@ -211,7 +214,7 @@ def test_writing_repo_sources(mock_metadata, mock_pypi, tmp_path):
         f"""\
         --index-url https://index.com
         --extra-index-url https://extra.com
-        --find-links {tmp_path}
+        --find-links {links_path.as_posix()}
         """
     ).strip()
     assert header in buffer.getvalue()
