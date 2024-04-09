@@ -1,0 +1,67 @@
+load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
+load("@req_compile_test_pip_parse_compat_multi_plat//:requirements.bzl", multi_plat_requirement = "requirement")
+load("@req_compile_test_pip_parse_compat_single_plat//:requirements.bzl", single_plat_requirement = "requirement")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
+
+py_binary(
+    name = "compiler_wrapper",
+    srcs = ["compiler_wrapper.py"],
+)
+
+py_reqs_compiler(
+    name = "requirements.update",
+    custom_compile_command = "bazel run \"@//private/tests/pip_parse_compat:compiler_wrapper\"",
+    requirements_in = "requirements.in",
+    requirements_txt = "requirements.txt",
+)
+
+diff_test(
+    name = "linux_requirements",
+    file1 = "requirements.txt",
+    file2 = "requirements.linux.txt",
+    # The `diff` tool is not installed in the remote image.
+    # See https://github.com/bazelbuild/bazel-skylib/issues/481
+    tags = ["no-remote-exec"],
+)
+
+diff_test(
+    name = "macos_requirements",
+    file1 = "requirements.txt",
+    file2 = "requirements.macos.txt",
+    # The `diff` tool is not installed in the remote image.
+    # See https://github.com/bazelbuild/bazel-skylib/issues/481
+    tags = ["no-remote-exec"],
+)
+
+diff_test(
+    name = "windows_requirements",
+    file1 = "requirements.txt",
+    file2 = "requirements.windows.txt",
+    # The `diff` tool is not installed in the remote image.
+    # See https://github.com/bazelbuild/bazel-skylib/issues/481
+    tags = ["no-remote-exec"],
+)
+
+py_reqs_solution_test(
+    name = "requirements_test",
+    compiler = ":requirements.update",
+)
+
+py_test(
+    name = "pip_parse_compat_multi_plat",
+    srcs = ["pip_parse_compat.py"],
+    main = "pip_parse_compat.py",
+    deps = [
+        multi_plat_requirement("wheel"),
+    ],
+)
+
+py_test(
+    name = "pip_parse_compat_single_plat",
+    srcs = ["pip_parse_compat.py"],
+    main = "pip_parse_compat.py",
+    deps = [
+        single_plat_requirement("wheel"),
+    ],
+)

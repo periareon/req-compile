@@ -4,6 +4,7 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("@python311//:defs.bzl", "interpreter")
 load("//:defs.bzl", "py_requirements_repository")
 load("//private/tests/find_links:find_links_test_repo.bzl", "find_links_test_repository")
+load("//private/tests/pip_parse_compat:pip_parse_compat_test_deps.bzl", "pip_parse_compat_test_deps")
 
 def test_dependencies_1():
     """req-compile Bazel integration test dependencies"""
@@ -38,3 +39,5 @@ def test_dependencies_1():
         requirements_in = Label("//private/tests/find_links:requirements.in"),
         requirements_txt = Label("//private/tests/find_links:requirements.txt"),
     )
+
+    pip_parse_compat_test_deps()
