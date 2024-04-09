@@ -1,4 +1,4 @@
-"""# Bazel rules for `req_compile`
+"""# Bazel rules for `rules_req_compile`
 
 ## Setup
 
@@ -6,7 +6,7 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
-    name = "req_compile",
+    name = "rules_req_compile",
     sha256 = "{see_release}",
     urls = ["{see_release}"],
 )
@@ -22,6 +22,9 @@ req_compile_transitive_dependencies()
 
 ## Rules
 
+- [py_package_annotation_consumer](#py_package_annotation_consumer)
+- [py_package_annotation_target](#py_package_annotation_target)
+- [py_package_annotation](#py_package_annotation)
 - [py_reqs_compiler](#py_reqs_compiler)
 - [py_reqs_solution_test](#py_reqs_solution_test)
 - [py_requirements_repository](#py_requirements_repository)
@@ -32,6 +35,12 @@ req_compile_transitive_dependencies()
 ---
 """
 
+load(
+    "//private:annotation.bzl",
+    _py_package_annotation = "py_package_annotation",
+    _py_package_annotation_consumer = "py_package_annotation_consumer",
+    _py_package_annotation_target = "py_package_annotation_target",
+)
 load(
     "//private:compiler.bzl",
     _py_reqs_compiler = "py_reqs_compiler",
@@ -50,6 +59,9 @@ load(
     _whl_repository = "whl_repository",
 )
 
+py_package_annotation = _py_package_annotation
+py_package_annotation_consumer = _py_package_annotation_consumer
+py_package_annotation_target = _py_package_annotation_target
 py_reqs_compiler = _py_reqs_compiler
 py_reqs_solution_test = _py_reqs_solution_test
 py_requirements_repository = _py_requirements_repository

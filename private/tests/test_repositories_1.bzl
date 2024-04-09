@@ -3,6 +3,7 @@
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("@python311//:defs.bzl", "interpreter")
 load("//:defs.bzl", "py_requirements_repository")
+load("//private/tests/annotations:annotations_test_deps.bzl", "req_compile_test_annotations_deps")
 load("//private/tests/find_links:find_links_test_repo.bzl", "find_links_test_repository")
 load("//private/tests/pip_parse_compat:pip_parse_compat_test_deps.bzl", "pip_parse_compat_test_deps")
 
@@ -41,3 +42,5 @@ def test_dependencies_1():
     )
 
     pip_parse_compat_test_deps()
+
+    req_compile_test_annotations_deps()

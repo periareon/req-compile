@@ -1,0 +1,62 @@
+load("@req_compile_test_annotations//:defs.bzl", "requirement", "requirements")
+load("@rules_cc//cc:defs.bzl", "cc_test")
+load("@rules_python//python:defs.bzl", "py_test")
+load("//:defs.bzl", "py_package_annotation_consumer", "py_reqs_compiler", "py_reqs_solution_test")
+
+py_reqs_compiler(
+    name = "requirements.linux.update",
+    requirements_in = "requirements.in",
+    requirements_txt = "requirements.linux.txt",
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+py_reqs_solution_test(
+    name = "requirements_linux_test",
+    compiler = ":requirements.linux.update",
+)
+
+py_reqs_compiler(
+    name = "requirements.macos.update",
+    requirements_in = "requirements.in",
+    requirements_txt = "requirements.macos.txt",
+    target_compatible_with = ["@platforms//os:macos"],
+)
+
+py_reqs_solution_test(
+    name = "requirements_macos_test",
+    compiler = ":requirements.macos.update",
+)
+
+py_reqs_compiler(
+    name = "requirements.windows.update",
+    requirements_in = "requirements.in",
+    requirements_txt = "requirements.windows.txt",
+    target_compatible_with = ["@platforms//os:windows"],
+)
+
+py_reqs_solution_test(
+    name = "requirements_windows_test",
+    compiler = ":requirements.windows.update",
+)
+
+py_test(
+    name = "annotations",
+    srcs = ["annotations.py"],
+    deps = requirements([
+        "numpy",
+        "sphinx",
+    ]),
+)
+
+py_package_annotation_consumer(
+    name = "numpy_headers",
+    # Look for the `py_package_annotation_target` named `headers`.
+    consume = "headers",
+    package = requirement("numpy"),
+)
+
+cc_test(
+    name = "numpy_consumer_test",
+    srcs = ["numpy_consumer_test.cc"],
+    deps = [":numpy_headers"],
+)
