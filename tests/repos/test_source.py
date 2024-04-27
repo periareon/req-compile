@@ -53,11 +53,27 @@ def test_marker_in_dir(monorepo_dir):
 
 
 def test_exclude_dirs(monorepo_dir):
-    """Test that that projects can be excluded by excluded paths"""
+    """Test that projects can be excluded by excluded paths"""
     source_repo = SourceRepository(
-        monorepo_dir, excluded_paths=[os.path.join(monorepo_dir, "subdir")]
+        monorepo_dir, excluded_paths=[
+            os.path.join(monorepo_dir, "subdir"),
+            os.path.join(monorepo_dir, "pkg2"),
+        ]
     )
     assert source_repo.get_candidates(pkg_resources.Requirement.parse("pkg1"))
     assert source_repo.get_candidates(pkg_resources.Requirement.parse("pkg4"))
     with pytest.raises(NoCandidateException):
+        source_repo.get_dist(pkg_resources.Requirement.parse("pkg2"))
+    with pytest.raises(NoCandidateException):
         source_repo.get_dist(pkg_resources.Requirement.parse("pkg3"))
+
+def test_exclude_with_marker(monorepo_dir):
+    """Test that having a matching marker doesn't keep exclusions from working."""
+    source_repo = SourceRepository(
+        os.path.join(monorepo_dir), excluded_paths=[
+            os.path.join(monorepo_dir, "pkg2"),
+        ], marker_files=["pkg4"],
+    )
+    assert source_repo.get_candidates(pkg_resources.Requirement.parse("pkg1"))
+    with pytest.raises(NoCandidateException):
+        source_repo.get_dist(pkg_resources.Requirement.parse("pkg2"))

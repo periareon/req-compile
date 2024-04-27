@@ -120,6 +120,7 @@ def fetch_from_pyproject(
             return None, setup_requires
     except KeyError:
         LOG.debug("No build-backend in build-system.")
+        return None, []
 
     try:
         backend = _create_build_backend(build_system)

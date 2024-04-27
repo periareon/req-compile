@@ -6,6 +6,7 @@ from __future__ import print_function
 
 import argparse
 import logging
+import os
 import shutil
 import sys
 import tempfile
@@ -84,7 +85,7 @@ def candidates_main() -> None:
         logging.basicConfig(level=logging.CRITICAL, stream=sys.stderr)
         logging.getLogger().setLevel(level=logging.CRITICAL)
 
-    start = time.time()
+    start = time.monotonic()
     wheeldir = tempfile.mkdtemp(suffix="-wheeldir")
     repo = build_repo(
         solutions=[],
@@ -131,9 +132,18 @@ def candidates_main() -> None:
             else:
                 print(candidate)
             total_candidates += 1
+
+        # Flush here to force a broken pipe error if the pipe has been
+        # closed already.
+        sys.stdout.flush()
+    except (BrokenPipeError, IOError):
+        # Avoid another broken pipe exception during shutdown.
+        if sys.platform.startswith("linux"):
+            devnull = os.open(os.devnull, os.O_WRONLY)
+            os.dup2(devnull, sys.stdout.fileno())
     finally:
         shutil.rmtree(wheeldir)
-        end = time.time()
+        end = time.monotonic()
         print(
             "Found %d%s candidate(s) in %0.2f seconds"
             % (total_candidates, " compatible" if not args.all else "", (end - start)),
