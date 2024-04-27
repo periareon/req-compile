@@ -25,6 +25,7 @@ SPECIAL_DIRS = {
     "site-packages",
     "dist-packages",
     ".git",
+    ".github",
     ".svn",
     ".idea",
     "__pycache__",
@@ -33,6 +34,8 @@ SPECIAL_DIRS = {
     ".eggs",
     "build",
     "dist",
+    ".pytest_cache",
+    ".mypy_cache",
 }
 
 # Files that if included in a directory would disqualify
@@ -154,45 +157,48 @@ class SourceRepository(Repository):
 
     def _find_all_source_dirs(self, excluded_paths: Iterable[str]) -> Iterable[str]:
         for root, dirs, files in os.walk(self.path):
-            has_marker = False
-            for dir_ in list(dirs):
-                if (
-                    dir_ in SPECIAL_DIRS
-                    or dir_.endswith(".egg-info")
-                    or dir_.endswith(".dist-info")
-                ):
-                    dirs.remove(dir_)
-                else:
-                    for excluded_path in excluded_paths:
-                        if os.path.join(root, dir_).startswith(excluded_path):
-                            dirs.remove(dir_)
-                            break
-                if dir_ in self.marker_files:
-                    has_marker = True
-                    break
+            is_excluded = False
+            filename = os.path.basename(root)
+            if filename in SPECIAL_DIRS:
+                is_excluded = True
+            else:
+                for excluded_path in excluded_paths:
+                    if os.path.commonprefix((root, excluded_path)) == excluded_path:
+                        is_excluded = True
+                        break
 
-            if root != self.path and has_marker:
+            # Check if any this directory contains any marker directories.
+            if not is_excluded:
+                for dir_ in list(dirs):
+                    if (
+                        dir_.endswith((".egg-info", ".dist-info"))
+                        or dir_ in self.marker_files
+                    ):
+                        dirs.remove(dir_)
+                        is_excluded = True
+                        break
+                else:
+                    for file_ in files:
+                        if file_ in self.marker_files:
+                            is_excluded = True
+                            break
+
+            if is_excluded and not root == self.path:
                 dirs[:] = []
                 continue
 
             root_is_valid = False
             for filename in files:
-                if root != self.path and filename in self.marker_files:
-                    dirs[:] = []
-                    root_is_valid = False
-                    break
-
                 if filename in ("setup.py", "setup.cfg", "pyproject.toml"):
                     root_is_valid = True
 
             if root_is_valid:
-                # Remove test directories from search
+                # Remove test directories from search.
                 for dir_ in list(dirs):
                     if (
                         dir_ == "tests"
                         or dir_ == "test"
-                        or dir_.endswith("-tests")
-                        or dir_.endswith("-test")
+                        or dir_.endswith(("-tests", "-test"))
                     ):
                         dirs.remove(dir_)
                 yield root
