@@ -624,7 +624,7 @@ def _write_index_directives(
                 continue
             index_content += str(repo) + "\n"
         elif isinstance(repo, FindLinksRepository):
-            if DirectiveType in excludes:
+            if DirectiveType.FIND_LINKS in excludes:
                 continue
             links_content += str(repo) + "\n"
 
