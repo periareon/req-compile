@@ -1,5 +1,6 @@
 """Repository rules for downloading and extracting python wheel files"""
 
+load(":annotation.bzl", "deserialize_package_annotation")
 load(":utils.bzl", "parse_artifact_name", "sanitize_package_name")
 
 def write_sdist_data(repository_ctx, wheel, sha256):
@@ -271,27 +272,25 @@ def _whl_repository_impl(repository_ctx):
             strip = 1,
         )
 
-    annotations = json.decode(repository_ctx.attr.annotations)
-    if annotations:
-        annotations = json.decode(annotations)
+    annotations = deserialize_package_annotation(repository_ctx.attr.annotations)
 
     # Parse deps from annotations
     negative_deps = [
         sanitize_package_name(dep[1:])
-        for dep in annotations.get("deps", [])
+        for dep in annotations.deps
         if dep.startswith("-")
     ] + [
         sanitize_package_name(dep)
-        for dep in annotations.get("deps_excludes", [])
+        for dep in annotations.deps_excludes
     ]
     label_deps = [
         dep
-        for dep in annotations.get("deps", [])
+        for dep in annotations.deps
         if dep.startswith(("@", "//"))
     ]
     additive_deps = [
         sanitize_package_name(dep)
-        for dep in annotations.get("deps", [])
+        for dep in annotations.deps
         if not dep.startswith(("-", "@", "//"))
     ]
 
@@ -301,8 +300,8 @@ def _whl_repository_impl(repository_ctx):
         if dep not in negative_deps
     ]
 
-    data = annotations.get("data", [])
-    srcs_exclude = annotations.get("srcs_exclude_glob", [])
+    data = annotations.data
+    srcs_exclude = annotations.srcs_exclude_glob
     data_exclude = [
         whl_name,
         "**/* *",
@@ -313,7 +312,7 @@ def _whl_repository_impl(repository_ctx):
         # of generated files produced when wheels are installed. The file is ignored to avoid
         # Bazel caching issues.
         "**/*.dist-info/RECORD",
-    ] + annotations.get("data_exclude_glob", [])
+    ] + annotations.data_exclude_glob
 
     target_compatible_with = "None"
     if repository_ctx.attr.constraint:
@@ -363,17 +362,23 @@ def _whl_repository_impl(repository_ctx):
             pkg = ":" + repository_ctx.attr.package,
         ))
 
-    for src, dest in annotations.get("copy_files", {}).items():
+    for src, dest in annotations.copy_files.items():
         data.append(dest)
         build_content.append(_generate_copy_commands(src, dest))
 
-    for src, dest in annotations.get("copy_executables", {}).items():
+    for src, dest in annotations.copy_executables.items():
         data.append(dest)
         build_content.append(
             _generate_copy_commands(src, dest, is_executable = True),
         )
 
-    repository_ctx.file("BUILD.bazel", "\n".join(build_content) + (annotations.get("additive_build_content", None) or ""))
+    additive_content = ""
+    if annotations.additive_build_file_content:
+        additive_content += annotations.additive_build_file_content
+    if annotations.additive_build_file:
+        additive_build_path = repository_ctx.path(Label(annotations.additive_build_file))
+        additive_content += repository_ctx.read(additive_build_path)
+    repository_ctx.file("BUILD.bazel", "\n".join(build_content) + additive_content)
 
     return {
         "annotations": repository_ctx.attr.annotations,

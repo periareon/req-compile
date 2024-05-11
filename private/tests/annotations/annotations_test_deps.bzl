@@ -36,7 +36,7 @@ def req_compile_test_annotations_deps():
         },
         annotations = {
             "numpy": package_annotation(
-                additive_build_content = _NUMPY_LIBRARY_TARGET,
+                additive_build_file_content = _NUMPY_LIBRARY_TARGET,
                 data = [":pkg.headers"],
             ),
             # Sphinx is known to have a circular dependency. The annotations here solve for that.
