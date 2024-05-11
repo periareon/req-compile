@@ -2,9 +2,24 @@
 
 load("@rules_cc//cc:defs.bzl", "CcInfo")
 
+def _assert_absolute(label):
+    """Ensure a given label is an absolute label
+
+    Args:
+        label (Label): The label to check
+    """
+    label_str = str(label)
+    if not label_str.startswith("@"):
+        fail("The labels must be absolute. Please update '{}'".format(
+            label_str,
+        ))
+
 # Expected to satisfy the upstream `package_annotation` interface:
 # https://github.com/bazelbuild/rules_python/blob/0.31.0/python/pip_install/pip_repository.bzl#L941-L965
 def py_package_annotation(
+        *,
+        additive_build_file = None,
+        additive_build_file_content = None,
         additive_build_content = None,
         copy_files = {},
         copy_executables = {},
@@ -18,7 +33,9 @@ def py_package_annotation(
     [cf]: https://github.com/bazelbuild/bazel-skylib/blob/main/docs/copy_file_doc.md
 
     Args:
-        additive_build_content (str, optional): Raw text to add to the generated `BUILD` file of a package.
+        additive_build_file (Label, optional): The label of a `BUILD` file to add to the generated one for a pacakge.
+        additive_build_file_content (str, optional): Raw text to add to the generated `BUILD` file of a package.
+        additive_build_content (str, optional): __DEPRECATED__ use `additive_build_file_content` instead.
         copy_files (dict, optional): A mapping of `src` and `out` files for [@bazel_skylib//rules:copy_file.bzl][cf]
         copy_executables (dict, optional): A mapping of `src` and `out` files for
             [@bazel_skylib//rules:copy_file.bzl][cf]. Targets generated here will also be flagged as
@@ -30,12 +47,23 @@ def py_package_annotation(
         deps (list, optional): A list of dependencies to include to the package. Can be other packages or labels.
         deps_excludes (list, optional): A list of packages to exclude from the package. (In cases where a package
             has circular dependencies).
+        **kwargs
 
     Returns:
         str: A json encoded string of the provided content.
     """
+    if additive_build_file:
+        _assert_absolute(additive_build_file)
+
+    additive_content = ""
+    if additive_build_file_content:
+        additive_content += additive_build_file_content
+    if additive_build_content:
+        additive_content += additive_build_content
+
     return json.encode(struct(
-        additive_build_content = additive_build_content,
+        additive_build_file = str(additive_build_file) if additive_build_file else None,
+        additive_build_file_content = additive_content,
         copy_files = copy_files,
         copy_executables = copy_executables,
         data = data,
@@ -44,6 +72,45 @@ def py_package_annotation(
         deps = deps,
         deps_excludes = deps_excludes,
     ))
+
+def deserialize_package_annotation(content):
+    """Deserialize json encoded `py_package_annotation` data.
+
+    Args:
+        content (str): A json serialized string.
+
+    Returns:
+        struct: `py_package_annotation` data.
+    """
+    data = json.decode(content)
+
+    # TODO: There should be no need for the double deserialization
+    if data:
+        data = json.decode(data)
+    else:
+        data = {}
+
+    additive_build_file = None
+    if data.get("additive_build_file", None):
+        additive_build_file = Label(data["additive_build_file"])
+
+    additive_content = ""
+    if data.get("additive_build_file_content", None):
+        additive_content += data["additive_build_file_content"]
+    if data.get("additive_build_content", None):
+        additive_content += data["additive_build_content"]
+
+    return struct(
+        additive_build_file_content = additive_content or None,
+        additive_build_file = additive_build_file,
+        copy_files = data.get("copy_files", {}),
+        copy_executables = data.get("copy_executables", {}),
+        data = data.get("data", []),
+        data_exclude_glob = data.get("data_exclude_glob", []),
+        srcs_exclude_glob = data.get("srcs_exclude_glob", []),
+        deps = data.get("deps", []),
+        deps_excludes = data.get("deps_excludes", []),
+    )
 
 PyPackageAnnotatedTargetInfo = provider(
     doc = "Information about a target proudced by `py_package_annotations`.",
