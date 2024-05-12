@@ -2,5 +2,5 @@
 
 module(
     name = "rules_req_compile",
-    version = "1.0.0rc17",
+    version = "1.0.0rc18",
 )
