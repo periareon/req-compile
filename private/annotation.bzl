@@ -47,7 +47,6 @@ def py_package_annotation(
         deps (list, optional): A list of dependencies to include to the package. Can be other packages or labels.
         deps_excludes (list, optional): A list of packages to exclude from the package. (In cases where a package
             has circular dependencies).
-        **kwargs
 
     Returns:
         str: A json encoded string of the provided content.
@@ -143,6 +142,7 @@ py_package_annotation_target = rule(
         "target": attr.label(
             doc = "The target to track in a python package.",
             mandatory = True,
+            allow_files = True,
         ),
     },
 )
@@ -174,15 +174,18 @@ py_package_annotation_deps_aspect = aspect(
 
 def _py_package_annotation_consumer_impl(ctx):
     info = None
+    available = []
     for data in ctx.attr.package[PyPackageAnnotatedTargetsInfo].targets.to_list():
+        available.append(data.target.label.name)
         if data.target.label.name == ctx.attr.consume:
             info = data
             break
 
     if not info:
-        fail("Failed to find python package annotation target `{}` on `{}`".format(
+        fail("Failed to find python package annotation target `{}` on `{}`. Available: {}".format(
             ctx.attr.consume,
             ctx.attr.package.label,
+            sorted(depset(available).to_list()),
         ))
 
     # TODO: Default info changes behavior when it's simply forwarded.
