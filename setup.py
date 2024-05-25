@@ -8,7 +8,7 @@ def load_version(path: str) -> str:
         for line in file.readlines():
             if not line.startswith("VERSION = "):
                 continue
-            version = line[len("VERSION = ") :].strip(' \n"')
+            version = line[len("VERSION = ") :].strip(' \r\n"')
 
     if not version:
         raise ValueError(f"No version data found in {path}")

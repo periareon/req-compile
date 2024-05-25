@@ -27,6 +27,10 @@ build --test_output=errors
 # TODO: Setup bzlmod
 common --noenable_bzlmod
 
+# Stream BES reports to BuildBuddy.
+build --bes_results_url=https://req-compile.buildbuddy.io/invocation/
+build --bes_backend=grpcs://req-compile.buildbuddy.io
+
 ###############################################################################
 ## Custom user flags
 ###############################################################################

@@ -413,7 +413,7 @@ class Candidate:  # pylint: disable=too-many-instance-attributes
             self.py_version if self.py_version else "none",
             self.abi if self.abi is not None else "none",
             ".".join(sorted(self.platforms)),
-        )
+        ).strip("\r\n")
 
 
 def filename_to_candidate(source: Any, filename: str) -> Optional[Candidate]:

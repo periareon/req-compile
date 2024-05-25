@@ -215,7 +215,11 @@ def _fetch_from_setup_py(
     if results is None:
         results = _build_egg_info(name, extractor, setup_file)
 
-    if results is None or (results.name is None and results.version is None):
+    if results is None:
+        return None
+
+    if results.name is None and results.version is None:
+        LOG.debug("Name (%s) or version (%s) was empty", results.name, results.version)
         return None
 
     if results.name is None:
@@ -434,6 +438,8 @@ def setup(
 
     if version is not None:
         version = utils.parse_version(str(version))
+
+    LOG.info("Version is %s", version)
 
     if isinstance(reqs, str):
         reqs = [reqs]
