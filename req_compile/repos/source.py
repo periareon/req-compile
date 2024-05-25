@@ -170,10 +170,7 @@ class SourceRepository(Repository):
             # Check if any this directory contains any marker directories.
             if not is_excluded:
                 for dir_ in list(dirs):
-                    if (
-                        dir_.endswith((".egg-info", ".dist-info"))
-                        or dir_ in self.marker_files
-                    ):
+                    if dir_ in self.marker_files:
                         dirs.remove(dir_)
                         is_excluded = True
                         break

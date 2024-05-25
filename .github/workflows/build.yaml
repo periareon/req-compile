@@ -78,15 +78,15 @@ jobs:
       matrix:
         platform: ["ubuntu-latest", "macos-14", "windows-latest"]
     runs-on: ${{ matrix.platform }}
-    name: bazel test ${{ matrix.platform }}
+    name: bazel test --build ${{ matrix.platform }}
     steps:
     - uses: actions/checkout@v2
     - name: Run Tests
       run: |
-        bazel test //...
+        bazel test --remote_header=x-buildbuddy-api-key=${{ secrets.BUILDBUDDY_API_KEY }} //...
     - name: Perform compilation
       run: |
-        bazel run //3rdparty:requirements_compiler "--" --upgrade
+        bazel run --remote_header=x-buildbuddy-api-key=${{ secrets.BUILDBUDDY_API_KEY }} //3rdparty:requirements_compiler "--" --upgrade
 
   bazel_lint:
     runs-on: ubuntu-latest
