@@ -38,6 +38,15 @@ def req_compile_test_annotations_deps():
             "numpy": package_annotation(
                 additive_build_file_content = _NUMPY_LIBRARY_TARGET,
                 data = [":pkg.headers"],
+                copy_srcs = {
+                    "site-packages/numpy/conftest.py": "site-packages/numpy/conftest.copy.py",
+                },
+                copy_files = {
+                    "site-packages/numpy-1.26.4.dist-info/entry_points.txt": "site-packages/numpy-1.26.4.dist-info/entry_points.copy.txt",
+                },
+                copy_executables = {
+                    "site-packages/numpy/testing/setup.py": "site-packages/numpy/testing/setup.copy.py",
+                },
             ),
             # Sphinx is known to have a circular dependency. The annotations here solve for that.
             "sphinxcontrib-applehelp": package_annotation(

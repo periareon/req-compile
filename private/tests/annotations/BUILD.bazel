@@ -42,7 +42,9 @@ py_reqs_solution_test(
 py_test(
     name = "annotations",
     srcs = ["annotations.py"],
-    deps = requirements([
+    deps = [
+        "@rules_python//python/runfiles",
+    ] + requirements([
         "numpy",
         "sphinx",
     ]),
