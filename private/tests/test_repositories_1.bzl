@@ -26,6 +26,16 @@ def test_dependencies_1():
 
     maybe(
         py_requirements_repository,
+        name = "req_compile_test_platlib",
+        requirements_locks = {
+            Label("//private/tests/platlib:requirements.linux.txt"): "@platforms//os:linux",
+            Label("//private/tests/platlib:requirements.macos.txt"): "@platforms//os:macos",
+            Label("//private/tests/platlib:requirements.windows.txt"): "@platforms//os:windows",
+        },
+    )
+
+    maybe(
+        py_requirements_repository,
         name = "req_compile_test_transitive_ins",
         requirements_lock = Label("//private/tests/transitive_ins:requirements.txt"),
     )

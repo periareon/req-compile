@@ -27,10 +27,12 @@ build --test_output=errors
 # TODO: Setup bzlmod
 common --noenable_bzlmod
 
-# TODO(https://github.com/sputt/req-compile/issues/73): Fix buildbuddy
 # Stream BES reports to BuildBuddy.
-# build --bes_results_url=https://req-compile.buildbuddy.io/invocation/
-# build --bes_backend=grpcs://req-compile.buildbuddy.io
+build:bes --bes_results_url=https://req-compile.buildbuddy.io/invocation/
+build:bes --bes_backend=grpcs://req-compile.buildbuddy.io
+
+# Attempt to import any CI flags
+try-import %workspace%/.github/ci.bazelrc
 
 ###############################################################################
 ## Custom user flags

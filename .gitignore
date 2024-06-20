@@ -11,3 +11,4 @@ dist
 /req_compile.egg-info
 /bazel-*
 user.bazelrc
+/.github/ci.bazelrc
