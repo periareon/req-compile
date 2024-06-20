@@ -323,13 +323,32 @@ def _whl_repository_impl(repository_ctx):
 
     # Find the `dist-info` directory
     dist_info_dir = None
-    for entry in repository_ctx.path("./site-packages").readdir():
+    platlib_dir = None
+    site_packages = repository_ctx.path("./site-packages")
+    for entry in site_packages.readdir():
         if entry.basename.endswith(".dist-info"):
             dist_info_dir = entry
-            break
+        if entry.basename.endswith("-{}.data".format(repository_ctx.attr.version)):
+            for sub_entry in entry.readdir():
+                if sub_entry.basename == "platlib":
+                    platlib_dir = sub_entry
+                    break
 
     if not dist_info_dir:
         fail("Failed to find dist-info directory.")
+
+    # https://peps.python.org/pep-0427/#what-s-the-deal-with-purelib-vs-platlib
+    # platlib wheels are expected to have the data directory extracted out to the standard
+    # purelib location. This is mostly handled here by symlinking the contents into the
+    # correct location and exlcuding the original location from the glob patterns.
+    # Symlinking is only used because `repository_ctx` has no "move" functionality.
+    if platlib_dir:
+        _, _, site_dir = str(platlib_dir).partition(str(site_packages))
+        exclude = "site-packages/{}/**".format(site_dir.strip("/"))
+        data_exclude.append(exclude)
+        srcs_exclude.append(exclude)
+        for entry in platlib_dir.readdir():
+            repository_ctx.symlink(entry, "{}/{}".format(site_packages, entry.basename))
 
     # Check for an entry_points.txt
     entry_points = {}
