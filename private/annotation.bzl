@@ -21,6 +21,7 @@ def py_package_annotation(
         additive_build_file = None,
         additive_build_file_content = None,
         additive_build_content = None,
+        copy_srcs = {},
         copy_files = {},
         copy_executables = {},
         data = [],
@@ -36,7 +37,10 @@ def py_package_annotation(
         additive_build_file (Label, optional): The label of a `BUILD` file to add to the generated one for a pacakge.
         additive_build_file_content (str, optional): Raw text to add to the generated `BUILD` file of a package.
         additive_build_content (str, optional): __DEPRECATED__ use `additive_build_file_content` instead.
-        copy_files (dict, optional): A mapping of `src` and `out` files for [@bazel_skylib//rules:copy_file.bzl][cf]
+        copy_srcs (dict, optional): A mapping of `src` and `out` files for [@bazel_skylib//rules:copy_file.bzl][cf].
+            The output files are added to the `py_library.srcs` attribute.
+        copy_files (dict, optional): A mapping of `src` and `out` files for [@bazel_skylib//rules:copy_file.bzl][cf].
+            The output files are added to the `py_library.data` attribute.
         copy_executables (dict, optional): A mapping of `src` and `out` files for
             [@bazel_skylib//rules:copy_file.bzl][cf]. Targets generated here will also be flagged as
             executable.
@@ -63,6 +67,7 @@ def py_package_annotation(
     return json.encode(struct(
         additive_build_file = str(additive_build_file) if additive_build_file else None,
         additive_build_file_content = additive_content,
+        copy_srcs = copy_srcs,
         copy_files = copy_files,
         copy_executables = copy_executables,
         data = data,
@@ -102,6 +107,7 @@ def deserialize_package_annotation(content):
     return struct(
         additive_build_file_content = additive_content or None,
         additive_build_file = additive_build_file,
+        copy_srcs = data.get("copy_srcs", {}),
         copy_files = data.get("copy_files", {}),
         copy_executables = data.get("copy_executables", {}),
         data = data.get("data", []),
