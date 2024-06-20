@@ -60,7 +60,7 @@ DEPS = {dependencies}
 
 py_library(
     name = "{name}",
-    srcs = glob(
+    srcs = {srcs} + glob(
         include = ["site-packages/**/*.py"],
         exclude = {srcs_exclude},
         # Empty sources are allowed to support wheels that don't have any
@@ -301,6 +301,7 @@ def _whl_repository_impl(repository_ctx):
     ]
 
     data = annotations.data
+    srcs = []
     srcs_exclude = annotations.srcs_exclude_glob
     data_exclude = [
         whl_name,
@@ -318,17 +319,7 @@ def _whl_repository_impl(repository_ctx):
     if repository_ctx.attr.constraint:
         target_compatible_with = "select({" + repr(repository_ctx.attr.constraint) + ": [], \"//conditions:default\": [\"@platforms//:incompatible\"]})"
 
-    build_content = [_BUILD_TEMPLATE.format(
-        reqs_repository_name = repository_ctx.attr.reqs_repository_name,
-        name = repository_ctx.attr.package,
-        srcs_exclude = repr(srcs_exclude),
-        data = repr(data),
-        data_exclude = repr(data_exclude),
-        dependencies = json.encode_indent(dependencies, indent = " " * 4),
-        tags = repr([]),
-        target_compatible_with = target_compatible_with,
-        whl_name = whl_name,
-    )]
+    build_content = []
 
     # Find the `dist-info` directory
     dist_info_dir = None
@@ -362,6 +353,10 @@ def _whl_repository_impl(repository_ctx):
             pkg = ":" + repository_ctx.attr.package,
         ))
 
+    for src, dest in annotations.copy_srcs.items():
+        srcs.append(dest)
+        build_content.append(_generate_copy_commands(src, dest))
+
     for src, dest in annotations.copy_files.items():
         data.append(dest)
         build_content.append(_generate_copy_commands(src, dest))
@@ -378,6 +373,20 @@ def _whl_repository_impl(repository_ctx):
     if annotations.additive_build_file:
         additive_build_path = repository_ctx.path(Label(annotations.additive_build_file))
         additive_content += repository_ctx.read(additive_build_path)
+
+    build_content = [_BUILD_TEMPLATE.format(
+        reqs_repository_name = repository_ctx.attr.reqs_repository_name,
+        name = repository_ctx.attr.package,
+        srcs = srcs,
+        srcs_exclude = repr(srcs_exclude),
+        data = repr(data),
+        data_exclude = repr(data_exclude),
+        dependencies = json.encode_indent(dependencies, indent = " " * 4),
+        tags = repr([]),
+        target_compatible_with = target_compatible_with,
+        whl_name = whl_name,
+    )] + build_content
+
     repository_ctx.file("BUILD.bazel", "\n".join(build_content) + additive_content)
 
     return {
