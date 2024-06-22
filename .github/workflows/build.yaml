@@ -89,6 +89,9 @@ jobs:
     #     echo "common --announce_rc" >> "${CI_BAZELRC_PATH}"
     #   env:
     #     CI_BAZELRC_PATH: .github/ci.bazelrc
+    - name: Compile requirements
+      run: |
+        bazel run "//private/tests/incremental:requirements.linux.update" "--" "--upgrade" "--verbose"
     - name: Run Tests
       run: |
         bazel test //...
