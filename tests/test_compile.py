@@ -1,6 +1,6 @@
 # pylint: disable=redefined-outer-name
 import os
-from typing import Iterable, Optional, Tuple
+from typing import Iterable, Optional, Set, Tuple
 from unittest import mock
 
 import pkg_resources
@@ -14,6 +14,7 @@ import req_compile.repos.repository
 import req_compile.utils
 from req_compile.compile import AllOnlyBinarySet
 from req_compile.containers import DistInfo, RequirementContainer
+from req_compile.dists import DependencyNode, DistributionCollection
 from req_compile.repos.multi import MultiRepository
 from req_compile.repos.repository import Candidate, Repository, filename_to_candidate
 from req_compile.repos.source import SourceRepository
@@ -29,10 +30,11 @@ def test_mock_pypi(mock_pypi):
     assert metadata.version == req_compile.utils.parse_version("1.0.0")
 
 
-def _real_outputs(results):
-    outputs = results[0].build(results[1])
-    outputs = sorted(outputs, key=lambda x: x.name)
-    return set(str(req) for req in outputs)
+def _real_outputs(results: Tuple[DistributionCollection, Set[DependencyNode]]):
+    return set(
+        "{}=={}".format(*node.metadata.to_definition(node.extras))
+        for node in results[0].visit_nodes(results[1])
+    )
 
 
 @fixture

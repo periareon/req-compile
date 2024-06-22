@@ -267,6 +267,7 @@ def perform_compile(
     input_reqs: Iterable[RequirementContainer],
     repo: Repository,
     constraint_reqs: Optional[Iterable[RequirementContainer]] = None,
+    remove_constraints: bool = False,
     extras: Optional[Iterable[str]] = None,
     allow_circular_dependencies: bool = True,
     only_binary: Optional[Set[NormName]] = None,
@@ -282,6 +283,9 @@ def perform_compile(
         repo: Repository to use as a source of Python packages.
         extras: Extras to apply automatically to source projects
         constraint_reqs: Constraints to use when compiling
+        remove_constraints: Whether to remove the constraints from the solution. By default,
+            constraints are added, so you can see why a requirement was pinned to a particular
+            version.
         allow_circular_dependencies: Whether to allow circular dependencies
         only_binary: Set of projects that should only consider binary distributions.
         max_downgrade: The maximum number of version downgrades that will be allowed for conflicts.
@@ -333,13 +337,15 @@ def perform_compile(
                 node, None, repo, results, options, max_downgrade=max_downgrade
             )
     except (NoCandidateException, MetadataError) as ex:
-        _add_constraints(all_pinned, constraint_reqs, results)
+        if not remove_constraints:
+            _add_constraints(all_pinned, constraint_reqs, results)
         ex.results = results
         raise
 
-    # Add the constraints in, so it will show up as a contributor in the results.
-    # The same is done in the exception block above
-    _add_constraints(all_pinned, constraint_reqs, results)
+    if not remove_constraints:
+        # Add the constraints in, so it will show up as a contributor in the results.
+        # The same is done in the exception block above
+        _add_constraints(all_pinned, constraint_reqs, results)
 
     return results, roots
 

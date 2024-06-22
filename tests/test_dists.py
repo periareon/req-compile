@@ -2,7 +2,7 @@ import pkg_resources
 from pkg_resources import Requirement
 
 from req_compile.containers import DistInfo
-from req_compile.dists import DistributionCollection
+from req_compile.dists import DistributionCollection, build_explanation
 
 
 def test_unconstrained():
@@ -153,11 +153,14 @@ def test_repo_with_extra():
     )
     dists.add_dist(metadata_c, root_a, pkg_resources.Requirement.parse("a"))
 
-    lines = dists.generate_lines({root})
-    assert sorted(lines) == [
-        (("a[test]", "1.0.0", None), "root"),
-        (("b", "2.0.0", None), "a[test]"),
-        (("c", "2.0.0", None), "a"),
+    results = [
+        ("==".join(node.metadata.to_definition(node.extras)), build_explanation(node))
+        for node in dists.visit_nodes({root})
+    ]
+    assert sorted(results) == [
+        ("a[test]==1.0.0", ["root ([test])"]),
+        ("b==2.0.0", ["a[test]"]),
+        ("c==2.0.0", ["a"]),
     ]
 
 
