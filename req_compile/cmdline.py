@@ -771,7 +771,8 @@ def compile_main(raw_args: Optional[Sequence[str]] = None) -> None:
         help="Constraints file or project directory to use as constraints.",
     )
     group.add_argument(
-        "-e", "--extra",
+        "-e",
+        "--extra",
         action="append",
         dest="extras",
         default=[],
@@ -779,7 +780,8 @@ def compile_main(raw_args: Optional[Sequence[str]] = None) -> None:
         help="Extras to apply automatically to source packages.",
     )
     group.add_argument(
-        "-P", "--upgrade-package",
+        "-P",
+        "--upgrade-package",
         action="append",
         dest="upgrade_packages",
         metavar="package_name",
