@@ -4,21 +4,8 @@ import collections.abc
 import itertools
 import logging
 import sys
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    Iterator,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Union,
-)
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Union
 
-import packaging.requirements
-import packaging.version
 import pkg_resources
 
 from req_compile.containers import RequirementContainer
@@ -68,6 +55,7 @@ class DependencyNode:
 
     @property
     def extras(self) -> Set[str]:
+        """Extras for this node that its reverse dependencies have requested."""
         extras = set()
         for rdep in self.reverse_deps:
             assert (
@@ -112,7 +100,12 @@ class DependencyNode:
         return result
 
 
-def build_constraints(root_node: DependencyNode) -> Iterable[str]:
+def build_explanation(root_node: DependencyNode) -> collections.abc.Collection[str]:
+    """Build an explanation for why a node was included in the solution.
+
+    The explanation provides the version constraints supplied by the reverse
+    dependencies for this node.
+    """
     constraints: List[str] = []
     for node in root_node.reverse_deps:
         assert (
@@ -123,15 +116,16 @@ def build_constraints(root_node: DependencyNode) -> Iterable[str]:
             all_reqs |= set(node.metadata.requires(extra=extra))
         for req in all_reqs:
             if normalize_project_name(req.project_name) == root_node.key:
-                _process_constraint_req(req, node, constraints)
+                constraints.append(_process_constraint_req(req, node))
     return constraints
 
 
 def _process_constraint_req(
-    req: pkg_resources.Requirement, node: DependencyNode, constraints: List[str]
-) -> None:
+    req: pkg_resources.Requirement, node: DependencyNode
+) -> str:
     assert node.metadata is not None, "Node {} must be solved".format(node)
-    extra = None
+    extras: Set[str] = set()
+    # Determine which extras, if any, were the reason this req was included.
     if req.marker:
         for marker in req.marker._markers:  # pylint: disable=protected-access
             if (
@@ -139,10 +133,24 @@ def _process_constraint_req(
                 and marker[0].value == "extra"
                 and marker[1].value == "=="
             ):
-                extra = marker[2].value
-    source = node.metadata.name + (("[" + extra + "]") if extra else "")
-    specifics = " (" + str(req.specifier) + ")" if req.specifier else ""  # type: ignore[attr-defined]
-    constraints.extend([source + specifics])
+                extras.add(marker[2].value.strip().lower())
+    source = node.metadata.name + (
+        ("[" + ",".join(sorted(extras)) + "]") if extras else ""
+    )
+
+    specifics = ""
+    if req.specifier:  # type: ignore[attr-defined]
+        specifics = str(req.specifier)  # type: ignore[attr-defined]
+
+    # Determine which extras this req was itself requesting.
+    if req.extras:
+        specifics += (
+            f" [{','.join(sorted(extra.strip().lower() for extra in req.extras))}]"
+        )
+
+    if specifics:
+        specifics = f" ({specifics.strip()})"
+    return source + specifics
 
 
 class DistributionCollection:
@@ -273,15 +281,6 @@ class DistributionCollection:
             node.metadata = None
             node.complete = False
 
-    def build(
-        self, roots: Iterable[DependencyNode]
-    ) -> Iterable[pkg_resources.Requirement]:
-        results = self.generate_lines(roots)
-        return [
-            parse_requirement("==".join([result[0][0], str(result[0][1])]))
-            for result in results
-        ]
-
     def visit_nodes(
         self,
         roots: Iterable[DependencyNode],
@@ -319,40 +318,6 @@ class DistributionCollection:
                 _cur_depth=_cur_depth + 1,
             )
         return _visited
-
-    def generate_lines(
-        self,
-        roots: Iterable[DependencyNode],
-        req_filter: Optional[Callable[[DependencyNode], bool]] = None,
-        strip_extras: bool = False,
-    ) -> Iterable[
-        Tuple[Tuple[str, Optional[packaging.version.Version], Optional[str]], str]
-    ]:
-        """
-        Generate the lines of a results file from this collection
-        Args:
-            roots (iterable[DependencyNode]): List of roots to generate lines from
-            req_filter (Callable): Filter to apply to each element of the collection.
-                Return True to keep a node, False to exclude it
-        Returns:
-            (list[str]) List of rendered node entries in the form of
-                reqname==version   # reasons
-        """
-        req_filter = req_filter or (lambda _: True)
-        results: List[
-            Tuple[Tuple[str, Optional[packaging.version.Version], Optional[str]], str]
-        ] = []
-        for node in self.visit_nodes(roots):
-            if node.metadata is None:
-                continue
-            if not node.metadata.meta and req_filter(node):
-                constraints = build_constraints(node)
-                name, version = node.metadata.to_definition(node.extras)
-                if strip_extras:
-                    name = name.split("[", 1)[0]
-                constraint_text = ", ".join(sorted(constraints))
-                results.append(((name, version, node.metadata.hash), constraint_text))
-        return results
 
     def __contains__(self, project_name: str) -> bool:
         req_name = project_name.split("[")[0]

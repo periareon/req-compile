@@ -177,7 +177,6 @@ def test_round_trip(
 
 
 def test_writing_repo_sources(mock_metadata, mock_pypi, tmp_path):
-
     mock_pypi.load_scenario("normal")
 
     results, nodes = req_compile.compile.perform_compile(
@@ -228,6 +227,17 @@ def test_load_additive_constraints():
     )
     constraints = solution_repo.solution["idna"].build_constraints()
     assert constraints == pkg_resources.Requirement.parse("idna<2.9,>=2.5")
+
+
+def test_load_extras() -> None:
+    """Test that if the correct extras are associated with the correct requirements."""
+    solution_repo = SolutionRepository(
+        os.path.join(os.path.dirname(__file__), "requests_kerberos_solution.txt")
+    )
+    assert solution_repo.solution["pyspnego"].extras == {"kerberos"}
+    assert [req for req in solution_repo.solution["requests-kerberos"].metadata.requires(
+        None
+    ) if req.project_name=="pyspnego"][0] == parse_requirement("pyspnego[kerberos]>=0.9.2")
 
 
 def test_load_extra_first():

@@ -3,6 +3,8 @@ import os
 import subprocess
 import sys
 
+from req_compile.config import read_pip_default_index
+
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir))
 
 
@@ -45,7 +47,7 @@ def test_compile_req_compile(tmp_path):
             "-m",
             "req_compile",
             "-i",
-            "https://pypi.org/simple",
+            read_pip_default_index() or "https://pypi.org/simple",
             ".",
             "--wheel-dir",
             str(tmp_path),

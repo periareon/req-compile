@@ -346,12 +346,12 @@ class ExplanationRender:
 
     def __str__(self):
         write_to = StringIO()
-        constraints = list(req_compile.dists.build_constraints(self.node))
+        constraints = req_compile.dists.build_explanation(self.node)
 
         if len(constraints) == 1:
             if self.multiline:
                 write_to.write("via ")
-            write_to.write(f"{constraints[0]}")
+            write_to.write(f"{next(iter(constraints))}")
         else:
             if self.multiline:
                 write_to.write("via\n")
@@ -763,14 +763,16 @@ def compile_main(raw_args: Optional[Sequence[str]] = None) -> None:
         "from stdin.",
     )
     group.add_argument(
-        "-c,--constraints",
+        "-c",
+        "--constraints",
         action="append",
         dest="constraints",
         metavar="constraints_file",
         help="Constraints file or project directory to use as constraints.",
     )
     group.add_argument(
-        "-e,--extra",
+        "-e",
+        "--extra",
         action="append",
         dest="extras",
         default=[],
@@ -778,7 +780,8 @@ def compile_main(raw_args: Optional[Sequence[str]] = None) -> None:
         help="Extras to apply automatically to source packages.",
     )
     group.add_argument(
-        "-P,--upgrade-package",
+        "-P",
+        "--upgrade-package",
         action="append",
         dest="upgrade_packages",
         metavar="package_name",
@@ -795,6 +798,12 @@ def compile_main(raw_args: Optional[Sequence[str]] = None) -> None:
         default=False,
         action="store_true",
         help="Remove distributions not satisfied via --source from the output.",
+    )
+    group.add_argument(
+        "--remove-constraints",
+        default=False,
+        action="store_true",
+        help="Remove constraints pins from the output.",
     )
     group.add_argument(
         "-p",
@@ -979,6 +988,7 @@ def compile_main(raw_args: Optional[Sequence[str]] = None) -> None:
             repo,
             extras=args.extras,
             constraint_reqs=constraint_reqs,
+            remove_constraints=args.remove_constraints,
             only_binary=args.only_binary,
         )
     except RepositoryInitializationError as ex:

@@ -249,10 +249,12 @@ class SolutionRepository(Repository):
         url: Optional[str] = None,
         dist_hash: Optional[str] = None,
     ) -> None:
-        pkg_names = map(lambda x: x.split(" ")[0], sources)
+        pkg_names = map(lambda x: x.split(" ", 1)[0], sources)
         constraints = map(
             lambda x: (
-                x.split(" ")[1].replace("(", "").replace(")", "") if "(" in x else None
+                x.split(" ", 1)[1].replace("(", "").replace(")", "")
+                if "(" in x
+                else None
             ),
             sources,
         )
@@ -330,10 +332,24 @@ def _create_metadata_req(
         extra = next(iter(req_compile.utils.parse_requirement(name).extras))
         marker = ' ; extra == "{}"'.format(extra)
 
+    # req will only have extras if the solution file had them in the left-hand
+    # side of == expression, e.g. req[extra]==1.0.  Since pip doesn't support having
+    # extras on the left-hand side for constraints files, we don't emit this
+    # any longer.
+    extras = req.extras
+    if constraints and ("[" in constraints and "]" in constraints):
+        # Parse out the extras that brought in this requirement. It will look like
+        # (>1.0 [extra1,extra2]). Usually it would just be one unless the distribution
+        # includes a requirement under multiple extras.
+        constraints, extra_string = constraints.split("[", 1)
+        constraints = constraints.strip()
+        extra_string = extra_string.replace("]", "")
+        extras = {extra.strip() for extra in extra_string.split(",")}
+
     return req_compile.utils.parse_requirement(
         "{}{}{}{}".format(
             metadata.name,
-            ("[" + ",".join(req.extras) + "]") if req.extras else "",
+            ("[" + ",".join(sorted(extras)) + "]") if extras else "",
             constraints if constraints else "",
             marker,
         )
