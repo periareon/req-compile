@@ -1,0 +1,13 @@
+diff --git a/site-packages/numpy/__config__.py b/site-packages/numpy/__config__.py
+index 6f09de3..62168b4 100644
+--- a/site-packages/numpy/__config__.py
++++ b/site-packages/numpy/__config__.py
+@@ -9,7 +9,7 @@ from numpy.core._multiarray_umath import (
+ 
+ __all__ = ["show"]
+ _built_with_meson = True
+-
++req_comple_annotation = "req-compile"
+ 
+ class DisplayModes(Enum):
+     stdout = "stdout"

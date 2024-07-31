@@ -266,13 +266,17 @@ def _whl_repository_impl(repository_ctx):
     )
     repository_ctx.delete(whl_name + ".zip")
 
-    for patch in repository_ctx.attr.patches:
+    annotations = deserialize_package_annotation(repository_ctx.attr.annotations)
+
+    patches = repository_ctx.attr.patches + [
+        repository_ctx.path(Label(patch))
+        for patch in annotations.patches
+    ]
+    for patch in patches:
         repository_ctx.patch(
             patch,
             strip = 1,
         )
-
-    annotations = deserialize_package_annotation(repository_ctx.attr.annotations)
 
     # Parse deps from annotations
     negative_deps = [

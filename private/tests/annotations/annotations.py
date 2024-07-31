@@ -1,10 +1,11 @@
-"""The sdist integration test"""
+"""The annotations integration test"""
 
 import platform
 import unittest
 from pathlib import Path
 
 from numpy import __version__ as numpy_version  # pylint: disable=import-error
+from numpy.__config__ import req_comple_annotation  # pylint: disable=import-error
 from rules_python.python.runfiles import Runfiles  # pylint: disable=import-error
 from sphinx import __version__ as sphinx_version  # pylint: disable=import-error
 
@@ -15,6 +16,9 @@ class IntegrationTest(unittest.TestCase):
 
     def test_sphinx_version(self) -> None:
         assert sphinx_version == "7.2.6"
+
+    def test_patches_annotation(self) -> None:
+        assert req_comple_annotation == "req-compile"
 
     def test_copy_annotations(self) -> None:
         runfiles = Runfiles.Create()
