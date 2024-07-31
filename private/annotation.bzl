@@ -28,7 +28,8 @@ def py_package_annotation(
         data_exclude_glob = [],
         srcs_exclude_glob = [],
         deps = [],
-        deps_excludes = []):
+        deps_excludes = [],
+        patches = []):
     """Annotations to apply to the BUILD file content from package generated from a `pip_repository` rule.
 
     [cf]: https://github.com/bazelbuild/bazel-skylib/blob/main/docs/copy_file_doc.md
@@ -51,6 +52,7 @@ def py_package_annotation(
         deps (list, optional): A list of dependencies to include to the package. Can be other packages or labels.
         deps_excludes (list, optional): A list of packages to exclude from the package. (In cases where a package
             has circular dependencies).
+        patches (list, optional): A list of patch files to apply to the wheel.
 
     Returns:
         str: A json encoded string of the provided content.
@@ -64,17 +66,23 @@ def py_package_annotation(
     if additive_build_content:
         additive_content += additive_build_content
 
+    str_patches = []
+    for patch in patches:
+        _assert_absolute(patch)
+        str_patches.append(str(patch))
+
     return json.encode(struct(
         additive_build_file = str(additive_build_file) if additive_build_file else None,
         additive_build_file_content = additive_content,
-        copy_srcs = copy_srcs,
-        copy_files = copy_files,
         copy_executables = copy_executables,
+        copy_files = copy_files,
+        copy_srcs = copy_srcs,
         data = data,
         data_exclude_glob = data_exclude_glob,
-        srcs_exclude_glob = srcs_exclude_glob,
         deps = deps,
         deps_excludes = deps_excludes,
+        patches = str_patches,
+        srcs_exclude_glob = srcs_exclude_glob,
     ))
 
 def deserialize_package_annotation(content):
@@ -115,6 +123,7 @@ def deserialize_package_annotation(content):
         srcs_exclude_glob = data.get("srcs_exclude_glob", []),
         deps = data.get("deps", []),
         deps_excludes = data.get("deps_excludes", []),
+        patches = data.get("patches", []),
     )
 
 PyPackageAnnotatedTargetInfo = provider(

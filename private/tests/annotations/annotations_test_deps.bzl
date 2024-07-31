@@ -47,6 +47,9 @@ def req_compile_test_annotations_deps():
                 copy_executables = {
                     "site-packages/numpy/testing/setup.py": "site-packages/numpy/testing/setup.copy.py",
                 },
+                patches = [
+                    Label("//private/tests/annotations:numpy.patch"),
+                ],
             ),
             # Sphinx is known to have a circular dependency. The annotations here solve for that.
             "sphinxcontrib-applehelp": package_annotation(
