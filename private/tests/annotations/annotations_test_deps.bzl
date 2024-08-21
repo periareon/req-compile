@@ -50,6 +50,10 @@ def req_compile_test_annotations_deps():
                 patches = [
                     Label("//private/tests/annotations:numpy.patch"),
                 ],
+                deps = [
+                    # Show that label dependencies can be added.
+                    Label("@rules_python//python/runfiles"),
+                ],
             ),
             # Sphinx is known to have a circular dependency. The annotations here solve for that.
             "sphinxcontrib-applehelp": package_annotation(
