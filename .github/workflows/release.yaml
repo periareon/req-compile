@@ -15,6 +15,10 @@ defaults:
 
 jobs:
   release:
+    permissions:
+      contents: write
+      actions: write
+      attestations: write
     if: ${{ github.repository_owner == 'sputt' }}
     runs-on: ubuntu-latest
     steps:
