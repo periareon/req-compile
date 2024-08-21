@@ -56,7 +56,9 @@ load("@rules_python//python:defs.bzl", "py_library", "py_binary")
 
 package(default_visibility = ["//visibility:public"])
 
-DEPS = {dependencies}
+DEPS_LABELS = {deps_labels}
+
+DEPS_PACKAGES = {deps_packages}
 
 py_library(
     name = "{name}",
@@ -75,7 +77,7 @@ py_library(
     # This makes this directory a top-level in the python import
     # search path for anything that depends on this.
     imports = ["site-packages"],
-    deps = ["@{{}}//:pkg".format(whl_repo_name("{reqs_repository_name}", dep)) for dep in DEPS],
+    deps = DEPS_LABELS + ["@{{}}//:pkg".format(whl_repo_name("{reqs_repository_name}", dep)) for dep in DEPS_PACKAGES],
     tags = {tags},
     target_compatible_with = {target_compatible_with},
 )
@@ -287,21 +289,21 @@ def _whl_repository_impl(repository_ctx):
         sanitize_package_name(dep)
         for dep in annotations.deps_excludes
     ]
-    label_deps = [
-        dep
-        for dep in annotations.deps
-        if dep.startswith(("@", "//"))
-    ]
     additive_deps = [
         sanitize_package_name(dep)
         for dep in annotations.deps
         if not dep.startswith(("-", "@", "//"))
     ]
-
-    dependencies = label_deps + additive_deps + [
+    package_deps = additive_deps + [
         sanitize_package_name(dep)
         for dep in repository_ctx.attr.deps
         if dep not in negative_deps
+    ]
+
+    label_deps = [
+        dep
+        for dep in annotations.deps
+        if dep.startswith(("@", "//"))
     ]
 
     data = annotations.data
@@ -404,7 +406,8 @@ def _whl_repository_impl(repository_ctx):
         srcs_exclude = repr(srcs_exclude),
         data = repr(data),
         data_exclude = repr(data_exclude),
-        dependencies = json.encode_indent(dependencies, indent = " " * 4),
+        deps_labels = json.encode_indent(label_deps, indent = " " * 4),
+        deps_packages = json.encode_indent(package_deps, indent = " " * 4),
         tags = repr([]),
         target_compatible_with = target_compatible_with,
         whl_name = whl_name,
