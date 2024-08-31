@@ -18,6 +18,6 @@ py_test(
     name = "sdist",
     srcs = ["sdist.py"],
     deps = [
-        requirement("pyspark"),
+        "@req_compile_test_sdist//:pyspark",
     ],
 )

@@ -3,8 +3,7 @@
 import os
 import sys
 
-# pylint: disable-next=import-error
-from rules_python.python.runfiles import Runfiles
+from python.runfiles import Runfiles
 
 # pylint: disable-next=import-error
 from private.compiler import compile_main, init_logging, parse_args, rlocation

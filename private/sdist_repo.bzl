@@ -126,15 +126,15 @@ sdist_repository = repository_rule(
         ),
         "_dep_pip": attr.label(
             allow_files = True,
-            default = Label("@req_compile_sdist_compiler__pip//:BUILD.bazel"),
+            default = Label("@req_compile_sdist_compiler//:pip"),
         ),
         "_dep_setuptools": attr.label(
             allow_files = True,
-            default = Label("@req_compile_sdist_compiler__setuptools//:BUILD.bazel"),
+            default = Label("@req_compile_sdist_compiler//:setuptools"),
         ),
         "_dep_wheel": attr.label(
             allow_files = True,
-            default = Label("@req_compile_sdist_compiler__wheel//:BUILD.bazel"),
+            default = Label("@req_compile_sdist_compiler//:wheel"),
         ),
     },
 )

@@ -1,6 +1,25 @@
+load("@buildifier_prebuilt//:rules.bzl", "buildifier")
+
 exports_files([
     "MODULE.bazel",
     "requirements.in",
     "test-requirements.in",
     "version.bzl",
 ])
+
+buildifier(
+    name = "buildifier",
+    exclude_patterns = [
+        "./.git/*",
+    ],
+    lint_mode = "fix",
+)
+
+buildifier(
+    name = "buildifier.check",
+    exclude_patterns = [
+        "./.git/*",
+    ],
+    lint_mode = "warn",
+    mode = "diff",
+)

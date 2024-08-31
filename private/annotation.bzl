@@ -71,7 +71,7 @@ def py_package_annotation(
         _assert_absolute(patch)
         str_patches.append(str(patch))
 
-    # Ensure deps can be json seralized
+    # Ensure deps can be json serialized
     str_deps = []
     for dep in deps:
         if type(dep) == "Label":
@@ -79,13 +79,20 @@ def py_package_annotation(
         else:
             str_deps.append(dep)
 
+    str_data = []
+    for item in data:
+        if type(item) == "Label":
+            str_data.append(str(item))
+        else:
+            str_data.append(item)
+
     return json.encode(struct(
         additive_build_file = str(additive_build_file) if additive_build_file else None,
         additive_build_file_content = additive_content,
         copy_executables = copy_executables,
         copy_files = copy_files,
         copy_srcs = copy_srcs,
-        data = data,
+        data = str_data,
         data_exclude_glob = data_exclude_glob,
         deps = str_deps,
         deps_excludes = deps_excludes,

@@ -17,6 +17,6 @@ py_test(
     name = "simple",
     srcs = ["simple.py"],
     deps = [
-        requirement("wheel"),
+        "@req_compile_test_simple//:wheel",
     ],
 )

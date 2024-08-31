@@ -1,4 +1,4 @@
-load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load("//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
 
 exports_files(["find_links.py"])
@@ -29,7 +29,11 @@ py_reqs_solution_test(
     compiler = ":requirements.update",
 )
 
-test_suite(
+py_test(
     name = "find_links",
-    tests = ["@req_compile_find_links_test//:find_links"],
+    srcs = ["//private/tests/find_links:find_links.py"],
+    main = "//private/tests/find_links:find_links.py",
+    deps = [
+        "@req_compile_test_find_links//:pyspark",
+    ],
 )

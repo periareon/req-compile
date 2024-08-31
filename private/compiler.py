@@ -24,7 +24,7 @@ from typing import (
     cast,
 )
 
-from rules_python.python.runfiles import Runfiles  # pylint: disable=import-error
+from python.runfiles import Runfiles
 
 from req_compile.cmdline import (
     IndentFilter,
