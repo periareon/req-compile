@@ -2,6 +2,7 @@
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("@req_compile_test_annotations//:defs.bzl", annotations_repositories = "repositories")
+load("@req_compile_test_cross_platform//:defs.bzl", cross_platform_repositories = "repositories")
 load("@req_compile_test_platlib//:defs.bzl", platlib_repositories = "repositories")
 load("@req_compile_test_sdist//:defs.bzl", sdist_repositories = "repositories")
 load("@req_compile_test_simple//:defs.bzl", simple_repositories = "repositories")
@@ -16,6 +17,7 @@ def test_dependencies_2():
     """req-compile Bazel integration test transitive dependencies"""
 
     annotations_repositories()
+    cross_platform_repositories()
     pip_parse_compat_test_deps_install()
     platlib_repositories()
     sdist_repositories()

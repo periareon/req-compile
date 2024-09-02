@@ -36,6 +36,16 @@ def test_dependencies_1():
 
     maybe(
         py_requirements_repository,
+        name = "req_compile_test_cross_platform",
+        requirements_locks = {
+            Label("//private/tests/cross_platform:requirements.linux.txt"): "@platforms//os:linux",
+            Label("//private/tests/cross_platform:requirements.macos.txt"): "@platforms//os:macos",
+            Label("//private/tests/cross_platform:requirements.windows.txt"): "@platforms//os:windows",
+        },
+    )
+
+    maybe(
+        py_requirements_repository,
         name = "req_compile_test_transitive_ins",
         requirements_lock = Label("//private/tests/transitive_ins:requirements.txt"),
     )
