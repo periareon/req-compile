@@ -1,0 +1,23 @@
+load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_req_compile//:defs.bzl", "py_reqs_compiler")
+
+py_test(
+    name = "hello_test",
+    size = "small",
+    srcs = ["hello_test.py"],
+    deps = ["@pip_deps//:flask"],
+)
+
+py_reqs_compiler(
+    name = "requirements_update.windows",
+    requirements_in = "requirements.in",
+    requirements_txt = "requirements.windows.txt",
+    target_compatible_with = ["@platforms//os:windows"],
+)
+
+py_reqs_compiler(
+    name = "requirements_update.linux",
+    requirements_in = "requirements.in",
+    requirements_txt = "requirements.linux.txt",
+    target_compatible_with = ["@platforms//os:linux"],
+)

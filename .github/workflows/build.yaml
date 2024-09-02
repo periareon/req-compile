@@ -81,20 +81,35 @@ jobs:
     name: bazel test --build ${{ matrix.platform }}
     steps:
     - uses: actions/checkout@v2
-    # TODO(https://github.com/sputt/req-compile/issues/73): Fix buildbuddy
-    # - name: Configure Build Event Service
-    #   run: |
-    #     echo "common --remote_header=x-buildbuddy-api-key=${{ secrets.BUILDBUDDY_API_KEY }}" > "${CI_BAZELRC_PATH}"
-    #     echo "common --config=bes" >> "${CI_BAZELRC_PATH}"
-    #     echo "common --announce_rc" >> "${CI_BAZELRC_PATH}"
-    #   env:
-    #     CI_BAZELRC_PATH: .github/ci.bazelrc
+    - name: Configure Build Event Service
+      run: |
+        echo "common --remote_header=x-buildbuddy-api-key=${{ secrets.BUILDBUDDY_API_KEY }}" > "${CI_BAZELRC_PATH}"
+        echo "common --config=bes" >> "${CI_BAZELRC_PATH}"
+        echo "common --announce_rc" >> "${CI_BAZELRC_PATH}"
+      env:
+        CI_BAZELRC_PATH: .github/ci.bazelrc
     - name: Run Tests
       run: |
         bazel test //...
     - name: Perform compilation
       run: |
         bazel run //3rdparty:requirements_compiler "--" --upgrade
+
+  bazel_users:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ["ubuntu-latest", "windows-latest"]
+    runs-on: ${{ matrix.platform }}
+    name: bazel test multiplatform_py_test --build ${{ matrix.platform }}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Test user repo examples
+      run: |
+        cd private/examples/multiplatform_py_test && bazel test //...
+    - name: Test user repo examples (WORKSPACE.bazel)
+      run: |
+        cd private/examples/multiplatform_py_test && bazel test //... --noenable_bzlmod
 
   bazel_lint:
     runs-on: ubuntu-latest
@@ -118,10 +133,5 @@ jobs:
     - name: Run pylint
       run: |
         python -m pylint private
-    - name: Download Buildifier
-      run: |
-        wget "https://github.com/bazelbuild/buildtools/releases/download/v6.4.0/buildifier-linux-amd64" -O buildifier
-        chmod +x buildifier
-    - name: Buildifier
-      run: ./buildifier -lint=warn -mode=check -warnings=all -r ${{ github.workspace }}
-
+    - name: Run buildifier
+      run: bazel run //:buildifier.check

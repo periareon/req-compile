@@ -5,18 +5,17 @@
 # https://bazel.build/reference/command-line-reference#flag--enable_platform_specific_config
 common --enable_platform_specific_config
 
-# https://bazel.build/docs/windows#symlink
-startup --windows_enable_symlinks
-build:windows --enable_runfiles
-
 # Speed up builds by skipping the creation of runfile links
-build --nobuild_runfile_links
+build:linux --nobuild_runfile_links
 
 # https://github.com/bazelbuild/bazel/issues/8195
 build --incompatible_disallow_empty_glob=true
 
+# Allow isolated module extensions for tests.
+common --experimental_isolated_extension_usages
+
 # https://github.com/bazelbuild/bazel/issues/12821
-build --nolegacy_external_runfiles
+build:linux --nolegacy_external_runfiles
 
 # https://github.com/bazelbuild/bazel/issues/10076
 build --incompatible_default_to_explicit_init_py
@@ -24,12 +23,11 @@ build --incompatible_default_to_explicit_init_py
 # Ensure errors are logged to the console
 build --test_output=errors
 
-# TODO: Setup bzlmod
-common --noenable_bzlmod
+coverage --combined_report=lcov
 
 # Stream BES reports to BuildBuddy.
-build:bes --bes_results_url=https://req-compile.buildbuddy.io/invocation/
-build:bes --bes_backend=grpcs://req-compile.buildbuddy.io
+common:bes --bes_results_url=https://req-compile.buildbuddy.io/invocation/
+common:bes --bes_backend=grpcs://req-compile.buildbuddy.io
 
 # Attempt to import any CI flags
 try-import %workspace%/.github/ci.bazelrc

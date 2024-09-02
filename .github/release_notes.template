@@ -1,5 +1,24 @@
 # {version}
 
+## Using bzlmod
+```python
+bazel_dep(name = "rules_req_compile", version = "0.0.0")
+archive_override(
+    module_name = "rules_req_compile",
+    integrity = "{integrity}",
+    urls = ["https://github.com/sputt/req-compile/releases/download/{version}/rules_req_compile-v{version}.tar.gz"],
+)
+```
+
+Add to your bazelrc:
+```text
+common --experimental_isolated_extension_usages
+```
+
+Isolated extensions allow you to have multiple separate Python
+requirements files with different annotations.
+
+## Using WORKSPACE.bazel
 ```python
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(

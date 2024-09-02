@@ -55,7 +55,7 @@ mypy-extensions==1.0.0
 overrides==7.7.0
     # via requirements.in
     # https://files.pythonhosted.org/packages/2c/ab/fc8290c6a4c722e5514d80f62b2dc4c4df1a68a41d1364e625c35990fcf3/overrides-7.7.0-py3-none-any.whl#sha256=c7ed9d062f78b8e4c1a7b70bd8796b35ead4d9f510227ef9c5dc7626c60d7e49
-packaging==23.2
+packaging~=24.1
     # via
     #   black (>=22.0)
     #   pytest
@@ -86,7 +86,7 @@ pytest-mock==3.11.1
 PyYAML==6.0.1
     # via responses
     # https://files.pythonhosted.org/packages/c7/d1/02baa09d39b1bb1ebaf0d850d106d1bdcb47c91958557f471153c49dc03b/PyYAML-6.0.1-cp37-cp37m-macosx_10_9_x86_64.whl#sha256=b1275ad35a5d18c62a7220633c913e1b42d44b46ee12554e5fd39c70a243d6a3
-requests==2.31.0
+requests~=2.32.3
     # via
     #   requirements.in
     #   responses (<3.0,>=2.30.0)
@@ -94,7 +94,7 @@ requests==2.31.0
 responses==0.23.3
     # via test-requirements.in
     # https://files.pythonhosted.org/packages/1d/83/6ce6c2b447af3c02d944639c387edef2ea9eb72e734bce4442d56ecb97f5/responses-0.23.3-py3-none-any.whl#sha256=e6fbcf5d82172fecc0aa1860fd91e58cbfd96cee5e96da5b63fa6eb3caa10dd3
-setuptools==69.2.0
+setuptools~=68.2.0
     # via requirements.in
     # https://files.pythonhosted.org/packages/92/e1/1c8bb3420105e70bdf357d57dd5567202b4ef8d27f810e98bb962d950834/setuptools-69.2.0-py3-none-any.whl#sha256=c21c49fb1042386df081cb5d86759792ab89efca84cf114889191cd09aacc80c
 six==1.16.0
@@ -132,7 +132,7 @@ types-setuptools==69.0.0.0
 types-toml==0.10.8.7
     # via test-requirements.in
     # https://files.pythonhosted.org/packages/be/0e/caa95b3a1ea0f9625c4dc980bfb0a1686529c6fbfa222fffc77c52918464/types_toml-0.10.8.7-py3-none-any.whl#sha256=61951da6ad410794c97bec035d59376ce1cbf4453dc9b6f90477e81e4442d631
-typing_extensions==4.7.1
+typing_extensions~=4.12.2
     # via
     #   black (>=3.10.0.0)
     #   importlib-metadata (>=3.6.4)
@@ -147,7 +147,7 @@ urllib3==2.0.7
     #   responses (<3.0,>=1.25.10)
     #   types-requests (>=2)
     # https://files.pythonhosted.org/packages/d2/b2/b157855192a68541a91ba7b2bbcb91f1b4faa51f8bae38d8005c034be524/urllib3-2.0.7-py3-none-any.whl#sha256=fdb6d215c776278489906c2f8916e6e7d4f5a9b602ccbcfdf7f016fc8da0596e
-wheel==0.43.0
+wheel~=0.41.2
     # via requirements.in
     # https://files.pythonhosted.org/packages/7d/cd/d7460c9a869b16c3dd4e1e403cce337df165368c71d6af229a74699622ce/wheel-0.43.0-py3-none-any.whl#sha256=55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81
 zipp==3.15.0

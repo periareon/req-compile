@@ -1,4 +1,3 @@
-load("@req_compile_test_sdist//:defs.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_test")
 load("//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
 
@@ -18,6 +17,6 @@ py_test(
     name = "sdist",
     srcs = ["sdist.py"],
     deps = [
-        requirement("pyspark"),
+        "@req_compile_test_sdist//:pyspark",
     ],
 )

@@ -4,7 +4,8 @@ import re
 import unittest
 from pathlib import Path
 
-from rules_python.python.runfiles import Runfiles  # pylint: disable=import-error
+# pylint: disable-next=import-error
+from python.runfiles import Runfiles
 
 
 def rlocation(runfiles: Runfiles, rlocationpath: str) -> Path:
@@ -42,7 +43,7 @@ class VersionTest(unittest.TestCase):
 
         module_bazel = rlocation(runfiles, "rules_req_compile/MODULE.bazel")
         module_version = re.findall(
-            r'module\(\n\s+name = "rules_req_compile",\n\s+version = "([\d\w\.]+)",\n\)',
+            r'module\(\n\s+name = "rules_req_compile",\n\s+version = "([\d\w.]+)",\n\)',
             module_bazel.read_text(encoding="utf-8"),
             re.MULTILINE,
         )
