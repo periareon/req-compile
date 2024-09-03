@@ -200,3 +200,14 @@ test_find_links.parse(
     requirements_lock = "@req_compile_find_links_test//:requirements.txt",
 )
 use_repo(test_find_links, "req_compile_test_find_links")
+
+test_cross_platform = use_extension("//extensions:python.bzl", "requirements", dev_dependency = True, isolate = True)
+test_cross_platform.parse(
+    name = "req_compile_test_cross_platform",
+    requirements_locks = {
+        "//private/tests/cross_platform:requirements.linux.txt": "@platforms//os:linux",
+        "//private/tests/cross_platform:requirements.macos.txt": "@platforms//os:macos",
+        "//private/tests/cross_platform:requirements.windows.txt": "@platforms//os:windows",
+    },
+)
+use_repo(test_cross_platform, "req_compile_test_cross_platform")

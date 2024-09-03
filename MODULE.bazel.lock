@@ -2124,7 +2124,7 @@
     },
     "//extensions:python.bzl%requirements%<root>~test_annotations": {
       "general": {
-        "bzlTransitiveDigest": "UmLDjor8S55lNPuthhmw/zk0TyLxS9nhpuHeaX0zM9o=",
+        "bzlTransitiveDigest": "dV8rzIcJmMW+Ynm3WqCYCykiPvwGB8UDBPT6IPvufhI=",
         "usagesDigest": "g/QB9YIrTDUXF3VCK92umue2g997ZcR+tTt3ta+ice4=",
         "recordedFileInputs": {
           "@@//private/tests/annotations/requirements.macos.txt": "47536babdebbe647586c84e2938fd52deeeca6a7b73e637fc0633fde364eab7e",
@@ -3382,6 +3382,400 @@
         ]
       }
     },
+    "//extensions:python.bzl%requirements%<root>~test_cross_platform": {
+      "general": {
+        "bzlTransitiveDigest": "dV8rzIcJmMW+Ynm3WqCYCykiPvwGB8UDBPT6IPvufhI=",
+        "usagesDigest": "GESr+C8X9C1VKvrvetZearzRcpyT0hJMIYP47DPermk=",
+        "recordedFileInputs": {
+          "@@//private/tests/cross_platform/requirements.windows.txt": "c36c57bf4244b05fd32ea0472c1c364d1a2664bb0981013045bb44ce91f337ba",
+          "@@//private/tests/cross_platform/requirements.linux.txt": "69fd0cff60820db65a5bf9df233025b9dcbcd22a127ae45c6a972b0dbeae6a12",
+          "@@//private/tests/cross_platform/requirements.macos.txt": "72af205c987a5b3e33a97cd0b18dd54890511a771afe437abb9318690b33c5c9"
+        },
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "req_compile_test_cross_platform": {
+            "bzlFile": "@@//extensions:python.bzl",
+            "ruleClassName": "reqs_hub",
+            "attributes": {
+              "hub_name": "req_compile_test_cross_platform",
+              "defs": {
+                "linux": "'@@platforms//os:linux'",
+                "macos": "'@@platforms//os:macos'",
+                "windows": "'@@platforms//os:windows'"
+              },
+              "packages": [
+                "black",
+                "click",
+                "mypy_extensions",
+                "packaging",
+                "pathspec",
+                "platformdirs",
+                "black",
+                "click",
+                "mypy_extensions",
+                "packaging",
+                "pathspec",
+                "platformdirs",
+                "black",
+                "click",
+                "colorama",
+                "mypy_extensions",
+                "packaging",
+                "pathspec",
+                "platformdirs"
+              ]
+            }
+          },
+          "req_compile_test_cross_platform_windows__packaging": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "req_compile_test_cross_platform_windows__packaging",
+              "reqs_repository_name": "req_compile_test_cross_platform_windows",
+              "sha256": "5b8f2217dbdbd2f7f384c41c628544e6d52f2d0f53c6d0c3ea61aa5d1d7ff124",
+              "urls": [
+                "https://files.pythonhosted.org/packages/08/aa/cc0199a5f0ad350994d660967a8efb233fe0416e4639146c089643407ce6/packaging-24.1-py3-none-any.whl#sha256=5b8f2217dbdbd2f7f384c41c628544e6d52f2d0f53c6d0c3ea61aa5d1d7ff124"
+              ],
+              "version": "24.1"
+            }
+          },
+          "req_compile_test_cross_platform_linux__mypy_extensions": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "req_compile_test_cross_platform_linux__mypy_extensions",
+              "reqs_repository_name": "req_compile_test_cross_platform_linux",
+              "sha256": "4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d",
+              "urls": [
+                "https://files.pythonhosted.org/packages/2a/e2/5d3f6ada4297caebe1a2add3b126fe800c96f56dbe5d1988a2cbe0b267aa/mypy_extensions-1.0.0-py3-none-any.whl#sha256=4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d"
+              ],
+              "version": "1.0.0"
+            }
+          },
+          "req_compile_test_cross_platform_linux__pathspec": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "req_compile_test_cross_platform_linux__pathspec",
+              "reqs_repository_name": "req_compile_test_cross_platform_linux",
+              "sha256": "a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08",
+              "urls": [
+                "https://files.pythonhosted.org/packages/cc/20/ff623b09d963f88bfde16306a54e12ee5ea43e9b597108672ff3a408aad6/pathspec-0.12.1-py3-none-any.whl#sha256=a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08"
+              ],
+              "version": "0.12.1"
+            }
+          },
+          "req_compile_test_cross_platform_windows__colorama": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "req_compile_test_cross_platform_windows__colorama",
+              "reqs_repository_name": "req_compile_test_cross_platform_windows",
+              "sha256": "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6",
+              "urls": [
+                "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl#sha256=4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"
+              ],
+              "version": "0.4.6"
+            }
+          },
+          "req_compile_test_cross_platform_windows__black": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [
+                "click",
+                "mypy_extensions",
+                "packaging",
+                "pathspec",
+                "platformdirs"
+              ],
+              "package": "req_compile_test_cross_platform_windows__black",
+              "reqs_repository_name": "req_compile_test_cross_platform_windows",
+              "sha256": "72901b4913cbac8972ad911dc4098d5753704d1f3c56e44ae8dce99eecb0e3af",
+              "urls": [
+                "https://files.pythonhosted.org/packages/a8/69/a000fc3736f89d1bdc7f4a879f8aaf516fb03613bb51a0154070383d95d9/black-24.8.0-cp311-cp311-win_amd64.whl#sha256=72901b4913cbac8972ad911dc4098d5753704d1f3c56e44ae8dce99eecb0e3af"
+              ],
+              "version": "24.8.0"
+            }
+          },
+          "req_compile_test_cross_platform_windows__mypy_extensions": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "req_compile_test_cross_platform_windows__mypy_extensions",
+              "reqs_repository_name": "req_compile_test_cross_platform_windows",
+              "sha256": "4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d",
+              "urls": [
+                "https://files.pythonhosted.org/packages/2a/e2/5d3f6ada4297caebe1a2add3b126fe800c96f56dbe5d1988a2cbe0b267aa/mypy_extensions-1.0.0-py3-none-any.whl#sha256=4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d"
+              ],
+              "version": "1.0.0"
+            }
+          },
+          "req_compile_test_cross_platform_macos__platformdirs": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "req_compile_test_cross_platform_macos__platformdirs",
+              "reqs_repository_name": "req_compile_test_cross_platform_macos",
+              "sha256": "2d7a1657e36a80ea911db832a8a6ece5ee53d8de21edd5cc5879af6530b1bfee",
+              "urls": [
+                "https://files.pythonhosted.org/packages/68/13/2aa1f0e1364feb2c9ef45302f387ac0bd81484e9c9a4c5688a322fbdfd08/platformdirs-4.2.2-py3-none-any.whl#sha256=2d7a1657e36a80ea911db832a8a6ece5ee53d8de21edd5cc5879af6530b1bfee"
+              ],
+              "version": "4.2.2"
+            }
+          },
+          "req_compile_test_cross_platform_macos__packaging": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "req_compile_test_cross_platform_macos__packaging",
+              "reqs_repository_name": "req_compile_test_cross_platform_macos",
+              "sha256": "5b8f2217dbdbd2f7f384c41c628544e6d52f2d0f53c6d0c3ea61aa5d1d7ff124",
+              "urls": [
+                "https://files.pythonhosted.org/packages/08/aa/cc0199a5f0ad350994d660967a8efb233fe0416e4639146c089643407ce6/packaging-24.1-py3-none-any.whl#sha256=5b8f2217dbdbd2f7f384c41c628544e6d52f2d0f53c6d0c3ea61aa5d1d7ff124"
+              ],
+              "version": "24.1"
+            }
+          },
+          "req_compile_test_cross_platform_macos__pathspec": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "req_compile_test_cross_platform_macos__pathspec",
+              "reqs_repository_name": "req_compile_test_cross_platform_macos",
+              "sha256": "a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08",
+              "urls": [
+                "https://files.pythonhosted.org/packages/cc/20/ff623b09d963f88bfde16306a54e12ee5ea43e9b597108672ff3a408aad6/pathspec-0.12.1-py3-none-any.whl#sha256=a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08"
+              ],
+              "version": "0.12.1"
+            }
+          },
+          "req_compile_test_cross_platform_windows__click": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [
+                "colorama"
+              ],
+              "package": "req_compile_test_cross_platform_windows__click",
+              "reqs_repository_name": "req_compile_test_cross_platform_windows",
+              "sha256": "ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28",
+              "urls": [
+                "https://files.pythonhosted.org/packages/00/2e/d53fa4befbf2cfa713304affc7ca780ce4fc1fd8710527771b58311a3229/click-8.1.7-py3-none-any.whl#sha256=ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28"
+              ],
+              "version": "8.1.7"
+            }
+          },
+          "req_compile_test_cross_platform_linux__packaging": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "req_compile_test_cross_platform_linux__packaging",
+              "reqs_repository_name": "req_compile_test_cross_platform_linux",
+              "sha256": "5b8f2217dbdbd2f7f384c41c628544e6d52f2d0f53c6d0c3ea61aa5d1d7ff124",
+              "urls": [
+                "https://files.pythonhosted.org/packages/08/aa/cc0199a5f0ad350994d660967a8efb233fe0416e4639146c089643407ce6/packaging-24.1-py3-none-any.whl#sha256=5b8f2217dbdbd2f7f384c41c628544e6d52f2d0f53c6d0c3ea61aa5d1d7ff124"
+              ],
+              "version": "24.1"
+            }
+          },
+          "req_compile_test_cross_platform_linux__black": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [
+                "click",
+                "mypy_extensions",
+                "packaging",
+                "pathspec",
+                "platformdirs"
+              ],
+              "package": "req_compile_test_cross_platform_linux__black",
+              "reqs_repository_name": "req_compile_test_cross_platform_linux",
+              "sha256": "62e8730977f0b77998029da7971fa896ceefa2c4c4933fcd593fa599ecbf97a4",
+              "urls": [
+                "https://files.pythonhosted.org/packages/a5/b5/f485e1bbe31f768e2e5210f52ea3f432256201289fd1a3c0afda693776b0/black-24.8.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl#sha256=62e8730977f0b77998029da7971fa896ceefa2c4c4933fcd593fa599ecbf97a4"
+              ],
+              "version": "24.8.0"
+            }
+          },
+          "req_compile_test_cross_platform_macos__black": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [
+                "click",
+                "mypy_extensions",
+                "packaging",
+                "pathspec",
+                "platformdirs"
+              ],
+              "package": "req_compile_test_cross_platform_macos__black",
+              "reqs_repository_name": "req_compile_test_cross_platform_macos",
+              "sha256": "837fd281f1908d0076844bc2b801ad2d369c78c45cf800cad7b61686051041af",
+              "urls": [
+                "https://files.pythonhosted.org/packages/db/94/b803d810e14588bb297e565821a947c108390a079e21dbdcb9ab6956cd7a/black-24.8.0-cp311-cp311-macosx_11_0_arm64.whl#sha256=837fd281f1908d0076844bc2b801ad2d369c78c45cf800cad7b61686051041af"
+              ],
+              "version": "24.8.0"
+            }
+          },
+          "req_compile_test_cross_platform_windows__platformdirs": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "req_compile_test_cross_platform_windows__platformdirs",
+              "reqs_repository_name": "req_compile_test_cross_platform_windows",
+              "sha256": "2d7a1657e36a80ea911db832a8a6ece5ee53d8de21edd5cc5879af6530b1bfee",
+              "urls": [
+                "https://files.pythonhosted.org/packages/68/13/2aa1f0e1364feb2c9ef45302f387ac0bd81484e9c9a4c5688a322fbdfd08/platformdirs-4.2.2-py3-none-any.whl#sha256=2d7a1657e36a80ea911db832a8a6ece5ee53d8de21edd5cc5879af6530b1bfee"
+              ],
+              "version": "4.2.2"
+            }
+          },
+          "req_compile_test_cross_platform_linux__click": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "req_compile_test_cross_platform_linux__click",
+              "reqs_repository_name": "req_compile_test_cross_platform_linux",
+              "sha256": "ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28",
+              "urls": [
+                "https://files.pythonhosted.org/packages/00/2e/d53fa4befbf2cfa713304affc7ca780ce4fc1fd8710527771b58311a3229/click-8.1.7-py3-none-any.whl#sha256=ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28"
+              ],
+              "version": "8.1.7"
+            }
+          },
+          "req_compile_test_cross_platform_linux__platformdirs": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "req_compile_test_cross_platform_linux__platformdirs",
+              "reqs_repository_name": "req_compile_test_cross_platform_linux",
+              "sha256": "2d7a1657e36a80ea911db832a8a6ece5ee53d8de21edd5cc5879af6530b1bfee",
+              "urls": [
+                "https://files.pythonhosted.org/packages/68/13/2aa1f0e1364feb2c9ef45302f387ac0bd81484e9c9a4c5688a322fbdfd08/platformdirs-4.2.2-py3-none-any.whl#sha256=2d7a1657e36a80ea911db832a8a6ece5ee53d8de21edd5cc5879af6530b1bfee"
+              ],
+              "version": "4.2.2"
+            }
+          },
+          "req_compile_test_cross_platform_macos__click": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "req_compile_test_cross_platform_macos__click",
+              "reqs_repository_name": "req_compile_test_cross_platform_macos",
+              "sha256": "ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28",
+              "urls": [
+                "https://files.pythonhosted.org/packages/00/2e/d53fa4befbf2cfa713304affc7ca780ce4fc1fd8710527771b58311a3229/click-8.1.7-py3-none-any.whl#sha256=ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28"
+              ],
+              "version": "8.1.7"
+            }
+          },
+          "req_compile_test_cross_platform_macos__mypy_extensions": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "req_compile_test_cross_platform_macos__mypy_extensions",
+              "reqs_repository_name": "req_compile_test_cross_platform_macos",
+              "sha256": "4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d",
+              "urls": [
+                "https://files.pythonhosted.org/packages/2a/e2/5d3f6ada4297caebe1a2add3b126fe800c96f56dbe5d1988a2cbe0b267aa/mypy_extensions-1.0.0-py3-none-any.whl#sha256=4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d"
+              ],
+              "version": "1.0.0"
+            }
+          },
+          "req_compile_test_cross_platform_windows__pathspec": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "req_compile_test_cross_platform_windows__pathspec",
+              "reqs_repository_name": "req_compile_test_cross_platform_windows",
+              "sha256": "a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08",
+              "urls": [
+                "https://files.pythonhosted.org/packages/cc/20/ff623b09d963f88bfde16306a54e12ee5ea43e9b597108672ff3a408aad6/pathspec-0.12.1-py3-none-any.whl#sha256=a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08"
+              ],
+              "version": "0.12.1"
+            }
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "",
+            "platforms",
+            "platforms"
+          ],
+          [
+            "",
+            "req_compile_sdist_compiler",
+            "_main~_repo_rules~req_compile_sdist_compiler"
+          ],
+          [
+            "",
+            "rules_cc",
+            "rules_cc~"
+          ],
+          [
+            "rules_cc~",
+            "bazel_tools",
+            "bazel_tools"
+          ]
+        ]
+      }
+    },
     "//extensions:python.bzl%requirements%<root>~test_find_links": {
       "general": {
         "bzlTransitiveDigest": "QchrbyF1XvweE4wmXtg6nxKIGv4gs+IYruhizWNnRyg=",
@@ -3461,7 +3855,7 @@
     },
     "//extensions:python.bzl%requirements%<root>~test_req_pip": {
       "general": {
-        "bzlTransitiveDigest": "UmLDjor8S55lNPuthhmw/zk0TyLxS9nhpuHeaX0zM9o=",
+        "bzlTransitiveDigest": "dV8rzIcJmMW+Ynm3WqCYCykiPvwGB8UDBPT6IPvufhI=",
         "usagesDigest": "rCyKhp7UO2cl8a2tsqRqtsDYb6+gtdyNi9EYmBgZ0Bo=",
         "recordedFileInputs": {
           "@@//private/tests/transitive_ins/requirements.txt": "f171b77899c0da26a7b3e040eeafbc214f890ff1f6ff37f1b3a1ea4547e2de5a",
