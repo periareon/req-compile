@@ -36,22 +36,25 @@ def _platform_transitioned_output_group_impl(ctx):
     )]
 
 platform_transitioned_output_group = rule(
-    doc = "TODO",
+    doc = "A rule for accessing files in a target's `OutputGroupInfo` through a transition.",
     implementation = _platform_transitioned_output_group_impl,
     cfg = _platform_transition,
     attrs = {
         "extra_toolchains": attr.label_list(
-            doc = "TODO",
+            doc = (
+                "[extra_toolchains](https://bazel.build/reference/command-line-reference#flag--extra_toolchains) to " +
+                "apply in the transition."
+            ),
         ),
         "output_group": attr.string(
-            doc = "TODO",
+            doc = "The `OutputGroupInfo` field to access.",
             mandatory = True,
         ),
         "platform": attr.label(
-            doc = "TODO",
+            doc = "The label to a [Bazel platform](https://bazel.build/extending/platforms)",
         ),
         "target": attr.label(
-            doc = "TODO",
+            doc = "The target to transition.",
             mandatory = True,
         ),
     },
