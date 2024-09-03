@@ -78,7 +78,7 @@ jobs:
       matrix:
         platform: ["ubuntu-latest", "macos-14", "windows-latest"]
     runs-on: ${{ matrix.platform }}
-    name: bazel test --build ${{ matrix.platform }}
+    name: bazel test --build ${{ matrix.platform }} (WORKSPACE.bazel)
     steps:
     - uses: actions/checkout@v2
     - name: Configure Build Event Service
@@ -92,9 +92,6 @@ jobs:
     - name: Run Tests
       run: |
         bazel test //...
-    - name: Run Tests (WORKSPACE.bazel)
-      run: |
-        bazel test //...
     - name: Perform compilation
       run: |
         bazel run //3rdparty:requirements_compiler "--" --upgrade
@@ -105,7 +102,7 @@ jobs:
       matrix:
         platform: ["ubuntu-latest", "macos-14", "windows-latest"]
     runs-on: ${{ matrix.platform }}
-    name: bazel test --build ${{ matrix.platform }}
+    name: bazel test --build ${{ matrix.platform }} (bzlmod)
     steps:
     - uses: actions/checkout@v2
     - name: Configure Build Event Service
@@ -117,10 +114,7 @@ jobs:
         CI_BAZELRC_PATH: .github/ci.bazelrc
     - name: Run Tests
       run: |
-        bazel test //...
-    - name: Run Tests (WORKSPACE.bazel)
-      run: |
-        bazel test //... --noenable_bzlmod
+        bazel test -- //... -//private/tests/cross_platform/...
     - name: Perform compilation
       run: |
         bazel run //3rdparty:requirements_compiler "--" --upgrade

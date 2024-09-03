@@ -13,6 +13,11 @@ def _parse_lockfile_test_impl(ctx):
         lockfile = Label(ctx.attr.mock_lockfile),
     )
 
+    for name, constraint in constraints.items():
+        # These values differ between bzlmod and workspace
+        if constraint["whl"]:
+            constraint.pop("whl")
+
     asserts.equals(
         env,
         json.decode(ctx.attr.expected),
@@ -272,7 +277,6 @@ _FIND_LINKS_EXPECTED = {
         "via": [
             "requirements_in",
         ],
-        "whl": "@@[unknown repo 'req_compile_fake' requested from @@]//:wheeldir/pyspark-3.5.1-py2.py3-none-any.whl",
     },
 }
 
@@ -303,7 +307,6 @@ _FIND_LINKS_NESTED_EXPECTED = {
         "url": None,
         "version": "3.5.1",
         "via": [],
-        "whl": "@@[unknown repo 'req_compile_fake' requested from @@]//:wheeldir/pyspark-3.5.1-py2.py3-none-any.whl",
     },
 }
 
