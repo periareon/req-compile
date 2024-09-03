@@ -12,3 +12,4 @@ dist
 /bazel-*
 user.bazelrc
 /.github/ci.bazelrc
+/private/examples/multiplatform_py_test/bazel-*

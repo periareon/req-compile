@@ -91,6 +91,9 @@ jobs:
     - name: Run Tests
       run: |
         bazel test //...
+    - name: Run Tests (WORKSPACE.bazel)
+      run: |
+        bazel test //... --noenable_bzlmod
     - name: Perform compilation
       run: |
         bazel run //3rdparty:requirements_compiler "--" --upgrade
