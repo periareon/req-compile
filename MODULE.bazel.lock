@@ -82,7 +82,7 @@
   "moduleExtensions": {
     "//extensions:python.bzl%requirements": {
       "general": {
-        "bzlTransitiveDigest": "MZygRq6RVwCkisENoKayi3IeGeYoR6N9GqA/TBrWGRQ=",
+        "bzlTransitiveDigest": "dV8rzIcJmMW+Ynm3WqCYCykiPvwGB8UDBPT6IPvufhI=",
         "usagesDigest": "wpdpdLgiYaPK1gDjB8Z7/aL47Bodw27gxY2WLxu0k2U=",
         "recordedFileInputs": {
           "@@//3rdparty/requirements.linux.311.txt": "f4dda9ac9b4cea873d263fdd858c80562331eda192b431d9a43f63ceea596491",
