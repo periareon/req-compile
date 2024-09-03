@@ -1,0 +1,143 @@
+load("@rules_cc//cc:defs.bzl", "cc_toolchain")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
+load(":cross_platform_test_utils.bzl", "fake_cc_config", "platform_transitioned_output_group")
+
+py_reqs_compiler(
+    name = "requirements.linux.update",
+    requirements_in = "requirements.in",
+    requirements_txt = "requirements.linux.txt",
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+py_reqs_solution_test(
+    name = "requirements_linux_test",
+    compiler = ":requirements.linux.update",
+)
+
+py_reqs_compiler(
+    name = "requirements.macos.update",
+    requirements_in = "requirements.in",
+    requirements_txt = "requirements.macos.txt",
+    target_compatible_with = ["@platforms//os:macos"],
+)
+
+py_reqs_solution_test(
+    name = "requirements_macos_test",
+    compiler = ":requirements.macos.update",
+)
+
+py_reqs_compiler(
+    name = "requirements.windows.update",
+    requirements_in = "requirements.in",
+    requirements_txt = "requirements.windows.txt",
+    target_compatible_with = ["@platforms//os:windows"],
+)
+
+py_reqs_solution_test(
+    name = "requirements_windows_test",
+    compiler = ":requirements.windows.update",
+)
+
+alias(
+    name = "requirements.update",
+    actual = select({
+        "@platforms//os:linux": "requirements.linux.update",
+        "@platforms//os:macos": "requirements.macos.update",
+        "@platforms//os:windows": "requirements.windows.update",
+    }),
+)
+
+fake_cc_config(
+    name = "fake_cc_config",
+)
+
+filegroup(
+    name = "empty",
+)
+
+cc_toolchain(
+    name = "fake_cc_toolchain_cc_impl",
+    all_files = ":empty",
+    compiler_files = ":empty",
+    dwp_files = ":empty",
+    linker_files = ":empty",
+    objcopy_files = ":empty",
+    strip_files = ":empty",
+    supports_param_files = 0,
+    toolchain_config = ":fake_cc_config",
+    toolchain_identifier = "req_compile_cross_platform_fake_cc_toolchain",
+)
+
+# For some reason python requires a `cc_toolchain` but for pure python
+# binaries it's not used. To account for this in these tests, we make
+# a fake toolchain so we can easily build cross-platform. The python
+# toolchains are already configured to do the right thing.
+toolchain(
+    name = "fake_cc_toolchain",
+    toolchain = ":fake_cc_toolchain_cc_impl",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
+platform(
+    name = "linux",
+    constraint_values = ["@platforms//os:linux"],
+)
+
+platform(
+    name = "macos",
+    constraint_values = ["@platforms//os:macos"],
+)
+
+platform(
+    name = "windows",
+    constraint_values = ["@platforms//os:windows"],
+)
+
+py_binary(
+    name = "cross_platform",
+    srcs = ["cross_platform.py"],
+    deps = [
+        "@req_compile_test_cross_platform//:black",
+    ],
+)
+
+platform_transitioned_output_group(
+    name = "cross_platform_linux",
+    extra_toolchains = [":fake_cc_toolchain"],
+    output_group = "python_zip_file",
+    platform = ":linux",
+    target = ":cross_platform",
+)
+
+platform_transitioned_output_group(
+    name = "cross_platform_macos",
+    extra_toolchains = [":fake_cc_toolchain"],
+    output_group = "python_zip_file",
+    platform = ":macos",
+    target = ":cross_platform",
+)
+
+platform_transitioned_output_group(
+    name = "cross_platform_windows",
+    extra_toolchains = [":fake_cc_toolchain"],
+    output_group = "python_zip_file",
+    platform = ":windows",
+    target = ":cross_platform",
+)
+
+py_test(
+    name = "cross_platform_test",
+    srcs = ["cross_platform_test.py"],
+    data = [
+        ":cross_platform_linux",
+        ":cross_platform_macos",
+        ":cross_platform_windows",
+    ],
+    env = {
+        "PYTHON_ZIP_FILE_LINUX": "$(rlocationpath :cross_platform_linux)",
+        "PYTHON_ZIP_FILE_MACOS": "$(rlocationpath :cross_platform_macos)",
+        "PYTHON_ZIP_FILE_WINDOWS": "$(rlocationpath :cross_platform_windows)",
+    },
+    deps = ["@rules_python//python/runfiles"],
+)
