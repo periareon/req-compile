@@ -1,0 +1,3 @@
+# Git attributes
+
+tests/**/*.html linguist-generated
