@@ -21,7 +21,7 @@ def _platform_transitioned_output_group_impl(ctx):
     target = ctx.attr.target
     outputs = getattr(target[OutputGroupInfo], ctx.attr.output_group)
     if not outputs:
-        fail("Could ot found {} in {}".format(ctx.attr.output_group, target.label))
+        fail("Could not find output group '{}' in '{}'".format(ctx.attr.output_group, target.label))
 
     zip_file = outputs.to_list()[0]
 
