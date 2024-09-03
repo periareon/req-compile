@@ -13,7 +13,7 @@ def _parse_lockfile_test_impl(ctx):
         lockfile = Label(ctx.attr.mock_lockfile),
     )
 
-    for name, constraint in constraints.items():
+    for constraint in constraints.values():
         # These values differ between bzlmod and workspace
         if constraint["whl"]:
             constraint.pop("whl")

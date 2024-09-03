@@ -164,7 +164,7 @@ def _requirements_impl(ctx):
                                 "but no interpreter was provided. One is required for processing sdists.",
                             )
                         sdist_repository(
-                            name = "{}_sdist".format(name),
+                            name = "{}_{}__sdist".format(name, defs_id),
                             sha256 = data["sha256"],
                             urls = [data["url"]],
                             interpreter = interpreter,
@@ -177,10 +177,11 @@ def _requirements_impl(ctx):
                             package = name,
                             reqs_repository_name = parse.name,
                             whl_data = Label(
-                                "{}{}{}_sdist//:whl.json".format(
+                                "{}{}{}_{}__sdist//:whl.json".format(
                                     extension_namespace,
                                     extension_sep,
                                     name,
+                                    defs_id,
                                 ),
                             ),
                             version = data["version"],
@@ -244,11 +245,22 @@ This example was a multi-platform set of solutions, pulled into a single
 hub repository named "pip_deps".
 """,
     attrs = {
-        "name": attr.string(mandatory = True),
-        "interpreter_linux": attr.label(),
-        "interpreter_macos_intel": attr.label(),
-        "interpreter_macos_aarch64": attr.label(),
-        "interpreter_windows": attr.label(),
+        "name": attr.string(
+            doc = "Name of the hub repository to create.",
+            mandatory = True,
+        ),
+        "interpreter_linux": attr.label(
+            doc = "Optional Linux amd64 Python interpreter binary to use for sdists.",
+        ),
+        "interpreter_macos_intel": attr.label(
+            doc = "Optional MacOS intel Python interpreter binary to use for sdists.",
+        ),
+        "interpreter_macos_aarch64": attr.label(
+            doc = "Optional MacOS ARM Python interpreter binary to use for sdists.",
+        ),
+        "interpreter_windows": attr.label(
+            doc = "Optional Windows x64 Python interpreter binary to use for sdists.",
+        ),
         "requirements_lock": attr.label(
             doc = "A single lockfile for a single platform solution.",
         ),
