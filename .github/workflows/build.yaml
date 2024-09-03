@@ -114,7 +114,7 @@ jobs:
         CI_BAZELRC_PATH: .github/ci.bazelrc
     - name: Run Tests
       run: |
-        bazel test -- //... -//private/tests/cross_platform/...
+        bazel test //...
     - name: Perform compilation
       run: |
         bazel run //3rdparty:requirements_compiler "--" --upgrade

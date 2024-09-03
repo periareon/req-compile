@@ -2038,8 +2038,8 @@
     },
     "//extensions:python.bzl%requirements%<root>~sdist_req_pip": {
       "general": {
-        "bzlTransitiveDigest": "uyrugxJ+cNIfKzTOza+dNFbSn1o3b7GRZbOIUw7ufJ4=",
-        "usagesDigest": "ZZM9Fu2ELmiNogx6nNDSoln1RsnGvalgT7rLKzPOm1Q=",
+        "bzlTransitiveDigest": "dV8rzIcJmMW+Ynm3WqCYCykiPvwGB8UDBPT6IPvufhI=",
+        "usagesDigest": "KOUeTcQ0R5M+8m7CisnKotEJuub2VYS+B24AA7+Bfdk=",
         "recordedFileInputs": {
           "@@//private/tests/sdist/requirements.txt": "b7363272cf3809fd89448bce458daaa4f4e4ac89f4014ba7c5ca18124581df70"
         },
@@ -3778,7 +3778,7 @@
     },
     "//extensions:python.bzl%requirements%<root>~test_find_links": {
       "general": {
-        "bzlTransitiveDigest": "QchrbyF1XvweE4wmXtg6nxKIGv4gs+IYruhizWNnRyg=",
+        "bzlTransitiveDigest": "dV8rzIcJmMW+Ynm3WqCYCykiPvwGB8UDBPT6IPvufhI=",
         "usagesDigest": "slojLNtCBcYZoOzh40Av8k7q85gUrzKwg+5gE9GmkD4=",
         "recordedFileInputs": {
           "@@_main~_repo_rules~req_compile_find_links_test//requirements.txt": "e1b9bb8445e579550aecbcfe9bdbac11c40a42972f02bbb410b699dd0662e786"
