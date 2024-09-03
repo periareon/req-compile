@@ -86,15 +86,14 @@ jobs:
         echo "common --remote_header=x-buildbuddy-api-key=${{ secrets.BUILDBUDDY_API_KEY }}" > "${CI_BAZELRC_PATH}"
         echo "common --config=bes" >> "${CI_BAZELRC_PATH}"
         echo "common --announce_rc" >> "${CI_BAZELRC_PATH}"
-        echo "common --noenable_bzlmod" >> "${CI_BAZELRC_PATH}"
       env:
         CI_BAZELRC_PATH: .github/ci.bazelrc
     - name: Run Tests
       run: |
-        bazel test //...
+        bazel test --noenable_bzlmod //...
     - name: Perform compilation
       run: |
-        bazel run //3rdparty:requirements_compiler "--" --upgrade
+        bazel run --noenable_bzlmod //3rdparty:requirements_compiler "--" --upgrade
 
   bazel-bzlmod:
     strategy:
