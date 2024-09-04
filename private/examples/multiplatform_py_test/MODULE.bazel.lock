@@ -106,15 +106,33 @@
         ]
       }
     },
+    "@@platforms//host:extension.bzl%host_platform": {
+      "general": {
+        "bzlTransitiveDigest": "xelQcPZH8+tmuOHVjL9vDxMnnQNMlwj0SlvgoqBkm4U=",
+        "usagesDigest": "meSzxn3DUCcYEhq4HQwExWkWtU4EjriRBQLsZN+Q0SU=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "host_platform": {
+            "bzlFile": "@@platforms//host:extension.bzl",
+            "ruleClassName": "host_platform_repo",
+            "attributes": {}
+          }
+        },
+        "recordedRepoMappingEntries": []
+      }
+    },
     "@@rules_req_compile~//extensions:python.bzl%requirements": {
       "general": {
-        "bzlTransitiveDigest": "D081dLT+zGw6t61pGE5zR1ss/RnjoAdpdh0fZkvsIoQ=",
-        "usagesDigest": "bfk2QmuBZBjap6ZvG9tjgzrk4DAEcb2EEORMaGVvNnM=",
+        "bzlTransitiveDigest": "cK6qTCkHzNBth7O6zHgBOBEurlelkWO9ogjkPy+8L8A=",
+        "usagesDigest": "YK6BUE+9O4kRn3D9tbGcf8upUt9orw3nPgpT7VXMOWQ=",
         "recordedFileInputs": {
           "@@rules_req_compile~//3rdparty/requirements.macos.311.txt": "d3304956639cf483bf525b8b724c1aac95b72917463f04f64439e4a6a6abe776",
           "@@//requirements.linux.txt": "d3ddbfbe55a8c35ed92814d94d5fe0f4f863818f52cbc381f674e0a13a7207bf",
           "@@//requirements.windows.txt": "d22862639ede84c82eae78bfd447c30b3886fb764344b1ef5847385ccb82a8b3",
           "@@rules_req_compile~//3rdparty/requirements.linux.311.txt": "f4dda9ac9b4cea873d263fdd858c80562331eda192b431d9a43f63ceea596491",
+          "@@//requirements.macos.txt": "3a530d26bb8769b228efa5b43d930880d0fa663b674d2b28a298ce79b7c70279",
           "@@rules_req_compile~//3rdparty/requirements.windows.311.txt": "4735c4a0fa4447fa168001785f858fbf2689ed72da59036fb707ea119c1002d1"
         },
         "recordedDirentsInputs": {},
@@ -980,6 +998,24 @@
               "version": "1.4.3.5"
             }
           },
+          "pip_deps_macos__jinja2": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [
+                "markupsafe"
+              ],
+              "package": "pip_deps_macos__jinja2",
+              "reqs_repository_name": "pip_deps_macos",
+              "sha256": "bc5dd2abb727a5319567b7a813e6a2e7318c39f4f487cfe6c89c6f9c7d25197d",
+              "urls": [
+                "https://files.pythonhosted.org/packages/31/80/3a54838c3fb461f6fec263ebf3a3a41771bd05190238de3486aae8540c36/jinja2-3.1.4-py3-none-any.whl#sha256=bc5dd2abb727a5319567b7a813e6a2e7318c39f4f487cfe6c89c6f9c7d25197d"
+              ],
+              "version": "3.1.4"
+            }
+          },
           "req_compile_deps_macos_311__pyyaml": {
             "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
             "ruleClassName": "whl_repository",
@@ -1210,6 +1246,22 @@
                 "https://files.pythonhosted.org/packages/d9/5a/e7c31adbe875f2abbb91bd84cf2dc52d792b5a01506781dbcf25c91daf11/six-1.16.0-py2.py3-none-any.whl#sha256=8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"
               ],
               "version": "1.16.0"
+            }
+          },
+          "pip_deps_macos__itsdangerous": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "pip_deps_macos__itsdangerous",
+              "reqs_repository_name": "pip_deps_macos",
+              "sha256": "c6242fc49e35958c8b15141343aa660db5fc54d4f13a1db01a3f5891b98700ef",
+              "urls": [
+                "https://files.pythonhosted.org/packages/04/96/92447566d16df59b2a776c0fb82dbc4d9e07cd95062562af01e408583fc4/itsdangerous-2.2.0-py3-none-any.whl#sha256=c6242fc49e35958c8b15141343aa660db5fc54d4f13a1db01a3f5891b98700ef"
+              ],
+              "version": "2.2.0"
             }
           },
           "req_compile_deps_macos_311__pytest_mock": {
@@ -1514,6 +1566,22 @@
               "version": "2.31.0"
             }
           },
+          "pip_deps_macos__click": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "pip_deps_macos__click",
+              "reqs_repository_name": "pip_deps_macos",
+              "sha256": "ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28",
+              "urls": [
+                "https://files.pythonhosted.org/packages/00/2e/d53fa4befbf2cfa713304affc7ca780ce4fc1fd8710527771b58311a3229/click-8.1.7-py3-none-any.whl#sha256=ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28"
+              ],
+              "version": "8.1.7"
+            }
+          },
           "req_compile_deps_linux_311__dill": {
             "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
             "ruleClassName": "whl_repository",
@@ -1553,9 +1621,17 @@
               "hub_name": "pip_deps",
               "defs": {
                 "linux": "'@@platforms//os:linux'",
+                "macos": "'@@platforms//os:macos'",
                 "windows": "'@@platforms//os:windows'"
               },
               "packages": [
+                "blinker",
+                "click",
+                "flask",
+                "itsdangerous",
+                "jinja2",
+                "markupsafe",
+                "werkzeug",
                 "blinker",
                 "click",
                 "flask",
@@ -1726,6 +1802,28 @@
                 "https://files.pythonhosted.org/packages/a5/5b/0cc789b59e8cc1bf288b38111d002d8c5917123194d45b29dcdac64723cc/pluggy-1.4.0-py3-none-any.whl#sha256=7db9f7b503d67d1c5b95f59773ebb58a8c1c288129a88665838012cfb07b8981"
               ],
               "version": "1.4.0"
+            }
+          },
+          "pip_deps_macos__flask": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [
+                "blinker",
+                "click",
+                "itsdangerous",
+                "jinja2",
+                "werkzeug"
+              ],
+              "package": "pip_deps_macos__flask",
+              "reqs_repository_name": "pip_deps_macos",
+              "sha256": "34e815dfaa43340d1d15a5c3a02b8476004037eb4840b34910c6e21679d288f3",
+              "urls": [
+                "https://files.pythonhosted.org/packages/61/80/ffe1da13ad9300f87c93af113edd0638c75138c42a0994becfacac078c06/flask-3.0.3-py3-none-any.whl#sha256=34e815dfaa43340d1d15a5c3a02b8476004037eb4840b34910c6e21679d288f3"
+              ],
+              "version": "3.0.3"
             }
           },
           "pip_deps_windows__itsdangerous": {
@@ -2258,6 +2356,24 @@
               "version": "2.1.5"
             }
           },
+          "pip_deps_macos__werkzeug": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [
+                "markupsafe"
+              ],
+              "package": "pip_deps_macos__werkzeug",
+              "reqs_repository_name": "pip_deps_macos",
+              "sha256": "02c9eb92b7d6c06f31a782811505d2157837cea66aaede3e217c7c27c039476c",
+              "urls": [
+                "https://files.pythonhosted.org/packages/4b/84/997bbf7c2bf2dc3f09565c6d0b4959fefe5355c18c4096cfd26d83e0785b/werkzeug-3.0.4-py3-none-any.whl#sha256=02c9eb92b7d6c06f31a782811505d2157837cea66aaede3e217c7c27c039476c"
+              ],
+              "version": "3.0.4"
+            }
+          },
           "pip_deps_linux__itsdangerous": {
             "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
             "ruleClassName": "whl_repository",
@@ -2327,6 +2443,38 @@
                 "https://files.pythonhosted.org/packages/1f/22/904934a3344fa5f332ecab887003f3f033c1272432a4af877007b75b0bd3/types_setuptools-69.2.0.20240317-py3-none-any.whl#sha256=cf91ff7c87ab7bf0625c3f0d4d90427c9da68561f3b0feab77977aaf0bbf7531"
               ],
               "version": "69.2.0.20240317"
+            }
+          },
+          "pip_deps_macos__blinker": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "pip_deps_macos__blinker",
+              "reqs_repository_name": "pip_deps_macos",
+              "sha256": "1779309f71bf239144b9399d06ae925637cf6634cf6bd131104184531bf67c01",
+              "urls": [
+                "https://files.pythonhosted.org/packages/bb/2a/10164ed1f31196a2f7f3799368a821765c62851ead0e630ab52b8e14b4d0/blinker-1.8.2-py3-none-any.whl#sha256=1779309f71bf239144b9399d06ae925637cf6634cf6bd131104184531bf67c01"
+              ],
+              "version": "1.8.2"
+            }
+          },
+          "pip_deps_macos__markupsafe": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "pip_deps_macos__markupsafe",
+              "reqs_repository_name": "pip_deps_macos",
+              "sha256": "b91c037585eba9095565a3556f611e3cbfaa42ca1e865f7b8015fe5c7336d5a5",
+              "urls": [
+                "https://files.pythonhosted.org/packages/97/18/c30da5e7a0e7f4603abfc6780574131221d9148f323752c2755d48abad30/MarkupSafe-2.1.5-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl#sha256=b91c037585eba9095565a3556f611e3cbfaa42ca1e865f7b8015fe5c7336d5a5"
+              ],
+              "version": "2.1.5"
             }
           }
         },

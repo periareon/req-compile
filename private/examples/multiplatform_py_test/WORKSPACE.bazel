@@ -36,6 +36,7 @@ py_requirements_repository(
     name = "pip_deps",
     requirements_locks = {
         "//:requirements.windows.txt": "@platforms//os:windows",
+        "//:requirements.macos.txt": "@platforms//os:macos",
         "//:requirements.linux.txt": "@platforms//os:linux",
     },
 )

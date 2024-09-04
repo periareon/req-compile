@@ -11,6 +11,7 @@ requirements.parse(
     name = "pip_deps",
     requirements_locks = {
         ":requirements.linux.txt": "@platforms//os:linux",
+        ":requirements.macos.txt": "@platforms//os:macos",
         ":requirements.windows.txt": "@platforms//os:windows",
     },
 )
