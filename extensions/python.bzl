@@ -11,60 +11,13 @@ load(
     "generate_interface_bzl_content",
     "process_lockfile",
     "write_defs_file",
+    "py_requirements_repository",
+    "create_spoke_repos",
+    "parse_requirements_locks",
 )
 load("//private:sdist_repo.bzl", "sdist_repository")
 load("//private:whl_repo.bzl", "whl_repository")
 
-def _is_wheel(data):
-    if "url" in data and data["url"]:
-        if ".whl" in data["url"]:
-            return True
-        return False
-
-    if "whl" in data and data["whl"]:
-        return True
-
-    return False
-
-def _reqs_hub_impl(repository_ctx):
-    repository_ctx.file(
-        "BUILD.bazel",
-        BUILD_FILE_TEMPLATE.format(
-            packages = json.encode_indent(
-                sorted(depset(repository_ctx.attr.packages).to_list()),
-            ),
-        ),
-    )
-    for defs_id in repository_ctx.attr.defs:
-        defs_file = repository_ctx.path("defs_{}.bzl".format(defs_id))
-        write_defs_file(
-            repository_ctx,
-            repository_ctx.attr.packages,
-            defs_file,
-            defs_id,
-            name = repository_ctx.attr.hub_name,
-        )
-
-    repository_ctx.file(
-        "requirements.bzl",
-        RULES_PYTHON_COMPAT.format(
-            repository_name = repository_ctx.name,
-        ),
-    )
-    repository_ctx.file(
-        "defs.bzl",
-        generate_interface_bzl_content(repository_ctx.attr.defs, repository_ctx.name),
-    )
-
-reqs_hub = repository_rule(
-    implementation = _reqs_hub_impl,
-    attrs = {
-        "defs": attr.string_dict(),
-        "hub_name": attr.string(),
-        "interpreter": attr.label(),
-        "packages": attr.string_list(),
-    },
-)
 
 def _requirements_impl(ctx):
     extension_namespace = "@@" + ctx.path(".").basename
@@ -91,107 +44,37 @@ def _requirements_impl(ctx):
                 patches = annotation.patches,
             )
 
+
+
     for mod in ctx.modules:
         for parse in mod.tags.parse:
-            all_packages = []
-            defs = {}
+            # Determine the interpreter to use, if provided. This is required for
+            # source dists.
+            interpreter = None
+            if ctx.os.name == "mac os x":
+                if ctx.os.arch == "amd64":
+                    interpreter = parse.interpreter_macos_intel
+                else:
+                    interpreter = parse.interpreter_macos_aarch64
+            elif ctx.os.name == "linux":
+                interpreter = parse.interpreter_linux
+            elif ctx.os.name.startswith("windows"):
+                interpreter = parse.interpreter_windows
 
-            requirements_locks = {}
-            if parse.requirements_locks:
-                requirements_locks = parse.requirements_locks
-
-            if parse.requirements_lock:
-                requirements_locks = {parse.requirements_lock: "//conditions:default"}
-
-            for lock, constraint in requirements_locks.items():
-                constraint = str(Label(constraint))
-                lockfile = ctx.path(lock)
-
-                defs_id, _, _ = lockfile.basename.rpartition(".")
-                defs_id = (
-                    defs_id.replace("requirements", "")
-                        .replace(".", "_")
-                        .replace("-", "_")
-                        .strip(" _.")
-                )
-                if not defs_id:
-                    defs_id = "any"
-                defs.update({defs_id: constraint})
-
-                packages = process_lockfile(
-                    repository_ctx = ctx,
-                    requirements_lock = lock,
-                    constraint = constraint,
-                    name = parse.name,
-                    annotations = annotations,
-                )
-                all_packages.extend(packages.keys())
-
-                for repo_name, data in packages.items():
-                    name = parse.name + "_" + defs_id + "__" + repo_name
-                    if _is_wheel(data):
-                        whl_repository(
-                            name = name,
-                            annotations = json.encode(data["annotations"]),
-                            constraint = data["constraint"],
-                            deps = data["deps"],
-                            package = name,
-                            reqs_repository_name = parse.name + "_" + defs_id,
-                            sha256 = data["sha256"],
-                            urls = [data["url"]] if data.get("url", None) else None,
-                            version = data["version"],
-                            whl = data["whl"],
-                        )
-                    else:
-                        interpreter = None
-                        if ctx.os.name == "mac os x":
-                            if ctx.os.arch == "amd64":
-                                interpreter = parse.interpreter_macos_intel
-                            else:
-                                interpreter = parse.interpreter_macos_aarch64
-                        elif ctx.os.name == "linux":
-                            interpreter = parse.interpreter_linux
-                        elif ctx.os.name.startswith("windows"):
-                            interpreter = parse.interpreter_windows
-                        else:
-                            fail("Unsupported platform {}".format(ctx.os.name))
-
-                        if not interpreter:
-                            fail(
-                                "A sdist (" +
-                                name +
-                                ") was found for the repository '{repository_name}' " +
-                                "but no interpreter was provided. One is required for processing sdists.",
-                            )
-                        sdist_repository(
-                            name = "{}_sdist".format(name),
-                            sha256 = data["sha256"],
-                            urls = [data["url"]],
-                            interpreter = interpreter,
-                        )
-                        whl_repository(
-                            name = name,
-                            annotations = json.encode(data["annotations"]),
-                            constraint = data["constraint"],
-                            deps = data["deps"],
-                            package = name,
-                            reqs_repository_name = parse.name,
-                            whl_data = Label(
-                                "{}{}{}_sdist//:whl.json".format(
-                                    extension_namespace,
-                                    extension_sep,
-                                    name,
-                                ),
-                            ),
-                            version = data["version"],
-                        )
-
-            reqs_hub(
+            py_requirements_repository(
                 name = parse.name,
                 hub_name = parse.name,
-                defs = defs,
-                packages = all_packages,
+                requirements_lock = parse.requirements_lock,
+                requirements_locks = parse.requirements_locks,
+                interpreter = interpreter,
             )
+            platform_packages = parse_requirements_locks(
+                hub_name = parse.name,
+                ctx = ctx,
+                attrs = parse,
+            )
+            for defs_id, data in platform_packages.items():
+                create_spoke_repos(parse.name + "_" + defs_id, data.packages, interpreter)
 
 _annotation = tag_class(
     doc = """\

@@ -125,7 +125,7 @@
     },
     "@@rules_req_compile~//extensions:python.bzl%requirements": {
       "general": {
-        "bzlTransitiveDigest": "cK6qTCkHzNBth7O6zHgBOBEurlelkWO9ogjkPy+8L8A=",
+        "bzlTransitiveDigest": "bELYhltdtd1VnB/y2ZuK+m+DmgoMygj0ZIJI5TSsi1o=",
         "usagesDigest": "YK6BUE+9O4kRn3D9tbGcf8upUt9orw3nPgpT7VXMOWQ=",
         "recordedFileInputs": {
           "@@rules_req_compile~//3rdparty/requirements.macos.311.txt": "d3304956639cf483bf525b8b724c1aac95b72917463f04f64439e4a6a6abe776",
@@ -145,7 +145,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "pip_deps_windows__markupsafe",
+              "package": "markupsafe",
               "reqs_repository_name": "pip_deps_windows",
               "sha256": "2b7c57a4dfc4f16f7142221afe5ba4e093e09e728ca65c51f5620c9aaeb9a617",
               "urls": [
@@ -161,7 +161,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__types_appdirs",
+              "package": "types_appdirs",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "337c750e423c40911d389359b4edabe5bbc2cdd5cd0bd0518b71d2839646273b",
               "urls": [
@@ -177,7 +177,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__typing_extensions",
+              "package": "typing_extensions",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "69b1a937c3a517342112fb4c6df7e72fc39a38e7891a5730ed4985b5214b5475",
               "urls": [
@@ -193,7 +193,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__wheel",
+              "package": "wheel",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81",
               "urls": [
@@ -209,7 +209,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__iniconfig",
+              "package": "iniconfig",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374",
               "urls": [
@@ -225,7 +225,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__isort",
+              "package": "isort",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "8ca5e72a8d85860d5a3fa69b8745237f2939afe12dbf656afbcb47fe72d947a6",
               "urls": [
@@ -243,7 +243,7 @@
               "deps": [
                 "colorama"
               ],
-              "package": "pip_deps_windows__click",
+              "package": "click",
               "reqs_repository_name": "pip_deps_windows",
               "sha256": "ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28",
               "urls": [
@@ -259,7 +259,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__appdirs",
+              "package": "appdirs",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128",
               "urls": [
@@ -277,7 +277,7 @@
               "deps": [
                 "pytest"
               ],
-              "package": "req_compile_deps_linux_311__pytest_mock",
+              "package": "pytest_mock",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "0b72c38033392a5f4621342fe11e9219ac11ec9d375f8e2a0c164539e0d70f6f",
               "urls": [
@@ -295,7 +295,7 @@
               "deps": [
                 "urllib3"
               ],
-              "package": "req_compile_deps_macos_311__types_requests",
+              "package": "types_requests",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "47872893d65a38e282ee9f277a4ee50d1b28bd592040df7d1fdaffdf3779937d",
               "urls": [
@@ -311,7 +311,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__pathspec",
+              "package": "pathspec",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08",
               "urls": [
@@ -327,7 +327,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__platformdirs",
+              "package": "platformdirs",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "0614df2a2f37e1a662acbd8e2b25b92ccf8632929bc6d43467e17fe89c75e068",
               "urls": [
@@ -343,7 +343,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__charset_normalizer",
+              "package": "charset_normalizer",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "753f10e867343b4511128c6ed8c82f7bec3bd026875576dfd88483c5c73b2fd8",
               "urls": [
@@ -359,7 +359,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__mypy_extensions",
+              "package": "mypy_extensions",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d",
               "urls": [
@@ -375,7 +375,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__idna",
+              "package": "idna",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f",
               "urls": [
@@ -391,7 +391,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__types_toml",
+              "package": "types_toml",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "627b47775d25fa29977d9c70dc0cbab3f314f32c8d8d0c012f2ef5de7aaec05d",
               "urls": [
@@ -407,7 +407,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__platformdirs",
+              "package": "platformdirs",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "0614df2a2f37e1a662acbd8e2b25b92ccf8632929bc6d43467e17fe89c75e068",
               "urls": [
@@ -423,7 +423,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__wheel",
+              "package": "wheel",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81",
               "urls": [
@@ -439,7 +439,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__packaging",
+              "package": "packaging",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5",
               "urls": [
@@ -455,7 +455,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__mypy_extensions",
+              "package": "mypy_extensions",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d",
               "urls": [
@@ -471,7 +471,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__overrides",
+              "package": "overrides",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "c7ed9d062f78b8e4c1a7b70bd8796b35ead4d9f510227ef9c5dc7626c60d7e49",
               "urls": [
@@ -487,7 +487,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__certifi",
+              "package": "certifi",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1",
               "urls": [
@@ -503,7 +503,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__isort",
+              "package": "isort",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "8ca5e72a8d85860d5a3fa69b8745237f2939afe12dbf656afbcb47fe72d947a6",
               "urls": [
@@ -519,7 +519,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__typing_extensions",
+              "package": "typing_extensions",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "69b1a937c3a517342112fb4c6df7e72fc39a38e7891a5730ed4985b5214b5475",
               "urls": [
@@ -535,7 +535,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__urllib3",
+              "package": "urllib3",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d",
               "urls": [
@@ -551,7 +551,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "pip_deps_windows__blinker",
+              "package": "blinker",
               "reqs_repository_name": "pip_deps_windows",
               "sha256": "1779309f71bf239144b9399d06ae925637cf6634cf6bd131104184531bf67c01",
               "urls": [
@@ -571,7 +571,7 @@
                 "requests",
                 "urllib3"
               ],
-              "package": "req_compile_deps_macos_311__responses",
+              "package": "responses",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "2f0b9c2b6437db4b528619a77e5d565e4ec2a9532162ac1a131a83529db7be1a",
               "urls": [
@@ -587,7 +587,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__tomlkit",
+              "package": "tomlkit",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "5cd82d48a3dd89dee1f9d64420aa20ae65cfbd00668d6f094d7578a78efbb77b",
               "urls": [
@@ -605,7 +605,7 @@
               "deps": [
                 "urllib3"
               ],
-              "package": "req_compile_deps_linux_311__types_requests",
+              "package": "types_requests",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "47872893d65a38e282ee9f277a4ee50d1b28bd592040df7d1fdaffdf3779937d",
               "urls": [
@@ -621,7 +621,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__idna",
+              "package": "idna",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f",
               "urls": [
@@ -637,7 +637,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__overrides",
+              "package": "overrides",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "c7ed9d062f78b8e4c1a7b70bd8796b35ead4d9f510227ef9c5dc7626c60d7e49",
               "urls": [
@@ -653,7 +653,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__astroid",
+              "package": "astroid",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "951798f922990137ac090c53af473db7ab4e70c770e6d7fae0cec59f74411819",
               "urls": [
@@ -675,7 +675,7 @@
                 "pathspec",
                 "platformdirs"
               ],
-              "package": "req_compile_deps_windows_311__black",
+              "package": "black",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "bf21b7b230718a5f08bd32d5e4f1db7fc8788345c8aea1d155fc17852b3410f5",
               "urls": [
@@ -691,7 +691,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__mccabe",
+              "package": "mccabe",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "6c2d30ab6be0e4a46919781807b4f0d834ebdd6c6e3dca0bda5a15f863427b6e",
               "urls": [
@@ -707,7 +707,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__pathspec",
+              "package": "pathspec",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08",
               "urls": [
@@ -723,7 +723,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__toml",
+              "package": "toml",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b",
               "urls": [
@@ -739,7 +739,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__idna",
+              "package": "idna",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f",
               "urls": [
@@ -757,7 +757,7 @@
               "deps": [
                 "urllib3"
               ],
-              "package": "req_compile_deps_windows_311__types_requests",
+              "package": "types_requests",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "06abf6a68f5c4f2a62f6bb006672dfb26ed50ccbfddb281e1ee6f09a65707d5d",
               "urls": [
@@ -773,7 +773,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__colorama",
+              "package": "colorama",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6",
               "urls": [
@@ -795,7 +795,7 @@
                 "pathspec",
                 "platformdirs"
               ],
-              "package": "req_compile_deps_linux_311__black",
+              "package": "black",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "65c02e4ea2ae09d16314d30912a58ada9a5c4fdfedf9512d23326128ac08ac3d",
               "urls": [
@@ -819,7 +819,7 @@
                 "platformdirs",
                 "tomlkit"
               ],
-              "package": "req_compile_deps_windows_311__pylint",
+              "package": "pylint",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "507a5b60953874766d8a366e8e8c7af63e058b26345cfcb5f91f89d987fd6b74",
               "urls": [
@@ -839,7 +839,7 @@
                 "packaging",
                 "pluggy"
               ],
-              "package": "req_compile_deps_linux_311__pytest",
+              "package": "pytest",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "2a8386cfc11fa9d2c50ee7b2a57e7d898ef90470a7a34c4b949ff59662bb78b7",
               "urls": [
@@ -855,7 +855,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__mccabe",
+              "package": "mccabe",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "6c2d30ab6be0e4a46919781807b4f0d834ebdd6c6e3dca0bda5a15f863427b6e",
               "urls": [
@@ -875,7 +875,7 @@
                 "packaging",
                 "pluggy"
               ],
-              "package": "req_compile_deps_macos_311__pytest",
+              "package": "pytest",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "2a8386cfc11fa9d2c50ee7b2a57e7d898ef90470a7a34c4b949ff59662bb78b7",
               "urls": [
@@ -891,7 +891,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__six",
+              "package": "six",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254",
               "urls": [
@@ -909,7 +909,7 @@
               "deps": [
                 "pytest"
               ],
-              "package": "req_compile_deps_windows_311__pytest_mock",
+              "package": "pytest_mock",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "0b72c38033392a5f4621342fe11e9219ac11ec9d375f8e2a0c164539e0d70f6f",
               "urls": [
@@ -925,7 +925,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__mccabe",
+              "package": "mccabe",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "6c2d30ab6be0e4a46919781807b4f0d834ebdd6c6e3dca0bda5a15f863427b6e",
               "urls": [
@@ -941,7 +941,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__packaging",
+              "package": "packaging",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5",
               "urls": [
@@ -957,7 +957,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__click",
+              "package": "click",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28",
               "urls": [
@@ -973,7 +973,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__pluggy",
+              "package": "pluggy",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "7db9f7b503d67d1c5b95f59773ebb58a8c1c288129a88665838012cfb07b8981",
               "urls": [
@@ -989,7 +989,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__types_appdirs",
+              "package": "types_appdirs",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "337c750e423c40911d389359b4edabe5bbc2cdd5cd0bd0518b71d2839646273b",
               "urls": [
@@ -1007,7 +1007,7 @@
               "deps": [
                 "markupsafe"
               ],
-              "package": "pip_deps_macos__jinja2",
+              "package": "jinja2",
               "reqs_repository_name": "pip_deps_macos",
               "sha256": "bc5dd2abb727a5319567b7a813e6a2e7318c39f4f487cfe6c89c6f9c7d25197d",
               "urls": [
@@ -1023,7 +1023,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__pyyaml",
+              "package": "pyyaml",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "f003ed9ad21d6a4713f0a9b5a7a0a79e08dd0f221aff4525a2be4c346ee60aab",
               "urls": [
@@ -1039,7 +1039,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__pluggy",
+              "package": "pluggy",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "7db9f7b503d67d1c5b95f59773ebb58a8c1c288129a88665838012cfb07b8981",
               "urls": [
@@ -1055,7 +1055,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__urllib3",
+              "package": "urllib3",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d",
               "urls": [
@@ -1071,7 +1071,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__certifi",
+              "package": "certifi",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1",
               "urls": [
@@ -1093,7 +1093,7 @@
                 "jinja2",
                 "werkzeug"
               ],
-              "package": "pip_deps_windows__flask",
+              "package": "flask",
               "reqs_repository_name": "pip_deps_windows",
               "sha256": "34e815dfaa43340d1d15a5c3a02b8476004037eb4840b34910c6e21679d288f3",
               "urls": [
@@ -1109,7 +1109,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__toml",
+              "package": "toml",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b",
               "urls": [
@@ -1125,7 +1125,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__pyyaml",
+              "package": "pyyaml",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "d2b04aac4d386b172d5b9692e2d2da8de7bfb6c387fa4f801fbf6fb2e6ba4673",
               "urls": [
@@ -1141,7 +1141,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__typing_extensions",
+              "package": "typing_extensions",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "69b1a937c3a517342112fb4c6df7e72fc39a38e7891a5730ed4985b5214b5475",
               "urls": [
@@ -1157,7 +1157,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__types_toml",
+              "package": "types_toml",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "627b47775d25fa29977d9c70dc0cbab3f314f32c8d8d0c012f2ef5de7aaec05d",
               "urls": [
@@ -1173,7 +1173,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__types_toml",
+              "package": "types_toml",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "627b47775d25fa29977d9c70dc0cbab3f314f32c8d8d0c012f2ef5de7aaec05d",
               "urls": [
@@ -1189,7 +1189,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__pathspec",
+              "package": "pathspec",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08",
               "urls": [
@@ -1207,7 +1207,7 @@
               "deps": [
                 "markupsafe"
               ],
-              "package": "pip_deps_linux__werkzeug",
+              "package": "werkzeug",
               "reqs_repository_name": "pip_deps_linux",
               "sha256": "02c9eb92b7d6c06f31a782811505d2157837cea66aaede3e217c7c27c039476c",
               "urls": [
@@ -1223,7 +1223,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__mypy_extensions",
+              "package": "mypy_extensions",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d",
               "urls": [
@@ -1239,7 +1239,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__six",
+              "package": "six",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254",
               "urls": [
@@ -1255,7 +1255,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "pip_deps_macos__itsdangerous",
+              "package": "itsdangerous",
               "reqs_repository_name": "pip_deps_macos",
               "sha256": "c6242fc49e35958c8b15141343aa660db5fc54d4f13a1db01a3f5891b98700ef",
               "urls": [
@@ -1273,7 +1273,7 @@
               "deps": [
                 "pytest"
               ],
-              "package": "req_compile_deps_macos_311__pytest_mock",
+              "package": "pytest_mock",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "0b72c38033392a5f4621342fe11e9219ac11ec9d375f8e2a0c164539e0d70f6f",
               "urls": [
@@ -1294,7 +1294,7 @@
                 "idna",
                 "urllib3"
               ],
-              "package": "req_compile_deps_linux_311__requests",
+              "package": "requests",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f",
               "urls": [
@@ -1310,7 +1310,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "pip_deps_windows__colorama",
+              "package": "colorama",
               "reqs_repository_name": "pip_deps_windows",
               "sha256": "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6",
               "urls": [
@@ -1326,7 +1326,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__six",
+              "package": "six",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254",
               "urls": [
@@ -1342,7 +1342,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__types_setuptools",
+              "package": "types_setuptools",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "cf91ff7c87ab7bf0625c3f0d4d90427c9da68561f3b0feab77977aaf0bbf7531",
               "urls": [
@@ -1364,7 +1364,7 @@
                 "jinja2",
                 "werkzeug"
               ],
-              "package": "pip_deps_linux__flask",
+              "package": "flask",
               "reqs_repository_name": "pip_deps_linux",
               "sha256": "34e815dfaa43340d1d15a5c3a02b8476004037eb4840b34910c6e21679d288f3",
               "urls": [
@@ -1380,7 +1380,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__setuptools",
+              "package": "setuptools",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "c21c49fb1042386df081cb5d86759792ab89efca84cf114889191cd09aacc80c",
               "urls": [
@@ -1400,7 +1400,7 @@
                 "requests",
                 "urllib3"
               ],
-              "package": "req_compile_deps_windows_311__responses",
+              "package": "responses",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "2f0b9c2b6437db4b528619a77e5d565e4ec2a9532162ac1a131a83529db7be1a",
               "urls": [
@@ -1410,123 +1410,15 @@
             }
           },
           "req_compile_deps": {
-            "bzlFile": "@@rules_req_compile~//extensions:python.bzl",
-            "ruleClassName": "reqs_hub",
+            "bzlFile": "@@rules_req_compile~//private:reqs_repo.bzl",
+            "ruleClassName": "py_requirements_repository",
             "attributes": {
               "hub_name": "req_compile_deps",
-              "defs": {
-                "linux_311": "'@@platforms//os:linux'",
-                "macos_311": "'@@platforms//os:macos'",
-                "windows_311": "'@@platforms//os:windows'"
-              },
-              "packages": [
-                "appdirs",
-                "astroid",
-                "black",
-                "certifi",
-                "charset_normalizer",
-                "click",
-                "dill",
-                "idna",
-                "iniconfig",
-                "isort",
-                "mccabe",
-                "mypy",
-                "mypy_extensions",
-                "overrides",
-                "packaging",
-                "pathspec",
-                "platformdirs",
-                "pluggy",
-                "pylint",
-                "pytest",
-                "pytest_mock",
-                "pyyaml",
-                "requests",
-                "responses",
-                "setuptools",
-                "six",
-                "toml",
-                "tomlkit",
-                "types_appdirs",
-                "types_requests",
-                "types_setuptools",
-                "types_toml",
-                "typing_extensions",
-                "urllib3",
-                "wheel",
-                "appdirs",
-                "astroid",
-                "black",
-                "certifi",
-                "charset_normalizer",
-                "click",
-                "dill",
-                "idna",
-                "iniconfig",
-                "isort",
-                "mccabe",
-                "mypy",
-                "mypy_extensions",
-                "overrides",
-                "packaging",
-                "pathspec",
-                "platformdirs",
-                "pluggy",
-                "pylint",
-                "pytest",
-                "pytest_mock",
-                "pyyaml",
-                "requests",
-                "responses",
-                "setuptools",
-                "six",
-                "toml",
-                "tomlkit",
-                "types_appdirs",
-                "types_requests",
-                "types_setuptools",
-                "types_toml",
-                "typing_extensions",
-                "urllib3",
-                "wheel",
-                "appdirs",
-                "astroid",
-                "black",
-                "certifi",
-                "charset_normalizer",
-                "click",
-                "colorama",
-                "dill",
-                "idna",
-                "iniconfig",
-                "isort",
-                "mccabe",
-                "mypy",
-                "mypy_extensions",
-                "overrides",
-                "packaging",
-                "pathspec",
-                "platformdirs",
-                "pluggy",
-                "pylint",
-                "pytest",
-                "pytest_mock",
-                "pyyaml",
-                "requests",
-                "responses",
-                "setuptools",
-                "six",
-                "toml",
-                "tomlkit",
-                "types_appdirs",
-                "types_requests",
-                "types_setuptools",
-                "types_toml",
-                "typing_extensions",
-                "urllib3",
-                "wheel"
-              ]
+              "requirements_locks": {
+                "@@rules_req_compile~//3rdparty:requirements.linux.311.txt": "@platforms//os:linux",
+                "@@rules_req_compile~//3rdparty:requirements.macos.311.txt": "@platforms//os:macos",
+                "@@rules_req_compile~//3rdparty:requirements.windows.311.txt": "@platforms//os:windows"
+              }
             }
           },
           "req_compile_deps_macos_311__wheel": {
@@ -1536,7 +1428,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__wheel",
+              "package": "wheel",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81",
               "urls": [
@@ -1557,7 +1449,7 @@
                 "idna",
                 "urllib3"
               ],
-              "package": "req_compile_deps_windows_311__requests",
+              "package": "requests",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f",
               "urls": [
@@ -1573,7 +1465,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "pip_deps_macos__click",
+              "package": "click",
               "reqs_repository_name": "pip_deps_macos",
               "sha256": "ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28",
               "urls": [
@@ -1589,7 +1481,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__dill",
+              "package": "dill",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "c36ca9ffb54365bdd2f8eb3eff7d2a21237f8452b57ace88b1ac615b7e815bd7",
               "urls": [
@@ -1605,7 +1497,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__tomlkit",
+              "package": "tomlkit",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "5cd82d48a3dd89dee1f9d64420aa20ae65cfbd00668d6f094d7578a78efbb77b",
               "urls": [
@@ -1615,39 +1507,15 @@
             }
           },
           "pip_deps": {
-            "bzlFile": "@@rules_req_compile~//extensions:python.bzl",
-            "ruleClassName": "reqs_hub",
+            "bzlFile": "@@rules_req_compile~//private:reqs_repo.bzl",
+            "ruleClassName": "py_requirements_repository",
             "attributes": {
               "hub_name": "pip_deps",
-              "defs": {
-                "linux": "'@@platforms//os:linux'",
-                "macos": "'@@platforms//os:macos'",
-                "windows": "'@@platforms//os:windows'"
-              },
-              "packages": [
-                "blinker",
-                "click",
-                "flask",
-                "itsdangerous",
-                "jinja2",
-                "markupsafe",
-                "werkzeug",
-                "blinker",
-                "click",
-                "flask",
-                "itsdangerous",
-                "jinja2",
-                "markupsafe",
-                "werkzeug",
-                "blinker",
-                "click",
-                "colorama",
-                "flask",
-                "itsdangerous",
-                "jinja2",
-                "markupsafe",
-                "werkzeug"
-              ]
+              "requirements_locks": {
+                "@@//:requirements.linux.txt": "@platforms//os:linux",
+                "@@//:requirements.macos.txt": "@platforms//os:macos",
+                "@@//:requirements.windows.txt": "@platforms//os:windows"
+              }
             }
           },
           "req_compile_deps_linux_311__overrides": {
@@ -1657,7 +1525,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__overrides",
+              "package": "overrides",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "c7ed9d062f78b8e4c1a7b70bd8796b35ead4d9f510227ef9c5dc7626c60d7e49",
               "urls": [
@@ -1673,7 +1541,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__setuptools",
+              "package": "setuptools",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "c21c49fb1042386df081cb5d86759792ab89efca84cf114889191cd09aacc80c",
               "urls": [
@@ -1689,7 +1557,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__dill",
+              "package": "dill",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "c36ca9ffb54365bdd2f8eb3eff7d2a21237f8452b57ace88b1ac615b7e815bd7",
               "urls": [
@@ -1708,7 +1576,7 @@
                 "mypy_extensions",
                 "typing_extensions"
               ],
-              "package": "req_compile_deps_linux_311__mypy",
+              "package": "mypy",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "2418488264eb41f69cc64a69a745fad4a8f86649af4b1041a4c64ee61fc61129",
               "urls": [
@@ -1724,7 +1592,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__astroid",
+              "package": "astroid",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "951798f922990137ac090c53af473db7ab4e70c770e6d7fae0cec59f74411819",
               "urls": [
@@ -1742,7 +1610,7 @@
               "deps": [
                 "colorama"
               ],
-              "package": "req_compile_deps_windows_311__click",
+              "package": "click",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28",
               "urls": [
@@ -1758,7 +1626,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__dill",
+              "package": "dill",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "c36ca9ffb54365bdd2f8eb3eff7d2a21237f8452b57ace88b1ac615b7e815bd7",
               "urls": [
@@ -1779,7 +1647,7 @@
                 "idna",
                 "urllib3"
               ],
-              "package": "req_compile_deps_macos_311__requests",
+              "package": "requests",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f",
               "urls": [
@@ -1795,7 +1663,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__pluggy",
+              "package": "pluggy",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "7db9f7b503d67d1c5b95f59773ebb58a8c1c288129a88665838012cfb07b8981",
               "urls": [
@@ -1817,7 +1685,7 @@
                 "jinja2",
                 "werkzeug"
               ],
-              "package": "pip_deps_macos__flask",
+              "package": "flask",
               "reqs_repository_name": "pip_deps_macos",
               "sha256": "34e815dfaa43340d1d15a5c3a02b8476004037eb4840b34910c6e21679d288f3",
               "urls": [
@@ -1833,7 +1701,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "pip_deps_windows__itsdangerous",
+              "package": "itsdangerous",
               "reqs_repository_name": "pip_deps_windows",
               "sha256": "c6242fc49e35958c8b15141343aa660db5fc54d4f13a1db01a3f5891b98700ef",
               "urls": [
@@ -1849,7 +1717,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__platformdirs",
+              "package": "platformdirs",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "0614df2a2f37e1a662acbd8e2b25b92ccf8632929bc6d43467e17fe89c75e068",
               "urls": [
@@ -1865,7 +1733,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "pip_deps_linux__blinker",
+              "package": "blinker",
               "reqs_repository_name": "pip_deps_linux",
               "sha256": "1779309f71bf239144b9399d06ae925637cf6634cf6bd131104184531bf67c01",
               "urls": [
@@ -1884,7 +1752,7 @@
                 "mypy_extensions",
                 "typing_extensions"
               ],
-              "package": "req_compile_deps_macos_311__mypy",
+              "package": "mypy",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "3a3c007ff3ee90f69cf0a15cbcdf0995749569b86b6d2f327af01fd1b8aee9dc",
               "urls": [
@@ -1900,7 +1768,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__charset_normalizer",
+              "package": "charset_normalizer",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "663946639d296df6a2bb2aa51b60a2454ca1cb29835324c640dafb5ff2131a77",
               "urls": [
@@ -1916,7 +1784,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__types_appdirs",
+              "package": "types_appdirs",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "337c750e423c40911d389359b4edabe5bbc2cdd5cd0bd0518b71d2839646273b",
               "urls": [
@@ -1932,7 +1800,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__appdirs",
+              "package": "appdirs",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128",
               "urls": [
@@ -1948,7 +1816,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__packaging",
+              "package": "packaging",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5",
               "urls": [
@@ -1964,7 +1832,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__types_setuptools",
+              "package": "types_setuptools",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "cf91ff7c87ab7bf0625c3f0d4d90427c9da68561f3b0feab77977aaf0bbf7531",
               "urls": [
@@ -1982,7 +1850,7 @@
               "deps": [
                 "markupsafe"
               ],
-              "package": "pip_deps_windows__werkzeug",
+              "package": "werkzeug",
               "reqs_repository_name": "pip_deps_windows",
               "sha256": "02c9eb92b7d6c06f31a782811505d2157837cea66aaede3e217c7c27c039476c",
               "urls": [
@@ -2004,7 +1872,7 @@
                 "pathspec",
                 "platformdirs"
               ],
-              "package": "req_compile_deps_macos_311__black",
+              "package": "black",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "aadf7a02d947936ee418777e0247ea114f78aff0d0959461057cae8a04f20597",
               "urls": [
@@ -2020,7 +1888,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__setuptools",
+              "package": "setuptools",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "c21c49fb1042386df081cb5d86759792ab89efca84cf114889191cd09aacc80c",
               "urls": [
@@ -2036,7 +1904,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__certifi",
+              "package": "certifi",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1",
               "urls": [
@@ -2052,7 +1920,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__iniconfig",
+              "package": "iniconfig",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374",
               "urls": [
@@ -2075,7 +1943,7 @@
                 "platformdirs",
                 "tomlkit"
               ],
-              "package": "req_compile_deps_macos_311__pylint",
+              "package": "pylint",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "507a5b60953874766d8a366e8e8c7af63e058b26345cfcb5f91f89d987fd6b74",
               "urls": [
@@ -2095,7 +1963,7 @@
                 "requests",
                 "urllib3"
               ],
-              "package": "req_compile_deps_linux_311__responses",
+              "package": "responses",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "2f0b9c2b6437db4b528619a77e5d565e4ec2a9532162ac1a131a83529db7be1a",
               "urls": [
@@ -2113,7 +1981,7 @@
               "deps": [
                 "markupsafe"
               ],
-              "package": "pip_deps_linux__jinja2",
+              "package": "jinja2",
               "reqs_repository_name": "pip_deps_linux",
               "sha256": "bc5dd2abb727a5319567b7a813e6a2e7318c39f4f487cfe6c89c6f9c7d25197d",
               "urls": [
@@ -2129,7 +1997,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__appdirs",
+              "package": "appdirs",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128",
               "urls": [
@@ -2152,7 +2020,7 @@
                 "platformdirs",
                 "tomlkit"
               ],
-              "package": "req_compile_deps_linux_311__pylint",
+              "package": "pylint",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "507a5b60953874766d8a366e8e8c7af63e058b26345cfcb5f91f89d987fd6b74",
               "urls": [
@@ -2168,7 +2036,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__iniconfig",
+              "package": "iniconfig",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374",
               "urls": [
@@ -2184,7 +2052,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "pip_deps_linux__click",
+              "package": "click",
               "reqs_repository_name": "pip_deps_linux",
               "sha256": "ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28",
               "urls": [
@@ -2200,7 +2068,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__astroid",
+              "package": "astroid",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "951798f922990137ac090c53af473db7ab4e70c770e6d7fae0cec59f74411819",
               "urls": [
@@ -2216,7 +2084,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__urllib3",
+              "package": "urllib3",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d",
               "urls": [
@@ -2232,7 +2100,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__charset_normalizer",
+              "package": "charset_normalizer",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "549a3a73da901d5bc3ce8d24e0600d1fa85524c10287f6004fbab87672bf3e1e",
               "urls": [
@@ -2248,7 +2116,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__click",
+              "package": "click",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28",
               "urls": [
@@ -2264,7 +2132,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__tomlkit",
+              "package": "tomlkit",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "5cd82d48a3dd89dee1f9d64420aa20ae65cfbd00668d6f094d7578a78efbb77b",
               "urls": [
@@ -2280,7 +2148,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__pyyaml",
+              "package": "pyyaml",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "bf07ee2fef7014951eeb99f56f39c9bb4af143d8aa3c21b1677805985307da34",
               "urls": [
@@ -2296,7 +2164,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__toml",
+              "package": "toml",
               "reqs_repository_name": "req_compile_deps_linux_311",
               "sha256": "806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b",
               "urls": [
@@ -2312,7 +2180,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__isort",
+              "package": "isort",
               "reqs_repository_name": "req_compile_deps_macos_311",
               "sha256": "8ca5e72a8d85860d5a3fa69b8745237f2939afe12dbf656afbcb47fe72d947a6",
               "urls": [
@@ -2331,7 +2199,7 @@
                 "mypy_extensions",
                 "typing_extensions"
               ],
-              "package": "req_compile_deps_windows_311__mypy",
+              "package": "mypy",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "85ca5fcc24f0b4aeedc1d02f93707bccc04733f21d41c88334c5482219b1ccb3",
               "urls": [
@@ -2347,7 +2215,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "pip_deps_linux__markupsafe",
+              "package": "markupsafe",
               "reqs_repository_name": "pip_deps_linux",
               "sha256": "b91c037585eba9095565a3556f611e3cbfaa42ca1e865f7b8015fe5c7336d5a5",
               "urls": [
@@ -2365,7 +2233,7 @@
               "deps": [
                 "markupsafe"
               ],
-              "package": "pip_deps_macos__werkzeug",
+              "package": "werkzeug",
               "reqs_repository_name": "pip_deps_macos",
               "sha256": "02c9eb92b7d6c06f31a782811505d2157837cea66aaede3e217c7c27c039476c",
               "urls": [
@@ -2381,7 +2249,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "pip_deps_linux__itsdangerous",
+              "package": "itsdangerous",
               "reqs_repository_name": "pip_deps_linux",
               "sha256": "c6242fc49e35958c8b15141343aa660db5fc54d4f13a1db01a3f5891b98700ef",
               "urls": [
@@ -2399,7 +2267,7 @@
               "deps": [
                 "markupsafe"
               ],
-              "package": "pip_deps_windows__jinja2",
+              "package": "jinja2",
               "reqs_repository_name": "pip_deps_windows",
               "sha256": "bc5dd2abb727a5319567b7a813e6a2e7318c39f4f487cfe6c89c6f9c7d25197d",
               "urls": [
@@ -2420,7 +2288,7 @@
                 "packaging",
                 "pluggy"
               ],
-              "package": "req_compile_deps_windows_311__pytest",
+              "package": "pytest",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "2a8386cfc11fa9d2c50ee7b2a57e7d898ef90470a7a34c4b949ff59662bb78b7",
               "urls": [
@@ -2436,7 +2304,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__types_setuptools",
+              "package": "types_setuptools",
               "reqs_repository_name": "req_compile_deps_windows_311",
               "sha256": "cf91ff7c87ab7bf0625c3f0d4d90427c9da68561f3b0feab77977aaf0bbf7531",
               "urls": [
@@ -2452,7 +2320,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "pip_deps_macos__blinker",
+              "package": "blinker",
               "reqs_repository_name": "pip_deps_macos",
               "sha256": "1779309f71bf239144b9399d06ae925637cf6634cf6bd131104184531bf67c01",
               "urls": [
@@ -2468,7 +2336,7 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "pip_deps_macos__markupsafe",
+              "package": "markupsafe",
               "reqs_repository_name": "pip_deps_macos",
               "sha256": "b91c037585eba9095565a3556f611e3cbfaa42ca1e865f7b8015fe5c7336d5a5",
               "urls": [
@@ -2486,6 +2354,11 @@
           ],
           [
             "rules_req_compile~",
+            "bazel_tools",
+            "bazel_tools"
+          ],
+          [
+            "rules_req_compile~",
             "platforms",
             "platforms"
           ],
@@ -2498,6 +2371,11 @@
             "rules_req_compile~",
             "rules_cc",
             "rules_cc~"
+          ],
+          [
+            "rules_req_compile~",
+            "rules_req_compile",
+            "rules_req_compile~"
           ]
         ]
       }

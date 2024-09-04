@@ -1,1 +1,15 @@
 common --experimental_isolated_extension_usages
+
+common --bes_results_url=https://req-compile.buildbuddy.io/invocation/
+common --bes_backend=grpcs://req-compile.buildbuddy.io
+common --remote_timeout=3600
+common:remote --remote_executor=grpcs://req-compile.buildbuddy.io
+common --remote_header=x-buildbuddy-api-key=A0ibaBk5X3XyKsxhA0HR
+
+common:remote --host_platform=@buildbuddy_toolchain//:platform
+common:remote --platforms=@buildbuddy_toolchain//:platform
+common:remote --extra_execution_platforms=@buildbuddy_toolchain//:platform
+common:remote --extra_toolchains=@buildbuddy_toolchain//:cc_toolchain
+build:remote --remote_cache=grpcs://req-compile.buildbuddy.io
+common --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
+common --incompatible_enable_cc_toolchain_resolution
