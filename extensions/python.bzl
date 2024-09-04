@@ -59,10 +59,10 @@ def _reqs_hub_impl(repository_ctx):
 reqs_hub = repository_rule(
     implementation = _reqs_hub_impl,
     attrs = {
-        "hub_name": attr.string(),
         "defs": attr.string_dict(),
-        "packages": attr.string_list(),
+        "hub_name": attr.string(),
         "interpreter": attr.label(),
+        "packages": attr.string_list(),
     },
 )
 
@@ -201,18 +201,18 @@ See [@rules_python//python:pip.bzl%package_annotation](https://github.com/bazelb
 for more information.
 """,
     attrs = {
-        "package": attr.string(),
         "additive_build_file": attr.label(),
         "additive_build_file_content": attr.string(),
-        "copy_srcs": attr.string_dict(),
-        "copy_files": attr.string_dict(),
         "copy_executables": attr.string_dict(),
+        "copy_files": attr.string_dict(),
+        "copy_srcs": attr.string_dict(),
         "data": attr.string_list(),
         "data_exclude_glob": attr.string_list(),
-        "srcs_exclude_glob": attr.string_list(),
         "deps": attr.string_list(),
         "deps_excludes": attr.string_list(),
+        "package": attr.string(),
         "patches": attr.label_list(),
+        "srcs_exclude_glob": attr.string_list(),
     },
 )
 
@@ -244,21 +244,21 @@ This example was a multi-platform set of solutions, pulled into a single
 hub repository named "pip_deps".
 """,
     attrs = {
-        "name": attr.string(
-            doc = "Name of the hub repository to create.",
-            mandatory = True,
-        ),
         "interpreter_linux": attr.label(
             doc = "Optional Linux amd64 Python interpreter binary to use for sdists.",
-        ),
-        "interpreter_macos_intel": attr.label(
-            doc = "Optional MacOS intel Python interpreter binary to use for sdists.",
         ),
         "interpreter_macos_aarch64": attr.label(
             doc = "Optional MacOS ARM Python interpreter binary to use for sdists.",
         ),
+        "interpreter_macos_intel": attr.label(
+            doc = "Optional MacOS intel Python interpreter binary to use for sdists.",
+        ),
         "interpreter_windows": attr.label(
             doc = "Optional Windows x64 Python interpreter binary to use for sdists.",
+        ),
+        "name": attr.string(
+            doc = "Name of the hub repository to create.",
+            mandatory = True,
         ),
         "requirements_lock": attr.label(
             doc = "A single lockfile for a single platform solution.",
@@ -276,7 +276,7 @@ a hub repository containing an interface to a repository for
 each requirement listed in the file.""",
     implementation = _requirements_impl,
     tag_classes = {
-        "parse": _parse,
         "package_annotation": _annotation,
+        "parse": _parse,
     },
 )
