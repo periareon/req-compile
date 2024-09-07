@@ -6,28 +6,16 @@ load(
 )
 load(
     "//private:reqs_repo.bzl",
-    "BUILD_FILE_TEMPLATE",
-    "RULES_PYTHON_COMPAT",
-    "generate_interface_bzl_content",
-    "process_lockfile",
-    "write_defs_file",
-    "py_requirements_repository",
     "create_spoke_repos",
     "parse_requirements_locks",
+    "py_requirements_repository",
 )
-load("//private:sdist_repo.bzl", "sdist_repository")
-load("//private:whl_repo.bzl", "whl_repository")
-
 
 def _requirements_impl(ctx):
-    extension_namespace = "@@" + ctx.path(".").basename
-    extension_sep = "~"
-
-    # Support --incompatible_use_plus_in_repo_names
-    if extension_namespace.startswith("@@+"):
-        extension_sep = "+"
-
+    """Process annotations and parse tags."""
     annotations = {}
+
+    # Gather all annotations first.
     for mod in ctx.modules:
         for annotation in mod.tags.package_annotation:
             annotations[annotation.package] = package_annotation(
@@ -44,8 +32,7 @@ def _requirements_impl(ctx):
                 patches = annotation.patches,
             )
 
-
-
+    # Create hubs for each parse tag.
     for mod in ctx.modules:
         for parse in mod.tags.parse:
             # Determine the interpreter to use, if provided. This is required for
@@ -72,13 +59,17 @@ def _requirements_impl(ctx):
                 hub_name = parse.name,
                 ctx = ctx,
                 attrs = parse,
+                annotations = annotations,
             )
             for defs_id, data in platform_packages.items():
-                create_spoke_repos(parse.name + "_" + defs_id, data.packages, interpreter)
+                spoke_prefix = parse.name
+                if defs_id:
+                    spoke_prefix += "_" + defs_id
+                create_spoke_repos(spoke_prefix, data.packages, interpreter)
 
 _annotation = tag_class(
     doc = """\
-An annotation representing a annotation editing a Python package.
+A tag representing a annotation editing a Python package.
 
 See [@rules_python//python:pip.bzl%package_annotation](https://github.com/bazelbuild/rules_python/blob/main/docs/pip_repository.md#package_annotation)
 for more information.
@@ -103,7 +94,7 @@ _parse = tag_class(
     doc = """"\
 Parse a lock file into a hub repo.
 
-A hub repo is a single repository that can be pulled into another
+A hub repo is a single repository that can be pulled into a
 module via `use_repo` and contains all of the Python wheel repos
 specified by the requirements files.
 

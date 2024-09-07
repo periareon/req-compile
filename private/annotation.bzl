@@ -1,4 +1,4 @@
-"""Utitlies for applying annotations to Bazel python packages"""
+"""Utilities for applying annotations to Bazel python packages"""
 
 load("@rules_cc//cc:defs.bzl", "CcInfo")
 
@@ -99,47 +99,6 @@ def py_package_annotation(
         patches = str_patches,
         srcs_exclude_glob = srcs_exclude_glob,
     ))
-
-def deserialize_package_annotation(content):
-    """Deserialize json encoded `py_package_annotation` data.
-
-    Args:
-        content (str): A json serialized string.
-
-    Returns:
-        struct: `py_package_annotation` data.
-    """
-    data = json.decode(content)
-
-    # TODO: There should be no need for the double deserialization
-    if data:
-        data = json.decode(data)
-    else:
-        data = {}
-
-    additive_build_file = None
-    if data.get("additive_build_file", None):
-        additive_build_file = Label(data["additive_build_file"])
-
-    additive_content = ""
-    if data.get("additive_build_file_content", None):
-        additive_content += data["additive_build_file_content"]
-    if data.get("additive_build_content", None):
-        additive_content += data["additive_build_content"]
-
-    return struct(
-        additive_build_file_content = additive_content or None,
-        additive_build_file = additive_build_file,
-        copy_srcs = data.get("copy_srcs", {}),
-        copy_files = data.get("copy_files", {}),
-        copy_executables = data.get("copy_executables", {}),
-        data = data.get("data", []),
-        data_exclude_glob = data.get("data_exclude_glob", []),
-        srcs_exclude_glob = data.get("srcs_exclude_glob", []),
-        deps = data.get("deps", []),
-        deps_excludes = data.get("deps_excludes", []),
-        patches = data.get("patches", []),
-    )
 
 PyPackageAnnotatedTargetInfo = provider(
     doc = "Information about a target proudced by `py_package_annotations`.",

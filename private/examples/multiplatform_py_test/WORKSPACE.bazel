@@ -14,7 +14,7 @@ load("@rules_req_compile//:repositories_transitive.bzl", "req_compile_transitive
 
 req_compile_transitive_dependencies()
 
-load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
+load("@rules_python//python:repositories.bzl", "python_register_toolchains")
 
 python_register_toolchains(
     name = "python_3_11",

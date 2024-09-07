@@ -82,7 +82,7 @@
   "moduleExtensions": {
     "//extensions:python.bzl%requirements": {
       "general": {
-        "bzlTransitiveDigest": "dV8rzIcJmMW+Ynm3WqCYCykiPvwGB8UDBPT6IPvufhI=",
+        "bzlTransitiveDigest": "4b3zaF+MKOdXePKk9zwMSvK8IM+aJRupJFn12iEoFJQ=",
         "usagesDigest": "wpdpdLgiYaPK1gDjB8Z7/aL47Bodw27gxY2WLxu0k2U=",
         "recordedFileInputs": {
           "@@//3rdparty/requirements.linux.311.txt": "f4dda9ac9b4cea873d263fdd858c80562331eda192b431d9a43f63ceea596491",
@@ -99,8 +99,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__types_appdirs",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "types_appdirs",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "337c750e423c40911d389359b4edabe5bbc2cdd5cd0bd0518b71d2839646273b",
               "urls": [
                 "https://files.pythonhosted.org/packages/cf/07/41f5b9b11f11855eb67760ed680330e0ce9136a44b51c24dd52edb1c4eb1/types_appdirs-1.4.3.5-py3-none-any.whl#sha256=337c750e423c40911d389359b4edabe5bbc2cdd5cd0bd0518b71d2839646273b"
@@ -115,8 +115,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__typing_extensions",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "typing_extensions",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "69b1a937c3a517342112fb4c6df7e72fc39a38e7891a5730ed4985b5214b5475",
               "urls": [
                 "https://files.pythonhosted.org/packages/f9/de/dc04a3ea60b22624b51c703a84bbe0184abcd1d0b9bc8074b5d6b7ab90bb/typing_extensions-4.10.0-py3-none-any.whl#sha256=69b1a937c3a517342112fb4c6df7e72fc39a38e7891a5730ed4985b5214b5475"
@@ -131,8 +131,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__wheel",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "wheel",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81",
               "urls": [
                 "https://files.pythonhosted.org/packages/7d/cd/d7460c9a869b16c3dd4e1e403cce337df165368c71d6af229a74699622ce/wheel-0.43.0-py3-none-any.whl#sha256=55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81"
@@ -147,8 +147,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__iniconfig",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "iniconfig",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374",
               "urls": [
                 "https://files.pythonhosted.org/packages/ef/a6/62565a6e1cf69e10f5727360368e451d4b7f58beeac6173dc9db836a5b46/iniconfig-2.0.0-py3-none-any.whl#sha256=b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374"
@@ -163,8 +163,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__isort",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "isort",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "8ca5e72a8d85860d5a3fa69b8745237f2939afe12dbf656afbcb47fe72d947a6",
               "urls": [
                 "https://files.pythonhosted.org/packages/d1/b3/8def84f539e7d2289a02f0524b944b15d7c75dab7628bedf1c4f0992029c/isort-5.13.2-py3-none-any.whl#sha256=8ca5e72a8d85860d5a3fa69b8745237f2939afe12dbf656afbcb47fe72d947a6"
@@ -179,8 +179,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__appdirs",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "appdirs",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128",
               "urls": [
                 "https://files.pythonhosted.org/packages/3b/00/2344469e2084fb287c2e0b57b72910309874c3245463acd6cf5e3db69324/appdirs-1.4.4-py2.py3-none-any.whl#sha256=a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128"
@@ -197,8 +197,8 @@
               "deps": [
                 "pytest"
               ],
-              "package": "req_compile_deps_linux_311__pytest_mock",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "pytest_mock",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "0b72c38033392a5f4621342fe11e9219ac11ec9d375f8e2a0c164539e0d70f6f",
               "urls": [
                 "https://files.pythonhosted.org/packages/f2/3b/b26f90f74e2986a82df6e7ac7e319b8ea7ccece1caec9f8ab6104dc70603/pytest_mock-3.14.0-py3-none-any.whl#sha256=0b72c38033392a5f4621342fe11e9219ac11ec9d375f8e2a0c164539e0d70f6f"
@@ -215,8 +215,8 @@
               "deps": [
                 "urllib3"
               ],
-              "package": "req_compile_deps_macos_311__types_requests",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "types_requests",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "47872893d65a38e282ee9f277a4ee50d1b28bd592040df7d1fdaffdf3779937d",
               "urls": [
                 "https://files.pythonhosted.org/packages/05/22/21c7918c9bb842faa92fd26108e9f669c3dee9b6b239e8f45dd5f673e6cf/types_requests-2.31.0.20240311-py3-none-any.whl#sha256=47872893d65a38e282ee9f277a4ee50d1b28bd592040df7d1fdaffdf3779937d"
@@ -231,8 +231,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__pathspec",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "pathspec",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08",
               "urls": [
                 "https://files.pythonhosted.org/packages/cc/20/ff623b09d963f88bfde16306a54e12ee5ea43e9b597108672ff3a408aad6/pathspec-0.12.1-py3-none-any.whl#sha256=a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08"
@@ -247,8 +247,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__platformdirs",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "platformdirs",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "0614df2a2f37e1a662acbd8e2b25b92ccf8632929bc6d43467e17fe89c75e068",
               "urls": [
                 "https://files.pythonhosted.org/packages/55/72/4898c44ee9ea6f43396fbc23d9bfaf3d06e01b83698bdf2e4c919deceb7c/platformdirs-4.2.0-py3-none-any.whl#sha256=0614df2a2f37e1a662acbd8e2b25b92ccf8632929bc6d43467e17fe89c75e068"
@@ -263,8 +263,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__charset_normalizer",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "charset_normalizer",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "753f10e867343b4511128c6ed8c82f7bec3bd026875576dfd88483c5c73b2fd8",
               "urls": [
                 "https://files.pythonhosted.org/packages/40/26/f35951c45070edc957ba40a5b1db3cf60a9dbb1b350c2d5bef03e01e61de/charset_normalizer-3.3.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl#sha256=753f10e867343b4511128c6ed8c82f7bec3bd026875576dfd88483c5c73b2fd8"
@@ -279,8 +279,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__mypy_extensions",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "mypy_extensions",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d",
               "urls": [
                 "https://files.pythonhosted.org/packages/2a/e2/5d3f6ada4297caebe1a2add3b126fe800c96f56dbe5d1988a2cbe0b267aa/mypy_extensions-1.0.0-py3-none-any.whl#sha256=4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d"
@@ -295,8 +295,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__idna",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "idna",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f",
               "urls": [
                 "https://files.pythonhosted.org/packages/c2/e7/a82b05cf63a603df6e68d59ae6a68bf5064484a0718ea5033660af4b54a9/idna-3.6-py3-none-any.whl#sha256=c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f"
@@ -311,8 +311,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__types_toml",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "types_toml",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "627b47775d25fa29977d9c70dc0cbab3f314f32c8d8d0c012f2ef5de7aaec05d",
               "urls": [
                 "https://files.pythonhosted.org/packages/da/a2/d32ab58c0b216912638b140ab2170ee4b8644067c293b170e19fba340ccc/types_toml-0.10.8.20240310-py3-none-any.whl#sha256=627b47775d25fa29977d9c70dc0cbab3f314f32c8d8d0c012f2ef5de7aaec05d"
@@ -327,8 +327,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__platformdirs",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "platformdirs",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "0614df2a2f37e1a662acbd8e2b25b92ccf8632929bc6d43467e17fe89c75e068",
               "urls": [
                 "https://files.pythonhosted.org/packages/55/72/4898c44ee9ea6f43396fbc23d9bfaf3d06e01b83698bdf2e4c919deceb7c/platformdirs-4.2.0-py3-none-any.whl#sha256=0614df2a2f37e1a662acbd8e2b25b92ccf8632929bc6d43467e17fe89c75e068"
@@ -343,8 +343,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__wheel",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "wheel",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81",
               "urls": [
                 "https://files.pythonhosted.org/packages/7d/cd/d7460c9a869b16c3dd4e1e403cce337df165368c71d6af229a74699622ce/wheel-0.43.0-py3-none-any.whl#sha256=55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81"
@@ -359,8 +359,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__packaging",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "packaging",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5",
               "urls": [
                 "https://files.pythonhosted.org/packages/49/df/1fceb2f8900f8639e278b056416d49134fb8d84c5942ffaa01ad34782422/packaging-24.0-py3-none-any.whl#sha256=2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5"
@@ -375,8 +375,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__mypy_extensions",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "mypy_extensions",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d",
               "urls": [
                 "https://files.pythonhosted.org/packages/2a/e2/5d3f6ada4297caebe1a2add3b126fe800c96f56dbe5d1988a2cbe0b267aa/mypy_extensions-1.0.0-py3-none-any.whl#sha256=4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d"
@@ -391,8 +391,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__overrides",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "overrides",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "c7ed9d062f78b8e4c1a7b70bd8796b35ead4d9f510227ef9c5dc7626c60d7e49",
               "urls": [
                 "https://files.pythonhosted.org/packages/2c/ab/fc8290c6a4c722e5514d80f62b2dc4c4df1a68a41d1364e625c35990fcf3/overrides-7.7.0-py3-none-any.whl#sha256=c7ed9d062f78b8e4c1a7b70bd8796b35ead4d9f510227ef9c5dc7626c60d7e49"
@@ -407,8 +407,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__certifi",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "certifi",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1",
               "urls": [
                 "https://files.pythonhosted.org/packages/ba/06/a07f096c664aeb9f01624f858c3add0a4e913d6c96257acb4fce61e7de14/certifi-2024.2.2-py3-none-any.whl#sha256=dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1"
@@ -423,8 +423,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__isort",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "isort",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "8ca5e72a8d85860d5a3fa69b8745237f2939afe12dbf656afbcb47fe72d947a6",
               "urls": [
                 "https://files.pythonhosted.org/packages/d1/b3/8def84f539e7d2289a02f0524b944b15d7c75dab7628bedf1c4f0992029c/isort-5.13.2-py3-none-any.whl#sha256=8ca5e72a8d85860d5a3fa69b8745237f2939afe12dbf656afbcb47fe72d947a6"
@@ -439,8 +439,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__typing_extensions",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "typing_extensions",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "69b1a937c3a517342112fb4c6df7e72fc39a38e7891a5730ed4985b5214b5475",
               "urls": [
                 "https://files.pythonhosted.org/packages/f9/de/dc04a3ea60b22624b51c703a84bbe0184abcd1d0b9bc8074b5d6b7ab90bb/typing_extensions-4.10.0-py3-none-any.whl#sha256=69b1a937c3a517342112fb4c6df7e72fc39a38e7891a5730ed4985b5214b5475"
@@ -455,8 +455,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__urllib3",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "urllib3",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d",
               "urls": [
                 "https://files.pythonhosted.org/packages/a2/73/a68704750a7679d0b6d3ad7aa8d4da8e14e151ae82e6fee774e6e0d05ec8/urllib3-2.2.1-py3-none-any.whl#sha256=450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d"
@@ -475,8 +475,8 @@
                 "requests",
                 "urllib3"
               ],
-              "package": "req_compile_deps_macos_311__responses",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "responses",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "2f0b9c2b6437db4b528619a77e5d565e4ec2a9532162ac1a131a83529db7be1a",
               "urls": [
                 "https://files.pythonhosted.org/packages/30/0b/bff1e6a5b646e6ff770deb6a292a96bd844ea13fb523ccbd9209fc4b90b8/responses-0.25.0-py3-none-any.whl#sha256=2f0b9c2b6437db4b528619a77e5d565e4ec2a9532162ac1a131a83529db7be1a"
@@ -491,8 +491,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__tomlkit",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "tomlkit",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "5cd82d48a3dd89dee1f9d64420aa20ae65cfbd00668d6f094d7578a78efbb77b",
               "urls": [
                 "https://files.pythonhosted.org/packages/07/fa/c96545d741f2fd47f565e4e06bfef0962add790cb9c2289d900102b55eca/tomlkit-0.12.4-py3-none-any.whl#sha256=5cd82d48a3dd89dee1f9d64420aa20ae65cfbd00668d6f094d7578a78efbb77b"
@@ -509,8 +509,8 @@
               "deps": [
                 "urllib3"
               ],
-              "package": "req_compile_deps_linux_311__types_requests",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "types_requests",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "47872893d65a38e282ee9f277a4ee50d1b28bd592040df7d1fdaffdf3779937d",
               "urls": [
                 "https://files.pythonhosted.org/packages/05/22/21c7918c9bb842faa92fd26108e9f669c3dee9b6b239e8f45dd5f673e6cf/types_requests-2.31.0.20240311-py3-none-any.whl#sha256=47872893d65a38e282ee9f277a4ee50d1b28bd592040df7d1fdaffdf3779937d"
@@ -525,8 +525,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__idna",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "idna",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f",
               "urls": [
                 "https://files.pythonhosted.org/packages/c2/e7/a82b05cf63a603df6e68d59ae6a68bf5064484a0718ea5033660af4b54a9/idna-3.6-py3-none-any.whl#sha256=c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f"
@@ -541,8 +541,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__overrides",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "overrides",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "c7ed9d062f78b8e4c1a7b70bd8796b35ead4d9f510227ef9c5dc7626c60d7e49",
               "urls": [
                 "https://files.pythonhosted.org/packages/2c/ab/fc8290c6a4c722e5514d80f62b2dc4c4df1a68a41d1364e625c35990fcf3/overrides-7.7.0-py3-none-any.whl#sha256=c7ed9d062f78b8e4c1a7b70bd8796b35ead4d9f510227ef9c5dc7626c60d7e49"
@@ -557,8 +557,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__astroid",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "astroid",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "951798f922990137ac090c53af473db7ab4e70c770e6d7fae0cec59f74411819",
               "urls": [
                 "https://files.pythonhosted.org/packages/ed/1c/ee18acf9070f77253954b7d71b4c0cf8f5969fb23067d8f1a8793573ba00/astroid-3.1.0-py3-none-any.whl#sha256=951798f922990137ac090c53af473db7ab4e70c770e6d7fae0cec59f74411819"
@@ -579,8 +579,8 @@
                 "pathspec",
                 "platformdirs"
               ],
-              "package": "req_compile_deps_windows_311__black",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "black",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "bf21b7b230718a5f08bd32d5e4f1db7fc8788345c8aea1d155fc17852b3410f5",
               "urls": [
                 "https://files.pythonhosted.org/packages/8f/b0/4bef40c808cc615187db983b75bacdca1c110a229d41ba9887549fac529c/black-24.3.0-cp311-cp311-win_amd64.whl#sha256=bf21b7b230718a5f08bd32d5e4f1db7fc8788345c8aea1d155fc17852b3410f5"
@@ -595,8 +595,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__mccabe",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "mccabe",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "6c2d30ab6be0e4a46919781807b4f0d834ebdd6c6e3dca0bda5a15f863427b6e",
               "urls": [
                 "https://files.pythonhosted.org/packages/27/1a/1f68f9ba0c207934b35b86a8ca3aad8395a3d6dd7921c0686e23853ff5a9/mccabe-0.7.0-py2.py3-none-any.whl#sha256=6c2d30ab6be0e4a46919781807b4f0d834ebdd6c6e3dca0bda5a15f863427b6e"
@@ -611,8 +611,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__pathspec",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "pathspec",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08",
               "urls": [
                 "https://files.pythonhosted.org/packages/cc/20/ff623b09d963f88bfde16306a54e12ee5ea43e9b597108672ff3a408aad6/pathspec-0.12.1-py3-none-any.whl#sha256=a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08"
@@ -627,8 +627,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__toml",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "toml",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b",
               "urls": [
                 "https://files.pythonhosted.org/packages/44/6f/7120676b6d73228c96e17f1f794d8ab046fc910d781c8d151120c3f1569e/toml-0.10.2-py2.py3-none-any.whl#sha256=806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"
@@ -643,8 +643,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__idna",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "idna",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f",
               "urls": [
                 "https://files.pythonhosted.org/packages/c2/e7/a82b05cf63a603df6e68d59ae6a68bf5064484a0718ea5033660af4b54a9/idna-3.6-py3-none-any.whl#sha256=c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f"
@@ -661,8 +661,8 @@
               "deps": [
                 "urllib3"
               ],
-              "package": "req_compile_deps_windows_311__types_requests",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "types_requests",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "06abf6a68f5c4f2a62f6bb006672dfb26ed50ccbfddb281e1ee6f09a65707d5d",
               "urls": [
                 "https://files.pythonhosted.org/packages/6d/05/f9ccc1e7c1760367686834637ca41f2c13cb865c5c3e0505d18c9110cd9b/types_requests-2.31.0.20240403-py3-none-any.whl#sha256=06abf6a68f5c4f2a62f6bb006672dfb26ed50ccbfddb281e1ee6f09a65707d5d"
@@ -677,8 +677,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__colorama",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "colorama",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6",
               "urls": [
                 "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl#sha256=4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"
@@ -699,8 +699,8 @@
                 "pathspec",
                 "platformdirs"
               ],
-              "package": "req_compile_deps_linux_311__black",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "black",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "65c02e4ea2ae09d16314d30912a58ada9a5c4fdfedf9512d23326128ac08ac3d",
               "urls": [
                 "https://files.pythonhosted.org/packages/6b/59/498885b279e890f656ea4300a2671c964acb6d97994ea626479c2e5501b4/black-24.3.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl#sha256=65c02e4ea2ae09d16314d30912a58ada9a5c4fdfedf9512d23326128ac08ac3d"
@@ -723,8 +723,8 @@
                 "platformdirs",
                 "tomlkit"
               ],
-              "package": "req_compile_deps_windows_311__pylint",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "pylint",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "507a5b60953874766d8a366e8e8c7af63e058b26345cfcb5f91f89d987fd6b74",
               "urls": [
                 "https://files.pythonhosted.org/packages/4d/2b/dfcf298607c73c3af47d5a699c3bd84ba580f1b8642a53ba2a53eead7c49/pylint-3.1.0-py3-none-any.whl#sha256=507a5b60953874766d8a366e8e8c7af63e058b26345cfcb5f91f89d987fd6b74"
@@ -743,8 +743,8 @@
                 "packaging",
                 "pluggy"
               ],
-              "package": "req_compile_deps_linux_311__pytest",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "pytest",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "2a8386cfc11fa9d2c50ee7b2a57e7d898ef90470a7a34c4b949ff59662bb78b7",
               "urls": [
                 "https://files.pythonhosted.org/packages/4d/7e/c79cecfdb6aa85c6c2e3cf63afc56d0f165f24f5c66c03c695c4d9b84756/pytest-8.1.1-py3-none-any.whl#sha256=2a8386cfc11fa9d2c50ee7b2a57e7d898ef90470a7a34c4b949ff59662bb78b7"
@@ -759,8 +759,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__mccabe",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "mccabe",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "6c2d30ab6be0e4a46919781807b4f0d834ebdd6c6e3dca0bda5a15f863427b6e",
               "urls": [
                 "https://files.pythonhosted.org/packages/27/1a/1f68f9ba0c207934b35b86a8ca3aad8395a3d6dd7921c0686e23853ff5a9/mccabe-0.7.0-py2.py3-none-any.whl#sha256=6c2d30ab6be0e4a46919781807b4f0d834ebdd6c6e3dca0bda5a15f863427b6e"
@@ -779,8 +779,8 @@
                 "packaging",
                 "pluggy"
               ],
-              "package": "req_compile_deps_macos_311__pytest",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "pytest",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "2a8386cfc11fa9d2c50ee7b2a57e7d898ef90470a7a34c4b949ff59662bb78b7",
               "urls": [
                 "https://files.pythonhosted.org/packages/4d/7e/c79cecfdb6aa85c6c2e3cf63afc56d0f165f24f5c66c03c695c4d9b84756/pytest-8.1.1-py3-none-any.whl#sha256=2a8386cfc11fa9d2c50ee7b2a57e7d898ef90470a7a34c4b949ff59662bb78b7"
@@ -795,8 +795,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__six",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "six",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254",
               "urls": [
                 "https://files.pythonhosted.org/packages/d9/5a/e7c31adbe875f2abbb91bd84cf2dc52d792b5a01506781dbcf25c91daf11/six-1.16.0-py2.py3-none-any.whl#sha256=8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"
@@ -813,8 +813,8 @@
               "deps": [
                 "pytest"
               ],
-              "package": "req_compile_deps_windows_311__pytest_mock",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "pytest_mock",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "0b72c38033392a5f4621342fe11e9219ac11ec9d375f8e2a0c164539e0d70f6f",
               "urls": [
                 "https://files.pythonhosted.org/packages/f2/3b/b26f90f74e2986a82df6e7ac7e319b8ea7ccece1caec9f8ab6104dc70603/pytest_mock-3.14.0-py3-none-any.whl#sha256=0b72c38033392a5f4621342fe11e9219ac11ec9d375f8e2a0c164539e0d70f6f"
@@ -829,8 +829,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__mccabe",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "mccabe",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "6c2d30ab6be0e4a46919781807b4f0d834ebdd6c6e3dca0bda5a15f863427b6e",
               "urls": [
                 "https://files.pythonhosted.org/packages/27/1a/1f68f9ba0c207934b35b86a8ca3aad8395a3d6dd7921c0686e23853ff5a9/mccabe-0.7.0-py2.py3-none-any.whl#sha256=6c2d30ab6be0e4a46919781807b4f0d834ebdd6c6e3dca0bda5a15f863427b6e"
@@ -845,8 +845,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__packaging",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "packaging",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5",
               "urls": [
                 "https://files.pythonhosted.org/packages/49/df/1fceb2f8900f8639e278b056416d49134fb8d84c5942ffaa01ad34782422/packaging-24.0-py3-none-any.whl#sha256=2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5"
@@ -861,8 +861,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__click",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "click",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28",
               "urls": [
                 "https://files.pythonhosted.org/packages/00/2e/d53fa4befbf2cfa713304affc7ca780ce4fc1fd8710527771b58311a3229/click-8.1.7-py3-none-any.whl#sha256=ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28"
@@ -877,8 +877,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__pluggy",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "pluggy",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "7db9f7b503d67d1c5b95f59773ebb58a8c1c288129a88665838012cfb07b8981",
               "urls": [
                 "https://files.pythonhosted.org/packages/a5/5b/0cc789b59e8cc1bf288b38111d002d8c5917123194d45b29dcdac64723cc/pluggy-1.4.0-py3-none-any.whl#sha256=7db9f7b503d67d1c5b95f59773ebb58a8c1c288129a88665838012cfb07b8981"
@@ -893,8 +893,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__types_appdirs",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "types_appdirs",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "337c750e423c40911d389359b4edabe5bbc2cdd5cd0bd0518b71d2839646273b",
               "urls": [
                 "https://files.pythonhosted.org/packages/cf/07/41f5b9b11f11855eb67760ed680330e0ce9136a44b51c24dd52edb1c4eb1/types_appdirs-1.4.3.5-py3-none-any.whl#sha256=337c750e423c40911d389359b4edabe5bbc2cdd5cd0bd0518b71d2839646273b"
@@ -909,8 +909,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__pyyaml",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "pyyaml",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "f003ed9ad21d6a4713f0a9b5a7a0a79e08dd0f221aff4525a2be4c346ee60aab",
               "urls": [
                 "https://files.pythonhosted.org/packages/28/09/55f715ddbf95a054b764b547f617e22f1d5e45d83905660e9a088078fe67/PyYAML-6.0.1-cp311-cp311-macosx_11_0_arm64.whl#sha256=f003ed9ad21d6a4713f0a9b5a7a0a79e08dd0f221aff4525a2be4c346ee60aab"
@@ -925,8 +925,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__pluggy",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "pluggy",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "7db9f7b503d67d1c5b95f59773ebb58a8c1c288129a88665838012cfb07b8981",
               "urls": [
                 "https://files.pythonhosted.org/packages/a5/5b/0cc789b59e8cc1bf288b38111d002d8c5917123194d45b29dcdac64723cc/pluggy-1.4.0-py3-none-any.whl#sha256=7db9f7b503d67d1c5b95f59773ebb58a8c1c288129a88665838012cfb07b8981"
@@ -941,8 +941,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__urllib3",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "urllib3",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d",
               "urls": [
                 "https://files.pythonhosted.org/packages/a2/73/a68704750a7679d0b6d3ad7aa8d4da8e14e151ae82e6fee774e6e0d05ec8/urllib3-2.2.1-py3-none-any.whl#sha256=450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d"
@@ -957,8 +957,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__certifi",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "certifi",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1",
               "urls": [
                 "https://files.pythonhosted.org/packages/ba/06/a07f096c664aeb9f01624f858c3add0a4e913d6c96257acb4fce61e7de14/certifi-2024.2.2-py3-none-any.whl#sha256=dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1"
@@ -973,8 +973,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__toml",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "toml",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b",
               "urls": [
                 "https://files.pythonhosted.org/packages/44/6f/7120676b6d73228c96e17f1f794d8ab046fc910d781c8d151120c3f1569e/toml-0.10.2-py2.py3-none-any.whl#sha256=806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"
@@ -989,8 +989,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__pyyaml",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "pyyaml",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "d2b04aac4d386b172d5b9692e2d2da8de7bfb6c387fa4f801fbf6fb2e6ba4673",
               "urls": [
                 "https://files.pythonhosted.org/packages/7b/5e/efd033ab7199a0b2044dab3b9f7a4f6670e6a52c089de572e928d2873b06/PyYAML-6.0.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl#sha256=d2b04aac4d386b172d5b9692e2d2da8de7bfb6c387fa4f801fbf6fb2e6ba4673"
@@ -1005,8 +1005,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__typing_extensions",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "typing_extensions",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "69b1a937c3a517342112fb4c6df7e72fc39a38e7891a5730ed4985b5214b5475",
               "urls": [
                 "https://files.pythonhosted.org/packages/f9/de/dc04a3ea60b22624b51c703a84bbe0184abcd1d0b9bc8074b5d6b7ab90bb/typing_extensions-4.10.0-py3-none-any.whl#sha256=69b1a937c3a517342112fb4c6df7e72fc39a38e7891a5730ed4985b5214b5475"
@@ -1021,8 +1021,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__types_toml",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "types_toml",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "627b47775d25fa29977d9c70dc0cbab3f314f32c8d8d0c012f2ef5de7aaec05d",
               "urls": [
                 "https://files.pythonhosted.org/packages/da/a2/d32ab58c0b216912638b140ab2170ee4b8644067c293b170e19fba340ccc/types_toml-0.10.8.20240310-py3-none-any.whl#sha256=627b47775d25fa29977d9c70dc0cbab3f314f32c8d8d0c012f2ef5de7aaec05d"
@@ -1037,8 +1037,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__types_toml",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "types_toml",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "627b47775d25fa29977d9c70dc0cbab3f314f32c8d8d0c012f2ef5de7aaec05d",
               "urls": [
                 "https://files.pythonhosted.org/packages/da/a2/d32ab58c0b216912638b140ab2170ee4b8644067c293b170e19fba340ccc/types_toml-0.10.8.20240310-py3-none-any.whl#sha256=627b47775d25fa29977d9c70dc0cbab3f314f32c8d8d0c012f2ef5de7aaec05d"
@@ -1053,8 +1053,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__pathspec",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "pathspec",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08",
               "urls": [
                 "https://files.pythonhosted.org/packages/cc/20/ff623b09d963f88bfde16306a54e12ee5ea43e9b597108672ff3a408aad6/pathspec-0.12.1-py3-none-any.whl#sha256=a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08"
@@ -1069,8 +1069,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__mypy_extensions",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "mypy_extensions",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d",
               "urls": [
                 "https://files.pythonhosted.org/packages/2a/e2/5d3f6ada4297caebe1a2add3b126fe800c96f56dbe5d1988a2cbe0b267aa/mypy_extensions-1.0.0-py3-none-any.whl#sha256=4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d"
@@ -1085,8 +1085,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__six",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "six",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254",
               "urls": [
                 "https://files.pythonhosted.org/packages/d9/5a/e7c31adbe875f2abbb91bd84cf2dc52d792b5a01506781dbcf25c91daf11/six-1.16.0-py2.py3-none-any.whl#sha256=8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"
@@ -1103,8 +1103,8 @@
               "deps": [
                 "pytest"
               ],
-              "package": "req_compile_deps_macos_311__pytest_mock",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "pytest_mock",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "0b72c38033392a5f4621342fe11e9219ac11ec9d375f8e2a0c164539e0d70f6f",
               "urls": [
                 "https://files.pythonhosted.org/packages/f2/3b/b26f90f74e2986a82df6e7ac7e319b8ea7ccece1caec9f8ab6104dc70603/pytest_mock-3.14.0-py3-none-any.whl#sha256=0b72c38033392a5f4621342fe11e9219ac11ec9d375f8e2a0c164539e0d70f6f"
@@ -1124,8 +1124,8 @@
                 "idna",
                 "urllib3"
               ],
-              "package": "req_compile_deps_linux_311__requests",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "requests",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f",
               "urls": [
                 "https://files.pythonhosted.org/packages/70/8e/0e2d847013cb52cd35b38c009bb167a1a26b2ce6cd6965bf26b47bc0bf44/requests-2.31.0-py3-none-any.whl#sha256=58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f"
@@ -1140,8 +1140,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__six",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "six",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254",
               "urls": [
                 "https://files.pythonhosted.org/packages/d9/5a/e7c31adbe875f2abbb91bd84cf2dc52d792b5a01506781dbcf25c91daf11/six-1.16.0-py2.py3-none-any.whl#sha256=8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"
@@ -1156,8 +1156,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__types_setuptools",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "types_setuptools",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "cf91ff7c87ab7bf0625c3f0d4d90427c9da68561f3b0feab77977aaf0bbf7531",
               "urls": [
                 "https://files.pythonhosted.org/packages/1f/22/904934a3344fa5f332ecab887003f3f033c1272432a4af877007b75b0bd3/types_setuptools-69.2.0.20240317-py3-none-any.whl#sha256=cf91ff7c87ab7bf0625c3f0d4d90427c9da68561f3b0feab77977aaf0bbf7531"
@@ -1172,8 +1172,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__setuptools",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "setuptools",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "c21c49fb1042386df081cb5d86759792ab89efca84cf114889191cd09aacc80c",
               "urls": [
                 "https://files.pythonhosted.org/packages/92/e1/1c8bb3420105e70bdf357d57dd5567202b4ef8d27f810e98bb962d950834/setuptools-69.2.0-py3-none-any.whl#sha256=c21c49fb1042386df081cb5d86759792ab89efca84cf114889191cd09aacc80c"
@@ -1192,8 +1192,8 @@
                 "requests",
                 "urllib3"
               ],
-              "package": "req_compile_deps_windows_311__responses",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "responses",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "2f0b9c2b6437db4b528619a77e5d565e4ec2a9532162ac1a131a83529db7be1a",
               "urls": [
                 "https://files.pythonhosted.org/packages/30/0b/bff1e6a5b646e6ff770deb6a292a96bd844ea13fb523ccbd9209fc4b90b8/responses-0.25.0-py3-none-any.whl#sha256=2f0b9c2b6437db4b528619a77e5d565e4ec2a9532162ac1a131a83529db7be1a"
@@ -1202,123 +1202,15 @@
             }
           },
           "req_compile_deps": {
-            "bzlFile": "@@//extensions:python.bzl",
-            "ruleClassName": "reqs_hub",
+            "bzlFile": "@@//private:reqs_repo.bzl",
+            "ruleClassName": "py_requirements_repository",
             "attributes": {
               "hub_name": "req_compile_deps",
-              "defs": {
-                "linux_311": "'@@platforms//os:linux'",
-                "macos_311": "'@@platforms//os:macos'",
-                "windows_311": "'@@platforms//os:windows'"
-              },
-              "packages": [
-                "appdirs",
-                "astroid",
-                "black",
-                "certifi",
-                "charset_normalizer",
-                "click",
-                "dill",
-                "idna",
-                "iniconfig",
-                "isort",
-                "mccabe",
-                "mypy",
-                "mypy_extensions",
-                "overrides",
-                "packaging",
-                "pathspec",
-                "platformdirs",
-                "pluggy",
-                "pylint",
-                "pytest",
-                "pytest_mock",
-                "pyyaml",
-                "requests",
-                "responses",
-                "setuptools",
-                "six",
-                "toml",
-                "tomlkit",
-                "types_appdirs",
-                "types_requests",
-                "types_setuptools",
-                "types_toml",
-                "typing_extensions",
-                "urllib3",
-                "wheel",
-                "appdirs",
-                "astroid",
-                "black",
-                "certifi",
-                "charset_normalizer",
-                "click",
-                "dill",
-                "idna",
-                "iniconfig",
-                "isort",
-                "mccabe",
-                "mypy",
-                "mypy_extensions",
-                "overrides",
-                "packaging",
-                "pathspec",
-                "platformdirs",
-                "pluggy",
-                "pylint",
-                "pytest",
-                "pytest_mock",
-                "pyyaml",
-                "requests",
-                "responses",
-                "setuptools",
-                "six",
-                "toml",
-                "tomlkit",
-                "types_appdirs",
-                "types_requests",
-                "types_setuptools",
-                "types_toml",
-                "typing_extensions",
-                "urllib3",
-                "wheel",
-                "appdirs",
-                "astroid",
-                "black",
-                "certifi",
-                "charset_normalizer",
-                "click",
-                "colorama",
-                "dill",
-                "idna",
-                "iniconfig",
-                "isort",
-                "mccabe",
-                "mypy",
-                "mypy_extensions",
-                "overrides",
-                "packaging",
-                "pathspec",
-                "platformdirs",
-                "pluggy",
-                "pylint",
-                "pytest",
-                "pytest_mock",
-                "pyyaml",
-                "requests",
-                "responses",
-                "setuptools",
-                "six",
-                "toml",
-                "tomlkit",
-                "types_appdirs",
-                "types_requests",
-                "types_setuptools",
-                "types_toml",
-                "typing_extensions",
-                "urllib3",
-                "wheel"
-              ]
+              "requirements_locks": {
+                "@@//3rdparty:requirements.linux.311.txt": "@platforms//os:linux",
+                "@@//3rdparty:requirements.macos.311.txt": "@platforms//os:macos",
+                "@@//3rdparty:requirements.windows.311.txt": "@platforms//os:windows"
+              }
             }
           },
           "req_compile_deps_macos_311__wheel": {
@@ -1328,8 +1220,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__wheel",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "wheel",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81",
               "urls": [
                 "https://files.pythonhosted.org/packages/7d/cd/d7460c9a869b16c3dd4e1e403cce337df165368c71d6af229a74699622ce/wheel-0.43.0-py3-none-any.whl#sha256=55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81"
@@ -1349,8 +1241,8 @@
                 "idna",
                 "urllib3"
               ],
-              "package": "req_compile_deps_windows_311__requests",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "requests",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f",
               "urls": [
                 "https://files.pythonhosted.org/packages/70/8e/0e2d847013cb52cd35b38c009bb167a1a26b2ce6cd6965bf26b47bc0bf44/requests-2.31.0-py3-none-any.whl#sha256=58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f"
@@ -1365,8 +1257,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__dill",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "dill",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "c36ca9ffb54365bdd2f8eb3eff7d2a21237f8452b57ace88b1ac615b7e815bd7",
               "urls": [
                 "https://files.pythonhosted.org/packages/c9/7a/cef76fd8438a42f96db64ddaa85280485a9c395e7df3db8158cfec1eee34/dill-0.3.8-py3-none-any.whl#sha256=c36ca9ffb54365bdd2f8eb3eff7d2a21237f8452b57ace88b1ac615b7e815bd7"
@@ -1381,8 +1273,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__tomlkit",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "tomlkit",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "5cd82d48a3dd89dee1f9d64420aa20ae65cfbd00668d6f094d7578a78efbb77b",
               "urls": [
                 "https://files.pythonhosted.org/packages/07/fa/c96545d741f2fd47f565e4e06bfef0962add790cb9c2289d900102b55eca/tomlkit-0.12.4-py3-none-any.whl#sha256=5cd82d48a3dd89dee1f9d64420aa20ae65cfbd00668d6f094d7578a78efbb77b"
@@ -1397,8 +1289,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__overrides",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "overrides",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "c7ed9d062f78b8e4c1a7b70bd8796b35ead4d9f510227ef9c5dc7626c60d7e49",
               "urls": [
                 "https://files.pythonhosted.org/packages/2c/ab/fc8290c6a4c722e5514d80f62b2dc4c4df1a68a41d1364e625c35990fcf3/overrides-7.7.0-py3-none-any.whl#sha256=c7ed9d062f78b8e4c1a7b70bd8796b35ead4d9f510227ef9c5dc7626c60d7e49"
@@ -1413,8 +1305,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__setuptools",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "setuptools",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "c21c49fb1042386df081cb5d86759792ab89efca84cf114889191cd09aacc80c",
               "urls": [
                 "https://files.pythonhosted.org/packages/92/e1/1c8bb3420105e70bdf357d57dd5567202b4ef8d27f810e98bb962d950834/setuptools-69.2.0-py3-none-any.whl#sha256=c21c49fb1042386df081cb5d86759792ab89efca84cf114889191cd09aacc80c"
@@ -1429,8 +1321,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__dill",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "dill",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "c36ca9ffb54365bdd2f8eb3eff7d2a21237f8452b57ace88b1ac615b7e815bd7",
               "urls": [
                 "https://files.pythonhosted.org/packages/c9/7a/cef76fd8438a42f96db64ddaa85280485a9c395e7df3db8158cfec1eee34/dill-0.3.8-py3-none-any.whl#sha256=c36ca9ffb54365bdd2f8eb3eff7d2a21237f8452b57ace88b1ac615b7e815bd7"
@@ -1448,8 +1340,8 @@
                 "mypy_extensions",
                 "typing_extensions"
               ],
-              "package": "req_compile_deps_linux_311__mypy",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "mypy",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "2418488264eb41f69cc64a69a745fad4a8f86649af4b1041a4c64ee61fc61129",
               "urls": [
                 "https://files.pythonhosted.org/packages/a1/81/97e8539d6cdcfb3a8ae7eb1438c6983a9fc434ef9664572bfa7fd285cab9/mypy-1.9.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl#sha256=2418488264eb41f69cc64a69a745fad4a8f86649af4b1041a4c64ee61fc61129"
@@ -1464,8 +1356,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__astroid",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "astroid",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "951798f922990137ac090c53af473db7ab4e70c770e6d7fae0cec59f74411819",
               "urls": [
                 "https://files.pythonhosted.org/packages/ed/1c/ee18acf9070f77253954b7d71b4c0cf8f5969fb23067d8f1a8793573ba00/astroid-3.1.0-py3-none-any.whl#sha256=951798f922990137ac090c53af473db7ab4e70c770e6d7fae0cec59f74411819"
@@ -1482,8 +1374,8 @@
               "deps": [
                 "colorama"
               ],
-              "package": "req_compile_deps_windows_311__click",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "click",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28",
               "urls": [
                 "https://files.pythonhosted.org/packages/00/2e/d53fa4befbf2cfa713304affc7ca780ce4fc1fd8710527771b58311a3229/click-8.1.7-py3-none-any.whl#sha256=ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28"
@@ -1498,8 +1390,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__dill",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "dill",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "c36ca9ffb54365bdd2f8eb3eff7d2a21237f8452b57ace88b1ac615b7e815bd7",
               "urls": [
                 "https://files.pythonhosted.org/packages/c9/7a/cef76fd8438a42f96db64ddaa85280485a9c395e7df3db8158cfec1eee34/dill-0.3.8-py3-none-any.whl#sha256=c36ca9ffb54365bdd2f8eb3eff7d2a21237f8452b57ace88b1ac615b7e815bd7"
@@ -1519,8 +1411,8 @@
                 "idna",
                 "urllib3"
               ],
-              "package": "req_compile_deps_macos_311__requests",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "requests",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f",
               "urls": [
                 "https://files.pythonhosted.org/packages/70/8e/0e2d847013cb52cd35b38c009bb167a1a26b2ce6cd6965bf26b47bc0bf44/requests-2.31.0-py3-none-any.whl#sha256=58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f"
@@ -1535,8 +1427,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__pluggy",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "pluggy",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "7db9f7b503d67d1c5b95f59773ebb58a8c1c288129a88665838012cfb07b8981",
               "urls": [
                 "https://files.pythonhosted.org/packages/a5/5b/0cc789b59e8cc1bf288b38111d002d8c5917123194d45b29dcdac64723cc/pluggy-1.4.0-py3-none-any.whl#sha256=7db9f7b503d67d1c5b95f59773ebb58a8c1c288129a88665838012cfb07b8981"
@@ -1551,8 +1443,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__platformdirs",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "platformdirs",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "0614df2a2f37e1a662acbd8e2b25b92ccf8632929bc6d43467e17fe89c75e068",
               "urls": [
                 "https://files.pythonhosted.org/packages/55/72/4898c44ee9ea6f43396fbc23d9bfaf3d06e01b83698bdf2e4c919deceb7c/platformdirs-4.2.0-py3-none-any.whl#sha256=0614df2a2f37e1a662acbd8e2b25b92ccf8632929bc6d43467e17fe89c75e068"
@@ -1570,8 +1462,8 @@
                 "mypy_extensions",
                 "typing_extensions"
               ],
-              "package": "req_compile_deps_macos_311__mypy",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "mypy",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "3a3c007ff3ee90f69cf0a15cbcdf0995749569b86b6d2f327af01fd1b8aee9dc",
               "urls": [
                 "https://files.pythonhosted.org/packages/da/e2/1864612774cf8a445f6d42ce73ce0f1492a37ed2af1c908e989f1ec7d349/mypy-1.9.0-cp311-cp311-macosx_11_0_arm64.whl#sha256=3a3c007ff3ee90f69cf0a15cbcdf0995749569b86b6d2f327af01fd1b8aee9dc"
@@ -1586,8 +1478,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__charset_normalizer",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "charset_normalizer",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "663946639d296df6a2bb2aa51b60a2454ca1cb29835324c640dafb5ff2131a77",
               "urls": [
                 "https://files.pythonhosted.org/packages/57/ec/80c8d48ac8b1741d5b963797b7c0c869335619e13d4744ca2f67fc11c6fc/charset_normalizer-3.3.2-cp311-cp311-win_amd64.whl#sha256=663946639d296df6a2bb2aa51b60a2454ca1cb29835324c640dafb5ff2131a77"
@@ -1602,8 +1494,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__types_appdirs",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "types_appdirs",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "337c750e423c40911d389359b4edabe5bbc2cdd5cd0bd0518b71d2839646273b",
               "urls": [
                 "https://files.pythonhosted.org/packages/cf/07/41f5b9b11f11855eb67760ed680330e0ce9136a44b51c24dd52edb1c4eb1/types_appdirs-1.4.3.5-py3-none-any.whl#sha256=337c750e423c40911d389359b4edabe5bbc2cdd5cd0bd0518b71d2839646273b"
@@ -1618,8 +1510,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__appdirs",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "appdirs",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128",
               "urls": [
                 "https://files.pythonhosted.org/packages/3b/00/2344469e2084fb287c2e0b57b72910309874c3245463acd6cf5e3db69324/appdirs-1.4.4-py2.py3-none-any.whl#sha256=a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128"
@@ -1634,8 +1526,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__packaging",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "packaging",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5",
               "urls": [
                 "https://files.pythonhosted.org/packages/49/df/1fceb2f8900f8639e278b056416d49134fb8d84c5942ffaa01ad34782422/packaging-24.0-py3-none-any.whl#sha256=2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5"
@@ -1650,8 +1542,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__types_setuptools",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "types_setuptools",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "cf91ff7c87ab7bf0625c3f0d4d90427c9da68561f3b0feab77977aaf0bbf7531",
               "urls": [
                 "https://files.pythonhosted.org/packages/1f/22/904934a3344fa5f332ecab887003f3f033c1272432a4af877007b75b0bd3/types_setuptools-69.2.0.20240317-py3-none-any.whl#sha256=cf91ff7c87ab7bf0625c3f0d4d90427c9da68561f3b0feab77977aaf0bbf7531"
@@ -1672,8 +1564,8 @@
                 "pathspec",
                 "platformdirs"
               ],
-              "package": "req_compile_deps_macos_311__black",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "black",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "aadf7a02d947936ee418777e0247ea114f78aff0d0959461057cae8a04f20597",
               "urls": [
                 "https://files.pythonhosted.org/packages/46/5f/30398c5056cb72f883b32b6520ad00042a9d0454b693f70509867db03a80/black-24.3.0-cp311-cp311-macosx_11_0_arm64.whl#sha256=aadf7a02d947936ee418777e0247ea114f78aff0d0959461057cae8a04f20597"
@@ -1688,8 +1580,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__setuptools",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "setuptools",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "c21c49fb1042386df081cb5d86759792ab89efca84cf114889191cd09aacc80c",
               "urls": [
                 "https://files.pythonhosted.org/packages/92/e1/1c8bb3420105e70bdf357d57dd5567202b4ef8d27f810e98bb962d950834/setuptools-69.2.0-py3-none-any.whl#sha256=c21c49fb1042386df081cb5d86759792ab89efca84cf114889191cd09aacc80c"
@@ -1704,8 +1596,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__certifi",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "certifi",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1",
               "urls": [
                 "https://files.pythonhosted.org/packages/ba/06/a07f096c664aeb9f01624f858c3add0a4e913d6c96257acb4fce61e7de14/certifi-2024.2.2-py3-none-any.whl#sha256=dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1"
@@ -1720,8 +1612,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__iniconfig",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "iniconfig",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374",
               "urls": [
                 "https://files.pythonhosted.org/packages/ef/a6/62565a6e1cf69e10f5727360368e451d4b7f58beeac6173dc9db836a5b46/iniconfig-2.0.0-py3-none-any.whl#sha256=b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374"
@@ -1743,8 +1635,8 @@
                 "platformdirs",
                 "tomlkit"
               ],
-              "package": "req_compile_deps_macos_311__pylint",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "pylint",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "507a5b60953874766d8a366e8e8c7af63e058b26345cfcb5f91f89d987fd6b74",
               "urls": [
                 "https://files.pythonhosted.org/packages/4d/2b/dfcf298607c73c3af47d5a699c3bd84ba580f1b8642a53ba2a53eead7c49/pylint-3.1.0-py3-none-any.whl#sha256=507a5b60953874766d8a366e8e8c7af63e058b26345cfcb5f91f89d987fd6b74"
@@ -1763,8 +1655,8 @@
                 "requests",
                 "urllib3"
               ],
-              "package": "req_compile_deps_linux_311__responses",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "responses",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "2f0b9c2b6437db4b528619a77e5d565e4ec2a9532162ac1a131a83529db7be1a",
               "urls": [
                 "https://files.pythonhosted.org/packages/30/0b/bff1e6a5b646e6ff770deb6a292a96bd844ea13fb523ccbd9209fc4b90b8/responses-0.25.0-py3-none-any.whl#sha256=2f0b9c2b6437db4b528619a77e5d565e4ec2a9532162ac1a131a83529db7be1a"
@@ -1779,8 +1671,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__appdirs",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "appdirs",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128",
               "urls": [
                 "https://files.pythonhosted.org/packages/3b/00/2344469e2084fb287c2e0b57b72910309874c3245463acd6cf5e3db69324/appdirs-1.4.4-py2.py3-none-any.whl#sha256=a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128"
@@ -1802,8 +1694,8 @@
                 "platformdirs",
                 "tomlkit"
               ],
-              "package": "req_compile_deps_linux_311__pylint",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "pylint",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "507a5b60953874766d8a366e8e8c7af63e058b26345cfcb5f91f89d987fd6b74",
               "urls": [
                 "https://files.pythonhosted.org/packages/4d/2b/dfcf298607c73c3af47d5a699c3bd84ba580f1b8642a53ba2a53eead7c49/pylint-3.1.0-py3-none-any.whl#sha256=507a5b60953874766d8a366e8e8c7af63e058b26345cfcb5f91f89d987fd6b74"
@@ -1818,8 +1710,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__iniconfig",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "iniconfig",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374",
               "urls": [
                 "https://files.pythonhosted.org/packages/ef/a6/62565a6e1cf69e10f5727360368e451d4b7f58beeac6173dc9db836a5b46/iniconfig-2.0.0-py3-none-any.whl#sha256=b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374"
@@ -1834,8 +1726,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__astroid",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "astroid",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "951798f922990137ac090c53af473db7ab4e70c770e6d7fae0cec59f74411819",
               "urls": [
                 "https://files.pythonhosted.org/packages/ed/1c/ee18acf9070f77253954b7d71b4c0cf8f5969fb23067d8f1a8793573ba00/astroid-3.1.0-py3-none-any.whl#sha256=951798f922990137ac090c53af473db7ab4e70c770e6d7fae0cec59f74411819"
@@ -1850,8 +1742,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__urllib3",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "urllib3",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d",
               "urls": [
                 "https://files.pythonhosted.org/packages/a2/73/a68704750a7679d0b6d3ad7aa8d4da8e14e151ae82e6fee774e6e0d05ec8/urllib3-2.2.1-py3-none-any.whl#sha256=450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d"
@@ -1866,8 +1758,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__charset_normalizer",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "charset_normalizer",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "549a3a73da901d5bc3ce8d24e0600d1fa85524c10287f6004fbab87672bf3e1e",
               "urls": [
                 "https://files.pythonhosted.org/packages/dd/51/68b61b90b24ca35495956b718f35a9756ef7d3dd4b3c1508056fa98d1a1b/charset_normalizer-3.3.2-cp311-cp311-macosx_11_0_arm64.whl#sha256=549a3a73da901d5bc3ce8d24e0600d1fa85524c10287f6004fbab87672bf3e1e"
@@ -1882,8 +1774,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__click",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "click",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28",
               "urls": [
                 "https://files.pythonhosted.org/packages/00/2e/d53fa4befbf2cfa713304affc7ca780ce4fc1fd8710527771b58311a3229/click-8.1.7-py3-none-any.whl#sha256=ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28"
@@ -1898,8 +1790,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__tomlkit",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "tomlkit",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "5cd82d48a3dd89dee1f9d64420aa20ae65cfbd00668d6f094d7578a78efbb77b",
               "urls": [
                 "https://files.pythonhosted.org/packages/07/fa/c96545d741f2fd47f565e4e06bfef0962add790cb9c2289d900102b55eca/tomlkit-0.12.4-py3-none-any.whl#sha256=5cd82d48a3dd89dee1f9d64420aa20ae65cfbd00668d6f094d7578a78efbb77b"
@@ -1914,8 +1806,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__pyyaml",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "pyyaml",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "bf07ee2fef7014951eeb99f56f39c9bb4af143d8aa3c21b1677805985307da34",
               "urls": [
                 "https://files.pythonhosted.org/packages/b3/34/65bb4b2d7908044963ebf614fe0fdb080773fc7030d7e39c8d3eddcd4257/PyYAML-6.0.1-cp311-cp311-win_amd64.whl#sha256=bf07ee2fef7014951eeb99f56f39c9bb4af143d8aa3c21b1677805985307da34"
@@ -1930,8 +1822,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_deps_linux_311__toml",
-              "reqs_repository_name": "req_compile_deps_linux_311",
+              "package": "toml",
+              "spoke_prefix": "req_compile_deps_linux_311",
               "sha256": "806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b",
               "urls": [
                 "https://files.pythonhosted.org/packages/44/6f/7120676b6d73228c96e17f1f794d8ab046fc910d781c8d151120c3f1569e/toml-0.10.2-py2.py3-none-any.whl#sha256=806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"
@@ -1946,8 +1838,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_deps_macos_311__isort",
-              "reqs_repository_name": "req_compile_deps_macos_311",
+              "package": "isort",
+              "spoke_prefix": "req_compile_deps_macos_311",
               "sha256": "8ca5e72a8d85860d5a3fa69b8745237f2939afe12dbf656afbcb47fe72d947a6",
               "urls": [
                 "https://files.pythonhosted.org/packages/d1/b3/8def84f539e7d2289a02f0524b944b15d7c75dab7628bedf1c4f0992029c/isort-5.13.2-py3-none-any.whl#sha256=8ca5e72a8d85860d5a3fa69b8745237f2939afe12dbf656afbcb47fe72d947a6"
@@ -1965,8 +1857,8 @@
                 "mypy_extensions",
                 "typing_extensions"
               ],
-              "package": "req_compile_deps_windows_311__mypy",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "mypy",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "85ca5fcc24f0b4aeedc1d02f93707bccc04733f21d41c88334c5482219b1ccb3",
               "urls": [
                 "https://files.pythonhosted.org/packages/59/56/a33d610a9cf692669690a89b54a6a920fd7c7ebcca00da2c36c9d975de8e/mypy-1.9.0-cp311-cp311-win_amd64.whl#sha256=85ca5fcc24f0b4aeedc1d02f93707bccc04733f21d41c88334c5482219b1ccb3"
@@ -1986,8 +1878,8 @@
                 "packaging",
                 "pluggy"
               ],
-              "package": "req_compile_deps_windows_311__pytest",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "pytest",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "2a8386cfc11fa9d2c50ee7b2a57e7d898ef90470a7a34c4b949ff59662bb78b7",
               "urls": [
                 "https://files.pythonhosted.org/packages/4d/7e/c79cecfdb6aa85c6c2e3cf63afc56d0f165f24f5c66c03c695c4d9b84756/pytest-8.1.1-py3-none-any.whl#sha256=2a8386cfc11fa9d2c50ee7b2a57e7d898ef90470a7a34c4b949ff59662bb78b7"
@@ -2002,8 +1894,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_deps_windows_311__types_setuptools",
-              "reqs_repository_name": "req_compile_deps_windows_311",
+              "package": "types_setuptools",
+              "spoke_prefix": "req_compile_deps_windows_311",
               "sha256": "cf91ff7c87ab7bf0625c3f0d4d90427c9da68561f3b0feab77977aaf0bbf7531",
               "urls": [
                 "https://files.pythonhosted.org/packages/1f/22/904934a3344fa5f332ecab887003f3f033c1272432a4af877007b75b0bd3/types_setuptools-69.2.0.20240317-py3-none-any.whl#sha256=cf91ff7c87ab7bf0625c3f0d4d90427c9da68561f3b0feab77977aaf0bbf7531"
@@ -2013,6 +1905,11 @@
           }
         },
         "recordedRepoMappingEntries": [
+          [
+            "",
+            "bazel_tools",
+            "bazel_tools"
+          ],
           [
             "",
             "platforms",
@@ -2038,7 +1935,7 @@
     },
     "//extensions:python.bzl%requirements%<root>~sdist_req_pip": {
       "general": {
-        "bzlTransitiveDigest": "dV8rzIcJmMW+Ynm3WqCYCykiPvwGB8UDBPT6IPvufhI=",
+        "bzlTransitiveDigest": "4b3zaF+MKOdXePKk9zwMSvK8IM+aJRupJFn12iEoFJQ=",
         "usagesDigest": "KOUeTcQ0R5M+8m7CisnKotEJuub2VYS+B24AA7+Bfdk=",
         "recordedFileInputs": {
           "@@//private/tests/sdist/requirements.txt": "b7363272cf3809fd89448bce458daaa4f4e4ac89f4014ba7c5ca18124581df70"
@@ -2047,23 +1944,22 @@
         "envVariables": {},
         "generatedRepoSpecs": {
           "req_compile_test_sdist": {
-            "bzlFile": "@@//extensions:python.bzl",
-            "ruleClassName": "reqs_hub",
+            "bzlFile": "@@//private:reqs_repo.bzl",
+            "ruleClassName": "py_requirements_repository",
             "attributes": {
               "hub_name": "req_compile_test_sdist",
-              "defs": {
-                "any": "'@@//conditions:default'"
-              },
-              "packages": [
-                "py4j",
-                "pyspark"
-              ]
+              "requirements_lock": "@@//private/tests/sdist:requirements.txt",
+              "requirements_locks": {},
+              "interpreter": "@@rules_python~~python~python_3_11_x86_64-unknown-linux-gnu//:python"
             }
           },
-          "req_compile_test_sdist_any__pyspark_sdist": {
+          "req_compile_test_sdist__pyspark__sdist": {
             "bzlFile": "@@//private:sdist_repo.bzl",
             "ruleClassName": "sdist_repository",
             "attributes": {
+              "deps": [
+                "@req_compile_test_sdist__py4j//:BUILD.bazel"
+              ],
               "sha256": "dd6569e547365eadc4f887bf57f153e4d582a68c4b490de475d55b9981664910",
               "urls": [
                 "https://files.pythonhosted.org/packages/73/e5/c9eb78cc982dafb7b5834bc5c368fe596216c8b9f7c4b4ffa104c4d2ab8f/pyspark-3.5.1.tar.gz#sha256=dd6569e547365eadc4f887bf57f153e4d582a68c4b490de475d55b9981664910"
@@ -2071,15 +1967,15 @@
               "interpreter": "@@rules_python~~python~python_3_11_x86_64-unknown-linux-gnu//:python"
             }
           },
-          "req_compile_test_sdist_any__py4j": {
+          "req_compile_test_sdist__py4j": {
             "bzlFile": "@@//private:whl_repo.bzl",
             "ruleClassName": "whl_repository",
             "attributes": {
               "annotations": "{}",
-              "constraint": "'@@//conditions:default'",
+              "constraint": "",
               "deps": [],
-              "package": "req_compile_test_sdist_any__py4j",
-              "reqs_repository_name": "req_compile_test_sdist_any",
+              "package": "py4j",
+              "spoke_prefix": "req_compile_test_sdist",
               "sha256": "85defdfd2b2376eb3abf5ca6474b51ab7e0de341c75a02f46dc9b5976f5a5c1b",
               "urls": [
                 "https://files.pythonhosted.org/packages/10/30/a58b32568f1623aaad7db22aa9eafc4c6c194b429ff35bdc55ca2726da47/py4j-0.10.9.7-py2.py3-none-any.whl#sha256=85defdfd2b2376eb3abf5ca6474b51ab7e0de341c75a02f46dc9b5976f5a5c1b"
@@ -2087,23 +1983,28 @@
               "version": "0.10.9.7"
             }
           },
-          "req_compile_test_sdist_any__pyspark": {
+          "req_compile_test_sdist__pyspark": {
             "bzlFile": "@@//private:whl_repo.bzl",
             "ruleClassName": "whl_repository",
             "attributes": {
               "annotations": "{}",
-              "constraint": "'@@//conditions:default'",
+              "constraint": "",
               "deps": [
                 "py4j"
               ],
-              "package": "req_compile_test_sdist_any__pyspark",
-              "reqs_repository_name": "req_compile_test_sdist",
-              "whl_data": "@@_main~_requirements~~~sdist_req_pip~req_compile_test_sdist_any__pyspark_sdist//:whl.json",
+              "package": "pyspark",
+              "spoke_prefix": "req_compile_test_sdist",
+              "whl_data": "@@_main~_requirements~~~sdist_req_pip~req_compile_test_sdist__pyspark__sdist//:whl.json",
               "version": "3.5.1"
             }
           }
         },
         "recordedRepoMappingEntries": [
+          [
+            "",
+            "bazel_tools",
+            "bazel_tools"
+          ],
           [
             "",
             "req_compile_sdist_compiler",
@@ -2124,7 +2025,7 @@
     },
     "//extensions:python.bzl%requirements%<root>~test_annotations": {
       "general": {
-        "bzlTransitiveDigest": "dV8rzIcJmMW+Ynm3WqCYCykiPvwGB8UDBPT6IPvufhI=",
+        "bzlTransitiveDigest": "4b3zaF+MKOdXePKk9zwMSvK8IM+aJRupJFn12iEoFJQ=",
         "usagesDigest": "g/QB9YIrTDUXF3VCK92umue2g997ZcR+tTt3ta+ice4=",
         "recordedFileInputs": {
           "@@//private/tests/annotations/requirements.macos.txt": "47536babdebbe647586c84e2938fd52deeeca6a7b73e637fc0633fde364eab7e",
@@ -2134,6 +2035,18 @@
         "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
+          "req_compile_test_annotations": {
+            "bzlFile": "@@//private:reqs_repo.bzl",
+            "ruleClassName": "py_requirements_repository",
+            "attributes": {
+              "hub_name": "req_compile_test_annotations",
+              "requirements_locks": {
+                "@@//private/tests/annotations:requirements.linux.txt": "@platforms//os:linux",
+                "@@//private/tests/annotations:requirements.macos.txt": "@platforms//os:macos",
+                "@@//private/tests/annotations:requirements.windows.txt": "@platforms//os:windows"
+              }
+            }
+          },
           "req_compile_test_annotations_linux__sphinxcontrib_jsmath": {
             "bzlFile": "@@//private:whl_repo.bzl",
             "ruleClassName": "whl_repository",
@@ -2141,94 +2054,13 @@
               "annotations": "\"{\\\"additive_build_file\\\":null,\\\"additive_build_file_content\\\":\\\"\\\",\\\"copy_executables\\\":{},\\\"copy_files\\\":{},\\\"copy_srcs\\\":{},\\\"data\\\":[],\\\"data_exclude_glob\\\":[],\\\"deps\\\":[\\\"-sphinx\\\"],\\\"deps_excludes\\\":[],\\\"patches\\\":[],\\\"srcs_exclude_glob\\\":[]}\"",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_annotations_linux__sphinxcontrib_jsmath",
-              "reqs_repository_name": "req_compile_test_annotations_linux",
+              "package": "sphinxcontrib_jsmath",
+              "spoke_prefix": "req_compile_test_annotations_linux",
               "sha256": "2ec2eaebfb78f3f2078e73666b1415417a116cc848b72e5172e596c871103178",
               "urls": [
                 "https://files.pythonhosted.org/packages/c2/42/4c8646762ee83602e3fb3fbe774c2fac12f317deb0b5dbeeedd2d3ba4b77/sphinxcontrib_jsmath-1.0.1-py2.py3-none-any.whl#sha256=2ec2eaebfb78f3f2078e73666b1415417a116cc848b72e5172e596c871103178"
               ],
               "version": "1.0.1"
-            }
-          },
-          "req_compile_test_annotations": {
-            "bzlFile": "@@//extensions:python.bzl",
-            "ruleClassName": "reqs_hub",
-            "attributes": {
-              "hub_name": "req_compile_test_annotations",
-              "defs": {
-                "linux": "'@@platforms//os:linux'",
-                "macos": "'@@platforms//os:macos'",
-                "windows": "'@@platforms//os:windows'"
-              },
-              "packages": [
-                "alabaster",
-                "babel",
-                "certifi",
-                "charset_normalizer",
-                "docutils",
-                "idna",
-                "imagesize",
-                "jinja2",
-                "markupsafe",
-                "numpy",
-                "packaging",
-                "pygments",
-                "requests",
-                "snowballstemmer",
-                "sphinx",
-                "sphinxcontrib_applehelp",
-                "sphinxcontrib_devhelp",
-                "sphinxcontrib_htmlhelp",
-                "sphinxcontrib_jsmath",
-                "sphinxcontrib_qthelp",
-                "sphinxcontrib_serializinghtml",
-                "urllib3",
-                "alabaster",
-                "babel",
-                "certifi",
-                "charset_normalizer",
-                "docutils",
-                "idna",
-                "imagesize",
-                "jinja2",
-                "markupsafe",
-                "numpy",
-                "packaging",
-                "pygments",
-                "requests",
-                "snowballstemmer",
-                "sphinx",
-                "sphinxcontrib_applehelp",
-                "sphinxcontrib_devhelp",
-                "sphinxcontrib_htmlhelp",
-                "sphinxcontrib_jsmath",
-                "sphinxcontrib_qthelp",
-                "sphinxcontrib_serializinghtml",
-                "urllib3",
-                "alabaster",
-                "babel",
-                "certifi",
-                "charset_normalizer",
-                "colorama",
-                "docutils",
-                "idna",
-                "imagesize",
-                "jinja2",
-                "markupsafe",
-                "numpy",
-                "packaging",
-                "pygments",
-                "requests",
-                "snowballstemmer",
-                "sphinx",
-                "sphinxcontrib_applehelp",
-                "sphinxcontrib_devhelp",
-                "sphinxcontrib_htmlhelp",
-                "sphinxcontrib_jsmath",
-                "sphinxcontrib_qthelp",
-                "sphinxcontrib_serializinghtml",
-                "urllib3"
-              ]
             }
           },
           "req_compile_test_annotations_windows__sphinxcontrib_htmlhelp": {
@@ -2238,8 +2070,8 @@
               "annotations": "\"{\\\"additive_build_file\\\":null,\\\"additive_build_file_content\\\":\\\"\\\",\\\"copy_executables\\\":{},\\\"copy_files\\\":{},\\\"copy_srcs\\\":{},\\\"data\\\":[],\\\"data_exclude_glob\\\":[],\\\"deps\\\":[\\\"-sphinx\\\"],\\\"deps_excludes\\\":[],\\\"patches\\\":[],\\\"srcs_exclude_glob\\\":[]}\"",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_annotations_windows__sphinxcontrib_htmlhelp",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "sphinxcontrib_htmlhelp",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "393f04f112b4d2f53d93448d4bce35842f62b307ccdc549ec1585e950bc35e04",
               "urls": [
                 "https://files.pythonhosted.org/packages/c2/e9/74c4cda5b409af3222fda38f0774e616011bc935f639dbc0da5ca2d1be7d/sphinxcontrib_htmlhelp-2.0.5-py3-none-any.whl#sha256=393f04f112b4d2f53d93448d4bce35842f62b307ccdc549ec1585e950bc35e04"
@@ -2254,8 +2086,8 @@
               "annotations": "\"{\\\"additive_build_file\\\":null,\\\"additive_build_file_content\\\":\\\"\\\",\\\"copy_executables\\\":{},\\\"copy_files\\\":{},\\\"copy_srcs\\\":{},\\\"data\\\":[],\\\"data_exclude_glob\\\":[],\\\"deps\\\":[\\\"-sphinx\\\"],\\\"deps_excludes\\\":[],\\\"patches\\\":[],\\\"srcs_exclude_glob\\\":[]}\"",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_annotations_windows__sphinxcontrib_applehelp",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "sphinxcontrib_applehelp",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "cb61eb0ec1b61f349e5cc36b2028e9e7ca765be05e49641c97241274753067b4",
               "urls": [
                 "https://files.pythonhosted.org/packages/56/89/fea3fbf6785b388e6cb8a1beaf62f96e80b37311bdeed6e133388a732426/sphinxcontrib_applehelp-1.0.8-py3-none-any.whl#sha256=cb61eb0ec1b61f349e5cc36b2028e9e7ca765be05e49641c97241274753067b4"
@@ -2270,8 +2102,8 @@
               "annotations": "\"{\\\"additive_build_file\\\":null,\\\"additive_build_file_content\\\":\\\"\\\",\\\"copy_executables\\\":{},\\\"copy_files\\\":{},\\\"copy_srcs\\\":{},\\\"data\\\":[],\\\"data_exclude_glob\\\":[],\\\"deps\\\":[\\\"-sphinx\\\"],\\\"deps_excludes\\\":[],\\\"patches\\\":[],\\\"srcs_exclude_glob\\\":[]}\"",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_annotations_windows__sphinxcontrib_jsmath",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "sphinxcontrib_jsmath",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "2ec2eaebfb78f3f2078e73666b1415417a116cc848b72e5172e596c871103178",
               "urls": [
                 "https://files.pythonhosted.org/packages/c2/42/4c8646762ee83602e3fb3fbe774c2fac12f317deb0b5dbeeedd2d3ba4b77/sphinxcontrib_jsmath-1.0.1-py2.py3-none-any.whl#sha256=2ec2eaebfb78f3f2078e73666b1415417a116cc848b72e5172e596c871103178"
@@ -2291,8 +2123,8 @@
                 "idna",
                 "urllib3"
               ],
-              "package": "req_compile_test_annotations_windows__requests",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "requests",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f",
               "urls": [
                 "https://files.pythonhosted.org/packages/70/8e/0e2d847013cb52cd35b38c009bb167a1a26b2ce6cd6965bf26b47bc0bf44/requests-2.31.0-py3-none-any.whl#sha256=58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f"
@@ -2307,8 +2139,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_annotations_macos__packaging",
-              "reqs_repository_name": "req_compile_test_annotations_macos",
+              "package": "packaging",
+              "spoke_prefix": "req_compile_test_annotations_macos",
               "sha256": "2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5",
               "urls": [
                 "https://files.pythonhosted.org/packages/49/df/1fceb2f8900f8639e278b056416d49134fb8d84c5942ffaa01ad34782422/packaging-24.0-py3-none-any.whl#sha256=2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5"
@@ -2323,8 +2155,8 @@
               "annotations": "\"{\\\"additive_build_file\\\":null,\\\"additive_build_file_content\\\":\\\"\\\",\\\"copy_executables\\\":{},\\\"copy_files\\\":{},\\\"copy_srcs\\\":{},\\\"data\\\":[],\\\"data_exclude_glob\\\":[],\\\"deps\\\":[\\\"-sphinx\\\"],\\\"deps_excludes\\\":[],\\\"patches\\\":[],\\\"srcs_exclude_glob\\\":[]}\"",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_annotations_windows__sphinxcontrib_qthelp",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "sphinxcontrib_qthelp",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "e2ae3b5c492d58fcbd73281fbd27e34b8393ec34a073c792642cd8e529288182",
               "urls": [
                 "https://files.pythonhosted.org/packages/80/b3/1beac14a88654d2e5120d0143b49be5ad450b86eb1963523d8dbdcc51eb2/sphinxcontrib_qthelp-1.0.7-py3-none-any.whl#sha256=e2ae3b5c492d58fcbd73281fbd27e34b8393ec34a073c792642cd8e529288182"
@@ -2339,8 +2171,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_annotations_windows__docutils",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "docutils",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "96f387a2c5562db4476f09f13bbab2192e764cac08ebbf3a34a95d9b1e4a59d6",
               "urls": [
                 "https://files.pythonhosted.org/packages/26/87/f238c0670b94533ac0353a4e2a1a771a0cc73277b88bff23d3ae35a256c1/docutils-0.20.1-py3-none-any.whl#sha256=96f387a2c5562db4476f09f13bbab2192e764cac08ebbf3a34a95d9b1e4a59d6"
@@ -2355,8 +2187,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_annotations_macos__pygments",
-              "reqs_repository_name": "req_compile_test_annotations_macos",
+              "package": "pygments",
+              "spoke_prefix": "req_compile_test_annotations_macos",
               "sha256": "b27c2826c47d0f3219f29554824c30c5e8945175d888647acd804ddd04af846c",
               "urls": [
                 "https://files.pythonhosted.org/packages/97/9c/372fef8377a6e340b1704768d20daaded98bf13282b5327beb2e2fe2c7ef/pygments-2.17.2-py3-none-any.whl#sha256=b27c2826c47d0f3219f29554824c30c5e8945175d888647acd804ddd04af846c"
@@ -2371,8 +2203,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_annotations_macos__snowballstemmer",
-              "reqs_repository_name": "req_compile_test_annotations_macos",
+              "package": "snowballstemmer",
+              "spoke_prefix": "req_compile_test_annotations_macos",
               "sha256": "c8e1716e83cc398ae16824e5572ae04e0d9fc2c6b985fb0f900f5f0c96ecba1a",
               "urls": [
                 "https://files.pythonhosted.org/packages/ed/dc/c02e01294f7265e63a7315fe086dd1df7dacb9f840a804da846b96d01b96/snowballstemmer-2.2.0-py2.py3-none-any.whl#sha256=c8e1716e83cc398ae16824e5572ae04e0d9fc2c6b985fb0f900f5f0c96ecba1a"
@@ -2387,8 +2219,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_annotations_windows__markupsafe",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "markupsafe",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "2b7c57a4dfc4f16f7142221afe5ba4e093e09e728ca65c51f5620c9aaeb9a617",
               "urls": [
                 "https://files.pythonhosted.org/packages/b7/a2/c78a06a9ec6d04b3445a949615c4c7ed86a0b2eb68e44e7541b9d57067cc/MarkupSafe-2.1.5-cp311-cp311-win_amd64.whl#sha256=2b7c57a4dfc4f16f7142221afe5ba4e093e09e728ca65c51f5620c9aaeb9a617"
@@ -2403,8 +2235,8 @@
               "annotations": "\"{\\\"additive_build_file\\\":null,\\\"additive_build_file_content\\\":\\\"\\\",\\\"copy_executables\\\":{},\\\"copy_files\\\":{},\\\"copy_srcs\\\":{},\\\"data\\\":[],\\\"data_exclude_glob\\\":[],\\\"deps\\\":[\\\"-sphinx\\\"],\\\"deps_excludes\\\":[],\\\"patches\\\":[],\\\"srcs_exclude_glob\\\":[]}\"",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_annotations_linux__sphinxcontrib_htmlhelp",
-              "reqs_repository_name": "req_compile_test_annotations_linux",
+              "package": "sphinxcontrib_htmlhelp",
+              "spoke_prefix": "req_compile_test_annotations_linux",
               "sha256": "393f04f112b4d2f53d93448d4bce35842f62b307ccdc549ec1585e950bc35e04",
               "urls": [
                 "https://files.pythonhosted.org/packages/c2/e9/74c4cda5b409af3222fda38f0774e616011bc935f639dbc0da5ca2d1be7d/sphinxcontrib_htmlhelp-2.0.5-py3-none-any.whl#sha256=393f04f112b4d2f53d93448d4bce35842f62b307ccdc549ec1585e950bc35e04"
@@ -2421,8 +2253,8 @@
               "deps": [
                 "markupsafe"
               ],
-              "package": "req_compile_test_annotations_linux__jinja2",
-              "reqs_repository_name": "req_compile_test_annotations_linux",
+              "package": "jinja2",
+              "spoke_prefix": "req_compile_test_annotations_linux",
               "sha256": "7d6d50dd97d52cbc355597bd845fabfbac3f551e1f99619e39a35ce8c370b5fa",
               "urls": [
                 "https://files.pythonhosted.org/packages/30/6d/6de6be2d02603ab56e72997708809e8a5b0fbfee080735109b40a3564843/Jinja2-3.1.3-py3-none-any.whl#sha256=7d6d50dd97d52cbc355597bd845fabfbac3f551e1f99619e39a35ce8c370b5fa"
@@ -2437,8 +2269,8 @@
               "annotations": "\"{\\\"additive_build_file\\\":null,\\\"additive_build_file_content\\\":\\\"load(\\\\\\\"@rules_cc//cc:defs.bzl\\\\\\\", \\\\\\\"cc_library\\\\\\\")\\\\nload(\\\\\\\"@rules_req_compile//:defs.bzl\\\\\\\", \\\\\\\"py_package_annotation_target\\\\\\\")\\\\n\\\\n_INCLUDE_DIR = \\\\\\\"site-packages/numpy/core/include\\\\\\\"\\\\n\\\\ncc_library(\\\\n    name = \\\\\\\"headers\\\\\\\",\\\\n    hdrs = glob([\\\\\\\"{}/**/*.h\\\\\\\".format(_INCLUDE_DIR)]),\\\\n    includes = [_INCLUDE_DIR],\\\\n)\\\\n\\\\npy_package_annotation_target(\\\\n    name = \\\\\\\"pkg.headers\\\\\\\",\\\\n    target = \\\\\\\":headers\\\\\\\",\\\\n)\\\\n\\\",\\\"copy_executables\\\":{\\\"site-packages/numpy/testing/setup.py\\\":\\\"site-packages/numpy/testing/setup.copy.py\\\"},\\\"copy_files\\\":{\\\"site-packages/numpy-1.26.4.dist-info/entry_points.txt\\\":\\\"site-packages/numpy-1.26.4.dist-info/entry_points.copy.txt\\\"},\\\"copy_srcs\\\":{\\\"site-packages/numpy/conftest.py\\\":\\\"site-packages/numpy/conftest.copy.py\\\"},\\\"data\\\":[\\\":pkg.headers\\\"],\\\"data_exclude_glob\\\":[],\\\"deps\\\":[\\\"@rules_python//python/runfiles\\\"],\\\"deps_excludes\\\":[],\\\"patches\\\":[\\\"@@//private/tests/annotations:numpy.patch\\\"],\\\"srcs_exclude_glob\\\":[]}\"",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_annotations_linux__numpy",
-              "reqs_repository_name": "req_compile_test_annotations_linux",
+              "package": "numpy",
+              "spoke_prefix": "req_compile_test_annotations_linux",
               "sha256": "666dbfb6ec68962c033a450943ded891bed2d54e6755e35e5835d63f4f6931d5",
               "urls": [
                 "https://files.pythonhosted.org/packages/3a/d0/edc009c27b406c4f9cbc79274d6e46d634d139075492ad055e3d68445925/numpy-1.26.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl#sha256=666dbfb6ec68962c033a450943ded891bed2d54e6755e35e5835d63f4f6931d5"
@@ -2453,8 +2285,8 @@
               "annotations": "\"{\\\"additive_build_file\\\":null,\\\"additive_build_file_content\\\":\\\"\\\",\\\"copy_executables\\\":{},\\\"copy_files\\\":{},\\\"copy_srcs\\\":{},\\\"data\\\":[],\\\"data_exclude_glob\\\":[],\\\"deps\\\":[\\\"-sphinx\\\"],\\\"deps_excludes\\\":[],\\\"patches\\\":[],\\\"srcs_exclude_glob\\\":[]}\"",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_annotations_linux__sphinxcontrib_applehelp",
-              "reqs_repository_name": "req_compile_test_annotations_linux",
+              "package": "sphinxcontrib_applehelp",
+              "spoke_prefix": "req_compile_test_annotations_linux",
               "sha256": "cb61eb0ec1b61f349e5cc36b2028e9e7ca765be05e49641c97241274753067b4",
               "urls": [
                 "https://files.pythonhosted.org/packages/56/89/fea3fbf6785b388e6cb8a1beaf62f96e80b37311bdeed6e133388a732426/sphinxcontrib_applehelp-1.0.8-py3-none-any.whl#sha256=cb61eb0ec1b61f349e5cc36b2028e9e7ca765be05e49641c97241274753067b4"
@@ -2469,8 +2301,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_annotations_windows__pygments",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "pygments",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "b27c2826c47d0f3219f29554824c30c5e8945175d888647acd804ddd04af846c",
               "urls": [
                 "https://files.pythonhosted.org/packages/97/9c/372fef8377a6e340b1704768d20daaded98bf13282b5327beb2e2fe2c7ef/pygments-2.17.2-py3-none-any.whl#sha256=b27c2826c47d0f3219f29554824c30c5e8945175d888647acd804ddd04af846c"
@@ -2485,8 +2317,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_annotations_macos__idna",
-              "reqs_repository_name": "req_compile_test_annotations_macos",
+              "package": "idna",
+              "spoke_prefix": "req_compile_test_annotations_macos",
               "sha256": "c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f",
               "urls": [
                 "https://files.pythonhosted.org/packages/c2/e7/a82b05cf63a603df6e68d59ae6a68bf5064484a0718ea5033660af4b54a9/idna-3.6-py3-none-any.whl#sha256=c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f"
@@ -2501,8 +2333,8 @@
               "annotations": "\"{\\\"additive_build_file\\\":null,\\\"additive_build_file_content\\\":\\\"\\\",\\\"copy_executables\\\":{},\\\"copy_files\\\":{},\\\"copy_srcs\\\":{},\\\"data\\\":[],\\\"data_exclude_glob\\\":[],\\\"deps\\\":[\\\"-sphinx\\\"],\\\"deps_excludes\\\":[],\\\"patches\\\":[],\\\"srcs_exclude_glob\\\":[]}\"",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_annotations_macos__sphinxcontrib_qthelp",
-              "reqs_repository_name": "req_compile_test_annotations_macos",
+              "package": "sphinxcontrib_qthelp",
+              "spoke_prefix": "req_compile_test_annotations_macos",
               "sha256": "e2ae3b5c492d58fcbd73281fbd27e34b8393ec34a073c792642cd8e529288182",
               "urls": [
                 "https://files.pythonhosted.org/packages/80/b3/1beac14a88654d2e5120d0143b49be5ad450b86eb1963523d8dbdcc51eb2/sphinxcontrib_qthelp-1.0.7-py3-none-any.whl#sha256=e2ae3b5c492d58fcbd73281fbd27e34b8393ec34a073c792642cd8e529288182"
@@ -2517,8 +2349,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_annotations_linux__snowballstemmer",
-              "reqs_repository_name": "req_compile_test_annotations_linux",
+              "package": "snowballstemmer",
+              "spoke_prefix": "req_compile_test_annotations_linux",
               "sha256": "c8e1716e83cc398ae16824e5572ae04e0d9fc2c6b985fb0f900f5f0c96ecba1a",
               "urls": [
                 "https://files.pythonhosted.org/packages/ed/dc/c02e01294f7265e63a7315fe086dd1df7dacb9f840a804da846b96d01b96/snowballstemmer-2.2.0-py2.py3-none-any.whl#sha256=c8e1716e83cc398ae16824e5572ae04e0d9fc2c6b985fb0f900f5f0c96ecba1a"
@@ -2535,8 +2367,8 @@
               "deps": [
                 "markupsafe"
               ],
-              "package": "req_compile_test_annotations_macos__jinja2",
-              "reqs_repository_name": "req_compile_test_annotations_macos",
+              "package": "jinja2",
+              "spoke_prefix": "req_compile_test_annotations_macos",
               "sha256": "7d6d50dd97d52cbc355597bd845fabfbac3f551e1f99619e39a35ce8c370b5fa",
               "urls": [
                 "https://files.pythonhosted.org/packages/30/6d/6de6be2d02603ab56e72997708809e8a5b0fbfee080735109b40a3564843/Jinja2-3.1.3-py3-none-any.whl#sha256=7d6d50dd97d52cbc355597bd845fabfbac3f551e1f99619e39a35ce8c370b5fa"
@@ -2551,8 +2383,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_annotations_linux__babel",
-              "reqs_repository_name": "req_compile_test_annotations_linux",
+              "package": "babel",
+              "spoke_prefix": "req_compile_test_annotations_linux",
               "sha256": "efb1a25b7118e67ce3a259bed20545c29cb68be8ad2c784c83689981b7a57287",
               "urls": [
                 "https://files.pythonhosted.org/packages/0d/35/4196b21041e29a42dc4f05866d0c94fa26c9da88ce12c38c2265e42c82fb/Babel-2.14.0-py3-none-any.whl#sha256=efb1a25b7118e67ce3a259bed20545c29cb68be8ad2c784c83689981b7a57287"
@@ -2567,8 +2399,8 @@
               "annotations": "\"{\\\"additive_build_file\\\":null,\\\"additive_build_file_content\\\":\\\"\\\",\\\"copy_executables\\\":{},\\\"copy_files\\\":{},\\\"copy_srcs\\\":{},\\\"data\\\":[],\\\"data_exclude_glob\\\":[],\\\"deps\\\":[],\\\"deps_excludes\\\":[\\\"sphinx\\\"],\\\"patches\\\":[],\\\"srcs_exclude_glob\\\":[]}\"",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_annotations_macos__sphinxcontrib_serializinghtml",
-              "reqs_repository_name": "req_compile_test_annotations_macos",
+              "package": "sphinxcontrib_serializinghtml",
+              "spoke_prefix": "req_compile_test_annotations_macos",
               "sha256": "326369b8df80a7d2d8d7f99aa5ac577f51ea51556ed974e7716cfd4fca3f6cb7",
               "urls": [
                 "https://files.pythonhosted.org/packages/38/24/228bb903ea87b9e08ab33470e6102402a644127108c7117ac9c00d849f82/sphinxcontrib_serializinghtml-1.1.10-py3-none-any.whl#sha256=326369b8df80a7d2d8d7f99aa5ac577f51ea51556ed974e7716cfd4fca3f6cb7"
@@ -2583,8 +2415,8 @@
               "annotations": "\"{\\\"additive_build_file\\\":null,\\\"additive_build_file_content\\\":\\\"\\\",\\\"copy_executables\\\":{},\\\"copy_files\\\":{},\\\"copy_srcs\\\":{},\\\"data\\\":[],\\\"data_exclude_glob\\\":[],\\\"deps\\\":[\\\"-sphinx\\\"],\\\"deps_excludes\\\":[],\\\"patches\\\":[],\\\"srcs_exclude_glob\\\":[]}\"",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_annotations_macos__sphinxcontrib_devhelp",
-              "reqs_repository_name": "req_compile_test_annotations_macos",
+              "package": "sphinxcontrib_devhelp",
+              "spoke_prefix": "req_compile_test_annotations_macos",
               "sha256": "6485d09629944511c893fa11355bda18b742b83a2b181f9a009f7e500595c90f",
               "urls": [
                 "https://files.pythonhosted.org/packages/a0/52/1049d918d1d1c72857d285c3f0c64c1cbe0be394ce1c93a3d2aa4f39fe3b/sphinxcontrib_devhelp-1.0.6-py3-none-any.whl#sha256=6485d09629944511c893fa11355bda18b742b83a2b181f9a009f7e500595c90f"
@@ -2601,8 +2433,8 @@
               "deps": [
                 "markupsafe"
               ],
-              "package": "req_compile_test_annotations_windows__jinja2",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "jinja2",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "7d6d50dd97d52cbc355597bd845fabfbac3f551e1f99619e39a35ce8c370b5fa",
               "urls": [
                 "https://files.pythonhosted.org/packages/30/6d/6de6be2d02603ab56e72997708809e8a5b0fbfee080735109b40a3564843/Jinja2-3.1.3-py3-none-any.whl#sha256=7d6d50dd97d52cbc355597bd845fabfbac3f551e1f99619e39a35ce8c370b5fa"
@@ -2617,8 +2449,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_annotations_linux__alabaster",
-              "reqs_repository_name": "req_compile_test_annotations_linux",
+              "package": "alabaster",
+              "spoke_prefix": "req_compile_test_annotations_linux",
               "sha256": "b46733c07dce03ae4e150330b975c75737fa60f0a7c591b6c8bf4928a28e2c92",
               "urls": [
                 "https://files.pythonhosted.org/packages/32/34/d4e1c02d3bee589efb5dfa17f88ea08bdb3e3eac12bc475462aec52ed223/alabaster-0.7.16-py3-none-any.whl#sha256=b46733c07dce03ae4e150330b975c75737fa60f0a7c591b6c8bf4928a28e2c92"
@@ -2633,8 +2465,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_annotations_macos__babel",
-              "reqs_repository_name": "req_compile_test_annotations_macos",
+              "package": "babel",
+              "spoke_prefix": "req_compile_test_annotations_macos",
               "sha256": "efb1a25b7118e67ce3a259bed20545c29cb68be8ad2c784c83689981b7a57287",
               "urls": [
                 "https://files.pythonhosted.org/packages/0d/35/4196b21041e29a42dc4f05866d0c94fa26c9da88ce12c38c2265e42c82fb/Babel-2.14.0-py3-none-any.whl#sha256=efb1a25b7118e67ce3a259bed20545c29cb68be8ad2c784c83689981b7a57287"
@@ -2649,8 +2481,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_annotations_linux__imagesize",
-              "reqs_repository_name": "req_compile_test_annotations_linux",
+              "package": "imagesize",
+              "spoke_prefix": "req_compile_test_annotations_linux",
               "sha256": "0d8d18d08f840c19d0ee7ca1fd82490fdc3729b7ac93f49870406ddde8ef8d8b",
               "urls": [
                 "https://files.pythonhosted.org/packages/ff/62/85c4c919272577931d407be5ba5d71c20f0b616d31a0befe0ae45bb79abd/imagesize-1.4.1-py2.py3-none-any.whl#sha256=0d8d18d08f840c19d0ee7ca1fd82490fdc3729b7ac93f49870406ddde8ef8d8b"
@@ -2665,8 +2497,8 @@
               "annotations": "\"{\\\"additive_build_file\\\":null,\\\"additive_build_file_content\\\":\\\"\\\",\\\"copy_executables\\\":{},\\\"copy_files\\\":{},\\\"copy_srcs\\\":{},\\\"data\\\":[],\\\"data_exclude_glob\\\":[],\\\"deps\\\":[],\\\"deps_excludes\\\":[\\\"sphinx\\\"],\\\"patches\\\":[],\\\"srcs_exclude_glob\\\":[]}\"",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_annotations_windows__sphinxcontrib_serializinghtml",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "sphinxcontrib_serializinghtml",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "326369b8df80a7d2d8d7f99aa5ac577f51ea51556ed974e7716cfd4fca3f6cb7",
               "urls": [
                 "https://files.pythonhosted.org/packages/38/24/228bb903ea87b9e08ab33470e6102402a644127108c7117ac9c00d849f82/sphinxcontrib_serializinghtml-1.1.10-py3-none-any.whl#sha256=326369b8df80a7d2d8d7f99aa5ac577f51ea51556ed974e7716cfd4fca3f6cb7"
@@ -2681,8 +2513,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_annotations_macos__urllib3",
-              "reqs_repository_name": "req_compile_test_annotations_macos",
+              "package": "urllib3",
+              "spoke_prefix": "req_compile_test_annotations_macos",
               "sha256": "450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d",
               "urls": [
                 "https://files.pythonhosted.org/packages/a2/73/a68704750a7679d0b6d3ad7aa8d4da8e14e151ae82e6fee774e6e0d05ec8/urllib3-2.2.1-py3-none-any.whl#sha256=450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d"
@@ -2697,8 +2529,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_annotations_windows__babel",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "babel",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "efb1a25b7118e67ce3a259bed20545c29cb68be8ad2c784c83689981b7a57287",
               "urls": [
                 "https://files.pythonhosted.org/packages/0d/35/4196b21041e29a42dc4f05866d0c94fa26c9da88ce12c38c2265e42c82fb/Babel-2.14.0-py3-none-any.whl#sha256=efb1a25b7118e67ce3a259bed20545c29cb68be8ad2c784c83689981b7a57287"
@@ -2713,8 +2545,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_annotations_macos__certifi",
-              "reqs_repository_name": "req_compile_test_annotations_macos",
+              "package": "certifi",
+              "spoke_prefix": "req_compile_test_annotations_macos",
               "sha256": "dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1",
               "urls": [
                 "https://files.pythonhosted.org/packages/ba/06/a07f096c664aeb9f01624f858c3add0a4e913d6c96257acb4fce61e7de14/certifi-2024.2.2-py3-none-any.whl#sha256=dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1"
@@ -2729,8 +2561,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_annotations_windows__idna",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "idna",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f",
               "urls": [
                 "https://files.pythonhosted.org/packages/c2/e7/a82b05cf63a603df6e68d59ae6a68bf5064484a0718ea5033660af4b54a9/idna-3.6-py3-none-any.whl#sha256=c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f"
@@ -2745,8 +2577,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_annotations_macos__docutils",
-              "reqs_repository_name": "req_compile_test_annotations_macos",
+              "package": "docutils",
+              "spoke_prefix": "req_compile_test_annotations_macos",
               "sha256": "96f387a2c5562db4476f09f13bbab2192e764cac08ebbf3a34a95d9b1e4a59d6",
               "urls": [
                 "https://files.pythonhosted.org/packages/26/87/f238c0670b94533ac0353a4e2a1a771a0cc73277b88bff23d3ae35a256c1/docutils-0.20.1-py3-none-any.whl#sha256=96f387a2c5562db4476f09f13bbab2192e764cac08ebbf3a34a95d9b1e4a59d6"
@@ -2761,8 +2593,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_annotations_windows__colorama",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "colorama",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6",
               "urls": [
                 "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl#sha256=4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"
@@ -2777,8 +2609,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_annotations_windows__snowballstemmer",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "snowballstemmer",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "c8e1716e83cc398ae16824e5572ae04e0d9fc2c6b985fb0f900f5f0c96ecba1a",
               "urls": [
                 "https://files.pythonhosted.org/packages/ed/dc/c02e01294f7265e63a7315fe086dd1df7dacb9f840a804da846b96d01b96/snowballstemmer-2.2.0-py2.py3-none-any.whl#sha256=c8e1716e83cc398ae16824e5572ae04e0d9fc2c6b985fb0f900f5f0c96ecba1a"
@@ -2798,8 +2630,8 @@
                 "idna",
                 "urllib3"
               ],
-              "package": "req_compile_test_annotations_linux__requests",
-              "reqs_repository_name": "req_compile_test_annotations_linux",
+              "package": "requests",
+              "spoke_prefix": "req_compile_test_annotations_linux",
               "sha256": "58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f",
               "urls": [
                 "https://files.pythonhosted.org/packages/70/8e/0e2d847013cb52cd35b38c009bb167a1a26b2ce6cd6965bf26b47bc0bf44/requests-2.31.0-py3-none-any.whl#sha256=58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f"
@@ -2814,8 +2646,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_annotations_linux__idna",
-              "reqs_repository_name": "req_compile_test_annotations_linux",
+              "package": "idna",
+              "spoke_prefix": "req_compile_test_annotations_linux",
               "sha256": "c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f",
               "urls": [
                 "https://files.pythonhosted.org/packages/c2/e7/a82b05cf63a603df6e68d59ae6a68bf5064484a0718ea5033660af4b54a9/idna-3.6-py3-none-any.whl#sha256=c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f"
@@ -2830,8 +2662,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_annotations_windows__certifi",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "certifi",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1",
               "urls": [
                 "https://files.pythonhosted.org/packages/ba/06/a07f096c664aeb9f01624f858c3add0a4e913d6c96257acb4fce61e7de14/certifi-2024.2.2-py3-none-any.whl#sha256=dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1"
@@ -2846,8 +2678,8 @@
               "annotations": "\"{\\\"additive_build_file\\\":null,\\\"additive_build_file_content\\\":\\\"load(\\\\\\\"@rules_cc//cc:defs.bzl\\\\\\\", \\\\\\\"cc_library\\\\\\\")\\\\nload(\\\\\\\"@rules_req_compile//:defs.bzl\\\\\\\", \\\\\\\"py_package_annotation_target\\\\\\\")\\\\n\\\\n_INCLUDE_DIR = \\\\\\\"site-packages/numpy/core/include\\\\\\\"\\\\n\\\\ncc_library(\\\\n    name = \\\\\\\"headers\\\\\\\",\\\\n    hdrs = glob([\\\\\\\"{}/**/*.h\\\\\\\".format(_INCLUDE_DIR)]),\\\\n    includes = [_INCLUDE_DIR],\\\\n)\\\\n\\\\npy_package_annotation_target(\\\\n    name = \\\\\\\"pkg.headers\\\\\\\",\\\\n    target = \\\\\\\":headers\\\\\\\",\\\\n)\\\\n\\\",\\\"copy_executables\\\":{\\\"site-packages/numpy/testing/setup.py\\\":\\\"site-packages/numpy/testing/setup.copy.py\\\"},\\\"copy_files\\\":{\\\"site-packages/numpy-1.26.4.dist-info/entry_points.txt\\\":\\\"site-packages/numpy-1.26.4.dist-info/entry_points.copy.txt\\\"},\\\"copy_srcs\\\":{\\\"site-packages/numpy/conftest.py\\\":\\\"site-packages/numpy/conftest.copy.py\\\"},\\\"data\\\":[\\\":pkg.headers\\\"],\\\"data_exclude_glob\\\":[],\\\"deps\\\":[\\\"@rules_python//python/runfiles\\\"],\\\"deps_excludes\\\":[],\\\"patches\\\":[\\\"@@//private/tests/annotations:numpy.patch\\\"],\\\"srcs_exclude_glob\\\":[]}\"",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_annotations_windows__numpy",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "numpy",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "cd25bcecc4974d09257ffcd1f098ee778f7834c3ad767fe5db785be9a4aa9cb2",
               "urls": [
                 "https://files.pythonhosted.org/packages/3f/6b/5610004206cf7f8e7ad91c5a85a8c71b2f2f8051a0c0c4d5916b76d6cbb2/numpy-1.26.4-cp311-cp311-win_amd64.whl#sha256=cd25bcecc4974d09257ffcd1f098ee778f7834c3ad767fe5db785be9a4aa9cb2"
@@ -2878,8 +2710,8 @@
                 "sphinxcontrib_qthelp",
                 "sphinxcontrib_serializinghtml"
               ],
-              "package": "req_compile_test_annotations_linux__sphinx",
-              "reqs_repository_name": "req_compile_test_annotations_linux",
+              "package": "sphinx",
+              "spoke_prefix": "req_compile_test_annotations_linux",
               "sha256": "1e09160a40b956dc623c910118fa636da93bd3ca0b9876a7b3df90f07d691560",
               "urls": [
                 "https://files.pythonhosted.org/packages/b2/b6/8ed35256aa530a9d3da15d20bdc0ba888d5364441bb50a5a83ee7827affe/sphinx-7.2.6-py3-none-any.whl#sha256=1e09160a40b956dc623c910118fa636da93bd3ca0b9876a7b3df90f07d691560"
@@ -2894,8 +2726,8 @@
               "annotations": "\"{\\\"additive_build_file\\\":null,\\\"additive_build_file_content\\\":\\\"\\\",\\\"copy_executables\\\":{},\\\"copy_files\\\":{},\\\"copy_srcs\\\":{},\\\"data\\\":[],\\\"data_exclude_glob\\\":[],\\\"deps\\\":[\\\"-sphinx\\\"],\\\"deps_excludes\\\":[],\\\"patches\\\":[],\\\"srcs_exclude_glob\\\":[]}\"",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_annotations_macos__sphinxcontrib_htmlhelp",
-              "reqs_repository_name": "req_compile_test_annotations_macos",
+              "package": "sphinxcontrib_htmlhelp",
+              "spoke_prefix": "req_compile_test_annotations_macos",
               "sha256": "393f04f112b4d2f53d93448d4bce35842f62b307ccdc549ec1585e950bc35e04",
               "urls": [
                 "https://files.pythonhosted.org/packages/c2/e9/74c4cda5b409af3222fda38f0774e616011bc935f639dbc0da5ca2d1be7d/sphinxcontrib_htmlhelp-2.0.5-py3-none-any.whl#sha256=393f04f112b4d2f53d93448d4bce35842f62b307ccdc549ec1585e950bc35e04"
@@ -2910,8 +2742,8 @@
               "annotations": "\"{\\\"additive_build_file\\\":null,\\\"additive_build_file_content\\\":\\\"\\\",\\\"copy_executables\\\":{},\\\"copy_files\\\":{},\\\"copy_srcs\\\":{},\\\"data\\\":[],\\\"data_exclude_glob\\\":[],\\\"deps\\\":[\\\"-sphinx\\\"],\\\"deps_excludes\\\":[],\\\"patches\\\":[],\\\"srcs_exclude_glob\\\":[]}\"",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_annotations_windows__sphinxcontrib_devhelp",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "sphinxcontrib_devhelp",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "6485d09629944511c893fa11355bda18b742b83a2b181f9a009f7e500595c90f",
               "urls": [
                 "https://files.pythonhosted.org/packages/a0/52/1049d918d1d1c72857d285c3f0c64c1cbe0be394ce1c93a3d2aa4f39fe3b/sphinxcontrib_devhelp-1.0.6-py3-none-any.whl#sha256=6485d09629944511c893fa11355bda18b742b83a2b181f9a009f7e500595c90f"
@@ -2926,8 +2758,8 @@
               "annotations": "\"{\\\"additive_build_file\\\":null,\\\"additive_build_file_content\\\":\\\"load(\\\\\\\"@rules_cc//cc:defs.bzl\\\\\\\", \\\\\\\"cc_library\\\\\\\")\\\\nload(\\\\\\\"@rules_req_compile//:defs.bzl\\\\\\\", \\\\\\\"py_package_annotation_target\\\\\\\")\\\\n\\\\n_INCLUDE_DIR = \\\\\\\"site-packages/numpy/core/include\\\\\\\"\\\\n\\\\ncc_library(\\\\n    name = \\\\\\\"headers\\\\\\\",\\\\n    hdrs = glob([\\\\\\\"{}/**/*.h\\\\\\\".format(_INCLUDE_DIR)]),\\\\n    includes = [_INCLUDE_DIR],\\\\n)\\\\n\\\\npy_package_annotation_target(\\\\n    name = \\\\\\\"pkg.headers\\\\\\\",\\\\n    target = \\\\\\\":headers\\\\\\\",\\\\n)\\\\n\\\",\\\"copy_executables\\\":{\\\"site-packages/numpy/testing/setup.py\\\":\\\"site-packages/numpy/testing/setup.copy.py\\\"},\\\"copy_files\\\":{\\\"site-packages/numpy-1.26.4.dist-info/entry_points.txt\\\":\\\"site-packages/numpy-1.26.4.dist-info/entry_points.copy.txt\\\"},\\\"copy_srcs\\\":{\\\"site-packages/numpy/conftest.py\\\":\\\"site-packages/numpy/conftest.copy.py\\\"},\\\"data\\\":[\\\":pkg.headers\\\"],\\\"data_exclude_glob\\\":[],\\\"deps\\\":[\\\"@rules_python//python/runfiles\\\"],\\\"deps_excludes\\\":[],\\\"patches\\\":[\\\"@@//private/tests/annotations:numpy.patch\\\"],\\\"srcs_exclude_glob\\\":[]}\"",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_annotations_macos__numpy",
-              "reqs_repository_name": "req_compile_test_annotations_macos",
+              "package": "numpy",
+              "spoke_prefix": "req_compile_test_annotations_macos",
               "sha256": "edd8b5fe47dab091176d21bb6de568acdd906d1887a4584a15a9a96a1dca06ef",
               "urls": [
                 "https://files.pythonhosted.org/packages/1a/2e/151484f49fd03944c4a3ad9c418ed193cfd02724e138ac8a9505d056c582/numpy-1.26.4-cp311-cp311-macosx_11_0_arm64.whl#sha256=edd8b5fe47dab091176d21bb6de568acdd906d1887a4584a15a9a96a1dca06ef"
@@ -2942,8 +2774,8 @@
               "annotations": "\"{\\\"additive_build_file\\\":null,\\\"additive_build_file_content\\\":\\\"\\\",\\\"copy_executables\\\":{},\\\"copy_files\\\":{},\\\"copy_srcs\\\":{},\\\"data\\\":[],\\\"data_exclude_glob\\\":[],\\\"deps\\\":[\\\"-sphinx\\\"],\\\"deps_excludes\\\":[],\\\"patches\\\":[],\\\"srcs_exclude_glob\\\":[]}\"",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_annotations_macos__sphinxcontrib_jsmath",
-              "reqs_repository_name": "req_compile_test_annotations_macos",
+              "package": "sphinxcontrib_jsmath",
+              "spoke_prefix": "req_compile_test_annotations_macos",
               "sha256": "2ec2eaebfb78f3f2078e73666b1415417a116cc848b72e5172e596c871103178",
               "urls": [
                 "https://files.pythonhosted.org/packages/c2/42/4c8646762ee83602e3fb3fbe774c2fac12f317deb0b5dbeeedd2d3ba4b77/sphinxcontrib_jsmath-1.0.1-py2.py3-none-any.whl#sha256=2ec2eaebfb78f3f2078e73666b1415417a116cc848b72e5172e596c871103178"
@@ -2958,8 +2790,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_annotations_macos__markupsafe",
-              "reqs_repository_name": "req_compile_test_annotations_macos",
+              "package": "markupsafe",
+              "spoke_prefix": "req_compile_test_annotations_macos",
               "sha256": "629ddd2ca402ae6dbedfceeba9c46d5f7b2a61d9749597d4307f943ef198fc1f",
               "urls": [
                 "https://files.pythonhosted.org/packages/11/e7/291e55127bb2ae67c64d66cef01432b5933859dfb7d6949daa721b89d0b3/MarkupSafe-2.1.5-cp311-cp311-macosx_10_9_universal2.whl#sha256=629ddd2ca402ae6dbedfceeba9c46d5f7b2a61d9749597d4307f943ef198fc1f"
@@ -2974,8 +2806,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_annotations_windows__charset_normalizer",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "charset_normalizer",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "663946639d296df6a2bb2aa51b60a2454ca1cb29835324c640dafb5ff2131a77",
               "urls": [
                 "https://files.pythonhosted.org/packages/57/ec/80c8d48ac8b1741d5b963797b7c0c869335619e13d4744ca2f67fc11c6fc/charset_normalizer-3.3.2-cp311-cp311-win_amd64.whl#sha256=663946639d296df6a2bb2aa51b60a2454ca1cb29835324c640dafb5ff2131a77"
@@ -2990,8 +2822,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_annotations_windows__packaging",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "packaging",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5",
               "urls": [
                 "https://files.pythonhosted.org/packages/49/df/1fceb2f8900f8639e278b056416d49134fb8d84c5942ffaa01ad34782422/packaging-24.0-py3-none-any.whl#sha256=2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5"
@@ -3006,8 +2838,8 @@
               "annotations": "\"{\\\"additive_build_file\\\":null,\\\"additive_build_file_content\\\":\\\"\\\",\\\"copy_executables\\\":{},\\\"copy_files\\\":{},\\\"copy_srcs\\\":{},\\\"data\\\":[],\\\"data_exclude_glob\\\":[],\\\"deps\\\":[\\\"-sphinx\\\"],\\\"deps_excludes\\\":[],\\\"patches\\\":[],\\\"srcs_exclude_glob\\\":[]}\"",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_annotations_linux__sphinxcontrib_devhelp",
-              "reqs_repository_name": "req_compile_test_annotations_linux",
+              "package": "sphinxcontrib_devhelp",
+              "spoke_prefix": "req_compile_test_annotations_linux",
               "sha256": "6485d09629944511c893fa11355bda18b742b83a2b181f9a009f7e500595c90f",
               "urls": [
                 "https://files.pythonhosted.org/packages/a0/52/1049d918d1d1c72857d285c3f0c64c1cbe0be394ce1c93a3d2aa4f39fe3b/sphinxcontrib_devhelp-1.0.6-py3-none-any.whl#sha256=6485d09629944511c893fa11355bda18b742b83a2b181f9a009f7e500595c90f"
@@ -3027,8 +2859,8 @@
                 "idna",
                 "urllib3"
               ],
-              "package": "req_compile_test_annotations_macos__requests",
-              "reqs_repository_name": "req_compile_test_annotations_macos",
+              "package": "requests",
+              "spoke_prefix": "req_compile_test_annotations_macos",
               "sha256": "58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f",
               "urls": [
                 "https://files.pythonhosted.org/packages/70/8e/0e2d847013cb52cd35b38c009bb167a1a26b2ce6cd6965bf26b47bc0bf44/requests-2.31.0-py3-none-any.whl#sha256=58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f"
@@ -3043,8 +2875,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_annotations_linux__pygments",
-              "reqs_repository_name": "req_compile_test_annotations_linux",
+              "package": "pygments",
+              "spoke_prefix": "req_compile_test_annotations_linux",
               "sha256": "b27c2826c47d0f3219f29554824c30c5e8945175d888647acd804ddd04af846c",
               "urls": [
                 "https://files.pythonhosted.org/packages/97/9c/372fef8377a6e340b1704768d20daaded98bf13282b5327beb2e2fe2c7ef/pygments-2.17.2-py3-none-any.whl#sha256=b27c2826c47d0f3219f29554824c30c5e8945175d888647acd804ddd04af846c"
@@ -3076,8 +2908,8 @@
                 "sphinxcontrib_qthelp",
                 "sphinxcontrib_serializinghtml"
               ],
-              "package": "req_compile_test_annotations_windows__sphinx",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "sphinx",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "1e09160a40b956dc623c910118fa636da93bd3ca0b9876a7b3df90f07d691560",
               "urls": [
                 "https://files.pythonhosted.org/packages/b2/b6/8ed35256aa530a9d3da15d20bdc0ba888d5364441bb50a5a83ee7827affe/sphinx-7.2.6-py3-none-any.whl#sha256=1e09160a40b956dc623c910118fa636da93bd3ca0b9876a7b3df90f07d691560"
@@ -3092,8 +2924,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_annotations_windows__urllib3",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "urllib3",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d",
               "urls": [
                 "https://files.pythonhosted.org/packages/a2/73/a68704750a7679d0b6d3ad7aa8d4da8e14e151ae82e6fee774e6e0d05ec8/urllib3-2.2.1-py3-none-any.whl#sha256=450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d"
@@ -3108,8 +2940,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_annotations_linux__markupsafe",
-              "reqs_repository_name": "req_compile_test_annotations_linux",
+              "package": "markupsafe",
+              "spoke_prefix": "req_compile_test_annotations_linux",
               "sha256": "b91c037585eba9095565a3556f611e3cbfaa42ca1e865f7b8015fe5c7336d5a5",
               "urls": [
                 "https://files.pythonhosted.org/packages/97/18/c30da5e7a0e7f4603abfc6780574131221d9148f323752c2755d48abad30/MarkupSafe-2.1.5-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl#sha256=b91c037585eba9095565a3556f611e3cbfaa42ca1e865f7b8015fe5c7336d5a5"
@@ -3124,8 +2956,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_annotations_macos__alabaster",
-              "reqs_repository_name": "req_compile_test_annotations_macos",
+              "package": "alabaster",
+              "spoke_prefix": "req_compile_test_annotations_macos",
               "sha256": "b46733c07dce03ae4e150330b975c75737fa60f0a7c591b6c8bf4928a28e2c92",
               "urls": [
                 "https://files.pythonhosted.org/packages/32/34/d4e1c02d3bee589efb5dfa17f88ea08bdb3e3eac12bc475462aec52ed223/alabaster-0.7.16-py3-none-any.whl#sha256=b46733c07dce03ae4e150330b975c75737fa60f0a7c591b6c8bf4928a28e2c92"
@@ -3140,8 +2972,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_annotations_windows__imagesize",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "imagesize",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "0d8d18d08f840c19d0ee7ca1fd82490fdc3729b7ac93f49870406ddde8ef8d8b",
               "urls": [
                 "https://files.pythonhosted.org/packages/ff/62/85c4c919272577931d407be5ba5d71c20f0b616d31a0befe0ae45bb79abd/imagesize-1.4.1-py2.py3-none-any.whl#sha256=0d8d18d08f840c19d0ee7ca1fd82490fdc3729b7ac93f49870406ddde8ef8d8b"
@@ -3172,8 +3004,8 @@
                 "sphinxcontrib_qthelp",
                 "sphinxcontrib_serializinghtml"
               ],
-              "package": "req_compile_test_annotations_macos__sphinx",
-              "reqs_repository_name": "req_compile_test_annotations_macos",
+              "package": "sphinx",
+              "spoke_prefix": "req_compile_test_annotations_macos",
               "sha256": "1e09160a40b956dc623c910118fa636da93bd3ca0b9876a7b3df90f07d691560",
               "urls": [
                 "https://files.pythonhosted.org/packages/b2/b6/8ed35256aa530a9d3da15d20bdc0ba888d5364441bb50a5a83ee7827affe/sphinx-7.2.6-py3-none-any.whl#sha256=1e09160a40b956dc623c910118fa636da93bd3ca0b9876a7b3df90f07d691560"
@@ -3188,8 +3020,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_annotations_linux__charset_normalizer",
-              "reqs_repository_name": "req_compile_test_annotations_linux",
+              "package": "charset_normalizer",
+              "spoke_prefix": "req_compile_test_annotations_linux",
               "sha256": "753f10e867343b4511128c6ed8c82f7bec3bd026875576dfd88483c5c73b2fd8",
               "urls": [
                 "https://files.pythonhosted.org/packages/40/26/f35951c45070edc957ba40a5b1db3cf60a9dbb1b350c2d5bef03e01e61de/charset_normalizer-3.3.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl#sha256=753f10e867343b4511128c6ed8c82f7bec3bd026875576dfd88483c5c73b2fd8"
@@ -3204,8 +3036,8 @@
               "annotations": "\"{\\\"additive_build_file\\\":null,\\\"additive_build_file_content\\\":\\\"\\\",\\\"copy_executables\\\":{},\\\"copy_files\\\":{},\\\"copy_srcs\\\":{},\\\"data\\\":[],\\\"data_exclude_glob\\\":[],\\\"deps\\\":[\\\"-sphinx\\\"],\\\"deps_excludes\\\":[],\\\"patches\\\":[],\\\"srcs_exclude_glob\\\":[]}\"",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_annotations_macos__sphinxcontrib_applehelp",
-              "reqs_repository_name": "req_compile_test_annotations_macos",
+              "package": "sphinxcontrib_applehelp",
+              "spoke_prefix": "req_compile_test_annotations_macos",
               "sha256": "cb61eb0ec1b61f349e5cc36b2028e9e7ca765be05e49641c97241274753067b4",
               "urls": [
                 "https://files.pythonhosted.org/packages/56/89/fea3fbf6785b388e6cb8a1beaf62f96e80b37311bdeed6e133388a732426/sphinxcontrib_applehelp-1.0.8-py3-none-any.whl#sha256=cb61eb0ec1b61f349e5cc36b2028e9e7ca765be05e49641c97241274753067b4"
@@ -3220,8 +3052,8 @@
               "annotations": "\"{\\\"additive_build_file\\\":null,\\\"additive_build_file_content\\\":\\\"\\\",\\\"copy_executables\\\":{},\\\"copy_files\\\":{},\\\"copy_srcs\\\":{},\\\"data\\\":[],\\\"data_exclude_glob\\\":[],\\\"deps\\\":[],\\\"deps_excludes\\\":[\\\"sphinx\\\"],\\\"patches\\\":[],\\\"srcs_exclude_glob\\\":[]}\"",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_annotations_linux__sphinxcontrib_serializinghtml",
-              "reqs_repository_name": "req_compile_test_annotations_linux",
+              "package": "sphinxcontrib_serializinghtml",
+              "spoke_prefix": "req_compile_test_annotations_linux",
               "sha256": "326369b8df80a7d2d8d7f99aa5ac577f51ea51556ed974e7716cfd4fca3f6cb7",
               "urls": [
                 "https://files.pythonhosted.org/packages/38/24/228bb903ea87b9e08ab33470e6102402a644127108c7117ac9c00d849f82/sphinxcontrib_serializinghtml-1.1.10-py3-none-any.whl#sha256=326369b8df80a7d2d8d7f99aa5ac577f51ea51556ed974e7716cfd4fca3f6cb7"
@@ -3236,8 +3068,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_annotations_macos__charset_normalizer",
-              "reqs_repository_name": "req_compile_test_annotations_macos",
+              "package": "charset_normalizer",
+              "spoke_prefix": "req_compile_test_annotations_macos",
               "sha256": "549a3a73da901d5bc3ce8d24e0600d1fa85524c10287f6004fbab87672bf3e1e",
               "urls": [
                 "https://files.pythonhosted.org/packages/dd/51/68b61b90b24ca35495956b718f35a9756ef7d3dd4b3c1508056fa98d1a1b/charset_normalizer-3.3.2-cp311-cp311-macosx_11_0_arm64.whl#sha256=549a3a73da901d5bc3ce8d24e0600d1fa85524c10287f6004fbab87672bf3e1e"
@@ -3252,8 +3084,8 @@
               "annotations": "\"{\\\"additive_build_file\\\":null,\\\"additive_build_file_content\\\":\\\"\\\",\\\"copy_executables\\\":{},\\\"copy_files\\\":{},\\\"copy_srcs\\\":{},\\\"data\\\":[],\\\"data_exclude_glob\\\":[],\\\"deps\\\":[\\\"-sphinx\\\"],\\\"deps_excludes\\\":[],\\\"patches\\\":[],\\\"srcs_exclude_glob\\\":[]}\"",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_annotations_linux__sphinxcontrib_qthelp",
-              "reqs_repository_name": "req_compile_test_annotations_linux",
+              "package": "sphinxcontrib_qthelp",
+              "spoke_prefix": "req_compile_test_annotations_linux",
               "sha256": "e2ae3b5c492d58fcbd73281fbd27e34b8393ec34a073c792642cd8e529288182",
               "urls": [
                 "https://files.pythonhosted.org/packages/80/b3/1beac14a88654d2e5120d0143b49be5ad450b86eb1963523d8dbdcc51eb2/sphinxcontrib_qthelp-1.0.7-py3-none-any.whl#sha256=e2ae3b5c492d58fcbd73281fbd27e34b8393ec34a073c792642cd8e529288182"
@@ -3268,8 +3100,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_annotations_linux__packaging",
-              "reqs_repository_name": "req_compile_test_annotations_linux",
+              "package": "packaging",
+              "spoke_prefix": "req_compile_test_annotations_linux",
               "sha256": "2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5",
               "urls": [
                 "https://files.pythonhosted.org/packages/49/df/1fceb2f8900f8639e278b056416d49134fb8d84c5942ffaa01ad34782422/packaging-24.0-py3-none-any.whl#sha256=2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5"
@@ -3284,8 +3116,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_annotations_macos__imagesize",
-              "reqs_repository_name": "req_compile_test_annotations_macos",
+              "package": "imagesize",
+              "spoke_prefix": "req_compile_test_annotations_macos",
               "sha256": "0d8d18d08f840c19d0ee7ca1fd82490fdc3729b7ac93f49870406ddde8ef8d8b",
               "urls": [
                 "https://files.pythonhosted.org/packages/ff/62/85c4c919272577931d407be5ba5d71c20f0b616d31a0befe0ae45bb79abd/imagesize-1.4.1-py2.py3-none-any.whl#sha256=0d8d18d08f840c19d0ee7ca1fd82490fdc3729b7ac93f49870406ddde8ef8d8b"
@@ -3300,8 +3132,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_annotations_windows__alabaster",
-              "reqs_repository_name": "req_compile_test_annotations_windows",
+              "package": "alabaster",
+              "spoke_prefix": "req_compile_test_annotations_windows",
               "sha256": "b46733c07dce03ae4e150330b975c75737fa60f0a7c591b6c8bf4928a28e2c92",
               "urls": [
                 "https://files.pythonhosted.org/packages/32/34/d4e1c02d3bee589efb5dfa17f88ea08bdb3e3eac12bc475462aec52ed223/alabaster-0.7.16-py3-none-any.whl#sha256=b46733c07dce03ae4e150330b975c75737fa60f0a7c591b6c8bf4928a28e2c92"
@@ -3316,8 +3148,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_annotations_linux__certifi",
-              "reqs_repository_name": "req_compile_test_annotations_linux",
+              "package": "certifi",
+              "spoke_prefix": "req_compile_test_annotations_linux",
               "sha256": "dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1",
               "urls": [
                 "https://files.pythonhosted.org/packages/ba/06/a07f096c664aeb9f01624f858c3add0a4e913d6c96257acb4fce61e7de14/certifi-2024.2.2-py3-none-any.whl#sha256=dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1"
@@ -3332,8 +3164,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_annotations_linux__docutils",
-              "reqs_repository_name": "req_compile_test_annotations_linux",
+              "package": "docutils",
+              "spoke_prefix": "req_compile_test_annotations_linux",
               "sha256": "96f387a2c5562db4476f09f13bbab2192e764cac08ebbf3a34a95d9b1e4a59d6",
               "urls": [
                 "https://files.pythonhosted.org/packages/26/87/f238c0670b94533ac0353a4e2a1a771a0cc73277b88bff23d3ae35a256c1/docutils-0.20.1-py3-none-any.whl#sha256=96f387a2c5562db4476f09f13bbab2192e764cac08ebbf3a34a95d9b1e4a59d6"
@@ -3348,8 +3180,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_annotations_linux__urllib3",
-              "reqs_repository_name": "req_compile_test_annotations_linux",
+              "package": "urllib3",
+              "spoke_prefix": "req_compile_test_annotations_linux",
               "sha256": "450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d",
               "urls": [
                 "https://files.pythonhosted.org/packages/a2/73/a68704750a7679d0b6d3ad7aa8d4da8e14e151ae82e6fee774e6e0d05ec8/urllib3-2.2.1-py3-none-any.whl#sha256=450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d"
@@ -3359,6 +3191,11 @@
           }
         },
         "recordedRepoMappingEntries": [
+          [
+            "",
+            "bazel_tools",
+            "bazel_tools"
+          ],
           [
             "",
             "platforms",
@@ -3384,7 +3221,7 @@
     },
     "//extensions:python.bzl%requirements%<root>~test_cross_platform": {
       "general": {
-        "bzlTransitiveDigest": "dV8rzIcJmMW+Ynm3WqCYCykiPvwGB8UDBPT6IPvufhI=",
+        "bzlTransitiveDigest": "4b3zaF+MKOdXePKk9zwMSvK8IM+aJRupJFn12iEoFJQ=",
         "usagesDigest": "GESr+C8X9C1VKvrvetZearzRcpyT0hJMIYP47DPermk=",
         "recordedFileInputs": {
           "@@//private/tests/cross_platform/requirements.windows.txt": "c36c57bf4244b05fd32ea0472c1c364d1a2664bb0981013045bb44ce91f337ba",
@@ -3395,36 +3232,15 @@
         "envVariables": {},
         "generatedRepoSpecs": {
           "req_compile_test_cross_platform": {
-            "bzlFile": "@@//extensions:python.bzl",
-            "ruleClassName": "reqs_hub",
+            "bzlFile": "@@//private:reqs_repo.bzl",
+            "ruleClassName": "py_requirements_repository",
             "attributes": {
               "hub_name": "req_compile_test_cross_platform",
-              "defs": {
-                "linux": "'@@platforms//os:linux'",
-                "macos": "'@@platforms//os:macos'",
-                "windows": "'@@platforms//os:windows'"
-              },
-              "packages": [
-                "black",
-                "click",
-                "mypy_extensions",
-                "packaging",
-                "pathspec",
-                "platformdirs",
-                "black",
-                "click",
-                "mypy_extensions",
-                "packaging",
-                "pathspec",
-                "platformdirs",
-                "black",
-                "click",
-                "colorama",
-                "mypy_extensions",
-                "packaging",
-                "pathspec",
-                "platformdirs"
-              ]
+              "requirements_locks": {
+                "@@//private/tests/cross_platform:requirements.linux.txt": "@platforms//os:linux",
+                "@@//private/tests/cross_platform:requirements.macos.txt": "@platforms//os:macos",
+                "@@//private/tests/cross_platform:requirements.windows.txt": "@platforms//os:windows"
+              }
             }
           },
           "req_compile_test_cross_platform_windows__packaging": {
@@ -3434,8 +3250,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_cross_platform_windows__packaging",
-              "reqs_repository_name": "req_compile_test_cross_platform_windows",
+              "package": "packaging",
+              "spoke_prefix": "req_compile_test_cross_platform_windows",
               "sha256": "5b8f2217dbdbd2f7f384c41c628544e6d52f2d0f53c6d0c3ea61aa5d1d7ff124",
               "urls": [
                 "https://files.pythonhosted.org/packages/08/aa/cc0199a5f0ad350994d660967a8efb233fe0416e4639146c089643407ce6/packaging-24.1-py3-none-any.whl#sha256=5b8f2217dbdbd2f7f384c41c628544e6d52f2d0f53c6d0c3ea61aa5d1d7ff124"
@@ -3450,8 +3266,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_cross_platform_linux__mypy_extensions",
-              "reqs_repository_name": "req_compile_test_cross_platform_linux",
+              "package": "mypy_extensions",
+              "spoke_prefix": "req_compile_test_cross_platform_linux",
               "sha256": "4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d",
               "urls": [
                 "https://files.pythonhosted.org/packages/2a/e2/5d3f6ada4297caebe1a2add3b126fe800c96f56dbe5d1988a2cbe0b267aa/mypy_extensions-1.0.0-py3-none-any.whl#sha256=4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d"
@@ -3466,8 +3282,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_cross_platform_linux__pathspec",
-              "reqs_repository_name": "req_compile_test_cross_platform_linux",
+              "package": "pathspec",
+              "spoke_prefix": "req_compile_test_cross_platform_linux",
               "sha256": "a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08",
               "urls": [
                 "https://files.pythonhosted.org/packages/cc/20/ff623b09d963f88bfde16306a54e12ee5ea43e9b597108672ff3a408aad6/pathspec-0.12.1-py3-none-any.whl#sha256=a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08"
@@ -3482,8 +3298,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_cross_platform_windows__colorama",
-              "reqs_repository_name": "req_compile_test_cross_platform_windows",
+              "package": "colorama",
+              "spoke_prefix": "req_compile_test_cross_platform_windows",
               "sha256": "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6",
               "urls": [
                 "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl#sha256=4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"
@@ -3504,8 +3320,8 @@
                 "pathspec",
                 "platformdirs"
               ],
-              "package": "req_compile_test_cross_platform_windows__black",
-              "reqs_repository_name": "req_compile_test_cross_platform_windows",
+              "package": "black",
+              "spoke_prefix": "req_compile_test_cross_platform_windows",
               "sha256": "72901b4913cbac8972ad911dc4098d5753704d1f3c56e44ae8dce99eecb0e3af",
               "urls": [
                 "https://files.pythonhosted.org/packages/a8/69/a000fc3736f89d1bdc7f4a879f8aaf516fb03613bb51a0154070383d95d9/black-24.8.0-cp311-cp311-win_amd64.whl#sha256=72901b4913cbac8972ad911dc4098d5753704d1f3c56e44ae8dce99eecb0e3af"
@@ -3520,8 +3336,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_cross_platform_windows__mypy_extensions",
-              "reqs_repository_name": "req_compile_test_cross_platform_windows",
+              "package": "mypy_extensions",
+              "spoke_prefix": "req_compile_test_cross_platform_windows",
               "sha256": "4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d",
               "urls": [
                 "https://files.pythonhosted.org/packages/2a/e2/5d3f6ada4297caebe1a2add3b126fe800c96f56dbe5d1988a2cbe0b267aa/mypy_extensions-1.0.0-py3-none-any.whl#sha256=4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d"
@@ -3536,8 +3352,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_cross_platform_macos__platformdirs",
-              "reqs_repository_name": "req_compile_test_cross_platform_macos",
+              "package": "platformdirs",
+              "spoke_prefix": "req_compile_test_cross_platform_macos",
               "sha256": "2d7a1657e36a80ea911db832a8a6ece5ee53d8de21edd5cc5879af6530b1bfee",
               "urls": [
                 "https://files.pythonhosted.org/packages/68/13/2aa1f0e1364feb2c9ef45302f387ac0bd81484e9c9a4c5688a322fbdfd08/platformdirs-4.2.2-py3-none-any.whl#sha256=2d7a1657e36a80ea911db832a8a6ece5ee53d8de21edd5cc5879af6530b1bfee"
@@ -3552,8 +3368,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_cross_platform_macos__packaging",
-              "reqs_repository_name": "req_compile_test_cross_platform_macos",
+              "package": "packaging",
+              "spoke_prefix": "req_compile_test_cross_platform_macos",
               "sha256": "5b8f2217dbdbd2f7f384c41c628544e6d52f2d0f53c6d0c3ea61aa5d1d7ff124",
               "urls": [
                 "https://files.pythonhosted.org/packages/08/aa/cc0199a5f0ad350994d660967a8efb233fe0416e4639146c089643407ce6/packaging-24.1-py3-none-any.whl#sha256=5b8f2217dbdbd2f7f384c41c628544e6d52f2d0f53c6d0c3ea61aa5d1d7ff124"
@@ -3568,8 +3384,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_cross_platform_macos__pathspec",
-              "reqs_repository_name": "req_compile_test_cross_platform_macos",
+              "package": "pathspec",
+              "spoke_prefix": "req_compile_test_cross_platform_macos",
               "sha256": "a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08",
               "urls": [
                 "https://files.pythonhosted.org/packages/cc/20/ff623b09d963f88bfde16306a54e12ee5ea43e9b597108672ff3a408aad6/pathspec-0.12.1-py3-none-any.whl#sha256=a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08"
@@ -3586,8 +3402,8 @@
               "deps": [
                 "colorama"
               ],
-              "package": "req_compile_test_cross_platform_windows__click",
-              "reqs_repository_name": "req_compile_test_cross_platform_windows",
+              "package": "click",
+              "spoke_prefix": "req_compile_test_cross_platform_windows",
               "sha256": "ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28",
               "urls": [
                 "https://files.pythonhosted.org/packages/00/2e/d53fa4befbf2cfa713304affc7ca780ce4fc1fd8710527771b58311a3229/click-8.1.7-py3-none-any.whl#sha256=ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28"
@@ -3602,8 +3418,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_cross_platform_linux__packaging",
-              "reqs_repository_name": "req_compile_test_cross_platform_linux",
+              "package": "packaging",
+              "spoke_prefix": "req_compile_test_cross_platform_linux",
               "sha256": "5b8f2217dbdbd2f7f384c41c628544e6d52f2d0f53c6d0c3ea61aa5d1d7ff124",
               "urls": [
                 "https://files.pythonhosted.org/packages/08/aa/cc0199a5f0ad350994d660967a8efb233fe0416e4639146c089643407ce6/packaging-24.1-py3-none-any.whl#sha256=5b8f2217dbdbd2f7f384c41c628544e6d52f2d0f53c6d0c3ea61aa5d1d7ff124"
@@ -3624,8 +3440,8 @@
                 "pathspec",
                 "platformdirs"
               ],
-              "package": "req_compile_test_cross_platform_linux__black",
-              "reqs_repository_name": "req_compile_test_cross_platform_linux",
+              "package": "black",
+              "spoke_prefix": "req_compile_test_cross_platform_linux",
               "sha256": "62e8730977f0b77998029da7971fa896ceefa2c4c4933fcd593fa599ecbf97a4",
               "urls": [
                 "https://files.pythonhosted.org/packages/a5/b5/f485e1bbe31f768e2e5210f52ea3f432256201289fd1a3c0afda693776b0/black-24.8.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.manylinux_2_28_x86_64.whl#sha256=62e8730977f0b77998029da7971fa896ceefa2c4c4933fcd593fa599ecbf97a4"
@@ -3646,8 +3462,8 @@
                 "pathspec",
                 "platformdirs"
               ],
-              "package": "req_compile_test_cross_platform_macos__black",
-              "reqs_repository_name": "req_compile_test_cross_platform_macos",
+              "package": "black",
+              "spoke_prefix": "req_compile_test_cross_platform_macos",
               "sha256": "837fd281f1908d0076844bc2b801ad2d369c78c45cf800cad7b61686051041af",
               "urls": [
                 "https://files.pythonhosted.org/packages/db/94/b803d810e14588bb297e565821a947c108390a079e21dbdcb9ab6956cd7a/black-24.8.0-cp311-cp311-macosx_11_0_arm64.whl#sha256=837fd281f1908d0076844bc2b801ad2d369c78c45cf800cad7b61686051041af"
@@ -3662,8 +3478,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_cross_platform_windows__platformdirs",
-              "reqs_repository_name": "req_compile_test_cross_platform_windows",
+              "package": "platformdirs",
+              "spoke_prefix": "req_compile_test_cross_platform_windows",
               "sha256": "2d7a1657e36a80ea911db832a8a6ece5ee53d8de21edd5cc5879af6530b1bfee",
               "urls": [
                 "https://files.pythonhosted.org/packages/68/13/2aa1f0e1364feb2c9ef45302f387ac0bd81484e9c9a4c5688a322fbdfd08/platformdirs-4.2.2-py3-none-any.whl#sha256=2d7a1657e36a80ea911db832a8a6ece5ee53d8de21edd5cc5879af6530b1bfee"
@@ -3678,8 +3494,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_cross_platform_linux__click",
-              "reqs_repository_name": "req_compile_test_cross_platform_linux",
+              "package": "click",
+              "spoke_prefix": "req_compile_test_cross_platform_linux",
               "sha256": "ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28",
               "urls": [
                 "https://files.pythonhosted.org/packages/00/2e/d53fa4befbf2cfa713304affc7ca780ce4fc1fd8710527771b58311a3229/click-8.1.7-py3-none-any.whl#sha256=ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28"
@@ -3694,8 +3510,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_cross_platform_linux__platformdirs",
-              "reqs_repository_name": "req_compile_test_cross_platform_linux",
+              "package": "platformdirs",
+              "spoke_prefix": "req_compile_test_cross_platform_linux",
               "sha256": "2d7a1657e36a80ea911db832a8a6ece5ee53d8de21edd5cc5879af6530b1bfee",
               "urls": [
                 "https://files.pythonhosted.org/packages/68/13/2aa1f0e1364feb2c9ef45302f387ac0bd81484e9c9a4c5688a322fbdfd08/platformdirs-4.2.2-py3-none-any.whl#sha256=2d7a1657e36a80ea911db832a8a6ece5ee53d8de21edd5cc5879af6530b1bfee"
@@ -3710,8 +3526,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_cross_platform_macos__click",
-              "reqs_repository_name": "req_compile_test_cross_platform_macos",
+              "package": "click",
+              "spoke_prefix": "req_compile_test_cross_platform_macos",
               "sha256": "ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28",
               "urls": [
                 "https://files.pythonhosted.org/packages/00/2e/d53fa4befbf2cfa713304affc7ca780ce4fc1fd8710527771b58311a3229/click-8.1.7-py3-none-any.whl#sha256=ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28"
@@ -3726,8 +3542,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_cross_platform_macos__mypy_extensions",
-              "reqs_repository_name": "req_compile_test_cross_platform_macos",
+              "package": "mypy_extensions",
+              "spoke_prefix": "req_compile_test_cross_platform_macos",
               "sha256": "4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d",
               "urls": [
                 "https://files.pythonhosted.org/packages/2a/e2/5d3f6ada4297caebe1a2add3b126fe800c96f56dbe5d1988a2cbe0b267aa/mypy_extensions-1.0.0-py3-none-any.whl#sha256=4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d"
@@ -3742,8 +3558,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_cross_platform_windows__pathspec",
-              "reqs_repository_name": "req_compile_test_cross_platform_windows",
+              "package": "pathspec",
+              "spoke_prefix": "req_compile_test_cross_platform_windows",
               "sha256": "a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08",
               "urls": [
                 "https://files.pythonhosted.org/packages/cc/20/ff623b09d963f88bfde16306a54e12ee5ea43e9b597108672ff3a408aad6/pathspec-0.12.1-py3-none-any.whl#sha256=a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08"
@@ -3753,6 +3569,11 @@
           }
         },
         "recordedRepoMappingEntries": [
+          [
+            "",
+            "bazel_tools",
+            "bazel_tools"
+          ],
           [
             "",
             "platforms",
@@ -3778,63 +3599,63 @@
     },
     "//extensions:python.bzl%requirements%<root>~test_find_links": {
       "general": {
-        "bzlTransitiveDigest": "dV8rzIcJmMW+Ynm3WqCYCykiPvwGB8UDBPT6IPvufhI=",
+        "bzlTransitiveDigest": "4b3zaF+MKOdXePKk9zwMSvK8IM+aJRupJFn12iEoFJQ=",
         "usagesDigest": "slojLNtCBcYZoOzh40Av8k7q85gUrzKwg+5gE9GmkD4=",
         "recordedFileInputs": {
-          "@@_main~_repo_rules~req_compile_find_links_test//requirements.txt": "e1b9bb8445e579550aecbcfe9bdbac11c40a42972f02bbb410b699dd0662e786"
+          "@@_main~_repo_rules~req_compile_find_links_test//requirements.txt": "2a29f3f2863f9b5d4dc6b5e034a227d1b3ff1d1c06158864f15a18c5e0fc6766"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
           "req_compile_test_find_links": {
-            "bzlFile": "@@//extensions:python.bzl",
-            "ruleClassName": "reqs_hub",
+            "bzlFile": "@@//private:reqs_repo.bzl",
+            "ruleClassName": "py_requirements_repository",
             "attributes": {
               "hub_name": "req_compile_test_find_links",
-              "defs": {
-                "any": "'@@//conditions:default'"
-              },
-              "packages": [
-                "py4j",
-                "pyspark"
-              ]
+              "requirements_lock": "@@_main~_repo_rules~req_compile_find_links_test//:requirements.txt",
+              "requirements_locks": {}
             }
           },
-          "req_compile_test_find_links_any__py4j": {
+          "req_compile_test_find_links__pyspark": {
             "bzlFile": "@@//private:whl_repo.bzl",
             "ruleClassName": "whl_repository",
             "attributes": {
               "annotations": "{}",
-              "constraint": "'@@//conditions:default'",
+              "constraint": "",
+              "deps": [
+                "py4j"
+              ],
+              "package": "pyspark",
+              "spoke_prefix": "req_compile_test_find_links",
+              "sha256": "79a506d193a880466e4a90552c80ca19a7d5c4020532adb16467080048b05692",
+              "urls": [],
+              "version": "3.5.1",
+              "whl": "@@_main~_repo_rules~req_compile_find_links_test//:wheeldir/pyspark-3.5.1-py2.py3-none-any.whl"
+            }
+          },
+          "req_compile_test_find_links__py4j": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "",
               "deps": [],
-              "package": "req_compile_test_find_links_any__py4j",
-              "reqs_repository_name": "req_compile_test_find_links_any",
+              "package": "py4j",
+              "spoke_prefix": "req_compile_test_find_links",
               "sha256": "85defdfd2b2376eb3abf5ca6474b51ab7e0de341c75a02f46dc9b5976f5a5c1b",
               "urls": [
                 "https://files.pythonhosted.org/packages/10/30/a58b32568f1623aaad7db22aa9eafc4c6c194b429ff35bdc55ca2726da47/py4j-0.10.9.7-py2.py3-none-any.whl#sha256=85defdfd2b2376eb3abf5ca6474b51ab7e0de341c75a02f46dc9b5976f5a5c1b"
               ],
               "version": "0.10.9.7"
             }
-          },
-          "req_compile_test_find_links_any__pyspark": {
-            "bzlFile": "@@//private:whl_repo.bzl",
-            "ruleClassName": "whl_repository",
-            "attributes": {
-              "annotations": "{}",
-              "constraint": "'@@//conditions:default'",
-              "deps": [
-                "py4j"
-              ],
-              "package": "req_compile_test_find_links_any__pyspark",
-              "reqs_repository_name": "req_compile_test_find_links_any",
-              "sha256": "8bc7a1b69e117f347524f28a0c4aad41d6179f565bcc46525e8ac2ea5664e2c6",
-              "urls": [],
-              "version": "3.5.1",
-              "whl": "@@_main~_repo_rules~req_compile_find_links_test//:wheeldir/pyspark-3.5.1-py2.py3-none-any.whl"
-            }
           }
         },
         "recordedRepoMappingEntries": [
+          [
+            "",
+            "bazel_tools",
+            "bazel_tools"
+          ],
           [
             "",
             "req_compile_sdist_compiler",
@@ -3855,7 +3676,7 @@
     },
     "//extensions:python.bzl%requirements%<root>~test_req_pip": {
       "general": {
-        "bzlTransitiveDigest": "dV8rzIcJmMW+Ynm3WqCYCykiPvwGB8UDBPT6IPvufhI=",
+        "bzlTransitiveDigest": "4b3zaF+MKOdXePKk9zwMSvK8IM+aJRupJFn12iEoFJQ=",
         "usagesDigest": "rCyKhp7UO2cl8a2tsqRqtsDYb6+gtdyNi9EYmBgZ0Bo=",
         "recordedFileInputs": {
           "@@//private/tests/transitive_ins/requirements.txt": "f171b77899c0da26a7b3e040eeafbc214f890ff1f6ff37f1b3a1ea4547e2de5a",
@@ -3878,8 +3699,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_platlib_windows__libclang",
-              "reqs_repository_name": "req_compile_test_platlib_windows",
+              "package": "libclang",
+              "spoke_prefix": "req_compile_test_platlib_windows",
               "sha256": "4dd2d3b82fab35e2bf9ca717d7b63ac990a3519c7e312f19fa8e86dcc712f7fb",
               "urls": [
                 "https://files.pythonhosted.org/packages/0b/2d/3f480b1e1d31eb3d6de5e3ef641954e5c67430d5ac93b7fa7e07589576c7/libclang-18.1.1-py2.py3-none-win_amd64.whl#sha256=4dd2d3b82fab35e2bf9ca717d7b63ac990a3519c7e312f19fa8e86dcc712f7fb"
@@ -3887,15 +3708,15 @@
               "version": "18.1.1"
             }
           },
-          "req_compile_test_simple_any__wheel": {
+          "req_compile_test_simple__wheel": {
             "bzlFile": "@@//private:whl_repo.bzl",
             "ruleClassName": "whl_repository",
             "attributes": {
               "annotations": "{}",
-              "constraint": "'@@//conditions:default'",
+              "constraint": "",
               "deps": [],
-              "package": "req_compile_test_simple_any__wheel",
-              "reqs_repository_name": "req_compile_test_simple_any",
+              "package": "wheel",
+              "spoke_prefix": "req_compile_test_simple",
               "sha256": "55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81",
               "urls": [
                 "https://files.pythonhosted.org/packages/7d/cd/d7460c9a869b16c3dd4e1e403cce337df165368c71d6af229a74699622ce/wheel-0.43.0-py3-none-any.whl#sha256=55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81"
@@ -3910,8 +3731,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_pip_parse_compat_multi_plat_linux__wheel",
-              "reqs_repository_name": "req_compile_test_pip_parse_compat_multi_plat_linux",
+              "package": "wheel",
+              "spoke_prefix": "req_compile_test_pip_parse_compat_multi_plat_linux",
               "sha256": "55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81",
               "urls": [
                 "https://files.pythonhosted.org/packages/7d/cd/d7460c9a869b16c3dd4e1e403cce337df165368c71d6af229a74699622ce/wheel-0.43.0-py3-none-any.whl#sha256=55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81"
@@ -3920,20 +3741,15 @@
             }
           },
           "req_compile_test_platlib": {
-            "bzlFile": "@@//extensions:python.bzl",
-            "ruleClassName": "reqs_hub",
+            "bzlFile": "@@//private:reqs_repo.bzl",
+            "ruleClassName": "py_requirements_repository",
             "attributes": {
               "hub_name": "req_compile_test_platlib",
-              "defs": {
-                "linux": "'@@platforms//os:linux'",
-                "macos": "'@@platforms//os:macos'",
-                "windows": "'@@platforms//os:windows'"
-              },
-              "packages": [
-                "libclang",
-                "libclang",
-                "libclang"
-              ]
+              "requirements_locks": {
+                "@@//private/tests/platlib:requirements.linux.txt": "@platforms//os:linux",
+                "@@//private/tests/platlib:requirements.macos.txt": "@platforms//os:macos",
+                "@@//private/tests/platlib:requirements.windows.txt": "@platforms//os:windows"
+              }
             }
           },
           "req_compile_test_pip_parse_compat_multi_plat_macos__wheel": {
@@ -3943,92 +3759,54 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_pip_parse_compat_multi_plat_macos__wheel",
-              "reqs_repository_name": "req_compile_test_pip_parse_compat_multi_plat_macos",
+              "package": "wheel",
+              "spoke_prefix": "req_compile_test_pip_parse_compat_multi_plat_macos",
               "sha256": "55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81",
               "urls": [
                 "https://files.pythonhosted.org/packages/7d/cd/d7460c9a869b16c3dd4e1e403cce337df165368c71d6af229a74699622ce/wheel-0.43.0-py3-none-any.whl#sha256=55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81"
               ],
               "version": "0.43.0"
-            }
-          },
-          "req_compile_test_pip_parse_compat_single_plat_any__wheel": {
-            "bzlFile": "@@//private:whl_repo.bzl",
-            "ruleClassName": "whl_repository",
-            "attributes": {
-              "annotations": "{}",
-              "constraint": "'@@//conditions:default'",
-              "deps": [],
-              "package": "req_compile_test_pip_parse_compat_single_plat_any__wheel",
-              "reqs_repository_name": "req_compile_test_pip_parse_compat_single_plat_any",
-              "sha256": "55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81",
-              "urls": [
-                "https://files.pythonhosted.org/packages/7d/cd/d7460c9a869b16c3dd4e1e403cce337df165368c71d6af229a74699622ce/wheel-0.43.0-py3-none-any.whl#sha256=55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81"
-              ],
-              "version": "0.43.0"
-            }
-          },
-          "req_compile_test_transitive_ins_any__toml": {
-            "bzlFile": "@@//private:whl_repo.bzl",
-            "ruleClassName": "whl_repository",
-            "attributes": {
-              "annotations": "{}",
-              "constraint": "'@@//conditions:default'",
-              "deps": [],
-              "package": "req_compile_test_transitive_ins_any__toml",
-              "reqs_repository_name": "req_compile_test_transitive_ins_any",
-              "sha256": "806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b",
-              "urls": [
-                "https://files.pythonhosted.org/packages/44/6f/7120676b6d73228c96e17f1f794d8ab046fc910d781c8d151120c3f1569e/toml-0.10.2-py2.py3-none-any.whl#sha256=806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"
-              ],
-              "version": "0.10.2"
-            }
-          },
-          "req_compile_test_transitive_ins_any__tomli": {
-            "bzlFile": "@@//private:whl_repo.bzl",
-            "ruleClassName": "whl_repository",
-            "attributes": {
-              "annotations": "{}",
-              "constraint": "'@@//conditions:default'",
-              "deps": [],
-              "package": "req_compile_test_transitive_ins_any__tomli",
-              "reqs_repository_name": "req_compile_test_transitive_ins_any",
-              "sha256": "939de3e7a6161af0c887ef91b7d41a53e7c5a1ca976325f429cb46ea9bc30ecc",
-              "urls": [
-                "https://files.pythonhosted.org/packages/97/75/10a9ebee3fd790d20926a90a2547f0bf78f371b2f13aa822c759680ca7b9/tomli-2.0.1-py3-none-any.whl#sha256=939de3e7a6161af0c887ef91b7d41a53e7c5a1ca976325f429cb46ea9bc30ecc"
-              ],
-              "version": "2.0.1"
             }
           },
           "req_compile_test_transitive_ins": {
-            "bzlFile": "@@//extensions:python.bzl",
-            "ruleClassName": "reqs_hub",
+            "bzlFile": "@@//private:reqs_repo.bzl",
+            "ruleClassName": "py_requirements_repository",
             "attributes": {
               "hub_name": "req_compile_test_transitive_ins",
-              "defs": {
-                "any": "'@@//conditions:default'"
-              },
-              "packages": [
-                "pyyaml",
-                "toml",
-                "tomli"
-              ]
+              "requirements_lock": "@@//private/tests/transitive_ins:requirements.txt",
+              "requirements_locks": {}
             }
           },
-          "req_compile_test_transitive_ins_any__pyyaml": {
+          "req_compile_test_transitive_ins__pyyaml": {
             "bzlFile": "@@//private:whl_repo.bzl",
             "ruleClassName": "whl_repository",
             "attributes": {
               "annotations": "{}",
-              "constraint": "'@@//conditions:default'",
+              "constraint": "",
               "deps": [],
-              "package": "req_compile_test_transitive_ins_any__pyyaml",
-              "reqs_repository_name": "req_compile_test_transitive_ins_any",
+              "package": "pyyaml",
+              "spoke_prefix": "req_compile_test_transitive_ins",
               "sha256": "f003ed9ad21d6a4713f0a9b5a7a0a79e08dd0f221aff4525a2be4c346ee60aab",
               "urls": [
                 "https://files.pythonhosted.org/packages/28/09/55f715ddbf95a054b764b547f617e22f1d5e45d83905660e9a088078fe67/PyYAML-6.0.1-cp311-cp311-macosx_11_0_arm64.whl#sha256=f003ed9ad21d6a4713f0a9b5a7a0a79e08dd0f221aff4525a2be4c346ee60aab"
               ],
               "version": "6.0.1"
+            }
+          },
+          "req_compile_test_transitive_ins__toml": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "",
+              "deps": [],
+              "package": "toml",
+              "spoke_prefix": "req_compile_test_transitive_ins",
+              "sha256": "806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b",
+              "urls": [
+                "https://files.pythonhosted.org/packages/44/6f/7120676b6d73228c96e17f1f794d8ab046fc910d781c8d151120c3f1569e/toml-0.10.2-py2.py3-none-any.whl#sha256=806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"
+              ],
+              "version": "0.10.2"
             }
           },
           "req_compile_test_platlib_macos__libclang": {
@@ -4038,8 +3816,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:macos'",
               "deps": [],
-              "package": "req_compile_test_platlib_macos__libclang",
-              "reqs_repository_name": "req_compile_test_platlib_macos",
+              "package": "libclang",
+              "spoke_prefix": "req_compile_test_platlib_macos",
               "sha256": "83ce5045d101b669ac38e6da8e58765f12da2d3aafb3b9b98d88b286a60964d8",
               "urls": [
                 "https://files.pythonhosted.org/packages/db/ed/1df62b44db2583375f6a8a5e2ca5432bbdc3edb477942b9b7c848c720055/libclang-18.1.1-py2.py3-none-macosx_11_0_arm64.whl#sha256=83ce5045d101b669ac38e6da8e58765f12da2d3aafb3b9b98d88b286a60964d8"
@@ -4048,20 +3826,15 @@
             }
           },
           "req_compile_test_pip_parse_compat_multi_plat": {
-            "bzlFile": "@@//extensions:python.bzl",
-            "ruleClassName": "reqs_hub",
+            "bzlFile": "@@//private:reqs_repo.bzl",
+            "ruleClassName": "py_requirements_repository",
             "attributes": {
               "hub_name": "req_compile_test_pip_parse_compat_multi_plat",
-              "defs": {
-                "linux": "'@@platforms//os:linux'",
-                "macos": "'@@platforms//os:macos'",
-                "windows": "'@@platforms//os:windows'"
-              },
-              "packages": [
-                "wheel",
-                "wheel",
-                "wheel"
-              ]
+              "requirements_locks": {
+                "@@//private/tests/pip_parse_compat:requirements.linux.txt": "@platforms//os:linux",
+                "@@//private/tests/pip_parse_compat:requirements.macos.txt": "@platforms//os:macos",
+                "@@//private/tests/pip_parse_compat:requirements.windows.txt": "@platforms//os:windows"
+              }
             }
           },
           "req_compile_test_platlib_linux__libclang": {
@@ -4071,8 +3844,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:linux'",
               "deps": [],
-              "package": "req_compile_test_platlib_linux__libclang",
-              "reqs_repository_name": "req_compile_test_platlib_linux",
+              "package": "libclang",
+              "spoke_prefix": "req_compile_test_platlib_linux",
               "sha256": "c533091d8a3bbf7460a00cb6c1a71da93bffe148f172c7d03b1c31fbf8aa2a0b",
               "urls": [
                 "https://files.pythonhosted.org/packages/1d/fc/716c1e62e512ef1c160e7984a73a5fc7df45166f2ff3f254e71c58076f7c/libclang-18.1.1-py2.py3-none-manylinux2010_x86_64.whl#sha256=c533091d8a3bbf7460a00cb6c1a71da93bffe148f172c7d03b1c31fbf8aa2a0b"
@@ -4081,16 +3854,12 @@
             }
           },
           "req_compile_test_simple": {
-            "bzlFile": "@@//extensions:python.bzl",
-            "ruleClassName": "reqs_hub",
+            "bzlFile": "@@//private:reqs_repo.bzl",
+            "ruleClassName": "py_requirements_repository",
             "attributes": {
               "hub_name": "req_compile_test_simple",
-              "defs": {
-                "any": "'@@//conditions:default'"
-              },
-              "packages": [
-                "wheel"
-              ]
+              "requirements_lock": "@@//private/tests/simple:requirements.txt",
+              "requirements_locks": {}
             }
           },
           "req_compile_test_pip_parse_compat_multi_plat_windows__wheel": {
@@ -4100,8 +3869,8 @@
               "annotations": "{}",
               "constraint": "'@@platforms//os:windows'",
               "deps": [],
-              "package": "req_compile_test_pip_parse_compat_multi_plat_windows__wheel",
-              "reqs_repository_name": "req_compile_test_pip_parse_compat_multi_plat_windows",
+              "package": "wheel",
+              "spoke_prefix": "req_compile_test_pip_parse_compat_multi_plat_windows",
               "sha256": "55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81",
               "urls": [
                 "https://files.pythonhosted.org/packages/7d/cd/d7460c9a869b16c3dd4e1e403cce337df165368c71d6af229a74699622ce/wheel-0.43.0-py3-none-any.whl#sha256=55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81"
@@ -4109,21 +3878,54 @@
               "version": "0.43.0"
             }
           },
+          "req_compile_test_transitive_ins__tomli": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "",
+              "deps": [],
+              "package": "tomli",
+              "spoke_prefix": "req_compile_test_transitive_ins",
+              "sha256": "939de3e7a6161af0c887ef91b7d41a53e7c5a1ca976325f429cb46ea9bc30ecc",
+              "urls": [
+                "https://files.pythonhosted.org/packages/97/75/10a9ebee3fd790d20926a90a2547f0bf78f371b2f13aa822c759680ca7b9/tomli-2.0.1-py3-none-any.whl#sha256=939de3e7a6161af0c887ef91b7d41a53e7c5a1ca976325f429cb46ea9bc30ecc"
+              ],
+              "version": "2.0.1"
+            }
+          },
           "req_compile_test_pip_parse_compat_single_plat": {
-            "bzlFile": "@@//extensions:python.bzl",
-            "ruleClassName": "reqs_hub",
+            "bzlFile": "@@//private:reqs_repo.bzl",
+            "ruleClassName": "py_requirements_repository",
             "attributes": {
               "hub_name": "req_compile_test_pip_parse_compat_single_plat",
-              "defs": {
-                "any": "'@@//conditions:default'"
-              },
-              "packages": [
-                "wheel"
-              ]
+              "requirements_lock": "@@//private/tests/pip_parse_compat:requirements.txt",
+              "requirements_locks": {}
+            }
+          },
+          "req_compile_test_pip_parse_compat_single_plat__wheel": {
+            "bzlFile": "@@//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "",
+              "deps": [],
+              "package": "wheel",
+              "spoke_prefix": "req_compile_test_pip_parse_compat_single_plat",
+              "sha256": "55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81",
+              "urls": [
+                "https://files.pythonhosted.org/packages/7d/cd/d7460c9a869b16c3dd4e1e403cce337df165368c71d6af229a74699622ce/wheel-0.43.0-py3-none-any.whl#sha256=55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81"
+              ],
+              "version": "0.43.0"
             }
           }
         },
         "recordedRepoMappingEntries": [
+          [
+            "",
+            "bazel_tools",
+            "bazel_tools"
+          ],
           [
             "",
             "platforms",

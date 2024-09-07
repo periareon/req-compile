@@ -67,7 +67,7 @@ sdist_req_pip.parse(
     interpreter_windows = "@python_3_11_x86_64-pc-windows-msvc//:python",
     requirements_lock = "//private/tests/sdist:requirements.txt",
 )
-use_repo(sdist_req_pip, "req_compile_test_sdist", "req_compile_test_sdist_any__pyspark_sdist")
+use_repo(sdist_req_pip, "req_compile_test_sdist", "req_compile_test_sdist__pyspark__sdist")
 
 find_links_test_repository = use_repo_rule("//private/tests/find_links:find_links_test_repo.bzl", "find_links_test_repository")
 
@@ -75,7 +75,7 @@ find_links_test_repository(
     name = "req_compile_find_links_test",
     build_file = "//private/tests/find_links:BUILD.find_links.bazel",
     dev_dependency = True,
-    pyspark_wheel_data = "@req_compile_test_sdist_any__pyspark_sdist//:whl.json",
+    pyspark_wheel_data = "@req_compile_test_sdist__pyspark__sdist//:whl.json",
     requirements_in = "//private/tests/find_links:requirements.in",
     requirements_txt = "//private/tests/find_links:requirements.txt",
     # Needs to match `--find-links` in `//private/tests/find_links:requirements.in`

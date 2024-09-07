@@ -104,9 +104,8 @@ sdist_repository = repository_rule(
     doc = "A repository rule for building wheels from a python package's source distribution (sdist).",
     implementation = _sdist_repository_impl,
     attrs = {
-        "deps": attr.label_list(
+        "deps": attr.string_list(
             doc = "A list of files representing the root of `whl_repository` for each sdist dependency.",
-            allow_files = True,
         ),
         "interpreter": attr.label(
             doc = "The label of a python interpreter to use for compiling source distributions (sdists).",
