@@ -37,8 +37,8 @@ use_repo(
     "python_3_11_x86_64-unknown-linux-gnu",
 )
 
-req_pip = use_extension("//extensions:python.bzl", "requirements")
-req_pip.parse(
+requirements = use_extension("//extensions:python.bzl", "requirements")
+requirements.parse(
     name = "req_compile_deps",
     requirements_locks = {
         "//3rdparty:requirements.linux.311.txt": "@platforms//os:linux",
@@ -46,7 +46,7 @@ req_pip.parse(
         "//3rdparty:requirements.windows.311.txt": "@platforms//os:windows",
     },
 )
-use_repo(req_pip, "req_compile_deps")
+use_repo(requirements, "req_compile_deps")
 
 py_requirements_repository = use_repo_rule("@rules_req_compile//:defs.bzl", "py_requirements_repository")
 
@@ -57,8 +57,8 @@ py_requirements_repository(
     requirements_lock = "//private:sdist_requirements.txt",
 )
 
-sdist_req_pip = use_extension("//extensions:python.bzl", "requirements", dev_dependency = True, isolate = True)
-sdist_req_pip.parse(
+dev_requirements = use_extension("//extensions:python.bzl", "requirements", dev_dependency = True)
+dev_requirements.parse(
     name = "req_compile_test_sdist",
     # Required to compile sdists
     interpreter_linux = "@python_3_11_x86_64-unknown-linux-gnu//:python",
@@ -67,7 +67,7 @@ sdist_req_pip.parse(
     interpreter_windows = "@python_3_11_x86_64-pc-windows-msvc//:python",
     requirements_lock = "//private/tests/sdist:requirements.txt",
 )
-use_repo(sdist_req_pip, "req_compile_test_sdist", "req_compile_test_sdist__pyspark__sdist")
+use_repo(dev_requirements, "req_compile_test_sdist", "req_compile_test_sdist__pyspark__sdist")
 
 find_links_test_repository = use_repo_rule("//private/tests/find_links:find_links_test_repo.bzl", "find_links_test_repository")
 
@@ -82,13 +82,12 @@ find_links_test_repository(
     wheeldir = "wheeldir",
 )
 
-test_req_pip = use_extension("//extensions:python.bzl", "requirements", dev_dependency = True, isolate = True)
-test_req_pip.parse(
+dev_requirements.parse(
     name = "req_compile_test_simple",
     requirements_lock = "//private/tests/simple:requirements.txt",
 )
-use_repo(test_req_pip, "req_compile_test_simple")
-test_req_pip.parse(
+use_repo(dev_requirements, "req_compile_test_simple")
+dev_requirements.parse(
     name = "req_compile_test_platlib",
     requirements_locks = {
         "//private/tests/platlib:requirements.linux.txt": "@platforms//os:linux",
@@ -96,18 +95,18 @@ test_req_pip.parse(
         "//private/tests/platlib:requirements.windows.txt": "@platforms//os:windows",
     },
 )
-use_repo(test_req_pip, "req_compile_test_platlib")
-test_req_pip.parse(
+use_repo(dev_requirements, "req_compile_test_platlib")
+dev_requirements.parse(
     name = "req_compile_test_transitive_ins",
     requirements_lock = "//private/tests/transitive_ins:requirements.txt",
 )
-use_repo(test_req_pip, "req_compile_test_transitive_ins")
-test_req_pip.parse(
+use_repo(dev_requirements, "req_compile_test_transitive_ins")
+dev_requirements.parse(
     name = "req_compile_test_pip_parse_compat_single_plat",
     requirements_lock = "//private/tests/pip_parse_compat:requirements.txt",
 )
-use_repo(test_req_pip, "req_compile_test_pip_parse_compat_single_plat")
-test_req_pip.parse(
+use_repo(dev_requirements, "req_compile_test_pip_parse_compat_single_plat")
+dev_requirements.parse(
     name = "req_compile_test_pip_parse_compat_multi_plat",
     requirements_locks = {
         "//private/tests/pip_parse_compat:requirements.linux.txt": "@platforms//os:linux",
@@ -115,10 +114,8 @@ test_req_pip.parse(
         "//private/tests/pip_parse_compat:requirements.windows.txt": "@platforms//os:windows",
     },
 )
-use_repo(test_req_pip, "req_compile_test_pip_parse_compat_multi_plat")
-
-test_annotations = use_extension("//extensions:python.bzl", "requirements", dev_dependency = True, isolate = True)
-test_annotations.parse(
+use_repo(dev_requirements, "req_compile_test_pip_parse_compat_multi_plat")
+dev_requirements.parse(
     name = "req_compile_test_annotations",
     requirements_locks = {
         "//private/tests/annotations:requirements.linux.txt": "@platforms//os:linux",
@@ -127,13 +124,13 @@ test_annotations.parse(
     },
 )
 use_repo(
-    test_annotations,
+    dev_requirements,
     "req_compile_test_annotations",
     "req_compile_test_annotations_linux__numpy",
     "req_compile_test_annotations_macos__numpy",
     "req_compile_test_annotations_windows__numpy",
 )
-test_annotations.package_annotation(
+dev_requirements.package_annotation(
     additive_build_file_content = """\
 load("@rules_cc//cc:defs.bzl", "cc_library")
 load("@rules_req_compile//:defs.bzl", "py_package_annotation_target")
@@ -172,40 +169,41 @@ py_package_annotation_target(
 )
 
 # Sphinx is known to have a circular dependency. The annotations here solve for that.
-test_annotations.package_annotation(
+dev_requirements.package_annotation(
     package = "sphinxcontrib-htmlhelp",
     deps = ["-sphinx"],
 )
-test_annotations.package_annotation(
+dev_requirements.package_annotation(
     package = "sphinxcontrib-applehelp",
     deps = ["-sphinx"],
 )
-test_annotations.package_annotation(
+dev_requirements.package_annotation(
     package = "sphinxcontrib-devhelp",
     deps = ["-sphinx"],
 )
-test_annotations.package_annotation(
+dev_requirements.package_annotation(
     package = "sphinxcontrib-jsmath",
     deps = ["-sphinx"],
 )
-test_annotations.package_annotation(
+dev_requirements.package_annotation(
     package = "sphinxcontrib-qthelp",
     deps = ["-sphinx"],
 )
-test_annotations.package_annotation(
+dev_requirements.package_annotation(
     deps_excludes = ["sphinx"],
     package = "sphinxcontrib-serializinghtml",
 )
 
-test_find_links = use_extension("//extensions:python.bzl", "requirements", dev_dependency = True, isolate = True)
-test_find_links.parse(
+# Use a separate extension since the @req_compile_find_links_test is generated by an extension
+# that also depend upon //extensions:python.bzl
+find_links_requirements = use_extension("//private/tests/find_links:extension.bzl", "requirements")
+find_links_requirements.parse(
     name = "req_compile_test_find_links",
     requirements_lock = "@req_compile_find_links_test//:requirements.txt",
 )
-use_repo(test_find_links, "req_compile_test_find_links")
+use_repo(find_links_requirements, "req_compile_test_find_links")
 
-test_cross_platform = use_extension("//extensions:python.bzl", "requirements", dev_dependency = True, isolate = True)
-test_cross_platform.parse(
+dev_requirements.parse(
     name = "req_compile_test_cross_platform",
     requirements_locks = {
         "//private/tests/cross_platform:requirements.linux.txt": "@platforms//os:linux",
@@ -213,4 +211,4 @@ test_cross_platform.parse(
         "//private/tests/cross_platform:requirements.windows.txt": "@platforms//os:windows",
     },
 )
-use_repo(test_cross_platform, "req_compile_test_cross_platform")
+use_repo(dev_requirements, "req_compile_test_cross_platform")

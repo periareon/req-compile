@@ -1,3 +1,4 @@
+load("@buildifier_prebuilt//:rules.bzl", "buildifier")
 load("@rules_python//python:defs.bzl", "py_binary")
 
 exports_files(
@@ -26,4 +27,25 @@ py_binary(
         ":compiler",
         "@rules_python//python/runfiles",
     ],
+)
+
+buildifier(
+    name = "buildifier",
+    diff_command = "diff -u",
+    exclude_patterns = [
+        "./.git/*",
+    ],
+    lint_mode = "fix",
+    visibility = ["//:__pkg__"],
+)
+
+buildifier(
+    name = "buildifier.check",
+    diff_command = "diff -u",
+    exclude_patterns = [
+        "./.git/*",
+    ],
+    lint_mode = "warn",
+    mode = "diff",
+    visibility = ["//:__pkg__"],
 )

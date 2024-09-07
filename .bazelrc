@@ -11,9 +11,6 @@ build:linux --nobuild_runfile_links
 # https://github.com/bazelbuild/bazel/issues/8195
 build --incompatible_disallow_empty_glob=true
 
-# Allow isolated module extensions for tests.
-common --experimental_isolated_extension_usages
-
 # https://github.com/bazelbuild/bazel/issues/12821
 build:linux --nolegacy_external_runfiles
 
