@@ -122,7 +122,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ["ubuntu-latest", windows-latest"]
+        platform: ["ubuntu-latest", "macos-14", "windows-latest"]
     runs-on: ${{ matrix.platform }}
     name: bazel test multiplatform_py_test --build ${{ matrix.platform }}
     steps:

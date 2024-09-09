@@ -26,6 +26,11 @@ coverage --combined_report=lcov
 common:bes --bes_results_url=https://req-compile.buildbuddy.io/invocation/
 common:bes --bes_backend=grpcs://req-compile.buildbuddy.io
 
+# BuildBuddy suggested flags.
+common --noslim_profile --experimental_profile_include_target_label --experimental_profile_include_primary_output
+common --nolegacy_important_outputs
+common --experimental_remote_cache_compression
+
 # Attempt to import any CI flags
 try-import %workspace%/.github/ci.bazelrc
 

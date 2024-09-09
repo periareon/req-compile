@@ -125,7 +125,7 @@ def create_spoke_repos(spoke_prefix, constraints, interpreter):
     if has_sdist:
         print("WARNING: {} contains sdist dependencies and is not guaranteed to provide deterministic external repositories. Using a binary-only (all wheels) solution is recommended.".format(spoke_prefix))  # buildifier: disable=print
 
-RULES_PYTHON_COMPAT = """\
+_RULES_PYTHON_COMPAT = """\
 \"\"\"A compatibility file with rules_python\"\"\"
 
 load("@rules_req_compile//private:utils.bzl", "sanitize_package_name")
@@ -145,10 +145,10 @@ install_deps = repositories
 
 def requirement(name):
     \"\"\"rules_python compatibility macro\"\"\"
-    return "@{repository_name}" + "//:" + sanitize_package_name(name)
+    return Label("@{repository_name}" + "//:" + sanitize_package_name(name))
 """
 
-BUILD_FILE_TEMPLATE = """\
+_BUILD_FILE_TEMPLATE = """\
 load(":defs.bzl", "requirement", "requirement_wheel")
 
 package(default_visibility = ["//visibility:public"])
@@ -395,12 +395,12 @@ def _process_lockfile(ctx, hub_name, requirements_lock, annotations = None, cons
 
     return packages
 
-def _requirements_repository_common(repository_ctx):
+def _requirements_repository_common(repository_ctx, hub_name):
     repository_ctx.file("WORKSPACE.bazel", """workspace(name = "{}")""".format(
         repository_ctx.name,
     ))
-    repository_ctx.file("requirements.bzl", RULES_PYTHON_COMPAT.format(
-        repository_name = repository_ctx.attr.hub_name,
+    repository_ctx.file("requirements.bzl", _RULES_PYTHON_COMPAT.format(
+        repository_name = hub_name,
     ))
 
 _LOAD_TEMPLATE = """\
@@ -601,10 +601,10 @@ def _py_requirements_repository_impl(repository_ctx):
     if len(defs) > 1:
         repository_ctx.file("defs.bzl", generate_interface_bzl_content(defs, repository_ctx.name))
 
-    repository_ctx.file("BUILD.bazel", BUILD_FILE_TEMPLATE.format(
+    repository_ctx.file("BUILD.bazel", _BUILD_FILE_TEMPLATE.format(
         packages = json.encode_indent(sorted(depset(all_packages).to_list()), indent = " " * 4),
     ))
-    _requirements_repository_common(repository_ctx)
+    _requirements_repository_common(repository_ctx, hub_name)
 
 py_requirements_repository = repository_rule(
     doc = """\

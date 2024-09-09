@@ -7,10 +7,10 @@ exports_files([
 
 alias(
     name = "buildifier",
-    actual = "//private:buildifier",
+    actual = "//private/tools:buildifier",
 )
 
 alias(
     name = "buildifier.check",
-    actual = "//private:buildifier.check",
+    actual = "//private/tools:buildifier.check",
 )
