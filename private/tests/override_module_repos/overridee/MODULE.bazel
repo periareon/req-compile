@@ -1,0 +1,18 @@
+module(
+    name = "overridee",
+    version = "1.0",
+)
+
+bazel_dep(name = "rules_python", version = "0.34.0")
+bazel_dep(name = "rules_req_compile")
+local_path_override(
+    module_name = "rules_req_compile",
+    path = "../../../..",
+)
+
+requirements = use_extension("@rules_req_compile//extensions:python.bzl", "requirements")
+requirements.parse(
+    name = "pip_deps",
+    requirements_lock = ":requirements.txt",
+)
+use_repo(requirements, "pip_deps")

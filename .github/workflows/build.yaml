@@ -135,6 +135,10 @@ jobs:
       run: |
         bazel test //... --noenable_bzlmod
       working-directory: private/examples/multiplatform_py_test
+    - name: Test module repo overrides
+      run: |
+        bazel test //...
+      working-directory: private/tests/override_module_repos/overrider
 
   bazel_lint:
     runs-on: ubuntu-latest

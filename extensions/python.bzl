@@ -15,6 +15,8 @@ def _requirements_impl(ctx):
     """Process annotations and parse tags."""
     annotations = {}
 
+    override_module_repos = {}
+
     # Gather all annotations first.
     for mod in ctx.modules:
         for annotation in mod.tags.package_annotation:
@@ -31,6 +33,14 @@ def _requirements_impl(ctx):
                 deps_excludes = annotation.deps_excludes,
                 patches = annotation.patches,
             )
+        for parse in mod.tags.parse:
+            if mod.is_root and parse.override_module_repos:
+                for override_mod, override_repos in parse.override_module_repos.items():
+                    if override_mod in override_module_repos:
+                        fail("Module {} already has overrides from this module.".format(
+                            override_mod,
+                        ))
+                override_module_repos[override_mod] = struct(hub_name = parse.name, override_repos = list(override_repos))
 
     # Create hubs for each parse tag.
     for mod in ctx.modules:
@@ -47,6 +57,17 @@ def _requirements_impl(ctx):
                 interpreter = parse.interpreter_linux
             elif ctx.os.name.startswith("windows"):
                 interpreter = parse.interpreter_windows
+
+            if mod.name in override_module_repos and parse.name in override_module_repos[mod.name].override_repos:
+                py_requirements_repository(
+                    name = parse.name,
+                    hub_name = override_module_repos[mod.name].hub_name,
+                    requirements_lock = parse.requirements_lock,
+                    requirements_locks = parse.requirements_locks,
+                    interpreter = interpreter,
+                )
+                override_module_repos[mod.name].override_repos.remove(parse.name)
+                continue
 
             py_requirements_repository(
                 name = parse.name,
@@ -66,6 +87,11 @@ def _requirements_impl(ctx):
                 if defs_id:
                     spoke_prefix += "_" + defs_id
                 create_spoke_repos(spoke_prefix, data.packages, interpreter)
+
+    for mod in sorted(override_module_repos):
+        repos = override_module_repos[mod].override_repos
+        if repos:
+            fail("Module \"{}\" does not create repos \"{}\"".format(mod, "\", \"".join(sorted(repos))))
 
 _annotation = tag_class(
     doc = """\
@@ -139,6 +165,20 @@ hub repository named "pip_deps".
         ),
         "requirements_locks": attr.label_keyed_string_dict(
             doc = "A dictionary mapping platform to requirement lock files.",
+        ),
+        "override_module_repos": attr.string_list_dict(
+            doc = """\
+Mapping of module name to list of repos that should be overridden by this hub. The repos
+must be those that are expected to be created by this module extension.
+
+The overridden hub will attempt to map all of its requirements to the root module's hub, meaning
+the root module hub must be a superset of the overridden hub.
+
+This attribute is intended to have the root module coordinate all Python packages such
+that Python libraries from dependencies can be safely imported into the same interpreter.
+Do not override repos for libraries that will never be mixed. To inject Python dependencies
+for use in most child modules, a custom toolchain type is most appropriate.""",
+            default = {},
         ),
     },
 )
