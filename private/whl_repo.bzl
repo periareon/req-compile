@@ -45,12 +45,15 @@ def whl_repo_to_python_path(repository_ctx, root):
 def _build_sdist(repository_ctx, sdist_file):
     repository_ctx.report_progress("Building wheel")
 
+    if not repository_ctx.attr.interpreter:
+        fail("A Python interpreter is required to build source distributions. " +
+             "Pass a Python binary via the interpreter_* args to your `py_requirements_repository` or `parse` module tags.")
     interpreter = repository_ctx.path(repository_ctx.attr.interpreter)
     compiler = repository_ctx.path(repository_ctx.attr._compiler)
 
     data_file = repository_ctx.path("whl.json")
 
-    pythonpath = [
+    pythonpath = ["."] + [
         whl_repo_to_python_path(repository_ctx, repo)
         for repo in repository_ctx.attr.sdist_deps_repos
     ] + [
@@ -279,10 +282,6 @@ def _whl_repository_impl(repository_ctx):
         whl_sha256 = whl_result.sha256
 
         if not whl_name.endswith(".whl"):
-            repository_ctx.extract(
-                whl_name,
-                output = "site-packages",
-            )
             sdist_info = _build_sdist(repository_ctx, whl_name)
             whl_name = sdist_info.wheel
 
