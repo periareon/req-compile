@@ -40,7 +40,7 @@ def _requirements_impl(ctx):
                         fail("Module {} already has overrides from this module.".format(
                             override_mod,
                         ))
-                override_module_repos[override_mod] = struct(hub_name = parse.name, override_repos = list(override_repos))
+                    override_module_repos[override_mod] = struct(hub_name = parse.name, override_repos = list(override_repos))
 
     # Create hubs for each parse tag.
     for mod in ctx.modules:
@@ -84,6 +84,9 @@ def _requirements_impl(ctx):
             )
             for defs_id, data in platform_packages.items():
                 spoke_prefix = parse.name
+
+                # `defs_id` can contain an identifier for the lock file and is used to disambiguate
+                # the referenced platform-specific spokes.
                 if defs_id:
                     spoke_prefix += "_" + defs_id
                 create_spoke_repos(spoke_prefix, data.packages, interpreter)
@@ -92,6 +95,10 @@ def _requirements_impl(ctx):
         repos = override_module_repos[mod].override_repos
         if repos:
             fail("Module \"{}\" does not create repos \"{}\"".format(mod, "\", \"".join(sorted(repos))))
+
+    return ctx.extension_metadata(
+        reproducible = True,
+    )
 
 _annotation = tag_class(
     doc = """\
@@ -110,7 +117,7 @@ for more information.
         "data_exclude_glob": attr.string_list(),
         "deps": attr.string_list(),
         "deps_excludes": attr.string_list(),
-        "package": attr.string(),
+        "package": attr.string(mandatory = True),
         "patches": attr.label_list(),
         "srcs_exclude_glob": attr.string_list(),
     },
@@ -144,6 +151,10 @@ This example was a multi-platform set of solutions, pulled into a single
 hub repository named "pip_deps".
 """,
     attrs = {
+        "name": attr.string(
+            doc = "Name of the hub repository to create.",
+            mandatory = True,
+        ),
         "interpreter_linux": attr.label(
             doc = "Optional Linux amd64 Python interpreter binary to use for sdists.",
         ),
@@ -155,10 +166,6 @@ hub repository named "pip_deps".
         ),
         "interpreter_windows": attr.label(
             doc = "Optional Windows x64 Python interpreter binary to use for sdists.",
-        ),
-        "name": attr.string(
-            doc = "Name of the hub repository to create.",
-            mandatory = True,
         ),
         "requirements_lock": attr.label(
             doc = "A single lockfile for a single platform solution.",

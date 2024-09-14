@@ -1,12 +1,11 @@
 """Repository rules for loading platform specific python requirements"""
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load(":sdist_repo.bzl", "sdist_repository")
 load(":utils.bzl", "sanitize_package_name")
 load(":whl_repo.bzl", "whl_repository")
 
 _DEFS_BZL_TEMPLATE = """\
-\"\"\"Python constraints\"\"\"
+\"\"\"Python constraints.\"\"\"
 
 load("@rules_req_compile//private:utils.bzl", "sanitize_package_name")
 load("@rules_req_compile//private:reqs_repo.bzl", "create_spoke_repos")
@@ -56,17 +55,6 @@ def repositories():
     create_spoke_repos("{spoke_prefix}", _CONSTRAINTS, {interpreter})
 """
 
-def _is_wheel(data):
-    if "url" in data and data["url"]:
-        if ".whl" in data["url"]:
-            return True
-        return False
-
-    if "whl" in data and data["whl"]:
-        return True
-
-    return False
-
 def create_spoke_repos(spoke_prefix, constraints, interpreter):
     """Create the repos for each Python project from a constraints file.
 
@@ -76,54 +64,42 @@ def create_spoke_repos(spoke_prefix, constraints, interpreter):
         spoke_prefix: A name prefix including the hub and a platform identifier.
         constraints: Mapping of Python project name to data about the project.
         interpreter: Python interpreter to use to build sdists.
+
+
+    Returns:
+        List of names of repositories created.
     """
+    all_names = []
     has_sdist = False
     for name, data in constraints.items():
         wheel_name = "{}__{}".format(spoke_prefix, sanitize_package_name(name))
-        if _is_wheel(data):
-            maybe(
-                whl_repository,
-                name = wheel_name,
-                annotations = json.encode(data["annotations"]),
-                constraint = data["constraint"],
-                deps = data["deps"],
-                package = name,
-                spoke_prefix = spoke_prefix,
-                sha256 = data["sha256"],
-                urls = [data["url"]] if data.get("url", None) else None,
-                version = data["version"],
-                whl = data["whl"],
-            )
+        all_names.append(wheel_name)
+        sdist_args = {}
+        if interpreter:
+            sdist_args = {"interpreter": interpreter}
         else:
-            has_sdist = True
-            interpreter = interpreter
-            if not interpreter:
-                fail(
-                    "A sdist (" + name + ") was found for the repository '{}' " +
-                    "but no interpreter was provided. One is required for processing sdists.".format(spoke_prefix),
-                )
+            # Avoid a circular dependency when creating the spokes for the source dist
+            # dependencies. We don't need these for non-source dist repos anyway.
+            sdist_args = {"sdist_deps_repos": []}
+        maybe(
+            whl_repository,
+            name = wheel_name,
+            annotations = json.encode(data["annotations"]),
+            constraint = data["constraint"],
+            deps = data["deps"],
+            package = name,
+            spoke_prefix = spoke_prefix,
+            sha256 = data["sha256"],
+            urls = [data["url"]] if data.get("url", None) else None,
+            version = data["version"],
+            whl = data["whl"],
+            **sdist_args
+        )
 
-            maybe(
-                sdist_repository,
-                name = "{}__sdist".format(wheel_name),
-                deps = ["@{}__{}//:BUILD.bazel".format(spoke_prefix, sanitize_package_name(dep)) for dep in data["deps"]],
-                sha256 = data["sha256"],
-                urls = [data["url"]],
-                interpreter = interpreter,
-            )
-            maybe(
-                whl_repository,
-                name = wheel_name,
-                annotations = json.encode(data["annotations"]),
-                constraint = data["constraint"],
-                deps = data["deps"],
-                package = name,
-                spoke_prefix = spoke_prefix,
-                whl_data = "@{}__sdist//:whl.json".format(wheel_name),
-                version = data["version"],
-            )
     if has_sdist:
         print("WARNING: {} contains sdist dependencies and is not guaranteed to provide deterministic external repositories. Using a binary-only (all wheels) solution is recommended.".format(spoke_prefix))  # buildifier: disable=print
+
+    return all_names
 
 _RULES_PYTHON_COMPAT = """\
 \"\"\"A compatibility file with rules_python\"\"\"
