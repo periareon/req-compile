@@ -47,9 +47,9 @@ jobs:
       - name: Generate release notes
         run: |
           # Generate the release notes
-          sed 's/{version}/${{env.RELEASE_VERSION}}/g' ${{ github.workspace }}/.github/release_notes.template \
-          | sed 's/{sha256}/${{env.ARCHIVE_SHA256}}/g' \
-          | sed 's/{integrity}/${{env.ARCHIVE_INTEGRITY}}/g' \
+          sed 's|{version}|${{env.RELEASE_VERSION}}|g' ${{ github.workspace }}/.github/release_notes.template \
+          | sed 's|{sha256}|${{env.ARCHIVE_SHA256}}|g' \
+          | sed 's|{integrity}|${{env.ARCHIVE_INTEGRITY}}|g' \
           > ${{ github.workspace }}/.github/release_notes.txt
       - name: Release
         uses: softprops/action-gh-release@v1
