@@ -1,4 +1,3 @@
-load("@req_compile_test_simple//:defs.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_test")
 load("//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
 
@@ -17,6 +16,6 @@ py_test(
     name = "simple",
     srcs = ["simple.py"],
     deps = [
-        requirement("wheel"),
+        "@req_compile_test_simple//:wheel",
     ],
 )

@@ -1,4 +1,3 @@
-load("@req_compile_test_transitive_ins//:defs.bzl", "requirement")
 load("@rules_python//python:defs.bzl", "py_test")
 load("//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
 
@@ -26,8 +25,8 @@ py_test(
     name = "transitive_ins",
     srcs = ["transitive_ins.py"],
     deps = [
-        requirement("toml"),
-        requirement("tomli"),
-        requirement("pyyaml"),
+        "@req_compile_test_transitive_ins//:pyyaml",
+        "@req_compile_test_transitive_ins//:toml",
+        "@req_compile_test_transitive_ins//:tomli",
     ],
 )

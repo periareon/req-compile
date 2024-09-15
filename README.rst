@@ -21,6 +21,49 @@ Req-Compile is a Python requirements compiler geared toward large Python project
 * Save distributions that are downloaded while compiling in a configurable location
 * Use a current solution as a source of requirements. In other words, you can easily compile a subset from an existing solution.
 
+Bazel integration
+-----------------
+
+Also supplied by this repository is the Bazel module ``rules_req_compile``, which provides a binary
+to compile a requirements solution and install third-party distributions from that solution. This
+project differs from ``rules_python`` in that the URLs for the distributions are written to the
+solution, enabling deterministic and repo-cacheable downloads and installs of third-party dependencies.
+
+To get started with bzlmod on Bazel 7::
+
+    # Find {version} on the req-compile GitHub releases page.
+    bazel_dep(name = "rules_req_compile", version = "{version}")
+
+    requirements = use_extension("//extensions:python.bzl", "requirements")
+    requirements.parse(
+        name = "my_pip_deps",
+        requirements_locks = {
+            "//3rdparty:requirements.linux.311.txt": "@platforms//os:linux",
+            "//3rdparty:requirements.macos.311.txt": "@platforms//os:macos",
+            "//3rdparty:requirements.windows.311.txt": "@platforms//os:windows",
+        },
+    )
+    use_repo(requirements, "my_pip_deps")
+
+Using WORKSPACE.bazel::
+
+    load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+    http_archive(
+        name = "rules_req_compile",
+        sha256 = "{sha256}",
+        urls = ["https://github.com/sputt/req-compile/releases/download/{version}/rules_req_compile-v{version}.tar.gz"],
+    )
+
+    load("@rules_req_compile//:repositories.bzl", "req_compile_dependencies")
+
+    req_compile_dependencies()
+
+    load("@rules_req_compile//:repositories_transitive.bzl", "req_compile_transitive_dependencies")
+
+    req_compile_transitive_dependencies()
+
+
 Why use it?
 -----------
 **pip** and **pip-tools** are missing features and lack usability for some important workflows:

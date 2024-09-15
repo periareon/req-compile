@@ -1,44 +1,44 @@
 """Repository rules for loading platform specific python requirements"""
 
-load(":utils.bzl", "sanitize_package_name")
-
-_CONSTRAINTS_BZL_TEMPLATE = """\
-\"\"\"Python constraints\"\"\"
-
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
-load("@rules_req_compile//private:sdist_repo.bzl", "sdist_repository")
+load(":utils.bzl", "sanitize_package_name")
+load(":whl_repo.bzl", "whl_repository")
+
+_DEFS_BZL_TEMPLATE = """\
+\"\"\"Python constraints.\"\"\"
+
 load("@rules_req_compile//private:utils.bzl", "sanitize_package_name")
-load("@rules_req_compile//private:whl_repo.bzl", "whl_repository")
+load("@rules_req_compile//private:reqs_repo.bzl", "create_spoke_repos")
 
 def whl_repo_name(package):
-    return "{repository_name}__" + sanitize_package_name(package)
+    return "{spoke_prefix}__" + sanitize_package_name(package)
 
 def get_version(pkg):
     pkg_name = sanitize_package_name(pkg)
     return _CONSTRAINTS[pkg_name]["version"]
 
 def requirement(name):
-    return "@" + whl_repo_name(name) + "//:pkg"
+    return Label("@" + whl_repo_name(name) + "//:pkg")
 
 def requirements(names):
     return [
-        "@" + whl_repo_name(name) + "//:pkg"
+        Label("@" + whl_repo_name(name) + "//:pkg")
         for name in names
     ]
 
 def requirement_wheel(name):
-    return "@" + whl_repo_name(name) + "//:whl"
+    return Label("@" + whl_repo_name(name) + "//:whl")
 
 def requirements_wheels(names):
     return [
-        "@" + whl_repo_name(name) + "//:whl"
+        Label("@" + whl_repo_name(name) + "//:whl")
         for name in names
     ]
 
 def entry_point(pkg, script = None):
     if not script:
         script = pkg
-    return "@" + whl_repo_name(pkg) + "//:entry_point_" + script
+    return Label("@" + whl_repo_name(pkg) + "//:entry_point_" + script)
 
 _CONSTRAINTS = {constraints}
 
@@ -50,69 +50,56 @@ all_requirements_wheels = [
     requirement_wheel(name) for name in _CONSTRAINTS
 ]
 
-def _is_wheel(data):
-    if "url" in data and data["url"]:
-        if ".whl" in data["url"]:
-            return True
-        return False
-
-    if "whl" in data and data["whl"]:
-        return True
-
-    return False
-
-def _sdist_repo_name(package):
-    return "{repository_name}__" + sanitize_package_name(package) + "__sdist"
-
 def repositories():
-    \"\"\"Define repositories for {repository_name}.\"\"\"
-    has_sdist = False
-    for name, data in _CONSTRAINTS.items():
-        if _is_wheel(data):
-            maybe(
-                whl_repository,
-                name = whl_repo_name(name),
-                annotations = json.encode(data["annotations"]),
-                constraint = data["constraint"],
-                deps = data["deps"],
-                package = name,
-                reqs_repository_name = "{repository_name}",
-                sha256 = data["sha256"],
-                urls = [data["url"]] if data.get("url", None) else None,
-                version = data["version"],
-                whl = data["whl"],
-            )
-        else:
-            has_sdist = True
-            interpreter = {interpreter}
-            if not interpreter:
-                fail(
-                    "A sdist (" + name + ") was found for the repository '{repository_name}' " +
-                    "but no interpreter was provided. One is required for processing sdists."
-                )
-            maybe(
-                sdist_repository,
-                name = _sdist_repo_name(name),
-                deps = ["@" + whl_repo_name(dep) + "//:BUILD.bazel" for dep in data["deps"]],
-                sha256 = data["sha256"],
-                urls = [data["url"]],
-                interpreter = interpreter,
-            )
-            maybe(
-                whl_repository,
-                name = whl_repo_name(name),
-                annotations = json.encode(data["annotations"]),
-                constraint = data["constraint"],
-                deps = data["deps"],
-                package = name,
-                reqs_repository_name = "{repository_name}",
-                whl_data = "@" + _sdist_repo_name(name) + "//:whl.json",
-                version = data["version"],
-            )
-    if has_sdist:
-        print("WARNING: {repository_name} contains sdist dependencies and is not guaranteed to provide determinisitc external repositories. Using a binary-only (all wheels) solution is recommended.")
-
+    \"\"\"Define repositories for {spoke_prefix}.\"\"\"
+    create_spoke_repos("{spoke_prefix}", _CONSTRAINTS, {interpreter})
 """
+
+def create_spoke_repos(spoke_prefix, constraints, interpreter):
+    """Create the repos for each Python project from a constraints file.
+
+    These are the "spokes" of the wheel, attached to the central "hub".
+
+    Args:
+        spoke_prefix: A name prefix including the hub and a platform identifier.
+        constraints: Mapping of Python project name to data about the project.
+        interpreter: Python interpreter to use to build sdists.
+
+
+    Returns:
+        List of names of repositories created.
+    """
+    all_names = []
+    has_sdist = False
+    for name, data in constraints.items():
+        wheel_name = "{}__{}".format(spoke_prefix, sanitize_package_name(name))
+        all_names.append(wheel_name)
+        sdist_args = {}
+        if interpreter:
+            sdist_args = {"interpreter": interpreter}
+        else:
+            # Avoid a circular dependency when creating the spokes for the source dist
+            # dependencies. We don't need these for non-source dist repos anyway.
+            sdist_args = {"sdist_deps_repos": []}
+        maybe(
+            whl_repository,
+            name = wheel_name,
+            annotations = json.encode(data["annotations"]),
+            constraint = data["constraint"],
+            deps = data["deps"],
+            package = name,
+            spoke_prefix = spoke_prefix,
+            sha256 = data["sha256"],
+            urls = [data["url"]] if data.get("url", None) else None,
+            version = data["version"],
+            whl = data["whl"],
+            **sdist_args
+        )
+
+    if has_sdist:
+        print("WARNING: {} contains sdist dependencies and is not guaranteed to provide deterministic external repositories. Using a binary-only (all wheels) solution is recommended.".format(spoke_prefix))  # buildifier: disable=print
+
+    return all_names
 
 _RULES_PYTHON_COMPAT = """\
 \"\"\"A compatibility file with rules_python\"\"\"
@@ -132,12 +119,9 @@ entry_point = _entry_point
 get_version = _get_version
 install_deps = repositories
 
-# Note that this is not just a re-export since `py_multi_platform_requirements_repository`
-# uses selects within it's `requirement` macro which breaks the API. Instead this needs
-# to return simple targets, thus the alias targets are relied on here.
 def requirement(name):
     \"\"\"rules_python compatibility macro\"\"\"
-    return "@{repository_name}" + "//:" + sanitize_package_name(name)
+    return Label("@{repository_name}" + "//:" + sanitize_package_name(name))
 """
 
 _BUILD_FILE_TEMPLATE = """\
@@ -239,7 +223,7 @@ def parse_constraint(data, repository_name, lockfile, wheel_dirs):
                 split = url.split("/")
                 wheel = "{}/{}".format(split[-2], split[-1])
 
-                whl = str(Label("{}//{}:{}".format(repository, new_package, wheel)))
+                whl = "{}//{}:{}".format(repository, new_package, wheel)
             else:
                 whl = str(lockfile.same_package_label(url))
             url = None
@@ -274,7 +258,7 @@ def parse_lockfile(
         content (str): The string content of a requirements lock file.
         repository_name (str): The name of the current repository
         annotations (dict): Annotation data for packages in the current lock file.
-        lockfile (Label): The label of the lockfile contianing `content`.
+        lockfile (Label): The label of the lockfile containing `content`.
         constraint (Label): An optional Label which represents the constraint value of the package.
 
     Returns:
@@ -343,37 +327,35 @@ def parse_lockfile(
     for package, data in annotations.items():
         package = sanitize_package_name(package)
         if package not in packages:
-            fail("The package `{}` was not found in constraints. Try one of: {}".format(
-                package,
-                packages.keys(),
-            ))
+            continue
 
         packages[package].update({"annotations": data})
 
     return packages
 
-def _write_defs_file(repository_ctx, packages, defs_output, id = ""):
-    repository_ctx.file(defs_output, _CONSTRAINTS_BZL_TEMPLATE.format(
+def _write_defs_file(repository_ctx, hub_name, packages, defs_output, id = "", name = None):
+    repository_ctx.file(defs_output, _DEFS_BZL_TEMPLATE.format(
         constraints = json.encode_indent(packages, indent = " " * 4).replace(" null", " None"),
-        repository_name = "{}_{}".format(repository_ctx.name, id).rstrip("_"),
+        spoke_prefix = "{}_{}".format(hub_name, id).rstrip("_"),
         repository_defs = defs_output.basename,
         interpreter = repr(repository_ctx.attr.interpreter),
     ))
 
-def _process_lockfile(repository_ctx, requirements_lock, constraint = None):
-    """Convert a lockfile into a map of packages
+def _process_lockfile(ctx, hub_name, requirements_lock, annotations = None, constraint = None):
+    """Convert a lockfile into a map of packages.
 
     Args:
-        repository_ctx (repository_ctx): The repository context object
+        ctx (repository_ctx): The repository or module context object
+        hub_name: Name of the hub to process the lock file for.
         requirements_lock (Label): The label of the lock file.
+        annotations: The annotations to apply to the requirements from this lock.
         constraint (Label, optional): An optional constraint label associated
             with the parsed packages.
 
     Returns:
         dict: See `parse_lockfile`.
     """
-    repository_ctx.report_progress("Parsing {}".format(requirements_lock))
-    content = repository_ctx.read(repository_ctx.path(requirements_lock))
+    content = ctx.read(ctx.path(requirements_lock))
 
     # Skip empty files
     if not content.strip():
@@ -381,20 +363,20 @@ def _process_lockfile(repository_ctx, requirements_lock, constraint = None):
 
     packages = parse_lockfile(
         content = content,
-        repository_name = repository_ctx.name,
-        annotations = repository_ctx.attr.annotations,
+        repository_name = hub_name,
+        annotations = annotations or {},
         lockfile = requirements_lock,
         constraint = constraint,
     )
 
     return packages
 
-def _requirements_repository_common(repository_ctx):
+def _requirements_repository_common(repository_ctx, hub_name):
     repository_ctx.file("WORKSPACE.bazel", """workspace(name = "{}")""".format(
         repository_ctx.name,
     ))
     repository_ctx.file("requirements.bzl", _RULES_PYTHON_COMPAT.format(
-        repository_name = repository_ctx.name,
+        repository_name = hub_name,
     ))
 
 _LOAD_TEMPLATE = """\
@@ -465,7 +447,16 @@ def repositories():
     {repositories}
 """
 
-def _generate_interface_bzl_content(defs, repository_name):
+def generate_interface_bzl_content(defs, repository_name):
+    """Generate the defs.bzl file contents that selects between multiple architectures.
+
+    Args:
+        defs (dict): id -> constraint mapping dictionary.
+        repository_name (str): Name of the repository containing this file.
+
+    Returns:
+        The file contents.
+    """
     loads = []
     all_requirements = []
     all_requirements_wheels = []
@@ -505,55 +496,91 @@ def _generate_interface_bzl_content(defs, repository_name):
         requirements_wheels = "\n        ".join(requirements_wheels),
     )
 
-def _py_requirements_repository_impl(repository_ctx):
-    if repository_ctx.attr.requirements_lock and repository_ctx.attr.requirements_locks:
+def parse_requirements_locks(hub_name, ctx, attrs, annotations):
+    """Parse requirement locks into a mapping of the platform to Python deps.
+
+    Args:
+        hub_name (str): Hub name containing the top-level BUILD.bazel file.
+        ctx (repository_ctx): A Bazel context capable of reading files.
+        attrs (struct): A struct containing the repository rule or Bazel module tag class attributes.
+        annotations: The annotations to apply to the requirements from this lock.
+
+    Returns:
+        Mapping of a derived friendly platform id to a struct containing:
+            constraint: Bazel constraint for this platform.
+            packages: Python packages read from the lock file for this platform.
+
+        If no constraint was provided, the constraint struct member will be None.
+    """
+    if attrs.requirements_lock and attrs.requirements_locks:
         fail("`requirements_lock` and `requirements_locks` are mutually exclusive for `py_requirements_repository`. Please update {}".format(
-            repository_ctx.name,
+            hub_name,
         ))
-    if repository_ctx.attr.requirements_lock:
+
+    if attrs.requirements_lock:
         packages = _process_lockfile(
-            repository_ctx = repository_ctx,
-            requirements_lock = repository_ctx.attr.requirements_lock,
+            ctx = ctx,
+            hub_name = hub_name,
+            requirements_lock = attrs.requirements_lock,
+            annotations = annotations,
         )
+        return {None: struct(constraint = None, packages = packages)}
 
-        _write_defs_file(repository_ctx, packages, repository_ctx.path("defs.bzl"))
-
-        repository_ctx.file("BUILD.bazel", _BUILD_FILE_TEMPLATE.format(
-            packages = json.encode_indent(sorted(packages.keys()), indent = " " * 4),
-        ))
-
-        _requirements_repository_common(repository_ctx)
-    elif repository_ctx.attr.requirements_locks:
-        all_packages = []
-        defs = {}
-        for lock, constraint in repository_ctx.attr.requirements_locks.items():
+    if attrs.requirements_locks:
+        platform_packages = {}
+        for lock, constraint in attrs.requirements_locks.items():
             constraint = str(Label(constraint))
-            lockfile = repository_ctx.path(lock)
+            lockfile = ctx.path(lock)
 
             defs_id, _, _ = lockfile.basename.rpartition(".")
             defs_id = defs_id.replace("requirements", "").replace(".", "_").replace("-", "_").strip(" -_.")
-            defs.update({defs_id: constraint})
-
-            defs_file = repository_ctx.path("defs_{}.bzl".format(defs_id))
 
             packages = _process_lockfile(
-                repository_ctx = repository_ctx,
+                ctx = ctx,
+                hub_name = hub_name,
                 requirements_lock = lock,
                 constraint = constraint,
+                annotations = annotations,
             )
-            all_packages.extend(packages.keys())
+            platform_packages[defs_id] = struct(
+                constraint = constraint,
+                packages = packages,
+            )
+        return platform_packages
 
-            _write_defs_file(repository_ctx, packages, defs_file, defs_id)
+    fail("Either `requirements_lock` or `requirements_locks` must be set. Please update {}".format(
+        hub_name,
+    ))
 
-        repository_ctx.file("defs.bzl", _generate_interface_bzl_content(defs, repository_ctx.name))
-        repository_ctx.file("BUILD.bazel", _BUILD_FILE_TEMPLATE.format(
-            packages = json.encode_indent(sorted(depset(all_packages).to_list()), indent = " " * 4),
-        ))
-        _requirements_repository_common(repository_ctx)
-    else:
-        fail("Either `requirements_lock` or `requirements_locks` must be set for `py_requirements_repository`. Please update {}".format(
-            repository_ctx.name,
-        ))
+def _py_requirements_repository_impl(repository_ctx):
+    hub_name = repository_ctx.attr.hub_name or repository_ctx.attr.name
+
+    platform_packages = parse_requirements_locks(
+        hub_name = hub_name,
+        ctx = repository_ctx,
+        attrs = repository_ctx.attr,
+        annotations = repository_ctx.attr.annotations,
+    )
+
+    all_packages = []
+    defs = {}
+    for defs_id, data in platform_packages.items():
+        defs.update({defs_id: data.constraint})
+        if data.constraint == None:
+            defs_file = "defs.bzl"
+        else:
+            defs_file = "defs_{}.bzl".format(defs_id)
+
+        _write_defs_file(repository_ctx, hub_name, data.packages, repository_ctx.path(defs_file), id = defs_id or "")
+        all_packages.extend(data.packages.keys())
+
+    if len(defs) > 1:
+        repository_ctx.file("defs.bzl", generate_interface_bzl_content(defs, repository_ctx.name))
+
+    repository_ctx.file("BUILD.bazel", _BUILD_FILE_TEMPLATE.format(
+        packages = json.encode_indent(sorted(depset(all_packages).to_list()), indent = " " * 4),
+    ))
+    _requirements_repository_common(repository_ctx, hub_name)
 
 py_requirements_repository = repository_rule(
     doc = """\
@@ -621,7 +648,7 @@ alias(
 ```
 
 A very important detail for generating python dependencies is sdist (source distribution)
-dependencies are assumed to be incapable of yielding determinsitic outputs. Therefore, any
+dependencies are assumed to be incapable of yielding deterministic outputs. Therefore, any
 case where a sdist (source distribution) is found in a solution file passed to either
 `requirements_lock` or `requirements_locks`, the dependencies should not be considered
 byte-for-byte reproducible. It is highly recommended solution files contain all wheels
@@ -631,6 +658,9 @@ cross-platform behavior when using `requirements_locks`.
 """,
     implementation = _py_requirements_repository_impl,
     attrs = {
+        "hub_name": attr.string(
+            doc = "Name of the hub repository to generate. Do not use directly.",
+        ),
         "annotations": attr.string_dict(
             doc = (
                 "Optional annotations to apply to packages. For details see " +

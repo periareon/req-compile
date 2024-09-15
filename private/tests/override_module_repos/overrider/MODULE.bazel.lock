@@ -1,0 +1,2015 @@
+{
+  "lockFileVersion": 11,
+  "registryFileHashes": {
+    "https://bcr.bazel.build/bazel_registry.json": "8a28e4aff06ee60aed2a8c281907fb8bcbf3b753c91fb5a5c57da3215d5b3497",
+    "https://bcr.bazel.build/modules/abseil-cpp/20210324.2/MODULE.bazel": "7cd0312e064fde87c8d1cd79ba06c876bd23630c83466e9500321be55c96ace2",
+    "https://bcr.bazel.build/modules/abseil-cpp/20211102.0/MODULE.bazel": "70390338f7a5106231d20620712f7cccb659cd0e9d073d1991c038eb9fc57589",
+    "https://bcr.bazel.build/modules/abseil-cpp/20230125.1/MODULE.bazel": "89047429cb0207707b2dface14ba7f8df85273d484c2572755be4bab7ce9c3a0",
+    "https://bcr.bazel.build/modules/abseil-cpp/20230802.0.bcr.1/MODULE.bazel": "1c8cec495288dccd14fdae6e3f95f772c1c91857047a098fad772034264cc8cb",
+    "https://bcr.bazel.build/modules/abseil-cpp/20230802.0.bcr.1/source.json": "14892cc698e02ffedf4967546e6bedb7245015906888d3465fcf27c90a26da10",
+    "https://bcr.bazel.build/modules/apple_support/1.5.0/MODULE.bazel": "50341a62efbc483e8a2a6aec30994a58749bd7b885e18dd96aa8c33031e558ef",
+    "https://bcr.bazel.build/modules/apple_support/1.5.0/source.json": "eb98a7627c0bc486b57f598ad8da50f6625d974c8f723e9ea71bd39f709c9862",
+    "https://bcr.bazel.build/modules/bazel_features/1.11.0/MODULE.bazel": "f9382337dd5a474c3b7d334c2f83e50b6eaedc284253334cf823044a26de03e8",
+    "https://bcr.bazel.build/modules/bazel_features/1.11.0/source.json": "c9320aa53cd1c441d24bd6b716da087ad7e4ff0d9742a9884587596edfe53015",
+    "https://bcr.bazel.build/modules/bazel_features/1.9.1/MODULE.bazel": "8f679097876a9b609ad1f60249c49d68bfab783dd9be012faf9d82547b14815a",
+    "https://bcr.bazel.build/modules/bazel_skylib/1.0.3/MODULE.bazel": "bcb0fd896384802d1ad283b4e4eb4d718eebd8cb820b0a2c3a347fb971afd9d8",
+    "https://bcr.bazel.build/modules/bazel_skylib/1.2.0/MODULE.bazel": "44fe84260e454ed94ad326352a698422dbe372b21a1ac9f3eab76eb531223686",
+    "https://bcr.bazel.build/modules/bazel_skylib/1.2.1/MODULE.bazel": "f35baf9da0efe45fa3da1696ae906eea3d615ad41e2e3def4aeb4e8bc0ef9a7a",
+    "https://bcr.bazel.build/modules/bazel_skylib/1.3.0/MODULE.bazel": "20228b92868bf5cfc41bda7afc8a8ba2a543201851de39d990ec957b513579c5",
+    "https://bcr.bazel.build/modules/bazel_skylib/1.4.1/MODULE.bazel": "a0dcb779424be33100dcae821e9e27e4f2901d9dfd5333efe5ac6a8d7ab75e1d",
+    "https://bcr.bazel.build/modules/bazel_skylib/1.5.0/MODULE.bazel": "32880f5e2945ce6a03d1fbd588e9198c0a959bb42297b2cfaf1685b7bc32e138",
+    "https://bcr.bazel.build/modules/bazel_skylib/1.6.1/MODULE.bazel": "8fdee2dbaace6c252131c00e1de4b165dc65af02ea278476187765e1a617b917",
+    "https://bcr.bazel.build/modules/bazel_skylib/1.6.1/source.json": "082ed5f9837901fada8c68c2f3ddc958bb22b6d654f71dd73f3df30d45d4b749",
+    "https://bcr.bazel.build/modules/buildozer/7.1.2/MODULE.bazel": "2e8dd40ede9c454042645fd8d8d0cd1527966aa5c919de86661e62953cd73d84",
+    "https://bcr.bazel.build/modules/buildozer/7.1.2/source.json": "c9028a501d2db85793a6996205c8de120944f50a0d570438fcae0457a5f9d1f8",
+    "https://bcr.bazel.build/modules/googletest/1.11.0/MODULE.bazel": "3a83f095183f66345ca86aa13c58b59f9f94a2f81999c093d4eeaa2d262d12f4",
+    "https://bcr.bazel.build/modules/googletest/1.14.0/MODULE.bazel": "cfbcbf3e6eac06ef9d85900f64424708cc08687d1b527f0ef65aa7517af8118f",
+    "https://bcr.bazel.build/modules/googletest/1.14.0/source.json": "2478949479000fdd7de9a3d0107ba2c85bb5f961c3ecb1aa448f52549ce310b5",
+    "https://bcr.bazel.build/modules/platforms/0.0.4/MODULE.bazel": "9b328e31ee156f53f3c416a64f8491f7eb731742655a47c9eec4703a71644aee",
+    "https://bcr.bazel.build/modules/platforms/0.0.5/MODULE.bazel": "5733b54ea419d5eaf7997054bb55f6a1d0b5ff8aedf0176fef9eea44f3acda37",
+    "https://bcr.bazel.build/modules/platforms/0.0.6/MODULE.bazel": "ad6eeef431dc52aefd2d77ed20a4b353f8ebf0f4ecdd26a807d2da5aa8cd0615",
+    "https://bcr.bazel.build/modules/platforms/0.0.7/MODULE.bazel": "72fd4a0ede9ee5c021f6a8dd92b503e089f46c227ba2813ff183b71616034814",
+    "https://bcr.bazel.build/modules/platforms/0.0.8/MODULE.bazel": "9f142c03e348f6d263719f5074b21ef3adf0b139ee4c5133e2aa35664da9eb2d",
+    "https://bcr.bazel.build/modules/platforms/0.0.9/MODULE.bazel": "4a87a60c927b56ddd67db50c89acaa62f4ce2a1d2149ccb63ffd871d5ce29ebc",
+    "https://bcr.bazel.build/modules/platforms/0.0.9/source.json": "cd74d854bf16a9e002fb2ca7b1a421f4403cda29f824a765acd3a8c56f8d43e6",
+    "https://bcr.bazel.build/modules/protobuf/21.7/MODULE.bazel": "a5a29bb89544f9b97edce05642fac225a808b5b7be74038ea3640fae2f8e66a7",
+    "https://bcr.bazel.build/modules/protobuf/23.1/MODULE.bazel": "88b393b3eb4101d18129e5db51847cd40a5517a53e81216144a8c32dfeeca52a",
+    "https://bcr.bazel.build/modules/protobuf/24.4/MODULE.bazel": "7bc7ce5f2abf36b3b7b7c8218d3acdebb9426aeb35c2257c96445756f970eb12",
+    "https://bcr.bazel.build/modules/protobuf/24.4/source.json": "ace4b8c65d4cfe64efe544f09fc5e5df77faf3a67fbb29c5341e0d755d9b15d6",
+    "https://bcr.bazel.build/modules/protobuf/3.19.0/MODULE.bazel": "6b5fbb433f760a99a22b18b6850ed5784ef0e9928a72668b66e4d7ccd47db9b0",
+    "https://bcr.bazel.build/modules/protobuf/3.19.6/MODULE.bazel": "9233edc5e1f2ee276a60de3eaa47ac4132302ef9643238f23128fea53ea12858",
+    "https://bcr.bazel.build/modules/rules_cc/0.0.1/MODULE.bazel": "cb2aa0747f84c6c3a78dad4e2049c154f08ab9d166b1273835a8174940365647",
+    "https://bcr.bazel.build/modules/rules_cc/0.0.2/MODULE.bazel": "6915987c90970493ab97393024c156ea8fb9f3bea953b2f3ec05c34f19b5695c",
+    "https://bcr.bazel.build/modules/rules_cc/0.0.6/MODULE.bazel": "abf360251023dfe3efcef65ab9d56beefa8394d4176dd29529750e1c57eaa33f",
+    "https://bcr.bazel.build/modules/rules_cc/0.0.8/MODULE.bazel": "964c85c82cfeb6f3855e6a07054fdb159aced38e99a5eecf7bce9d53990afa3e",
+    "https://bcr.bazel.build/modules/rules_cc/0.0.9/MODULE.bazel": "836e76439f354b89afe6a911a7adf59a6b2518fafb174483ad78a2a2fde7b1c5",
+    "https://bcr.bazel.build/modules/rules_cc/0.0.9/source.json": "1f1ba6fea244b616de4a554a0f4983c91a9301640c8fe0dd1d410254115c8430",
+    "https://bcr.bazel.build/modules/rules_java/4.0.0/MODULE.bazel": "5a78a7ae82cd1a33cef56dc578c7d2a46ed0dca12643ee45edbb8417899e6f74",
+    "https://bcr.bazel.build/modules/rules_java/7.1.0/MODULE.bazel": "30d9135a2b6561c761bd67bd4990da591e6bdc128790ce3e7afd6a3558b2fb64",
+    "https://bcr.bazel.build/modules/rules_java/7.6.5/MODULE.bazel": "481164be5e02e4cab6e77a36927683263be56b7e36fef918b458d7a8a1ebadb1",
+    "https://bcr.bazel.build/modules/rules_java/7.6.5/source.json": "a805b889531d1690e3c72a7a7e47a870d00323186a9904b36af83aa3d053ee8d",
+    "https://bcr.bazel.build/modules/rules_jvm_external/4.4.2/MODULE.bazel": "a56b85e418c83eb1839819f0b515c431010160383306d13ec21959ac412d2fe7",
+    "https://bcr.bazel.build/modules/rules_jvm_external/5.1/MODULE.bazel": "33f6f999e03183f7d088c9be518a63467dfd0be94a11d0055fe2d210f89aa909",
+    "https://bcr.bazel.build/modules/rules_jvm_external/5.1/source.json": "5abb45cc9beb27b77aec6a65a11855ef2b55d95dfdc358e9f312b78ae0ba32d5",
+    "https://bcr.bazel.build/modules/rules_license/0.0.3/MODULE.bazel": "627e9ab0247f7d1e05736b59dbb1b6871373de5ad31c3011880b4133cafd4bd0",
+    "https://bcr.bazel.build/modules/rules_license/0.0.7/MODULE.bazel": "088fbeb0b6a419005b89cf93fe62d9517c0a2b8bb56af3244af65ecfe37e7d5d",
+    "https://bcr.bazel.build/modules/rules_license/0.0.7/source.json": "355cc5737a0f294e560d52b1b7a6492d4fff2caf0bef1a315df5a298fca2d34a",
+    "https://bcr.bazel.build/modules/rules_pkg/0.7.0/MODULE.bazel": "df99f03fc7934a4737122518bb87e667e62d780b610910f0447665a7e2be62dc",
+    "https://bcr.bazel.build/modules/rules_pkg/0.7.0/source.json": "c2557066e0c0342223ba592510ad3d812d4963b9024831f7f66fd0584dd8c66c",
+    "https://bcr.bazel.build/modules/rules_proto/4.0.0/MODULE.bazel": "a7a7b6ce9bee418c1a760b3d84f83a299ad6952f9903c67f19e4edd964894e06",
+    "https://bcr.bazel.build/modules/rules_proto/5.3.0-21.7/MODULE.bazel": "e8dff86b0971688790ae75528fe1813f71809b5afd57facb44dad9e8eca631b7",
+    "https://bcr.bazel.build/modules/rules_proto/6.0.0-rc1/MODULE.bazel": "1e5b502e2e1a9e825eef74476a5a1ee524a92297085015a052510b09a1a09483",
+    "https://bcr.bazel.build/modules/rules_proto/6.0.0-rc1/source.json": "8d8448e71706df7450ced227ca6b3812407ff5e2ccad74a43a9fbe79c84e34e0",
+    "https://bcr.bazel.build/modules/rules_python/0.10.2/MODULE.bazel": "cc82bc96f2997baa545ab3ce73f196d040ffb8756fd2d66125a530031cd90e5f",
+    "https://bcr.bazel.build/modules/rules_python/0.22.1/MODULE.bazel": "26114f0c0b5e93018c0c066d6673f1a2c3737c7e90af95eff30cfee38d0bbac7",
+    "https://bcr.bazel.build/modules/rules_python/0.34.0/MODULE.bazel": "1d623d026e075b78c9fde483a889cda7996f5da4f36dffb24c246ab30f06513a",
+    "https://bcr.bazel.build/modules/rules_python/0.34.0/source.json": "113116e287eec64a7d005a9db44865d810499fdc4f621e352aff58214f5ea2d8",
+    "https://bcr.bazel.build/modules/rules_python/0.4.0/MODULE.bazel": "9208ee05fd48bf09ac60ed269791cf17fb343db56c8226a720fbb1cdf467166c",
+    "https://bcr.bazel.build/modules/stardoc/0.5.1/MODULE.bazel": "1a05d92974d0c122f5ccf09291442580317cdd859f07a8655f1db9a60374f9f8",
+    "https://bcr.bazel.build/modules/stardoc/0.5.3/MODULE.bazel": "c7f6948dae6999bf0db32c1858ae345f112cacf98f174c7a8bb707e41b974f1c",
+    "https://bcr.bazel.build/modules/stardoc/0.5.3/source.json": "cd53fe968dc8cd98197c052db3db6d82562960c87b61e7a90ee96f8e4e0dda97",
+    "https://bcr.bazel.build/modules/upb/0.0.0-20220923-a547704/MODULE.bazel": "7298990c00040a0e2f121f6c32544bab27d4452f80d9ce51349b1a28f3005c43",
+    "https://bcr.bazel.build/modules/upb/0.0.0-20230516-61a97ef/MODULE.bazel": "c0df5e35ad55e264160417fd0875932ee3c9dda63d9fccace35ac62f45e1b6f9",
+    "https://bcr.bazel.build/modules/upb/0.0.0-20230516-61a97ef/source.json": "b2150404947339e8b947c6b16baa39fa75657f4ddec5e37272c7b11c7ab533bc",
+    "https://bcr.bazel.build/modules/zlib/1.2.11/MODULE.bazel": "07b389abc85fdbca459b69e2ec656ae5622873af3f845e1c9d80fe179f3effa0",
+    "https://bcr.bazel.build/modules/zlib/1.2.12/MODULE.bazel": "3b1a8834ada2a883674be8cbd36ede1b6ec481477ada359cd2d3ddc562340b27",
+    "https://bcr.bazel.build/modules/zlib/1.3.1.bcr.3/MODULE.bazel": "af322bc08976524477c79d1e45e241b6efbeb918c497e8840b8ab116802dda79",
+    "https://bcr.bazel.build/modules/zlib/1.3.1.bcr.3/source.json": "2be409ac3c7601245958cd4fcdff4288be79ed23bd690b4b951f500d54ee6e7d"
+  },
+  "selectedYankedVersions": {},
+  "moduleExtensions": {
+    "@@apple_support~//crosstool:setup.bzl%apple_cc_configure_extension": {
+      "general": {
+        "bzlTransitiveDigest": "PjIds3feoYE8SGbbIq2SFTZy3zmxeO2tQevJZNDo7iY=",
+        "usagesDigest": "aLmqbvowmHkkBPve05yyDNGN7oh7QE9kBADr3QIZTZs=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "local_config_apple_cc": {
+            "bzlFile": "@@apple_support~//crosstool:setup.bzl",
+            "ruleClassName": "_apple_cc_autoconf",
+            "attributes": {}
+          },
+          "local_config_apple_cc_toolchains": {
+            "bzlFile": "@@apple_support~//crosstool:setup.bzl",
+            "ruleClassName": "_apple_cc_autoconf_toolchains",
+            "attributes": {}
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "apple_support~",
+            "bazel_tools",
+            "bazel_tools"
+          ]
+        ]
+      }
+    },
+    "@@platforms//host:extension.bzl%host_platform": {
+      "general": {
+        "bzlTransitiveDigest": "xelQcPZH8+tmuOHVjL9vDxMnnQNMlwj0SlvgoqBkm4U=",
+        "usagesDigest": "meSzxn3DUCcYEhq4HQwExWkWtU4EjriRBQLsZN+Q0SU=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "host_platform": {
+            "bzlFile": "@@platforms//host:extension.bzl",
+            "ruleClassName": "host_platform_repo",
+            "attributes": {}
+          }
+        },
+        "recordedRepoMappingEntries": []
+      }
+    },
+    "@@rules_req_compile~//extensions:python.bzl%requirements": {
+      "general": {
+        "bzlTransitiveDigest": "E3/oC7UaZJDCD9mkYBo1G9VwZbHor8V3EBhmK/uZxQM=",
+        "usagesDigest": "dh00l8R7dyiJknWk4pdUxk3nXwYEL9xILpzt3hXtBOA=",
+        "recordedFileInputs": {
+          "@@rules_req_compile~//3rdparty/requirements.macos.311.txt": "d3304956639cf483bf525b8b724c1aac95b72917463f04f64439e4a6a6abe776",
+          "@@rules_req_compile~//3rdparty/requirements.linux.311.txt": "f4dda9ac9b4cea873d263fdd858c80562331eda192b431d9a43f63ceea596491",
+          "@@//requirements.txt": "eb01a58960ecbf2cd5d5820db4e620da079a1c2f23e597dbc4c557070bd3a4d2",
+          "@@rules_req_compile~//3rdparty/requirements.windows.311.txt": "4735c4a0fa4447fa168001785f858fbf2689ed72da59036fb707ea119c1002d1"
+        },
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "req_compile_deps_windows_311__types_appdirs": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "types_appdirs",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "337c750e423c40911d389359b4edabe5bbc2cdd5cd0bd0518b71d2839646273b",
+              "urls": [
+                "https://files.pythonhosted.org/packages/cf/07/41f5b9b11f11855eb67760ed680330e0ce9136a44b51c24dd52edb1c4eb1/types_appdirs-1.4.3.5-py3-none-any.whl#sha256=337c750e423c40911d389359b4edabe5bbc2cdd5cd0bd0518b71d2839646273b"
+              ],
+              "version": "1.4.3.5"
+            }
+          },
+          "req_compile_deps_linux_311__typing_extensions": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "typing_extensions",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "69b1a937c3a517342112fb4c6df7e72fc39a38e7891a5730ed4985b5214b5475",
+              "urls": [
+                "https://files.pythonhosted.org/packages/f9/de/dc04a3ea60b22624b51c703a84bbe0184abcd1d0b9bc8074b5d6b7ab90bb/typing_extensions-4.10.0-py3-none-any.whl#sha256=69b1a937c3a517342112fb4c6df7e72fc39a38e7891a5730ed4985b5214b5475"
+              ],
+              "version": "4.10.0"
+            }
+          },
+          "req_compile_deps_linux_311__wheel": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "wheel",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81",
+              "urls": [
+                "https://files.pythonhosted.org/packages/7d/cd/d7460c9a869b16c3dd4e1e403cce337df165368c71d6af229a74699622ce/wheel-0.43.0-py3-none-any.whl#sha256=55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81"
+              ],
+              "version": "0.43.0"
+            }
+          },
+          "req_compile_deps_windows_311__iniconfig": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "iniconfig",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374",
+              "urls": [
+                "https://files.pythonhosted.org/packages/ef/a6/62565a6e1cf69e10f5727360368e451d4b7f58beeac6173dc9db836a5b46/iniconfig-2.0.0-py3-none-any.whl#sha256=b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374"
+              ],
+              "version": "2.0.0"
+            }
+          },
+          "req_compile_deps_windows_311__isort": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "isort",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "8ca5e72a8d85860d5a3fa69b8745237f2939afe12dbf656afbcb47fe72d947a6",
+              "urls": [
+                "https://files.pythonhosted.org/packages/d1/b3/8def84f539e7d2289a02f0524b944b15d7c75dab7628bedf1c4f0992029c/isort-5.13.2-py3-none-any.whl#sha256=8ca5e72a8d85860d5a3fa69b8745237f2939afe12dbf656afbcb47fe72d947a6"
+              ],
+              "version": "5.13.2"
+            }
+          },
+          "req_compile_deps_linux_311__appdirs": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "appdirs",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128",
+              "urls": [
+                "https://files.pythonhosted.org/packages/3b/00/2344469e2084fb287c2e0b57b72910309874c3245463acd6cf5e3db69324/appdirs-1.4.4-py2.py3-none-any.whl#sha256=a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128"
+              ],
+              "version": "1.4.4"
+            }
+          },
+          "req_compile_deps_linux_311__pytest_mock": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [
+                "pytest"
+              ],
+              "package": "pytest_mock",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "0b72c38033392a5f4621342fe11e9219ac11ec9d375f8e2a0c164539e0d70f6f",
+              "urls": [
+                "https://files.pythonhosted.org/packages/f2/3b/b26f90f74e2986a82df6e7ac7e319b8ea7ccece1caec9f8ab6104dc70603/pytest_mock-3.14.0-py3-none-any.whl#sha256=0b72c38033392a5f4621342fe11e9219ac11ec9d375f8e2a0c164539e0d70f6f"
+              ],
+              "version": "3.14.0"
+            }
+          },
+          "req_compile_deps_macos_311__types_requests": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [
+                "urllib3"
+              ],
+              "package": "types_requests",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "47872893d65a38e282ee9f277a4ee50d1b28bd592040df7d1fdaffdf3779937d",
+              "urls": [
+                "https://files.pythonhosted.org/packages/05/22/21c7918c9bb842faa92fd26108e9f669c3dee9b6b239e8f45dd5f673e6cf/types_requests-2.31.0.20240311-py3-none-any.whl#sha256=47872893d65a38e282ee9f277a4ee50d1b28bd592040df7d1fdaffdf3779937d"
+              ],
+              "version": "2.31.0.20240311"
+            }
+          },
+          "req_compile_deps_linux_311__pathspec": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "pathspec",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08",
+              "urls": [
+                "https://files.pythonhosted.org/packages/cc/20/ff623b09d963f88bfde16306a54e12ee5ea43e9b597108672ff3a408aad6/pathspec-0.12.1-py3-none-any.whl#sha256=a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08"
+              ],
+              "version": "0.12.1"
+            }
+          },
+          "req_compile_deps_windows_311__platformdirs": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "platformdirs",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "0614df2a2f37e1a662acbd8e2b25b92ccf8632929bc6d43467e17fe89c75e068",
+              "urls": [
+                "https://files.pythonhosted.org/packages/55/72/4898c44ee9ea6f43396fbc23d9bfaf3d06e01b83698bdf2e4c919deceb7c/platformdirs-4.2.0-py3-none-any.whl#sha256=0614df2a2f37e1a662acbd8e2b25b92ccf8632929bc6d43467e17fe89c75e068"
+              ],
+              "version": "4.2.0"
+            }
+          },
+          "req_compile_deps_linux_311__charset_normalizer": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "charset_normalizer",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "753f10e867343b4511128c6ed8c82f7bec3bd026875576dfd88483c5c73b2fd8",
+              "urls": [
+                "https://files.pythonhosted.org/packages/40/26/f35951c45070edc957ba40a5b1db3cf60a9dbb1b350c2d5bef03e01e61de/charset_normalizer-3.3.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl#sha256=753f10e867343b4511128c6ed8c82f7bec3bd026875576dfd88483c5c73b2fd8"
+              ],
+              "version": "3.3.2"
+            }
+          },
+          "req_compile_deps_windows_311__mypy_extensions": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "mypy_extensions",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d",
+              "urls": [
+                "https://files.pythonhosted.org/packages/2a/e2/5d3f6ada4297caebe1a2add3b126fe800c96f56dbe5d1988a2cbe0b267aa/mypy_extensions-1.0.0-py3-none-any.whl#sha256=4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d"
+              ],
+              "version": "1.0.0"
+            }
+          },
+          "req_compile_deps_macos_311__idna": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "idna",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f",
+              "urls": [
+                "https://files.pythonhosted.org/packages/c2/e7/a82b05cf63a603df6e68d59ae6a68bf5064484a0718ea5033660af4b54a9/idna-3.6-py3-none-any.whl#sha256=c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f"
+              ],
+              "version": "3.6"
+            }
+          },
+          "req_compile_deps_windows_311__types_toml": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "types_toml",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "627b47775d25fa29977d9c70dc0cbab3f314f32c8d8d0c012f2ef5de7aaec05d",
+              "urls": [
+                "https://files.pythonhosted.org/packages/da/a2/d32ab58c0b216912638b140ab2170ee4b8644067c293b170e19fba340ccc/types_toml-0.10.8.20240310-py3-none-any.whl#sha256=627b47775d25fa29977d9c70dc0cbab3f314f32c8d8d0c012f2ef5de7aaec05d"
+              ],
+              "version": "0.10.8.20240310"
+            }
+          },
+          "req_compile_deps_macos_311__platformdirs": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "platformdirs",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "0614df2a2f37e1a662acbd8e2b25b92ccf8632929bc6d43467e17fe89c75e068",
+              "urls": [
+                "https://files.pythonhosted.org/packages/55/72/4898c44ee9ea6f43396fbc23d9bfaf3d06e01b83698bdf2e4c919deceb7c/platformdirs-4.2.0-py3-none-any.whl#sha256=0614df2a2f37e1a662acbd8e2b25b92ccf8632929bc6d43467e17fe89c75e068"
+              ],
+              "version": "4.2.0"
+            }
+          },
+          "req_compile_deps_windows_311__wheel": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "wheel",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81",
+              "urls": [
+                "https://files.pythonhosted.org/packages/7d/cd/d7460c9a869b16c3dd4e1e403cce337df165368c71d6af229a74699622ce/wheel-0.43.0-py3-none-any.whl#sha256=55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81"
+              ],
+              "version": "0.43.0"
+            }
+          },
+          "req_compile_deps_macos_311__packaging": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "packaging",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5",
+              "urls": [
+                "https://files.pythonhosted.org/packages/49/df/1fceb2f8900f8639e278b056416d49134fb8d84c5942ffaa01ad34782422/packaging-24.0-py3-none-any.whl#sha256=2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5"
+              ],
+              "version": "24.0"
+            }
+          },
+          "req_compile_deps_linux_311__mypy_extensions": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "mypy_extensions",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d",
+              "urls": [
+                "https://files.pythonhosted.org/packages/2a/e2/5d3f6ada4297caebe1a2add3b126fe800c96f56dbe5d1988a2cbe0b267aa/mypy_extensions-1.0.0-py3-none-any.whl#sha256=4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d"
+              ],
+              "version": "1.0.0"
+            }
+          },
+          "req_compile_deps_macos_311__overrides": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "overrides",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "c7ed9d062f78b8e4c1a7b70bd8796b35ead4d9f510227ef9c5dc7626c60d7e49",
+              "urls": [
+                "https://files.pythonhosted.org/packages/2c/ab/fc8290c6a4c722e5514d80f62b2dc4c4df1a68a41d1364e625c35990fcf3/overrides-7.7.0-py3-none-any.whl#sha256=c7ed9d062f78b8e4c1a7b70bd8796b35ead4d9f510227ef9c5dc7626c60d7e49"
+              ],
+              "version": "7.7.0"
+            }
+          },
+          "req_compile_deps_linux_311__certifi": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "certifi",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1",
+              "urls": [
+                "https://files.pythonhosted.org/packages/ba/06/a07f096c664aeb9f01624f858c3add0a4e913d6c96257acb4fce61e7de14/certifi-2024.2.2-py3-none-any.whl#sha256=dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1"
+              ],
+              "version": "2024.2.2"
+            }
+          },
+          "req_compile_deps_linux_311__isort": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "isort",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "8ca5e72a8d85860d5a3fa69b8745237f2939afe12dbf656afbcb47fe72d947a6",
+              "urls": [
+                "https://files.pythonhosted.org/packages/d1/b3/8def84f539e7d2289a02f0524b944b15d7c75dab7628bedf1c4f0992029c/isort-5.13.2-py3-none-any.whl#sha256=8ca5e72a8d85860d5a3fa69b8745237f2939afe12dbf656afbcb47fe72d947a6"
+              ],
+              "version": "5.13.2"
+            }
+          },
+          "req_compile_deps_macos_311__typing_extensions": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "typing_extensions",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "69b1a937c3a517342112fb4c6df7e72fc39a38e7891a5730ed4985b5214b5475",
+              "urls": [
+                "https://files.pythonhosted.org/packages/f9/de/dc04a3ea60b22624b51c703a84bbe0184abcd1d0b9bc8074b5d6b7ab90bb/typing_extensions-4.10.0-py3-none-any.whl#sha256=69b1a937c3a517342112fb4c6df7e72fc39a38e7891a5730ed4985b5214b5475"
+              ],
+              "version": "4.10.0"
+            }
+          },
+          "req_compile_deps_linux_311__urllib3": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "urllib3",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d",
+              "urls": [
+                "https://files.pythonhosted.org/packages/a2/73/a68704750a7679d0b6d3ad7aa8d4da8e14e151ae82e6fee774e6e0d05ec8/urllib3-2.2.1-py3-none-any.whl#sha256=450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d"
+              ],
+              "version": "2.2.1"
+            }
+          },
+          "req_compile_deps_macos_311__responses": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [
+                "pyyaml",
+                "requests",
+                "urllib3"
+              ],
+              "package": "responses",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "2f0b9c2b6437db4b528619a77e5d565e4ec2a9532162ac1a131a83529db7be1a",
+              "urls": [
+                "https://files.pythonhosted.org/packages/30/0b/bff1e6a5b646e6ff770deb6a292a96bd844ea13fb523ccbd9209fc4b90b8/responses-0.25.0-py3-none-any.whl#sha256=2f0b9c2b6437db4b528619a77e5d565e4ec2a9532162ac1a131a83529db7be1a"
+              ],
+              "version": "0.25.0"
+            }
+          },
+          "req_compile_deps_linux_311__tomlkit": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "tomlkit",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "5cd82d48a3dd89dee1f9d64420aa20ae65cfbd00668d6f094d7578a78efbb77b",
+              "urls": [
+                "https://files.pythonhosted.org/packages/07/fa/c96545d741f2fd47f565e4e06bfef0962add790cb9c2289d900102b55eca/tomlkit-0.12.4-py3-none-any.whl#sha256=5cd82d48a3dd89dee1f9d64420aa20ae65cfbd00668d6f094d7578a78efbb77b"
+              ],
+              "version": "0.12.4"
+            }
+          },
+          "req_compile_deps_linux_311__types_requests": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [
+                "urllib3"
+              ],
+              "package": "types_requests",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "47872893d65a38e282ee9f277a4ee50d1b28bd592040df7d1fdaffdf3779937d",
+              "urls": [
+                "https://files.pythonhosted.org/packages/05/22/21c7918c9bb842faa92fd26108e9f669c3dee9b6b239e8f45dd5f673e6cf/types_requests-2.31.0.20240311-py3-none-any.whl#sha256=47872893d65a38e282ee9f277a4ee50d1b28bd592040df7d1fdaffdf3779937d"
+              ],
+              "version": "2.31.0.20240311"
+            }
+          },
+          "req_compile_deps_linux_311__idna": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "idna",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f",
+              "urls": [
+                "https://files.pythonhosted.org/packages/c2/e7/a82b05cf63a603df6e68d59ae6a68bf5064484a0718ea5033660af4b54a9/idna-3.6-py3-none-any.whl#sha256=c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f"
+              ],
+              "version": "3.6"
+            }
+          },
+          "req_compile_deps_windows_311__overrides": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "overrides",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "c7ed9d062f78b8e4c1a7b70bd8796b35ead4d9f510227ef9c5dc7626c60d7e49",
+              "urls": [
+                "https://files.pythonhosted.org/packages/2c/ab/fc8290c6a4c722e5514d80f62b2dc4c4df1a68a41d1364e625c35990fcf3/overrides-7.7.0-py3-none-any.whl#sha256=c7ed9d062f78b8e4c1a7b70bd8796b35ead4d9f510227ef9c5dc7626c60d7e49"
+              ],
+              "version": "7.7.0"
+            }
+          },
+          "req_compile_deps_linux_311__astroid": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "astroid",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "951798f922990137ac090c53af473db7ab4e70c770e6d7fae0cec59f74411819",
+              "urls": [
+                "https://files.pythonhosted.org/packages/ed/1c/ee18acf9070f77253954b7d71b4c0cf8f5969fb23067d8f1a8793573ba00/astroid-3.1.0-py3-none-any.whl#sha256=951798f922990137ac090c53af473db7ab4e70c770e6d7fae0cec59f74411819"
+              ],
+              "version": "3.1.0"
+            }
+          },
+          "req_compile_deps_windows_311__black": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [
+                "click",
+                "mypy_extensions",
+                "packaging",
+                "pathspec",
+                "platformdirs"
+              ],
+              "package": "black",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "bf21b7b230718a5f08bd32d5e4f1db7fc8788345c8aea1d155fc17852b3410f5",
+              "urls": [
+                "https://files.pythonhosted.org/packages/8f/b0/4bef40c808cc615187db983b75bacdca1c110a229d41ba9887549fac529c/black-24.3.0-cp311-cp311-win_amd64.whl#sha256=bf21b7b230718a5f08bd32d5e4f1db7fc8788345c8aea1d155fc17852b3410f5"
+              ],
+              "version": "24.3.0"
+            }
+          },
+          "req_compile_deps_windows_311__mccabe": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "mccabe",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "6c2d30ab6be0e4a46919781807b4f0d834ebdd6c6e3dca0bda5a15f863427b6e",
+              "urls": [
+                "https://files.pythonhosted.org/packages/27/1a/1f68f9ba0c207934b35b86a8ca3aad8395a3d6dd7921c0686e23853ff5a9/mccabe-0.7.0-py2.py3-none-any.whl#sha256=6c2d30ab6be0e4a46919781807b4f0d834ebdd6c6e3dca0bda5a15f863427b6e"
+              ],
+              "version": "0.7.0"
+            }
+          },
+          "req_compile_deps_windows_311__pathspec": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "pathspec",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08",
+              "urls": [
+                "https://files.pythonhosted.org/packages/cc/20/ff623b09d963f88bfde16306a54e12ee5ea43e9b597108672ff3a408aad6/pathspec-0.12.1-py3-none-any.whl#sha256=a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08"
+              ],
+              "version": "0.12.1"
+            }
+          },
+          "req_compile_deps_windows_311__toml": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "toml",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b",
+              "urls": [
+                "https://files.pythonhosted.org/packages/44/6f/7120676b6d73228c96e17f1f794d8ab046fc910d781c8d151120c3f1569e/toml-0.10.2-py2.py3-none-any.whl#sha256=806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"
+              ],
+              "version": "0.10.2"
+            }
+          },
+          "req_compile_deps_windows_311__idna": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "idna",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f",
+              "urls": [
+                "https://files.pythonhosted.org/packages/c2/e7/a82b05cf63a603df6e68d59ae6a68bf5064484a0718ea5033660af4b54a9/idna-3.6-py3-none-any.whl#sha256=c05567e9c24a6b9faaa835c4821bad0590fbb9d5779e7caa6e1cc4978e7eb24f"
+              ],
+              "version": "3.6"
+            }
+          },
+          "req_compile_deps_windows_311__types_requests": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [
+                "urllib3"
+              ],
+              "package": "types_requests",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "06abf6a68f5c4f2a62f6bb006672dfb26ed50ccbfddb281e1ee6f09a65707d5d",
+              "urls": [
+                "https://files.pythonhosted.org/packages/6d/05/f9ccc1e7c1760367686834637ca41f2c13cb865c5c3e0505d18c9110cd9b/types_requests-2.31.0.20240403-py3-none-any.whl#sha256=06abf6a68f5c4f2a62f6bb006672dfb26ed50ccbfddb281e1ee6f09a65707d5d"
+              ],
+              "version": "2.31.0.20240403"
+            }
+          },
+          "req_compile_deps_windows_311__colorama": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "colorama",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6",
+              "urls": [
+                "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl#sha256=4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6"
+              ],
+              "version": "0.4.6"
+            }
+          },
+          "req_compile_deps_linux_311__black": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [
+                "click",
+                "mypy_extensions",
+                "packaging",
+                "pathspec",
+                "platformdirs"
+              ],
+              "package": "black",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "65c02e4ea2ae09d16314d30912a58ada9a5c4fdfedf9512d23326128ac08ac3d",
+              "urls": [
+                "https://files.pythonhosted.org/packages/6b/59/498885b279e890f656ea4300a2671c964acb6d97994ea626479c2e5501b4/black-24.3.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl#sha256=65c02e4ea2ae09d16314d30912a58ada9a5c4fdfedf9512d23326128ac08ac3d"
+              ],
+              "version": "24.3.0"
+            }
+          },
+          "req_compile_deps_windows_311__pylint": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [
+                "astroid",
+                "colorama",
+                "dill",
+                "isort",
+                "mccabe",
+                "platformdirs",
+                "tomlkit"
+              ],
+              "package": "pylint",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "507a5b60953874766d8a366e8e8c7af63e058b26345cfcb5f91f89d987fd6b74",
+              "urls": [
+                "https://files.pythonhosted.org/packages/4d/2b/dfcf298607c73c3af47d5a699c3bd84ba580f1b8642a53ba2a53eead7c49/pylint-3.1.0-py3-none-any.whl#sha256=507a5b60953874766d8a366e8e8c7af63e058b26345cfcb5f91f89d987fd6b74"
+              ],
+              "version": "3.1.0"
+            }
+          },
+          "overrider_pip_deps__platformdirs": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "",
+              "deps": [],
+              "package": "platformdirs",
+              "spoke_prefix": "overrider_pip_deps",
+              "sha256": "17d5a1161b3fd67b390023cb2d3b026bbd40abde6fdb052dfbd3a29c3ba22ee1",
+              "urls": [
+                "https://files.pythonhosted.org/packages/b0/15/1691fa5aaddc0c4ea4901c26f6137c29d5f6673596fe960a0340e8c308e1/platformdirs-4.2.1-py3-none-any.whl#sha256=17d5a1161b3fd67b390023cb2d3b026bbd40abde6fdb052dfbd3a29c3ba22ee1"
+              ],
+              "version": "4.2.1"
+            }
+          },
+          "req_compile_deps_linux_311__pytest": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [
+                "iniconfig",
+                "packaging",
+                "pluggy"
+              ],
+              "package": "pytest",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "2a8386cfc11fa9d2c50ee7b2a57e7d898ef90470a7a34c4b949ff59662bb78b7",
+              "urls": [
+                "https://files.pythonhosted.org/packages/4d/7e/c79cecfdb6aa85c6c2e3cf63afc56d0f165f24f5c66c03c695c4d9b84756/pytest-8.1.1-py3-none-any.whl#sha256=2a8386cfc11fa9d2c50ee7b2a57e7d898ef90470a7a34c4b949ff59662bb78b7"
+              ],
+              "version": "8.1.1"
+            }
+          },
+          "req_compile_deps_linux_311__mccabe": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "mccabe",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "6c2d30ab6be0e4a46919781807b4f0d834ebdd6c6e3dca0bda5a15f863427b6e",
+              "urls": [
+                "https://files.pythonhosted.org/packages/27/1a/1f68f9ba0c207934b35b86a8ca3aad8395a3d6dd7921c0686e23853ff5a9/mccabe-0.7.0-py2.py3-none-any.whl#sha256=6c2d30ab6be0e4a46919781807b4f0d834ebdd6c6e3dca0bda5a15f863427b6e"
+              ],
+              "version": "0.7.0"
+            }
+          },
+          "req_compile_deps_macos_311__pytest": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [
+                "iniconfig",
+                "packaging",
+                "pluggy"
+              ],
+              "package": "pytest",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "2a8386cfc11fa9d2c50ee7b2a57e7d898ef90470a7a34c4b949ff59662bb78b7",
+              "urls": [
+                "https://files.pythonhosted.org/packages/4d/7e/c79cecfdb6aa85c6c2e3cf63afc56d0f165f24f5c66c03c695c4d9b84756/pytest-8.1.1-py3-none-any.whl#sha256=2a8386cfc11fa9d2c50ee7b2a57e7d898ef90470a7a34c4b949ff59662bb78b7"
+              ],
+              "version": "8.1.1"
+            }
+          },
+          "req_compile_deps_windows_311__six": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "six",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254",
+              "urls": [
+                "https://files.pythonhosted.org/packages/d9/5a/e7c31adbe875f2abbb91bd84cf2dc52d792b5a01506781dbcf25c91daf11/six-1.16.0-py2.py3-none-any.whl#sha256=8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"
+              ],
+              "version": "1.16.0"
+            }
+          },
+          "req_compile_deps_windows_311__pytest_mock": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [
+                "pytest"
+              ],
+              "package": "pytest_mock",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "0b72c38033392a5f4621342fe11e9219ac11ec9d375f8e2a0c164539e0d70f6f",
+              "urls": [
+                "https://files.pythonhosted.org/packages/f2/3b/b26f90f74e2986a82df6e7ac7e319b8ea7ccece1caec9f8ab6104dc70603/pytest_mock-3.14.0-py3-none-any.whl#sha256=0b72c38033392a5f4621342fe11e9219ac11ec9d375f8e2a0c164539e0d70f6f"
+              ],
+              "version": "3.14.0"
+            }
+          },
+          "req_compile_deps_macos_311__mccabe": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "mccabe",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "6c2d30ab6be0e4a46919781807b4f0d834ebdd6c6e3dca0bda5a15f863427b6e",
+              "urls": [
+                "https://files.pythonhosted.org/packages/27/1a/1f68f9ba0c207934b35b86a8ca3aad8395a3d6dd7921c0686e23853ff5a9/mccabe-0.7.0-py2.py3-none-any.whl#sha256=6c2d30ab6be0e4a46919781807b4f0d834ebdd6c6e3dca0bda5a15f863427b6e"
+              ],
+              "version": "0.7.0"
+            }
+          },
+          "req_compile_deps_linux_311__packaging": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "packaging",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5",
+              "urls": [
+                "https://files.pythonhosted.org/packages/49/df/1fceb2f8900f8639e278b056416d49134fb8d84c5942ffaa01ad34782422/packaging-24.0-py3-none-any.whl#sha256=2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5"
+              ],
+              "version": "24.0"
+            }
+          },
+          "req_compile_deps_macos_311__click": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "click",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28",
+              "urls": [
+                "https://files.pythonhosted.org/packages/00/2e/d53fa4befbf2cfa713304affc7ca780ce4fc1fd8710527771b58311a3229/click-8.1.7-py3-none-any.whl#sha256=ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28"
+              ],
+              "version": "8.1.7"
+            }
+          },
+          "req_compile_deps_linux_311__pluggy": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "pluggy",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "7db9f7b503d67d1c5b95f59773ebb58a8c1c288129a88665838012cfb07b8981",
+              "urls": [
+                "https://files.pythonhosted.org/packages/a5/5b/0cc789b59e8cc1bf288b38111d002d8c5917123194d45b29dcdac64723cc/pluggy-1.4.0-py3-none-any.whl#sha256=7db9f7b503d67d1c5b95f59773ebb58a8c1c288129a88665838012cfb07b8981"
+              ],
+              "version": "1.4.0"
+            }
+          },
+          "req_compile_deps_linux_311__types_appdirs": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "types_appdirs",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "337c750e423c40911d389359b4edabe5bbc2cdd5cd0bd0518b71d2839646273b",
+              "urls": [
+                "https://files.pythonhosted.org/packages/cf/07/41f5b9b11f11855eb67760ed680330e0ce9136a44b51c24dd52edb1c4eb1/types_appdirs-1.4.3.5-py3-none-any.whl#sha256=337c750e423c40911d389359b4edabe5bbc2cdd5cd0bd0518b71d2839646273b"
+              ],
+              "version": "1.4.3.5"
+            }
+          },
+          "req_compile_deps_macos_311__pyyaml": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "pyyaml",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "f003ed9ad21d6a4713f0a9b5a7a0a79e08dd0f221aff4525a2be4c346ee60aab",
+              "urls": [
+                "https://files.pythonhosted.org/packages/28/09/55f715ddbf95a054b764b547f617e22f1d5e45d83905660e9a088078fe67/PyYAML-6.0.1-cp311-cp311-macosx_11_0_arm64.whl#sha256=f003ed9ad21d6a4713f0a9b5a7a0a79e08dd0f221aff4525a2be4c346ee60aab"
+              ],
+              "version": "6.0.1"
+            }
+          },
+          "overrider_pip_deps": {
+            "bzlFile": "@@rules_req_compile~//private:reqs_repo.bzl",
+            "ruleClassName": "py_requirements_repository",
+            "attributes": {
+              "hub_name": "overrider_pip_deps",
+              "requirements_lock": "@@//:requirements.txt",
+              "requirements_locks": {}
+            }
+          },
+          "req_compile_deps_macos_311__pluggy": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "pluggy",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "7db9f7b503d67d1c5b95f59773ebb58a8c1c288129a88665838012cfb07b8981",
+              "urls": [
+                "https://files.pythonhosted.org/packages/a5/5b/0cc789b59e8cc1bf288b38111d002d8c5917123194d45b29dcdac64723cc/pluggy-1.4.0-py3-none-any.whl#sha256=7db9f7b503d67d1c5b95f59773ebb58a8c1c288129a88665838012cfb07b8981"
+              ],
+              "version": "1.4.0"
+            }
+          },
+          "req_compile_deps_windows_311__urllib3": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "urllib3",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d",
+              "urls": [
+                "https://files.pythonhosted.org/packages/a2/73/a68704750a7679d0b6d3ad7aa8d4da8e14e151ae82e6fee774e6e0d05ec8/urllib3-2.2.1-py3-none-any.whl#sha256=450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d"
+              ],
+              "version": "2.2.1"
+            }
+          },
+          "req_compile_deps_windows_311__certifi": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "certifi",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1",
+              "urls": [
+                "https://files.pythonhosted.org/packages/ba/06/a07f096c664aeb9f01624f858c3add0a4e913d6c96257acb4fce61e7de14/certifi-2024.2.2-py3-none-any.whl#sha256=dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1"
+              ],
+              "version": "2024.2.2"
+            }
+          },
+          "req_compile_deps_macos_311__toml": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "toml",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b",
+              "urls": [
+                "https://files.pythonhosted.org/packages/44/6f/7120676b6d73228c96e17f1f794d8ab046fc910d781c8d151120c3f1569e/toml-0.10.2-py2.py3-none-any.whl#sha256=806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"
+              ],
+              "version": "0.10.2"
+            }
+          },
+          "req_compile_deps_linux_311__pyyaml": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "pyyaml",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "d2b04aac4d386b172d5b9692e2d2da8de7bfb6c387fa4f801fbf6fb2e6ba4673",
+              "urls": [
+                "https://files.pythonhosted.org/packages/7b/5e/efd033ab7199a0b2044dab3b9f7a4f6670e6a52c089de572e928d2873b06/PyYAML-6.0.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl#sha256=d2b04aac4d386b172d5b9692e2d2da8de7bfb6c387fa4f801fbf6fb2e6ba4673"
+              ],
+              "version": "6.0.1"
+            }
+          },
+          "req_compile_deps_windows_311__typing_extensions": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "typing_extensions",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "69b1a937c3a517342112fb4c6df7e72fc39a38e7891a5730ed4985b5214b5475",
+              "urls": [
+                "https://files.pythonhosted.org/packages/f9/de/dc04a3ea60b22624b51c703a84bbe0184abcd1d0b9bc8074b5d6b7ab90bb/typing_extensions-4.10.0-py3-none-any.whl#sha256=69b1a937c3a517342112fb4c6df7e72fc39a38e7891a5730ed4985b5214b5475"
+              ],
+              "version": "4.10.0"
+            }
+          },
+          "req_compile_deps_macos_311__types_toml": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "types_toml",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "627b47775d25fa29977d9c70dc0cbab3f314f32c8d8d0c012f2ef5de7aaec05d",
+              "urls": [
+                "https://files.pythonhosted.org/packages/da/a2/d32ab58c0b216912638b140ab2170ee4b8644067c293b170e19fba340ccc/types_toml-0.10.8.20240310-py3-none-any.whl#sha256=627b47775d25fa29977d9c70dc0cbab3f314f32c8d8d0c012f2ef5de7aaec05d"
+              ],
+              "version": "0.10.8.20240310"
+            }
+          },
+          "req_compile_deps_linux_311__types_toml": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "types_toml",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "627b47775d25fa29977d9c70dc0cbab3f314f32c8d8d0c012f2ef5de7aaec05d",
+              "urls": [
+                "https://files.pythonhosted.org/packages/da/a2/d32ab58c0b216912638b140ab2170ee4b8644067c293b170e19fba340ccc/types_toml-0.10.8.20240310-py3-none-any.whl#sha256=627b47775d25fa29977d9c70dc0cbab3f314f32c8d8d0c012f2ef5de7aaec05d"
+              ],
+              "version": "0.10.8.20240310"
+            }
+          },
+          "req_compile_deps_macos_311__pathspec": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "pathspec",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08",
+              "urls": [
+                "https://files.pythonhosted.org/packages/cc/20/ff623b09d963f88bfde16306a54e12ee5ea43e9b597108672ff3a408aad6/pathspec-0.12.1-py3-none-any.whl#sha256=a0d503e138a4c123b27490a4f7beda6a01c6f288df0e4a8b79c7eb0dc7b4cc08"
+              ],
+              "version": "0.12.1"
+            }
+          },
+          "req_compile_deps_macos_311__mypy_extensions": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "mypy_extensions",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d",
+              "urls": [
+                "https://files.pythonhosted.org/packages/2a/e2/5d3f6ada4297caebe1a2add3b126fe800c96f56dbe5d1988a2cbe0b267aa/mypy_extensions-1.0.0-py3-none-any.whl#sha256=4392f6c0eb8a5668a69e23d168ffa70f0be9ccfd32b5cc2d26a34ae5b844552d"
+              ],
+              "version": "1.0.0"
+            }
+          },
+          "req_compile_deps_linux_311__six": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "six",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254",
+              "urls": [
+                "https://files.pythonhosted.org/packages/d9/5a/e7c31adbe875f2abbb91bd84cf2dc52d792b5a01506781dbcf25c91daf11/six-1.16.0-py2.py3-none-any.whl#sha256=8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"
+              ],
+              "version": "1.16.0"
+            }
+          },
+          "req_compile_deps_macos_311__pytest_mock": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [
+                "pytest"
+              ],
+              "package": "pytest_mock",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "0b72c38033392a5f4621342fe11e9219ac11ec9d375f8e2a0c164539e0d70f6f",
+              "urls": [
+                "https://files.pythonhosted.org/packages/f2/3b/b26f90f74e2986a82df6e7ac7e319b8ea7ccece1caec9f8ab6104dc70603/pytest_mock-3.14.0-py3-none-any.whl#sha256=0b72c38033392a5f4621342fe11e9219ac11ec9d375f8e2a0c164539e0d70f6f"
+              ],
+              "version": "3.14.0"
+            }
+          },
+          "req_compile_deps_linux_311__requests": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [
+                "certifi",
+                "charset_normalizer",
+                "idna",
+                "urllib3"
+              ],
+              "package": "requests",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f",
+              "urls": [
+                "https://files.pythonhosted.org/packages/70/8e/0e2d847013cb52cd35b38c009bb167a1a26b2ce6cd6965bf26b47bc0bf44/requests-2.31.0-py3-none-any.whl#sha256=58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f"
+              ],
+              "version": "2.31.0"
+            }
+          },
+          "req_compile_deps_macos_311__six": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "six",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254",
+              "urls": [
+                "https://files.pythonhosted.org/packages/d9/5a/e7c31adbe875f2abbb91bd84cf2dc52d792b5a01506781dbcf25c91daf11/six-1.16.0-py2.py3-none-any.whl#sha256=8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"
+              ],
+              "version": "1.16.0"
+            }
+          },
+          "req_compile_deps_macos_311__types_setuptools": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "types_setuptools",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "cf91ff7c87ab7bf0625c3f0d4d90427c9da68561f3b0feab77977aaf0bbf7531",
+              "urls": [
+                "https://files.pythonhosted.org/packages/1f/22/904934a3344fa5f332ecab887003f3f033c1272432a4af877007b75b0bd3/types_setuptools-69.2.0.20240317-py3-none-any.whl#sha256=cf91ff7c87ab7bf0625c3f0d4d90427c9da68561f3b0feab77977aaf0bbf7531"
+              ],
+              "version": "69.2.0.20240317"
+            }
+          },
+          "req_compile_deps_linux_311__setuptools": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "setuptools",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "c21c49fb1042386df081cb5d86759792ab89efca84cf114889191cd09aacc80c",
+              "urls": [
+                "https://files.pythonhosted.org/packages/92/e1/1c8bb3420105e70bdf357d57dd5567202b4ef8d27f810e98bb962d950834/setuptools-69.2.0-py3-none-any.whl#sha256=c21c49fb1042386df081cb5d86759792ab89efca84cf114889191cd09aacc80c"
+              ],
+              "version": "69.2.0"
+            }
+          },
+          "req_compile_deps_windows_311__responses": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [
+                "pyyaml",
+                "requests",
+                "urllib3"
+              ],
+              "package": "responses",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "2f0b9c2b6437db4b528619a77e5d565e4ec2a9532162ac1a131a83529db7be1a",
+              "urls": [
+                "https://files.pythonhosted.org/packages/30/0b/bff1e6a5b646e6ff770deb6a292a96bd844ea13fb523ccbd9209fc4b90b8/responses-0.25.0-py3-none-any.whl#sha256=2f0b9c2b6437db4b528619a77e5d565e4ec2a9532162ac1a131a83529db7be1a"
+              ],
+              "version": "0.25.0"
+            }
+          },
+          "req_compile_deps": {
+            "bzlFile": "@@rules_req_compile~//private:reqs_repo.bzl",
+            "ruleClassName": "py_requirements_repository",
+            "attributes": {
+              "hub_name": "req_compile_deps",
+              "requirements_locks": {
+                "@@rules_req_compile~//3rdparty:requirements.linux.311.txt": "@platforms//os:linux",
+                "@@rules_req_compile~//3rdparty:requirements.macos.311.txt": "@platforms//os:macos",
+                "@@rules_req_compile~//3rdparty:requirements.windows.311.txt": "@platforms//os:windows"
+              }
+            }
+          },
+          "req_compile_deps_macos_311__wheel": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "wheel",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81",
+              "urls": [
+                "https://files.pythonhosted.org/packages/7d/cd/d7460c9a869b16c3dd4e1e403cce337df165368c71d6af229a74699622ce/wheel-0.43.0-py3-none-any.whl#sha256=55c570405f142630c6b9f72fe09d9b67cf1477fcf543ae5b8dcb1f5b7377da81"
+              ],
+              "version": "0.43.0"
+            }
+          },
+          "req_compile_deps_windows_311__requests": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [
+                "certifi",
+                "charset_normalizer",
+                "idna",
+                "urllib3"
+              ],
+              "package": "requests",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f",
+              "urls": [
+                "https://files.pythonhosted.org/packages/70/8e/0e2d847013cb52cd35b38c009bb167a1a26b2ce6cd6965bf26b47bc0bf44/requests-2.31.0-py3-none-any.whl#sha256=58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f"
+              ],
+              "version": "2.31.0"
+            }
+          },
+          "req_compile_deps_linux_311__dill": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "dill",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "c36ca9ffb54365bdd2f8eb3eff7d2a21237f8452b57ace88b1ac615b7e815bd7",
+              "urls": [
+                "https://files.pythonhosted.org/packages/c9/7a/cef76fd8438a42f96db64ddaa85280485a9c395e7df3db8158cfec1eee34/dill-0.3.8-py3-none-any.whl#sha256=c36ca9ffb54365bdd2f8eb3eff7d2a21237f8452b57ace88b1ac615b7e815bd7"
+              ],
+              "version": "0.3.8"
+            }
+          },
+          "req_compile_deps_windows_311__tomlkit": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "tomlkit",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "5cd82d48a3dd89dee1f9d64420aa20ae65cfbd00668d6f094d7578a78efbb77b",
+              "urls": [
+                "https://files.pythonhosted.org/packages/07/fa/c96545d741f2fd47f565e4e06bfef0962add790cb9c2289d900102b55eca/tomlkit-0.12.4-py3-none-any.whl#sha256=5cd82d48a3dd89dee1f9d64420aa20ae65cfbd00668d6f094d7578a78efbb77b"
+              ],
+              "version": "0.12.4"
+            }
+          },
+          "pip_deps": {
+            "bzlFile": "@@rules_req_compile~//private:reqs_repo.bzl",
+            "ruleClassName": "py_requirements_repository",
+            "attributes": {
+              "hub_name": "overrider_pip_deps",
+              "requirements_lock": "@@overridee~//:requirements.txt",
+              "requirements_locks": {}
+            }
+          },
+          "req_compile_deps_linux_311__overrides": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "overrides",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "c7ed9d062f78b8e4c1a7b70bd8796b35ead4d9f510227ef9c5dc7626c60d7e49",
+              "urls": [
+                "https://files.pythonhosted.org/packages/2c/ab/fc8290c6a4c722e5514d80f62b2dc4c4df1a68a41d1364e625c35990fcf3/overrides-7.7.0-py3-none-any.whl#sha256=c7ed9d062f78b8e4c1a7b70bd8796b35ead4d9f510227ef9c5dc7626c60d7e49"
+              ],
+              "version": "7.7.0"
+            }
+          },
+          "req_compile_deps_macos_311__setuptools": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "setuptools",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "c21c49fb1042386df081cb5d86759792ab89efca84cf114889191cd09aacc80c",
+              "urls": [
+                "https://files.pythonhosted.org/packages/92/e1/1c8bb3420105e70bdf357d57dd5567202b4ef8d27f810e98bb962d950834/setuptools-69.2.0-py3-none-any.whl#sha256=c21c49fb1042386df081cb5d86759792ab89efca84cf114889191cd09aacc80c"
+              ],
+              "version": "69.2.0"
+            }
+          },
+          "req_compile_deps_windows_311__dill": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "dill",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "c36ca9ffb54365bdd2f8eb3eff7d2a21237f8452b57ace88b1ac615b7e815bd7",
+              "urls": [
+                "https://files.pythonhosted.org/packages/c9/7a/cef76fd8438a42f96db64ddaa85280485a9c395e7df3db8158cfec1eee34/dill-0.3.8-py3-none-any.whl#sha256=c36ca9ffb54365bdd2f8eb3eff7d2a21237f8452b57ace88b1ac615b7e815bd7"
+              ],
+              "version": "0.3.8"
+            }
+          },
+          "req_compile_deps_linux_311__mypy": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [
+                "mypy_extensions",
+                "typing_extensions"
+              ],
+              "package": "mypy",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "2418488264eb41f69cc64a69a745fad4a8f86649af4b1041a4c64ee61fc61129",
+              "urls": [
+                "https://files.pythonhosted.org/packages/a1/81/97e8539d6cdcfb3a8ae7eb1438c6983a9fc434ef9664572bfa7fd285cab9/mypy-1.9.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl#sha256=2418488264eb41f69cc64a69a745fad4a8f86649af4b1041a4c64ee61fc61129"
+              ],
+              "version": "1.9.0"
+            }
+          },
+          "req_compile_deps_macos_311__astroid": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "astroid",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "951798f922990137ac090c53af473db7ab4e70c770e6d7fae0cec59f74411819",
+              "urls": [
+                "https://files.pythonhosted.org/packages/ed/1c/ee18acf9070f77253954b7d71b4c0cf8f5969fb23067d8f1a8793573ba00/astroid-3.1.0-py3-none-any.whl#sha256=951798f922990137ac090c53af473db7ab4e70c770e6d7fae0cec59f74411819"
+              ],
+              "version": "3.1.0"
+            }
+          },
+          "req_compile_deps_windows_311__click": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [
+                "colorama"
+              ],
+              "package": "click",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28",
+              "urls": [
+                "https://files.pythonhosted.org/packages/00/2e/d53fa4befbf2cfa713304affc7ca780ce4fc1fd8710527771b58311a3229/click-8.1.7-py3-none-any.whl#sha256=ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28"
+              ],
+              "version": "8.1.7"
+            }
+          },
+          "req_compile_deps_macos_311__dill": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "dill",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "c36ca9ffb54365bdd2f8eb3eff7d2a21237f8452b57ace88b1ac615b7e815bd7",
+              "urls": [
+                "https://files.pythonhosted.org/packages/c9/7a/cef76fd8438a42f96db64ddaa85280485a9c395e7df3db8158cfec1eee34/dill-0.3.8-py3-none-any.whl#sha256=c36ca9ffb54365bdd2f8eb3eff7d2a21237f8452b57ace88b1ac615b7e815bd7"
+              ],
+              "version": "0.3.8"
+            }
+          },
+          "req_compile_deps_macos_311__requests": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [
+                "certifi",
+                "charset_normalizer",
+                "idna",
+                "urllib3"
+              ],
+              "package": "requests",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f",
+              "urls": [
+                "https://files.pythonhosted.org/packages/70/8e/0e2d847013cb52cd35b38c009bb167a1a26b2ce6cd6965bf26b47bc0bf44/requests-2.31.0-py3-none-any.whl#sha256=58cd2187c01e70e6e26505bca751777aa9f2ee0b7f4300988b709f44e013003f"
+              ],
+              "version": "2.31.0"
+            }
+          },
+          "req_compile_deps_windows_311__pluggy": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "pluggy",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "7db9f7b503d67d1c5b95f59773ebb58a8c1c288129a88665838012cfb07b8981",
+              "urls": [
+                "https://files.pythonhosted.org/packages/a5/5b/0cc789b59e8cc1bf288b38111d002d8c5917123194d45b29dcdac64723cc/pluggy-1.4.0-py3-none-any.whl#sha256=7db9f7b503d67d1c5b95f59773ebb58a8c1c288129a88665838012cfb07b8981"
+              ],
+              "version": "1.4.0"
+            }
+          },
+          "req_compile_deps_linux_311__platformdirs": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "platformdirs",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "0614df2a2f37e1a662acbd8e2b25b92ccf8632929bc6d43467e17fe89c75e068",
+              "urls": [
+                "https://files.pythonhosted.org/packages/55/72/4898c44ee9ea6f43396fbc23d9bfaf3d06e01b83698bdf2e4c919deceb7c/platformdirs-4.2.0-py3-none-any.whl#sha256=0614df2a2f37e1a662acbd8e2b25b92ccf8632929bc6d43467e17fe89c75e068"
+              ],
+              "version": "4.2.0"
+            }
+          },
+          "req_compile_deps_macos_311__mypy": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [
+                "mypy_extensions",
+                "typing_extensions"
+              ],
+              "package": "mypy",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "3a3c007ff3ee90f69cf0a15cbcdf0995749569b86b6d2f327af01fd1b8aee9dc",
+              "urls": [
+                "https://files.pythonhosted.org/packages/da/e2/1864612774cf8a445f6d42ce73ce0f1492a37ed2af1c908e989f1ec7d349/mypy-1.9.0-cp311-cp311-macosx_11_0_arm64.whl#sha256=3a3c007ff3ee90f69cf0a15cbcdf0995749569b86b6d2f327af01fd1b8aee9dc"
+              ],
+              "version": "1.9.0"
+            }
+          },
+          "req_compile_deps_windows_311__charset_normalizer": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "charset_normalizer",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "663946639d296df6a2bb2aa51b60a2454ca1cb29835324c640dafb5ff2131a77",
+              "urls": [
+                "https://files.pythonhosted.org/packages/57/ec/80c8d48ac8b1741d5b963797b7c0c869335619e13d4744ca2f67fc11c6fc/charset_normalizer-3.3.2-cp311-cp311-win_amd64.whl#sha256=663946639d296df6a2bb2aa51b60a2454ca1cb29835324c640dafb5ff2131a77"
+              ],
+              "version": "3.3.2"
+            }
+          },
+          "req_compile_deps_macos_311__types_appdirs": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "types_appdirs",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "337c750e423c40911d389359b4edabe5bbc2cdd5cd0bd0518b71d2839646273b",
+              "urls": [
+                "https://files.pythonhosted.org/packages/cf/07/41f5b9b11f11855eb67760ed680330e0ce9136a44b51c24dd52edb1c4eb1/types_appdirs-1.4.3.5-py3-none-any.whl#sha256=337c750e423c40911d389359b4edabe5bbc2cdd5cd0bd0518b71d2839646273b"
+              ],
+              "version": "1.4.3.5"
+            }
+          },
+          "req_compile_deps_windows_311__appdirs": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "appdirs",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128",
+              "urls": [
+                "https://files.pythonhosted.org/packages/3b/00/2344469e2084fb287c2e0b57b72910309874c3245463acd6cf5e3db69324/appdirs-1.4.4-py2.py3-none-any.whl#sha256=a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128"
+              ],
+              "version": "1.4.4"
+            }
+          },
+          "req_compile_deps_windows_311__packaging": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "packaging",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5",
+              "urls": [
+                "https://files.pythonhosted.org/packages/49/df/1fceb2f8900f8639e278b056416d49134fb8d84c5942ffaa01ad34782422/packaging-24.0-py3-none-any.whl#sha256=2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5"
+              ],
+              "version": "24.0"
+            }
+          },
+          "req_compile_deps_linux_311__types_setuptools": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "types_setuptools",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "cf91ff7c87ab7bf0625c3f0d4d90427c9da68561f3b0feab77977aaf0bbf7531",
+              "urls": [
+                "https://files.pythonhosted.org/packages/1f/22/904934a3344fa5f332ecab887003f3f033c1272432a4af877007b75b0bd3/types_setuptools-69.2.0.20240317-py3-none-any.whl#sha256=cf91ff7c87ab7bf0625c3f0d4d90427c9da68561f3b0feab77977aaf0bbf7531"
+              ],
+              "version": "69.2.0.20240317"
+            }
+          },
+          "req_compile_deps_macos_311__black": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [
+                "click",
+                "mypy_extensions",
+                "packaging",
+                "pathspec",
+                "platformdirs"
+              ],
+              "package": "black",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "aadf7a02d947936ee418777e0247ea114f78aff0d0959461057cae8a04f20597",
+              "urls": [
+                "https://files.pythonhosted.org/packages/46/5f/30398c5056cb72f883b32b6520ad00042a9d0454b693f70509867db03a80/black-24.3.0-cp311-cp311-macosx_11_0_arm64.whl#sha256=aadf7a02d947936ee418777e0247ea114f78aff0d0959461057cae8a04f20597"
+              ],
+              "version": "24.3.0"
+            }
+          },
+          "req_compile_deps_windows_311__setuptools": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "setuptools",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "c21c49fb1042386df081cb5d86759792ab89efca84cf114889191cd09aacc80c",
+              "urls": [
+                "https://files.pythonhosted.org/packages/92/e1/1c8bb3420105e70bdf357d57dd5567202b4ef8d27f810e98bb962d950834/setuptools-69.2.0-py3-none-any.whl#sha256=c21c49fb1042386df081cb5d86759792ab89efca84cf114889191cd09aacc80c"
+              ],
+              "version": "69.2.0"
+            }
+          },
+          "req_compile_deps_macos_311__certifi": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "certifi",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1",
+              "urls": [
+                "https://files.pythonhosted.org/packages/ba/06/a07f096c664aeb9f01624f858c3add0a4e913d6c96257acb4fce61e7de14/certifi-2024.2.2-py3-none-any.whl#sha256=dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1"
+              ],
+              "version": "2024.2.2"
+            }
+          },
+          "req_compile_deps_linux_311__iniconfig": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "iniconfig",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374",
+              "urls": [
+                "https://files.pythonhosted.org/packages/ef/a6/62565a6e1cf69e10f5727360368e451d4b7f58beeac6173dc9db836a5b46/iniconfig-2.0.0-py3-none-any.whl#sha256=b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374"
+              ],
+              "version": "2.0.0"
+            }
+          },
+          "req_compile_deps_macos_311__pylint": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [
+                "astroid",
+                "dill",
+                "isort",
+                "mccabe",
+                "platformdirs",
+                "tomlkit"
+              ],
+              "package": "pylint",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "507a5b60953874766d8a366e8e8c7af63e058b26345cfcb5f91f89d987fd6b74",
+              "urls": [
+                "https://files.pythonhosted.org/packages/4d/2b/dfcf298607c73c3af47d5a699c3bd84ba580f1b8642a53ba2a53eead7c49/pylint-3.1.0-py3-none-any.whl#sha256=507a5b60953874766d8a366e8e8c7af63e058b26345cfcb5f91f89d987fd6b74"
+              ],
+              "version": "3.1.0"
+            }
+          },
+          "req_compile_deps_linux_311__responses": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [
+                "pyyaml",
+                "requests",
+                "urllib3"
+              ],
+              "package": "responses",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "2f0b9c2b6437db4b528619a77e5d565e4ec2a9532162ac1a131a83529db7be1a",
+              "urls": [
+                "https://files.pythonhosted.org/packages/30/0b/bff1e6a5b646e6ff770deb6a292a96bd844ea13fb523ccbd9209fc4b90b8/responses-0.25.0-py3-none-any.whl#sha256=2f0b9c2b6437db4b528619a77e5d565e4ec2a9532162ac1a131a83529db7be1a"
+              ],
+              "version": "0.25.0"
+            }
+          },
+          "req_compile_deps_macos_311__appdirs": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "appdirs",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128",
+              "urls": [
+                "https://files.pythonhosted.org/packages/3b/00/2344469e2084fb287c2e0b57b72910309874c3245463acd6cf5e3db69324/appdirs-1.4.4-py2.py3-none-any.whl#sha256=a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128"
+              ],
+              "version": "1.4.4"
+            }
+          },
+          "req_compile_deps_linux_311__pylint": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [
+                "astroid",
+                "dill",
+                "isort",
+                "mccabe",
+                "platformdirs",
+                "tomlkit"
+              ],
+              "package": "pylint",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "507a5b60953874766d8a366e8e8c7af63e058b26345cfcb5f91f89d987fd6b74",
+              "urls": [
+                "https://files.pythonhosted.org/packages/4d/2b/dfcf298607c73c3af47d5a699c3bd84ba580f1b8642a53ba2a53eead7c49/pylint-3.1.0-py3-none-any.whl#sha256=507a5b60953874766d8a366e8e8c7af63e058b26345cfcb5f91f89d987fd6b74"
+              ],
+              "version": "3.1.0"
+            }
+          },
+          "req_compile_deps_macos_311__iniconfig": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "iniconfig",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374",
+              "urls": [
+                "https://files.pythonhosted.org/packages/ef/a6/62565a6e1cf69e10f5727360368e451d4b7f58beeac6173dc9db836a5b46/iniconfig-2.0.0-py3-none-any.whl#sha256=b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374"
+              ],
+              "version": "2.0.0"
+            }
+          },
+          "req_compile_deps_windows_311__astroid": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "astroid",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "951798f922990137ac090c53af473db7ab4e70c770e6d7fae0cec59f74411819",
+              "urls": [
+                "https://files.pythonhosted.org/packages/ed/1c/ee18acf9070f77253954b7d71b4c0cf8f5969fb23067d8f1a8793573ba00/astroid-3.1.0-py3-none-any.whl#sha256=951798f922990137ac090c53af473db7ab4e70c770e6d7fae0cec59f74411819"
+              ],
+              "version": "3.1.0"
+            }
+          },
+          "req_compile_deps_macos_311__urllib3": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "urllib3",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d",
+              "urls": [
+                "https://files.pythonhosted.org/packages/a2/73/a68704750a7679d0b6d3ad7aa8d4da8e14e151ae82e6fee774e6e0d05ec8/urllib3-2.2.1-py3-none-any.whl#sha256=450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d"
+              ],
+              "version": "2.2.1"
+            }
+          },
+          "req_compile_deps_macos_311__charset_normalizer": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "charset_normalizer",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "549a3a73da901d5bc3ce8d24e0600d1fa85524c10287f6004fbab87672bf3e1e",
+              "urls": [
+                "https://files.pythonhosted.org/packages/dd/51/68b61b90b24ca35495956b718f35a9756ef7d3dd4b3c1508056fa98d1a1b/charset_normalizer-3.3.2-cp311-cp311-macosx_11_0_arm64.whl#sha256=549a3a73da901d5bc3ce8d24e0600d1fa85524c10287f6004fbab87672bf3e1e"
+              ],
+              "version": "3.3.2"
+            }
+          },
+          "req_compile_deps_linux_311__click": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "click",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28",
+              "urls": [
+                "https://files.pythonhosted.org/packages/00/2e/d53fa4befbf2cfa713304affc7ca780ce4fc1fd8710527771b58311a3229/click-8.1.7-py3-none-any.whl#sha256=ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28"
+              ],
+              "version": "8.1.7"
+            }
+          },
+          "req_compile_deps_macos_311__tomlkit": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "tomlkit",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "5cd82d48a3dd89dee1f9d64420aa20ae65cfbd00668d6f094d7578a78efbb77b",
+              "urls": [
+                "https://files.pythonhosted.org/packages/07/fa/c96545d741f2fd47f565e4e06bfef0962add790cb9c2289d900102b55eca/tomlkit-0.12.4-py3-none-any.whl#sha256=5cd82d48a3dd89dee1f9d64420aa20ae65cfbd00668d6f094d7578a78efbb77b"
+              ],
+              "version": "0.12.4"
+            }
+          },
+          "req_compile_deps_windows_311__pyyaml": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "pyyaml",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "bf07ee2fef7014951eeb99f56f39c9bb4af143d8aa3c21b1677805985307da34",
+              "urls": [
+                "https://files.pythonhosted.org/packages/b3/34/65bb4b2d7908044963ebf614fe0fdb080773fc7030d7e39c8d3eddcd4257/PyYAML-6.0.1-cp311-cp311-win_amd64.whl#sha256=bf07ee2fef7014951eeb99f56f39c9bb4af143d8aa3c21b1677805985307da34"
+              ],
+              "version": "6.0.1"
+            }
+          },
+          "req_compile_deps_linux_311__toml": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:linux'",
+              "deps": [],
+              "package": "toml",
+              "spoke_prefix": "req_compile_deps_linux_311",
+              "sha256": "806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b",
+              "urls": [
+                "https://files.pythonhosted.org/packages/44/6f/7120676b6d73228c96e17f1f794d8ab046fc910d781c8d151120c3f1569e/toml-0.10.2-py2.py3-none-any.whl#sha256=806143ae5bfb6a3c6e736a764057db0e6a0e05e338b5630894a5f779cabb4f9b"
+              ],
+              "version": "0.10.2"
+            }
+          },
+          "req_compile_deps_macos_311__isort": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:macos'",
+              "deps": [],
+              "package": "isort",
+              "spoke_prefix": "req_compile_deps_macos_311",
+              "sha256": "8ca5e72a8d85860d5a3fa69b8745237f2939afe12dbf656afbcb47fe72d947a6",
+              "urls": [
+                "https://files.pythonhosted.org/packages/d1/b3/8def84f539e7d2289a02f0524b944b15d7c75dab7628bedf1c4f0992029c/isort-5.13.2-py3-none-any.whl#sha256=8ca5e72a8d85860d5a3fa69b8745237f2939afe12dbf656afbcb47fe72d947a6"
+              ],
+              "version": "5.13.2"
+            }
+          },
+          "req_compile_deps_windows_311__mypy": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [
+                "mypy_extensions",
+                "typing_extensions"
+              ],
+              "package": "mypy",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "85ca5fcc24f0b4aeedc1d02f93707bccc04733f21d41c88334c5482219b1ccb3",
+              "urls": [
+                "https://files.pythonhosted.org/packages/59/56/a33d610a9cf692669690a89b54a6a920fd7c7ebcca00da2c36c9d975de8e/mypy-1.9.0-cp311-cp311-win_amd64.whl#sha256=85ca5fcc24f0b4aeedc1d02f93707bccc04733f21d41c88334c5482219b1ccb3"
+              ],
+              "version": "1.9.0"
+            }
+          },
+          "req_compile_deps_windows_311__pytest": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [
+                "colorama",
+                "iniconfig",
+                "packaging",
+                "pluggy"
+              ],
+              "package": "pytest",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "2a8386cfc11fa9d2c50ee7b2a57e7d898ef90470a7a34c4b949ff59662bb78b7",
+              "urls": [
+                "https://files.pythonhosted.org/packages/4d/7e/c79cecfdb6aa85c6c2e3cf63afc56d0f165f24f5c66c03c695c4d9b84756/pytest-8.1.1-py3-none-any.whl#sha256=2a8386cfc11fa9d2c50ee7b2a57e7d898ef90470a7a34c4b949ff59662bb78b7"
+              ],
+              "version": "8.1.1"
+            }
+          },
+          "req_compile_deps_windows_311__types_setuptools": {
+            "bzlFile": "@@rules_req_compile~//private:whl_repo.bzl",
+            "ruleClassName": "whl_repository",
+            "attributes": {
+              "annotations": "{}",
+              "constraint": "'@@platforms//os:windows'",
+              "deps": [],
+              "package": "types_setuptools",
+              "spoke_prefix": "req_compile_deps_windows_311",
+              "sha256": "cf91ff7c87ab7bf0625c3f0d4d90427c9da68561f3b0feab77977aaf0bbf7531",
+              "urls": [
+                "https://files.pythonhosted.org/packages/1f/22/904934a3344fa5f332ecab887003f3f033c1272432a4af877007b75b0bd3/types_setuptools-69.2.0.20240317-py3-none-any.whl#sha256=cf91ff7c87ab7bf0625c3f0d4d90427c9da68561f3b0feab77977aaf0bbf7531"
+              ],
+              "version": "69.2.0.20240317"
+            }
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "rules_cc~",
+            "bazel_tools",
+            "bazel_tools"
+          ],
+          [
+            "rules_req_compile~",
+            "bazel_tools",
+            "bazel_tools"
+          ],
+          [
+            "rules_req_compile~",
+            "platforms",
+            "platforms"
+          ],
+          [
+            "rules_req_compile~",
+            "req_compile_sdist_compiler",
+            "req_compile_sdist_compiler"
+          ],
+          [
+            "rules_req_compile~",
+            "rules_cc",
+            "rules_cc~"
+          ]
+        ]
+      }
+    }
+  }
+}

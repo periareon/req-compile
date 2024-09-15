@@ -1,10 +1,10 @@
 """Test cross platform consumers of req-compile repository rules."""
 
 import os
+import re
 import unittest
 import zipfile
 from pathlib import Path
-from typing import Sequence, Tuple
 
 from python.runfiles import Runfiles  # pylint: disable=import-error
 
@@ -36,7 +36,7 @@ class CrossPlatformZipTest(unittest.TestCase):
             raise EnvironmentError("Failed to locate runfiles.")
 
     def python_zip_file_tester(
-        self, rlocationpath: str, expected: Sequence[str], illegal_prefixes: Tuple[str]
+        self, rlocationpath: str, expected: list[str], illegal_prefixes: tuple[str, ...]
     ) -> None:
         """Test the zip file for the requested platform.
 
@@ -50,11 +50,15 @@ class CrossPlatformZipTest(unittest.TestCase):
         with zipfile.ZipFile(zip_file) as zip_ref:
             for entry in zip_ref.namelist():
                 self.assertFalse(
-                    entry.startswith(illegal_prefixes),
+                    any(
+                        re.match(illegal_prefix, entry)
+                        for illegal_prefix in illegal_prefixes
+                    ),
                     f"{entry} contained an illegal prefix",
                 )
-                if entry in expected:
-                    expected.remove(entry)
+                for pattern in list(expected):
+                    if re.match(pattern, entry):
+                        expected.remove(pattern)
 
         self.assertEqual(expected, [], "Not all files found in the zip file.")
 
@@ -62,13 +66,13 @@ class CrossPlatformZipTest(unittest.TestCase):
         self.python_zip_file_tester(
             rlocationpath=os.environ["PYTHON_ZIP_FILE_LINUX"],
             expected=[
-                "runfiles/req_compile_test_cross_platform_linux__black/site-packages/black/__init__.py",
+                "runfiles/.*_linux__black/site-packages/black/__init__.py",
             ],
             illegal_prefixes=(
-                "runfiles/req_compile_test_cross_platform_macos",
-                "runfiles/req_compile_test_cross_platform_windows",
+                "runfiles/.*_platform_macos__",
+                "runfiles/.*_windows__",
                 # This is a windows only dependency.
-                "runfiles/req_compile_test_cross_platform_linux__colorama",
+                "runfiles/.*_linux__colorama",
             ),
         )
 
@@ -76,13 +80,13 @@ class CrossPlatformZipTest(unittest.TestCase):
         self.python_zip_file_tester(
             rlocationpath=os.environ["PYTHON_ZIP_FILE_MACOS"],
             expected=[
-                "runfiles/req_compile_test_cross_platform_macos__black/site-packages/black/__init__.py",
+                "runfiles/.*_macos__black/site-packages/black/__init__.py",
             ],
             illegal_prefixes=(
-                "runfiles/req_compile_test_cross_platform_linux",
-                "runfiles/req_compile_test_cross_platform_windows",
+                "runfiles/.*_linux__",
+                "runfiles/.*_windows__",
                 # This is a windows only dependency.
-                "runfiles/req_compile_test_cross_platform_macos__colorama",
+                "runfiles/.*_macos__colorama",
             ),
         )
 
@@ -90,12 +94,12 @@ class CrossPlatformZipTest(unittest.TestCase):
         self.python_zip_file_tester(
             rlocationpath=os.environ["PYTHON_ZIP_FILE_WINDOWS"],
             expected=[
-                "runfiles/req_compile_test_cross_platform_windows__black/site-packages/black/__init__.py",
-                "runfiles/req_compile_test_cross_platform_windows__colorama/site-packages/colorama/__init__.py",
+                "runfiles/.*_windows__black/site-packages/black/__init__.py",
+                "runfiles/.*_windows__colorama/site-packages/colorama/__init__.py",
             ],
             illegal_prefixes=(
-                "runfiles/req_compile_test_cross_platform_linux",
-                "runfiles/req_compile_test_cross_platform_macos",
+                "runfiles/.*_linux__",
+                "runfiles/.*_macos__",
             ),
         )
 

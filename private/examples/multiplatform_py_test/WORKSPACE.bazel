@@ -1,0 +1,52 @@
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+
+local_repository(
+    name = "rules_req_compile",
+    path = "../../..",
+)
+
+load("@rules_req_compile//:repositories.bzl", "req_compile_dependencies")
+
+req_compile_dependencies()
+
+load("@rules_req_compile//:repositories_transitive.bzl", "req_compile_transitive_dependencies")
+
+req_compile_transitive_dependencies()
+
+load("@rules_python//python:repositories.bzl", "python_register_toolchains")
+
+python_register_toolchains(
+    name = "python_3_11",
+    python_version = "3.11",
+)
+
+load("@rules_req_compile//:defs.bzl", "py_requirements_repository")
+
+py_requirements_repository(
+    name = "pip_deps",
+    requirements_locks = {
+        "//:requirements.linux.txt": "@platforms//os:linux",
+        "//:requirements.macos.txt": "@platforms//os:macos",
+        "//:requirements.windows.txt": "@platforms//os:windows",
+    },
+)
+
+load("@pip_deps//:defs.bzl", "repositories")
+
+repositories()
+
+http_archive(
+    name = "io_buildbuddy_buildbuddy_toolchain",
+    sha256 = "baa9af1b9fcc96d18ac90a4dd68ebd2046c8beb76ed89aea9aabca30959ad30c",
+    strip_prefix = "buildbuddy-toolchain-287d6042ad151be92de03c83ef48747ba832c4e2",
+    urls = ["https://github.com/buildbuddy-io/buildbuddy-toolchain/archive/287d6042ad151be92de03c83ef48747ba832c4e2.tar.gz"],
+)
+
+load("@io_buildbuddy_buildbuddy_toolchain//:deps.bzl", "buildbuddy_deps")
+
+buildbuddy_deps()
+
+load("@io_buildbuddy_buildbuddy_toolchain//:rules.bzl", "buildbuddy")
+
+buildbuddy(name = "buildbuddy_toolchain")

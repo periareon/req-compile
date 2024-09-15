@@ -1,16 +1,23 @@
 """Repository rules for downloading and extracting python wheel files"""
 
-load(":annotation.bzl", "deserialize_package_annotation")
-load(":utils.bzl", "parse_artifact_name", "sanitize_package_name")
+load(":annotation_utils.bzl", "deserialize_package_annotation")
+load(":utils.bzl", "execute", "parse_artifact_name", "sanitize_package_name")
 
-def write_sdist_data(repository_ctx, wheel, sha256):
-    repository_ctx.file("whl.txt", json.encode_indent(
-        {
-            "sha256": sha256,
-            "wheel": wheel,
-        },
-        indent = " " * 4,
-    ))
+SDIST_ATTRS = {
+    "sdist_deps_repos": attr.label_list(
+        doc = "INTERNAL: DO NOT USE. Default dependencies for building source distributions.",
+        default = [
+            Label("@req_compile_sdist_compiler__pip//:pkg"),
+            Label("@req_compile_sdist_compiler__setuptools//:pkg"),
+            Label("@req_compile_sdist_compiler__wheel//:pkg"),
+        ],
+        allow_files = True,
+    ),
+    "_compiler": attr.label(
+        allow_files = True,
+        default = Label("//private:sdist_compiler.py"),
+    ),
+}
 
 def load_sdist_data(repository_ctx, data_file):
     data = json.decode(repository_ctx.read(data_file))
@@ -18,6 +25,63 @@ def load_sdist_data(repository_ctx, data_file):
         wheel = data["wheel"],
         sha256 = data["sha256"],
     )
+
+def whl_repo_to_python_path(repository_ctx, root):
+    """Convert a label into a PYTHONPATH entry.
+
+    Args:
+        repository_ctx (repository_ctx): The rule's context object.
+        root (Label): The label to a file.
+
+    Returns:
+        str: A path to add to PYTHONPATH.
+    """
+    root_file = repository_ctx.path(root)
+
+    return str(repository_ctx.path("{}/site-packages".format(
+        root_file.dirname,
+    )))
+
+def _build_sdist(repository_ctx, sdist_file):
+    repository_ctx.report_progress("Building wheel")
+
+    if not repository_ctx.attr.interpreter:
+        fail("A Python interpreter is required to build source distributions. " +
+             "Pass a Python binary via the interpreter_* args to your `py_requirements_repository` or `parse` module tags.")
+    interpreter = repository_ctx.path(repository_ctx.attr.interpreter)
+    compiler = repository_ctx.path(repository_ctx.attr._compiler)
+
+    data_file = repository_ctx.path("whl.json")
+
+    pythonpath = ["."] + [
+        whl_repo_to_python_path(repository_ctx, repo)
+        for repo in repository_ctx.attr.sdist_deps_repos
+    ] + [
+        whl_repo_to_python_path(repository_ctx, dep)
+        for dep in repository_ctx.attr.deps
+    ]
+
+    pythonpath_env = ":".join(pythonpath)
+
+    execute(
+        repository_ctx,
+        args = [
+            interpreter,
+            "-B",  # don't write .pyc files on import; also PYTHONDONTWRITEBYTECODE=x
+            "-s",  # don't add user site directory to sys.path; also PYTHONNOUSERSITE
+            compiler,
+            "--sdist",
+            sdist_file,
+            "--data_output",
+            data_file,
+        ],
+        environment = {
+            "PYTHONPATH": pythonpath_env,
+            "PYTHONSAFEPATH": pythonpath_env,
+        },
+    )
+
+    return load_sdist_data(repository_ctx, data_file)
 
 _WHEEL_ENTRY_POINT_PREFIX = "entry_point"
 
@@ -77,7 +141,7 @@ py_library(
     # This makes this directory a top-level in the python import
     # search path for anything that depends on this.
     imports = ["site-packages"],
-    deps = DEPS_LABELS + ["@{{}}//:pkg".format(whl_repo_name("{reqs_repository_name}", dep)) for dep in DEPS_PACKAGES],
+    deps = DEPS_LABELS + ["@{{}}//:pkg".format(whl_repo_name("{spoke_prefix}", dep)) for dep in DEPS_PACKAGES],
     tags = {tags},
     target_compatible_with = {target_compatible_with},
 )
@@ -192,53 +256,16 @@ def _whl_repository_impl(repository_ctx):
         repository_ctx.name,
     ))
 
-    whl_sha256 = repository_ctx.attr.sha256
-    if repository_ctx.attr.whl or repository_ctx.attr.whl_data:
-        if repository_ctx.attr.whl:
-            if repository_ctx.attr.urls or repository_ctx.attr.whl_data:
-                fail("`whl` is mutually exclusive with `urls`, `sha256`, and `whl_data`. Please update {}".format(
-                    repository_ctx.name,
-                ))
+    if repository_ctx.attr.whl:
+        whl_file = repository_ctx.path(repository_ctx.attr.whl)
+        whl_name = whl_file.basename
 
-            whl_file = repository_ctx.path(repository_ctx.attr.whl)
-            whl_name = whl_file.basename
-
-            whl_result = repository_ctx.download(
-                "file:///{}".format(whl_file),
-                output = whl_name,
-                sha256 = repository_ctx.attr.sha256,
-            )
-
-            whl_sha256 = whl_result.sha256
-        else:
-            if repository_ctx.attr.urls or repository_ctx.attr.sha256 or repository_ctx.attr.whl:
-                fail("`whl_data` is mutually exclusive with `urls`, `sha256`, and `whl`. Please update {}".format(
-                    repository_ctx.name,
-                ))
-
-            data_file = repository_ctx.path(repository_ctx.attr.whl_data)
-            whl_data = load_sdist_data(repository_ctx, data_file)
-
-            expected_sha256 = whl_data.sha256
-            whl_name = whl_data.wheel
-            whl_file = repository_ctx.path(
-                Label(str(repository_ctx.attr.whl_data).replace(
-                    "//:whl.json",
-                    "//:{}".format(whl_name),
-                )),
-            )
-
-            # Note that this result is intentionally not assigned to `whl_sha256`
-            # since the expected case here is that the sha256 comes from an
-            # `sdist_repository` and will never be knowable in advanced. To avoid
-            # unnecessary and confusing reruns of the rule, the sha256 value of the
-            # wheel from the data file is ignored in the repository rule results but
-            # __is__ used here to ensure there is no funny business when copying.
-            repository_ctx.download(
-                "file:///{}".format(whl_file),
-                output = whl_name,
-                sha256 = expected_sha256,
-            )
+        whl_result = repository_ctx.download(
+            "file:///{}".format(whl_file),
+            output = whl_name,
+            sha256 = repository_ctx.attr.sha256,
+        )
+        whl_sha256 = whl_result.sha256
     else:
         whl_name = parse_artifact_name(repository_ctx.attr.urls)
         if not whl_name:
@@ -252,8 +279,11 @@ def _whl_repository_impl(repository_ctx):
             output = whl_name,
             sha256 = repository_ctx.attr.sha256,
         )
-
         whl_sha256 = whl_result.sha256
+
+        if not whl_name.endswith(".whl"):
+            sdist_info = _build_sdist(repository_ctx, whl_name)
+            whl_name = sdist_info.wheel
 
     # Unfortunately `repository_ctx.extract` does not allow us to dictate
     # the type of the archive. So in order to get Bazel to extract a wheel
@@ -400,7 +430,7 @@ def _whl_repository_impl(repository_ctx):
         additive_content += repository_ctx.read(additive_build_path)
 
     build_content = [_BUILD_TEMPLATE.format(
-        reqs_repository_name = repository_ctx.attr.reqs_repository_name,
+        spoke_prefix = repository_ctx.attr.spoke_prefix,
         name = repository_ctx.attr.package,
         srcs = srcs,
         srcs_exclude = repr(srcs_exclude),
@@ -422,12 +452,13 @@ def _whl_repository_impl(repository_ctx):
         "name": repository_ctx.name,
         "package": repository_ctx.attr.package,
         "patches": repository_ctx.attr.patches,
-        "reqs_repository_name": repository_ctx.attr.reqs_repository_name,
+        "interpreter": repository_ctx.attr.interpreter,
+        "spoke_prefix": repository_ctx.attr.spoke_prefix,
         "sha256": whl_sha256,
+        "sdist_deps_repos": repository_ctx.attr.sdist_deps_repos,
         "urls": repository_ctx.attr.urls,
         "version": repository_ctx.attr.version,
         "whl": repository_ctx.attr.whl,
-        "whl_data": repository_ctx.attr.whl_data,
     }
 
 whl_repository = repository_rule(
@@ -449,6 +480,9 @@ This repository is expected to be generated by [py_requirements_repository](#py_
             doc = "A list of python package names that the current package depends on.",
             mandatory = True,
         ),
+        "interpreter": attr.label(
+            doc = "Optional Python interpreter binary to use for building sdists.",
+        ),
         "package": attr.string(
             doc = "The name of the python package the wheel represents.",
             mandatory = True,
@@ -457,8 +491,8 @@ This repository is expected to be generated by [py_requirements_repository](#py_
             doc = "Patches to apply to the installed wheel.",
             allow_files = True,
         ),
-        "reqs_repository_name": attr.string(
-            doc = "The name of the [py_requirements_repository](#py_requirements_repository) which spawned this repository.",
+        "spoke_prefix": attr.string(
+            doc = "The name of the [py_requirements_repository](#py_requirements_repository) plus a friendly platform suffix.",
             mandatory = True,
         ),
         "sha256": attr.string(
@@ -474,8 +508,5 @@ This repository is expected to be generated by [py_requirements_repository](#py_
         "whl": attr.label(
             doc = "The label to a wheel.",
         ),
-        "whl_data": attr.label(
-            doc = "A text file containing information about a a wheel. This attribute is mutually exclusive with `urls` and `sha256`.",
-        ),
-    },
+    } | SDIST_ATTRS,
 )

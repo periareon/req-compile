@@ -12,3 +12,8 @@ dist
 /bazel-*
 user.bazelrc
 /.github/ci.bazelrc
+/private/examples/multiplatform_py_test/bazel-*
+
+# Ignore the module lock for now, since the sdist repo rules incorrectly record the calling
+# platform's Python intepreter as the _only_ interprete in the lock.
+MODULE.bazel.lock

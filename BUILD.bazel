@@ -4,3 +4,13 @@ exports_files([
     "test-requirements.in",
     "version.bzl",
 ])
+
+alias(
+    name = "buildifier",
+    actual = "//private/tools:buildifier",
+)
+
+alias(
+    name = "buildifier.check",
+    actual = "//private/tools:buildifier.check",
+)

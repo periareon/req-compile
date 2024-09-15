@@ -6,7 +6,7 @@ from pathlib import Path
 
 from numpy import __version__ as numpy_version  # pylint: disable=import-error
 from numpy.__config__ import req_comple_annotation  # pylint: disable=import-error
-from rules_python.python.runfiles import Runfiles  # pylint: disable=import-error
+from python.runfiles import Runfiles  # pylint: disable=import-error
 from sphinx import __version__ as sphinx_version  # pylint: disable=import-error
 
 
@@ -37,9 +37,8 @@ class IntegrationTest(unittest.TestCase):
         }
 
         for rlocationpath in expected:
-            runfile = runfiles.Rlocation(
-                rlocationpath.format(platforms[platform.system()])
-            )
+            rlocationpath = rlocationpath.format(platforms[platform.system()])
+            runfile = runfiles.Rlocation(rlocationpath)
             assert runfile, f"Failed to find runfile: {rlocationpath}"
             assert Path(runfile).exists(), f"Runfile does not exist: {rlocationpath}"
 

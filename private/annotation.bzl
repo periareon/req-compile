@@ -1,4 +1,4 @@
-"""Utitlies for applying annotations to Bazel python packages"""
+"""Utilities for applying annotations to Bazel python packages"""
 
 load("@rules_cc//cc:defs.bzl", "CcInfo")
 
@@ -71,7 +71,7 @@ def py_package_annotation(
         _assert_absolute(patch)
         str_patches.append(str(patch))
 
-    # Ensure deps can be json seralized
+    # Ensure deps can be json serialized
     str_deps = []
     for dep in deps:
         if type(dep) == "Label":
@@ -79,60 +79,26 @@ def py_package_annotation(
         else:
             str_deps.append(dep)
 
+    str_data = []
+    for item in data:
+        if type(item) == "Label":
+            str_data.append(str(item))
+        else:
+            str_data.append(item)
+
     return json.encode(struct(
         additive_build_file = str(additive_build_file) if additive_build_file else None,
         additive_build_file_content = additive_content,
         copy_executables = copy_executables,
         copy_files = copy_files,
         copy_srcs = copy_srcs,
-        data = data,
+        data = str_data,
         data_exclude_glob = data_exclude_glob,
         deps = str_deps,
         deps_excludes = deps_excludes,
         patches = str_patches,
         srcs_exclude_glob = srcs_exclude_glob,
     ))
-
-def deserialize_package_annotation(content):
-    """Deserialize json encoded `py_package_annotation` data.
-
-    Args:
-        content (str): A json serialized string.
-
-    Returns:
-        struct: `py_package_annotation` data.
-    """
-    data = json.decode(content)
-
-    # TODO: There should be no need for the double deserialization
-    if data:
-        data = json.decode(data)
-    else:
-        data = {}
-
-    additive_build_file = None
-    if data.get("additive_build_file", None):
-        additive_build_file = Label(data["additive_build_file"])
-
-    additive_content = ""
-    if data.get("additive_build_file_content", None):
-        additive_content += data["additive_build_file_content"]
-    if data.get("additive_build_content", None):
-        additive_content += data["additive_build_content"]
-
-    return struct(
-        additive_build_file_content = additive_content or None,
-        additive_build_file = additive_build_file,
-        copy_srcs = data.get("copy_srcs", {}),
-        copy_files = data.get("copy_files", {}),
-        copy_executables = data.get("copy_executables", {}),
-        data = data.get("data", []),
-        data_exclude_glob = data.get("data_exclude_glob", []),
-        srcs_exclude_glob = data.get("srcs_exclude_glob", []),
-        deps = data.get("deps", []),
-        deps_excludes = data.get("deps_excludes", []),
-        patches = data.get("patches", []),
-    )
 
 PyPackageAnnotatedTargetInfo = provider(
     doc = "Information about a target proudced by `py_package_annotations`.",

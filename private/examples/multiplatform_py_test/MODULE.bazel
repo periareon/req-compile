@@ -1,0 +1,23 @@
+module(
+    name = "multiplatform_py_test",
+    version = "1.0",
+)
+
+bazel_dep(name = "rules_python", version = "0.34.0")
+bazel_dep(name = "platforms", version = "0.0.9")
+bazel_dep(name = "rules_req_compile", version = "0.0.0")
+local_path_override(
+    module_name = "rules_req_compile",
+    path = "../../..",
+)
+
+requirements = use_extension("@rules_req_compile//extensions:python.bzl", "requirements")
+requirements.parse(
+    name = "pip_deps",
+    requirements_locks = {
+        ":requirements.linux.txt": "@platforms//os:linux",
+        ":requirements.macos.txt": "@platforms//os:macos",
+        ":requirements.windows.txt": "@platforms//os:windows",
+    },
+)
+use_repo(requirements, "pip_deps")

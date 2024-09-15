@@ -41,12 +41,15 @@ jobs:
         run: |
           tar -czf ${{ github.workspace }}/.github/rules_req_compile.tar.gz --exclude=".git" --exclude=".github" --exclude="scripts" --exclude="dist" --exclude="build" -C ${{ github.workspace }} .
           sha256="$(shasum --algorithm 256 ${{ github.workspace }}/.github/rules_req_compile.tar.gz | awk '{ print $1 }')"
+          integrity="sha256-$(echo -n "$sha256" | xxd -r -p | base64)"
           echo "ARCHIVE_SHA256=${sha256}" >> $GITHUB_ENV
+          echo "ARCHIVE_INTEGRITY=${integrity}" >> $GITHUB_ENV
       - name: Generate release notes
         run: |
           # Generate the release notes
           sed 's/{version}/${{env.RELEASE_VERSION}}/g' ${{ github.workspace }}/.github/release_notes.template \
           | sed 's/{sha256}/${{env.ARCHIVE_SHA256}}/g' \
+          | sed 's/{integrity}/${{env.ARCHIVE_INTEGRITY}}/g' \
           > ${{ github.workspace }}/.github/release_notes.txt
       - name: Release
         uses: softprops/action-gh-release@v1

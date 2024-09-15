@@ -85,6 +85,8 @@ def main() -> None:
     subprocess.run(
         [
             sys.executable,
+            "-B",  # don't write .pyc files on import; also PYTHONDONTWRITEBYTECODE=x
+            "-s",  # don't add user site directory to sys.path; also PYTHONNOUSERSITE
             "-m",
             "pip",
             "wheel",

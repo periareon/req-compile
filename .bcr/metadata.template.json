@@ -1,0 +1,20 @@
+{
+  "homepage": "https://github.com/sputt/req-compile",
+  "maintainers": [
+    {
+      "name": "Spencer Putt",
+      "email": "sputt@alumni.iu.edu",
+      "github": "sputt"
+    },
+    {
+      "name": "Andre Brisco",
+      "email": "91817010+abrisco@users.noreply.github.com",
+      "github": "abrisco"
+    }
+  ],
+  "repository": [
+    "github:sputt/req-compile"
+  ],
+  "versions": [],
+  "yanked_versions": {}
+}

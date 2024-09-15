@@ -11,17 +11,17 @@ def sanitize_package_name(name):
     """
     return name.replace("-", "_").replace(".", "_").lower()
 
-def whl_repo_name(req_repository_name, package):
+def whl_repo_name(spoke_prefix, package):
     """Compute the name name for a `whl_repository`
 
     Args:
-        req_repository_name (str): The name of a `py_requirements_repository` like rule.
+        spoke_prefix (str): The name of a `py_requirements_repository` like rule plus a platform suffix.
         package (str): The package name for the wheel.
 
     Returns:
         str: A Bazel repository name.
     """
-    return req_repository_name + "__" + sanitize_package_name(package)
+    return spoke_prefix + "__" + sanitize_package_name(package)
 
 _EXECUTE_FAIL_MESSAGE = """\
 Process exited with code '{code}'
