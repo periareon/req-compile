@@ -2,26 +2,26 @@
 
 ## Using bzlmod
 ```python
-bazel_dep(name = "rules_req_compile")
-archive_override(
-    module_name = "rules_req_compile",
-    integrity = "{integrity}",
-    urls = ["https://github.com/sputt/req-compile/releases/download/{version}/rules_req_compile-v{version}.tar.gz"],
-)
+bazel_dep(name = "rules_req_compile", version = "{version}")
 ```
-```
-
-Isolated extensions allow you to have multiple separate Python
-requirements files with different annotations.
 
 ## Using WORKSPACE.bazel
 ```python
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
 http_archive(
     name = "rules_req_compile",
     sha256 = "{sha256}",
     urls = ["https://github.com/sputt/req-compile/releases/download/{version}/rules_req_compile-v{version}.tar.gz"],
 )
+
+load("@rules_req_compile//:repositories.bzl", "req_compile_dependencies")
+
+req_compile_dependencies()
+
+load("@rules_req_compile//:repositories_transitive.bzl", "req_compile_transitive_dependencies")
+
+req_compile_transitive_dependencies()
 ```
 
 Additional documentation can be found at: https://github.com/sputt/req-compile
