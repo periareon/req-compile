@@ -51,9 +51,9 @@ use_repo(requirements, "req_compile_deps")
 sdist_deps = use_extension("//private:sdist.bzl", "sdist_deps")
 use_repo(
     sdist_deps,
-    "sdist_deps__pip",
-    "sdist_deps__setuptools",
-    "sdist_deps__wheel",
+    "req_compile_sdist_compiler__pip",
+    "req_compile_sdist_compiler__setuptools",
+    "req_compile_sdist_compiler__wheel",
 )
 
 dev_requirements = use_extension("//extensions:python.bzl", "requirements", dev_dependency = True)
