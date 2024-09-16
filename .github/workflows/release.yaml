@@ -65,7 +65,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.rules_release.outputs.upload_url }}
-          asset_name: rules_req_compile-v${{ env.RELEASE_VERSION }}.tar.gz
+          asset_name: rules_req_compile-${{ env.RELEASE_VERSION }}.tar.gz
           asset_path: ${{ github.workspace }}/.github/rules_req_compile.tar.gz
           asset_content_type: application/gzip
       - name: "Upload the wheel"

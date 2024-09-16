@@ -1,3 +1,3 @@
 """req-compile version"""
 
-VERSION = "1.0.0rc27"
+VERSION = "1.0.0rc28"
