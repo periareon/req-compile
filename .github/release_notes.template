@@ -12,7 +12,7 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "rules_req_compile",
     sha256 = "{sha256}",
-    urls = ["https://github.com/sputt/req-compile/releases/download/{version}/rules_req_compile-v{version}.tar.gz"],
+    urls = ["https://github.com/sputt/req-compile/releases/download/{version}/rules_req_compile-{version}.tar.gz"],
 )
 
 load("@rules_req_compile//:repositories.bzl", "req_compile_dependencies")
