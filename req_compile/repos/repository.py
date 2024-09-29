@@ -9,9 +9,9 @@ import platform
 import re
 import sys
 import sysconfig
+from collections import defaultdict
 from typing import (
     Any,
-    DefaultDict,
     Iterable,
     Iterator,
     List,
@@ -66,7 +66,7 @@ def _get_platform_tags() -> Sequence[str]:
     if sys.platform == "darwin":
         # Compile a sorted list where later entries are considered
         # higher ranked platform tags.
-        mac_platforms = DefaultDict(set)
+        mac_platforms = defaultdict(set)
 
         for plat in packaging.tags.mac_platforms():
             match = re.match(MACOSX_REGEX, plat)
