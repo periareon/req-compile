@@ -247,8 +247,8 @@ def _parse_entry_points_txt(content):
     return console_scripts
 
 def _whl_repository_impl(repository_ctx):
-    if not repository_ctx.attr.urls and not repository_ctx.attr.whl and not repository_ctx.attr.whl_data:
-        fail("`urls`, `whl`, or `whl_data` must be provided. Please update {}".format(
+    if not repository_ctx.attr.urls and not repository_ctx.attr.whl:
+        fail("`urls` or `whl` must be provided. Please update {}".format(
             repository_ctx.name,
         ))
 
