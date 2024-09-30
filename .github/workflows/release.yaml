@@ -19,7 +19,7 @@ jobs:
       contents: write
       actions: write
       attestations: write
-    if: ${{ github.repository_owner == 'sputt' }}
+    if: ${{ github.repository_owner == 'periareon' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
