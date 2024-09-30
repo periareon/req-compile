@@ -23,8 +23,10 @@ build --test_output=errors
 coverage --combined_report=lcov
 
 # Stream BES reports to BuildBuddy.
-common:bes --bes_results_url=https://req-compile.buildbuddy.io/invocation/
-common:bes --bes_backend=grpcs://req-compile.buildbuddy.io
+# common:bes --bes_results_url=https://req-compile.buildbuddy.io/invocation/
+# common:bes --bes_backend=grpcs://req-compile.buildbuddy.io
+# Disable BES while we troubleshoot the API key.
+common:bes --bes_backend=
 
 # BuildBuddy suggested flags.
 common --noslim_profile --experimental_profile_include_target_label --experimental_profile_include_primary_output

@@ -177,62 +177,67 @@ def parse_constraint(data, repository_name, lockfile, wheel_dirs):
     """
     url = None
     whl = None
-    if len(data) < 3:
-        fail("The data given did not match the minimum expected length in {}:\n{}".format(
-            repository_name,
-            "\n".join(data),
-        ))
+    via = None
+
+    if "==" not in data[0]:
+        fail("Unexpected line in constraints file: {}".format(data))
+
     package, _, version = data[0].partition("==")
     version = version.strip(" \\")
 
-    if not data[1].startswith("--hash=sha256:"):
-        fail("Unexpected data found where a sha256 hash value was expected for {}:\n{}".format(
-            package,
-            data[1],
-        ))
-    sha256 = data[1][len("--hash=sha256:"):]
-
-    via = []
-    for entry in data[2:-1]:
-        text = entry.replace("# via", "#")
-        pkg, _, _ = text.strip(" #").partition(" ")
-        pkg, _, _ = pkg.partition("[")
-        if not pkg:
-            continue
-
-        # Skip any file paths. We only care to track packages
-        if "/" in pkg or "\\" in pkg:
-            continue
-
-        via.append(sanitize_package_name(pkg))
-
-    url = data[-1].strip(" #")
-    if not url.startswith(("http://", "https://", "file://")):
-        if wheel_dirs and url.startswith(*wheel_dirs):
-            # If the path is a relative parent, then we use the existing
-            # lockfile label to create a clean label. This logic assumes
-            # the wheeldir will be in a package (but not a package itself).
-            if url.startswith(("..", "./../")):
-                url_parents = url.count("../")
-
-                repository, _, path = str(lockfile).partition("//")
-                lockfile_dir, _, _ = path.partition(":")
-
-                new_package = "/".join(lockfile_dir.split("/")[:-url_parents])
-
-                split = url.split("/")
-                wheel = "{}/{}".format(split[-2], split[-1])
-
-                whl = "{}//{}:{}".format(repository, new_package, wheel)
-            else:
-                whl = str(lockfile.same_package_label(url))
-            url = None
-        else:
-            fail("Unexpected data found where url was expected for {} ({}):\n{}".format(
-                repository_name,
-                data[0].rstrip("\\ "),
-                data[-1],
+    if len(data) > 1:
+        if not data[1].startswith("--hash=sha256:"):
+            fail("Unexpected data found where a sha256 hash value was expected for {}:\n{}".format(
+                package,
+                data[1],
             ))
+        sha256 = data[1][len("--hash=sha256:"):]
+    else:
+        sha256 = ""
+
+    if len(data) > 2:
+        via = []
+        for entry in data[2:-1]:
+            text = entry.replace("# via", "#")
+            pkg, _, _ = text.strip(" #").partition(" ")
+            pkg, _, _ = pkg.partition("[")
+            if not pkg:
+                continue
+
+            # Skip any file paths. We only care to track packages
+            if "/" in pkg or "\\" in pkg:
+                continue
+
+            via.append(sanitize_package_name(pkg))
+
+    if len(data) > 3:
+        url = data[-1].strip(" #")
+        if not url.startswith(("http://", "https://", "file://")):
+            if wheel_dirs and url.startswith(*wheel_dirs):
+                # If the path is a relative parent, then we use the existing
+                # lockfile label to create a clean label. This logic assumes
+                # the wheeldir will be in a package (but not a package itself).
+                if url.startswith(("..", "./../")):
+                    url_parents = url.count("../")
+
+                    repository, _, path = str(lockfile).partition("//")
+                    lockfile_dir, _, _ = path.partition(":")
+
+                    new_package = "/".join(lockfile_dir.split("/")[:-url_parents])
+
+                    split = url.split("/")
+                    wheel = "{}/{}".format(split[-2], split[-1])
+
+                    whl = "{}//{}:{}".format(repository, new_package, wheel)
+                else:
+                    whl = str(lockfile.same_package_label(url))
+                url = None
+            else:
+                fail("Unexpected data found where url was expected for {} ({}):\n{}".format(
+                    repository_name,
+                    data[0].rstrip("\\ "),
+                    data[-1],
+                ))
 
     return {
         "annotations": {},
@@ -242,7 +247,7 @@ def parse_constraint(data, repository_name, lockfile, wheel_dirs):
         "sha256": sha256,
         "url": url,
         "version": version,
-        "via": sorted(via),
+        "via": sorted(via) if via != None else None,
         "whl": whl,
     }
 
@@ -309,6 +314,8 @@ def parse_lockfile(
     }
 
     for pkg, data in packages.items():
+        if data["via"] == None:
+            continue
         for via in data["via"]:
             # It may be the case that an entry in `via` is the name
             # of a "requirements.in" file. Unfortunately the file name
