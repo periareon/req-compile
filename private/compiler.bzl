@@ -40,11 +40,26 @@ def _symlink_py_executable(ctx, target):
     is_windows = executable.basename.endswith(".exe")
     link = ctx.actions.declare_file("{}.{}".format(ctx.label.name, executable.basename))
 
-    ctx.actions.symlink(
-        output = link,
-        target_file = executable,
-        is_executable = True,
-    )
+    # Unfortunately on Windows, the use of `ctx.actions.symlink` leads to build failures
+    # when outputs are downloaded using builds-without-the-bytes. To avoid this, the file
+    # is copied instead of being symlinked. For more details see:
+    # https://github.com/bazelbuild/bazel/issues/21747
+    if is_windows:
+        args = ctx.actions.args()
+        args.add(executable)
+        args.add(link)
+        ctx.actions.run(
+            executable = ctx.executable._copier,
+            arguments = [args],
+            inputs = [executable],
+            outputs = [link],
+        )
+    else:
+        ctx.actions.symlink(
+            output = link,
+            target_file = executable,
+            is_executable = True,
+        )
 
     runfiles = ctx.runfiles()
     runfiles = runfiles.merge(target[DefaultInfo].default_runfiles)
@@ -185,6 +200,11 @@ bazel run //:requirements.update -- --upgrade
             cfg = "exec",
             executable = True,
             default = Label("//private:compiler"),
+        ),
+        "_copier": attr.label(
+            cfg = "exec",
+            executable = True,
+            default = Label("//private:copier"),
         ),
     },
     executable = True,
@@ -331,6 +351,11 @@ py_reqs_solution_test(
         "requirements_txt": attr.label(
             doc = "The solution file. This attribute is mutually exclusive with `compiler`.",
             allow_single_file = True,
+        ),
+        "_copier": attr.label(
+            cfg = "exec",
+            executable = True,
+            default = Label("//private:copier"),
         ),
         "_tester": attr.label(
             cfg = "exec",

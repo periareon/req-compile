@@ -9,6 +9,12 @@ exports_files(
 )
 
 py_binary(
+    name = "copier",
+    srcs = ["copier.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
     name = "compiler",
     srcs = ["compiler.py"],
     visibility = ["//visibility:public"],
