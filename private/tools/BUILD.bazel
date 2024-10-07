@@ -7,6 +7,7 @@ buildifier(
         "./.git/*",
     ],
     lint_mode = "fix",
+    lint_warnings = ["all"],
     visibility = ["//:__pkg__"],
 )
 
@@ -17,6 +18,7 @@ buildifier(
         "./.git/*",
     ],
     lint_mode = "warn",
+    lint_warnings = ["all"],
     mode = "diff",
     visibility = ["//:__pkg__"],
 )

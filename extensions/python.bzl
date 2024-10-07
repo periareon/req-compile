@@ -151,10 +151,6 @@ This example was a multi-platform set of solutions, pulled into a single
 hub repository named "pip_deps".
 """,
     attrs = {
-        "name": attr.string(
-            doc = "Name of the hub repository to create.",
-            mandatory = True,
-        ),
         "interpreter_linux": attr.label(
             doc = "Optional Linux amd64 Python interpreter binary to use for sdists.",
         ),
@@ -167,11 +163,9 @@ hub repository named "pip_deps".
         "interpreter_windows": attr.label(
             doc = "Optional Windows x64 Python interpreter binary to use for sdists.",
         ),
-        "requirements_lock": attr.label(
-            doc = "A single lockfile for a single platform solution.",
-        ),
-        "requirements_locks": attr.label_keyed_string_dict(
-            doc = "A dictionary mapping platform to requirement lock files.",
+        "name": attr.string(
+            doc = "Name of the hub repository to create.",
+            mandatory = True,
         ),
         "override_module_repos": attr.string_list_dict(
             doc = """\
@@ -186,6 +180,12 @@ that Python libraries from dependencies can be safely imported into the same int
 Do not override repos for libraries that will never be mixed. To inject Python dependencies
 for use in most child modules, a custom toolchain type is most appropriate.""",
             default = {},
+        ),
+        "requirements_lock": attr.label(
+            doc = "A single lockfile for a single platform solution.",
+        ),
+        "requirements_locks": attr.label_keyed_string_dict(
+            doc = "A dictionary mapping platform to requirement lock files.",
         ),
     },
 )
