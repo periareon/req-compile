@@ -665,14 +665,14 @@ cross-platform behavior when using `requirements_locks`.
 """,
     implementation = _py_requirements_repository_impl,
     attrs = {
-        "hub_name": attr.string(
-            doc = "Name of the hub repository to generate. Do not use directly.",
-        ),
         "annotations": attr.string_dict(
             doc = (
                 "Optional annotations to apply to packages. For details see " +
                 "[@rules_python//python:pip.bzl%package_annotation](https://github.com/bazelbuild/rules_python/blob/main/docs/pip_repository.md#package_annotation)"
             ),
+        ),
+        "hub_name": attr.string(
+            doc = "Name of the hub repository to generate. Do not use directly.",
         ),
         "interpreter": attr.label(
             doc = (
