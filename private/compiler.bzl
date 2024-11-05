@@ -71,11 +71,22 @@ def _symlink_py_executable(ctx, target):
 
         # This output group is expected to only contain 1 file
         python_zip_file = target[OutputGroupInfo].python_zip_file.to_list()[0]
-        ctx.actions.symlink(
-            output = zipapp,
-            target_file = python_zip_file,
-            is_executable = True,
-        )
+        if is_windows:
+            args = ctx.actions.args()
+            args.add(python_zip_file)
+            args.add(zipapp)
+            ctx.actions.run(
+                executable = ctx.executable._copier,
+                arguments = [args],
+                inputs = [python_zip_file],
+                outputs = [zipapp],
+            )
+        else:
+            ctx.actions.symlink(
+                output = zipapp,
+                target_file = python_zip_file,
+                is_executable = True,
+            )
         runfiles = runfiles.merge(ctx.runfiles(files = [zipapp]))
 
     return link, runfiles
@@ -218,13 +229,14 @@ def _py_reqs_solution_test_impl(ctx):
             ctx.label,
         ))
 
-    args = []
+    args = ctx.actions.args()
+    args.set_param_file_format("multiline")
     args_file = ctx.actions.declare_file("{}.args.txt".format(ctx.label.name))
     runfiles = runfiles.merge(ctx.runfiles(files = [args_file]))
 
     if ctx.attr.compiler:
         compile_info = ctx.attr.compiler[PyReqsCompilerInfo]
-        args.extend(compile_info.args)
+        args.add_all(compile_info.args)
 
         runfiles = runfiles.merge_all([
             ctx.runfiles(
@@ -251,14 +263,9 @@ def _py_reqs_solution_test_impl(ctx):
             ctx.attr.requirements_txt,
         ])
 
-        args.extend([
-            "--requirements_file",
-            _rlocationpath(ctx.file.requirements_in, ctx.workspace_name),
-            "--solution",
-            _rlocationpath(ctx.file.requirements_txt, ctx.workspace_name),
-            "--custom_compile_command",
-            json.encode(custom_compile_command),
-        ])
+        args.add("--requirements_file", _rlocationpath(ctx.file.requirements_in, ctx.workspace_name))
+        args.add("--solution", _rlocationpath(ctx.file.requirements_txt, ctx.workspace_name))
+        args.add("--custom_compile_command", json.encode(custom_compile_command))
 
         runfiles = runfiles.merge_all([
             ctx.runfiles(
@@ -275,11 +282,11 @@ def _py_reqs_solution_test_impl(ctx):
             ctx.label,
         ))
 
+    args.add("--no_index")
+
     ctx.actions.write(
         output = args_file,
-        content = "\n".join(args + [
-            "--no_index",
-        ]),
+        content = args,
     )
 
     return [
