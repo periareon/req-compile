@@ -1,0 +1,16 @@
+load("@stardoc//stardoc:stardoc.bzl", "stardoc")
+
+stardoc(
+    name = "docs",
+    out = "generated_docs.md",
+    input = "//:defs.bzl",
+    tags = ["manual"],
+    deps = [
+        "//:defs",
+        "//private:compiler",
+        "@protobuf//bazel:cc_proto_library_bzl",
+        "@rules_cc//cc:bzl_srcs",
+        "@rules_cc//cc/common",
+        "@rules_cc//cc/toolchains:toolchain_rules",
+    ],
+)

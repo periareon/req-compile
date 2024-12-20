@@ -4,6 +4,8 @@ load("@req_compile_test_pip_parse_compat_single_plat//:requirements.bzl", single
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load("//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
 
+# gazelle:ignore
+
 py_binary(
     name = "compiler_wrapper",
     srcs = ["compiler_wrapper.py"],

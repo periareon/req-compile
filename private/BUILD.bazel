@@ -1,3 +1,4 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@rules_python//python:defs.bzl", "py_binary")
 
 exports_files(
@@ -15,8 +16,9 @@ py_binary(
 )
 
 py_binary(
-    name = "compiler",
+    name = "compiler_bin",
     srcs = ["compiler.py"],
+    main = "compiler.py",
     visibility = ["//visibility:public"],
     deps = [
         "//req_compile",
@@ -29,7 +31,60 @@ py_binary(
     srcs = ["solution_tester.py"],
     visibility = ["//visibility:public"],
     deps = [
-        ":compiler",
+        ":compiler_bin",
         "@rules_python//python/runfiles",
     ],
+)
+
+bzl_library(
+    name = "annotation",
+    srcs = ["annotation.bzl"],
+    visibility = ["//:__subpackages__"],
+    deps = ["@rules_cc//cc:bzl_srcs"],
+)
+
+bzl_library(
+    name = "reqs_repo",
+    srcs = ["reqs_repo.bzl"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":utils",
+        ":whl_repo",
+        "@bazel_tools//tools/build_defs/repo:utils.bzl",
+    ],
+)
+
+bzl_library(
+    name = "sdist",
+    srcs = ["sdist.bzl"],
+    visibility = ["//:__subpackages__"],
+    deps = [":reqs_repo"],
+)
+
+bzl_library(
+    name = "whl_repo",
+    srcs = ["whl_repo.bzl"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":annotation_utils",
+        ":utils",
+    ],
+)
+
+bzl_library(
+    name = "annotation_utils",
+    srcs = ["annotation_utils.bzl"],
+    visibility = ["//:__subpackages__"],
+)
+
+bzl_library(
+    name = "compiler",
+    srcs = ["compiler.bzl"],
+    visibility = ["//:__subpackages__"],
+)
+
+bzl_library(
+    name = "utils",
+    srcs = ["utils.bzl"],
+    visibility = ["//:__subpackages__"],
 )

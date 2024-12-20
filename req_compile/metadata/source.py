@@ -608,8 +608,8 @@ def _parse_setup_py(
     import requests
 
     try:
-        import importlib.util
-        import urllib.request
+        import importlib.util  # noqa
+        import urllib.request  # noqa
     except ImportError:
         pass
 

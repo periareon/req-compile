@@ -59,7 +59,7 @@ def extract_metadata(
             ext = "gz"
         result = _fetch_from_source(
             os.path.abspath(filename),
-            functools.partial(TarExtractor, ext.replace(".", "")),
+            functools.partial(TarExtractor, ext.replace(".", "")),  # type: ignore
             run_setup_py=allow_run_setup_py,
         )
     elif ext in (".egg",):

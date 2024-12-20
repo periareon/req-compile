@@ -21,7 +21,7 @@ alias(
 py_reqs_compiler(
     name = "requirements_linux_311",
     requirements_in = ":requirements",
-    requirements_txt = "requirements.linux.311.txt",
+    requirements_txt = "requirements.linux.txt",
     target_compatible_with = ["@platforms//os:linux"],
 )
 
@@ -33,7 +33,7 @@ py_reqs_solution_test(
 py_reqs_compiler(
     name = "requirements_macos_311",
     requirements_in = ":requirements",
-    requirements_txt = "requirements.macos.311.txt",
+    requirements_txt = "requirements.macos.txt",
     target_compatible_with = ["@platforms//os:macos"],
 )
 
@@ -45,7 +45,7 @@ py_reqs_solution_test(
 py_reqs_compiler(
     name = "requirements_windows_311",
     requirements_in = ":requirements",
-    requirements_txt = "requirements.windows.311.txt",
+    requirements_txt = "requirements.windows.txt",
     target_compatible_with = ["@platforms//os:windows"],
 )
 

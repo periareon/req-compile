@@ -38,9 +38,9 @@ To get started with bzlmod on Bazel 7::
     requirements.parse(
         name = "my_pip_deps",
         requirements_locks = {
-            "//3rdparty:requirements.linux.311.txt": "@platforms//os:linux",
-            "//3rdparty:requirements.macos.311.txt": "@platforms//os:macos",
-            "//3rdparty:requirements.windows.311.txt": "@platforms//os:windows",
+            "//3rdparty:requirements.linux.txt": "@platforms//os:linux",
+            "//3rdparty:requirements.macos.txt": "@platforms//os:macos",
+            "//3rdparty:requirements.windows.txt": "@platforms//os:windows",
         },
     )
     use_repo(requirements, "my_pip_deps")

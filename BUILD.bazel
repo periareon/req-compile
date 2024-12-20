@@ -1,8 +1,11 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+
 exports_files([
     "MODULE.bazel",
     "requirements.in",
     "test-requirements.in",
     "version.bzl",
+    "defs.bzl",
 ])
 
 alias(
@@ -13,4 +16,47 @@ alias(
 alias(
     name = "buildifier.check",
     actual = "//private/tools:buildifier.check",
+)
+
+alias(
+    name = "gazelle",
+    actual = "//private/tools:gazelle",
+    tags = ["manual"],
+)
+
+bzl_library(
+    name = "defs",
+    srcs = ["defs.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//private:annotation",
+        "//private:reqs_repo",
+        "//private:whl_repo",
+    ],
+)
+
+bzl_library(
+    name = "repositories",
+    srcs = ["repositories.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//private:reqs_repo",
+        "@bazel_tools//tools/build_defs/repo:http.bzl",
+        "@bazel_tools//tools/build_defs/repo:utils.bzl",
+    ],
+)
+
+bzl_library(
+    name = "repositories_transitive",
+    srcs = ["repositories_transitive.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@rules_python//python:repositories_bzl",
+    ],
+)
+
+bzl_library(
+    name = "version",
+    srcs = ["version.bzl"],
+    visibility = ["//visibility:public"],
 )

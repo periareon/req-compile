@@ -31,6 +31,9 @@ def test_mock_pypi(mock_pypi):
 
 
 def _real_outputs(results: Tuple[DistributionCollection, Set[DependencyNode]]):
+    # All roots should be complete.
+    for node in results[1]:
+        assert results[0][node.key].complete, "\n" + str(results[0])
     return set(
         "{}=={}".format(*node.metadata.to_definition(node.extras))
         for node in results[0].visit_nodes(results[1])

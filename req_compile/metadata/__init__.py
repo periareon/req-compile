@@ -1,1 +1,1 @@
-from .metadata import extract_metadata
+from .metadata import extract_metadata as extract_metadata

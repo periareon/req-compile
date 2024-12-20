@@ -777,7 +777,7 @@ def compile_main(raw_args: Optional[Sequence[str]] = None) -> None:
         dest="extras",
         default=[],
         metavar="extra",
-        help="Extras to apply automatically to source packages.",
+        help="Extras to apply automatically to projects that come from local source directories.",
     )
     group.add_argument(
         "-P",
@@ -1053,9 +1053,9 @@ def compile_main(raw_args: Optional[Sequence[str]] = None) -> None:
         no_pins=args.no_pins,
         no_comments=args.no_comments,
         no_explanations=args.no_explanations,
-        no_directives=ALL_DIRECTIVES
-        if args.no_directives
-        else [DirectiveType.FIND_LINKS],
+        no_directives=(
+            ALL_DIRECTIVES if args.no_directives else [DirectiveType.FIND_LINKS]
+        ),
         hashes=args.hashes,
         multiline=args.multiline,
     )

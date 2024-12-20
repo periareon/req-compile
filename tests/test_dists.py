@@ -13,6 +13,8 @@ def test_unconstrained():
         Requirement.parse("aaa"),
     )
     assert dists["bbb"].build_constraints() == pkg_resources.Requirement.parse("bbb")
+    assert len(dists) == 2
+    assert not dists["aaa"].complete
 
 
 def test_one_source():
@@ -62,13 +64,12 @@ def test_two_sources_same():
 
 def test_add_remove_dist():
     dists = DistributionCollection()
-    nodes = dists.add_dist(
+    node = dists.add_dist(
         DistInfo("aaa", "1.2.0", pkg_resources.parse_requirements(["bbb<1.0"])),
         None,
         Requirement.parse("aaa"),
     )
-    assert len(nodes) == 1
-    dists.remove_dists(nodes)
+    dists.remove_dists(node)
     assert "bbb" not in dists
 
 
@@ -85,6 +86,7 @@ def test_dist_with_unselected_extra():
     )
 
     assert str(dists.nodes["aaa"].metadata) == "aaa==1.2.0"
+    assert dists["aaa"].complete
 
 
 def test_unnormalized_dist_with_extra():
@@ -95,16 +97,20 @@ def test_unnormalized_dist_with_extra():
 
     assert dists["A"].metadata.version == "1.0.0"
     assert dists["A[x]"].metadata.version == "1.0.0"
+    assert dists["A"].complete
 
 
-def test_metadata_violated():
+def test_metadata_violated() -> None:
     dists = DistributionCollection()
     metadata_a = DistInfo("a", "1.0.0", [])
 
     dists.add_dist(metadata_a, None, None)
     dists.add_dist(metadata_a, None, Requirement.parse("a>1.0"))
 
-    assert dists.nodes["a"].metadata is None
+    assert dists["a"].metadata is None
+    assert dists["a"].dependencies == {}
+    assert dists["a"].reverse_deps == set()
+    assert not dists["a"].complete
 
 
 def test_metadata_violated_removes_transitive():
@@ -142,11 +148,9 @@ def test_repo_with_extra():
     metadata_b = DistInfo("b", "2.0.0", [])
     metadata_c = DistInfo("c", "2.0.0", [])
 
-    root = next(iter(dists.add_dist(root, None, None)))
-    root_a = next(
-        iter(
-            dists.add_dist(metadata_a, None, pkg_resources.Requirement.parse("a[test]"))
-        )
+    root = dists.add_dist(root, None, None)
+    root_a = dists.add_dist(
+        metadata_a, None, pkg_resources.Requirement.parse("a[test]")
     )
     dists.add_dist(
         metadata_b, root_a, pkg_resources.Requirement.parse('b ; extra=="test"')
@@ -177,3 +181,60 @@ def test_regular_and_extra_constraints():
     dists.add_dist(metadata_a, None, pkg_resources.Requirement.parse("a[test]"))
 
     assert dists["b"].build_constraints() == pkg_resources.Requirement.parse("b>2,>3")
+    assert not dists["a"].complete
+    assert not dists["b"].complete
+    assert not dists["root"].complete
+
+
+def test_circular_self_dep() -> None:
+    """Test that a self edge is OK."""
+    dists = DistributionCollection()
+    metadata_a = DistInfo("a", "1.0.0", reqs=pkg_resources.parse_requirements(["a"]))
+
+    dists.add_dist(metadata_a, None, None)
+
+    assert dists["A"].metadata.version == "1.0.0"
+    assert dists["A"].complete
+
+
+def test_circular_self_invalidate() -> None:
+    """Test that a self edge can invalidate correctly."""
+    dists = DistributionCollection()
+    metadata_a = DistInfo("a", "1.0.0", reqs=pkg_resources.parse_requirements(["a"]))
+
+    dists.add_dist(metadata_a, None, None)
+    dists.add_dist(metadata_a, None, Requirement.parse("a>1.0"))
+
+    assert dists["a"].metadata is None
+    assert dists["a"].dependencies == {}
+    assert dists["a"].reverse_deps == set()
+    assert not dists["a"].complete
+
+
+def test_big_circular_invalidate() -> None:
+    """Test that a two node circular dep can invalidate correctly."""
+    dists = DistributionCollection()
+    metadata_a = DistInfo("a", "1.0.0", reqs=pkg_resources.parse_requirements(["b"]))
+    metadata_b = DistInfo("b", "1.0.0", reqs=pkg_resources.parse_requirements(["a"]))
+
+    meta = dists.add_dist(
+        DistInfo("-", None, pkg_resources.parse_requirements(["a", "b"]), meta=True),
+        None,
+        None,
+    )
+
+    dists.add_dist(metadata_a, meta, Requirement.parse("a"))
+    dists.add_dist(metadata_b, meta, Requirement.parse("b"))
+
+    for node in dists:
+        print(node, node.complete)
+
+    dists.add_dist(metadata_a, None, Requirement.parse("a>1.0"))
+
+    assert dists["a"].metadata is None
+    assert dists["a"].dependencies == {}
+    assert dists["a"].reverse_deps == {dists["_"], dists["b"]}
+
+    dists.add_dist(metadata_a, None, Requirement.parse("a<=1.0"))
+    for node in dists:
+        assert node.complete
