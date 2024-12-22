@@ -8,6 +8,7 @@
 /.idea
 build
 dist
+.wheeldir
 /req_compile.egg-info
 /bazel-*
 user.bazelrc

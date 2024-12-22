@@ -4,8 +4,7 @@ import collections.abc
 import itertools
 import logging
 import sys
-from collections import deque
-from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional, Set, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Union
 
 import pkg_resources
 
@@ -100,63 +99,59 @@ class DependencyNode:
                 assert result is not None
         return result
 
-    def update_complete(
-        self,
-        _overrides: Optional[dict[NormName, bool]] = None,
-        _start_node: Optional[DependencyNode] = None,
-        _recurse: bool = True,
-    ) -> bool:
-        """Update the complete flag for this dependency.
+    def update_complete(self, _visited: Optional[Set[DependencyNode]] = None) -> None:
+        """Update the complete status of this node and all of its reverse dependencies.
 
-        A dependency is considered complete, or "solved", if it and its dependencies
-        all have metadata from a repository. This method will update the complete
-        flag for this node and all reverse dependencies up to the root.
+        This method should be called after the metadata of this node has been updated.
+        When the metadata is updated, the node may become complete, and this will trigger
+        the update of all of its reverse dependencies.
 
-        Args:
+        Note that this node may be a part of a dependency cycle, so we will need to determine
+        if these entire cycle is complete before setting complete to True on all members.
+
+        It is not enough to check if simply all dependencies are complete, because they may
+        directly or transitively depedn on this node.
         """
-        if _overrides is None:
-            _overrides = {}
+        self_cycle = _get_cycle(self, set(self.dependencies))
+        cycle_complete = True
+        for node in self_cycle:
+            if node.metadata is None:
+                cycle_complete = False
+                break
 
-        if _start_node is None:
-            _start_node = self
-
-        # We may assume this node is complete, and see if it remains so after checking all
-        # reverse deps. This will properly mark any circular deps as complete by assuming
-        # this one will be complete. If it ends up not being complete, we'll run again for
-        # force to false.
-        if self is _start_node:
-            logging.getLogger("req_compile.dists").debug("Updating completeness: %s", self)
-
-        if self.metadata is not None:
-            if self.key in _overrides:
-                return True
-            _overrides = {self.key: True, **_overrides}
-            for cur_node in sorted(self.reverse_deps):
-                if cur_node is _start_node:
-                    continue
-                reverse_dep_result = cur_node.update_complete(_start_node=_start_node, _overrides=_overrides)
-                _overrides[cur_node.key] = reverse_dep_result
-
-        result = self.metadata is not None and all(
-            _overrides.get(dep.key, dep.complete) for dep in self.dependencies
+        self.complete = cycle_complete and all(
+            dep.complete for dep in set(self.dependencies) - self_cycle
         )
-        if self is _start_node:
-            logging.getLogger("req_compile.dists").debug("Overrides: %s, overrides %s", self, _overrides)
-            logging.getLogger("req_compile.dists").debug("Final completeness: %s = %s", self, result)
-            self.complete = result
-            if _recurse:
-                self._update_complete_reverse_deps()
-        return result
-    
-    def _update_complete_reverse_deps(self) -> None:
-        visited = set()
-        reverse_deps = deque(sorted(self.reverse_deps))
-        while reverse_deps:
-            cur_node = reverse_deps.popleft()
-            visited.add(cur_node)
-            cur_node.update_complete(_recurse=False)
-            reverse_deps.extend(sorted(set(cur_node.reverse_deps) - visited))
-        return
+        if _visited is None:
+            _visited = set()
+
+        if self in _visited:
+            return
+        _visited.add(self)
+        for reverse_dep in self.reverse_deps:
+            reverse_dep.update_complete(_visited=_visited)
+
+
+def _get_cycle(
+    node: DependencyNode,
+    deps: Set[DependencyNode],
+    _seen: Optional[Set[DependencyNode]] = None,
+) -> Set[DependencyNode]:
+    """Get the set of nodes in the cycle that this node is a part of."""
+    results = {node}
+    if _seen is None:
+        _seen = set()
+
+    for dep in deps:
+        if dep in _seen:
+            continue
+        _seen.add(dep)
+        if node in dep.dependencies:
+            results.add(dep)
+            results |= _get_cycle(node, set(dep.dependencies), _seen=_seen)
+
+    return results
+
 
 def build_explanation(root_node: DependencyNode) -> collections.abc.Collection[str]:
     """Build an explanation for why a node was included in the solution.
@@ -292,14 +287,11 @@ class DistributionCollection:
 
         if metadata_to_apply is not None:
             self._update_dists(node, metadata_to_apply)
+            node.update_complete()
 
         if node.key not in self.nodes:
             raise ValueError("The node {} is gone, while adding".format(node.key))
 
-        if metadata_to_apply is not None:
-            node.update_complete()
-            for x in self.nodes.values():
-                self.logger.debug(f"{x.key} - {x.complete}")
         return node
 
     def _update_dists(

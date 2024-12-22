@@ -2,7 +2,7 @@ import pkg_resources
 from pkg_resources import Requirement
 
 from req_compile.containers import DistInfo
-from req_compile.dists import DistributionCollection, build_explanation
+from req_compile.dists import DistributionCollection, _get_cycle, build_explanation
 
 
 def test_unconstrained():
@@ -266,6 +266,9 @@ def test_base_plugin_circular_completed() -> None:
 
     assert set(dists["common"].dependencies) == {dists["root"], dists["dep-a"]}
     assert list(dists["common"].reverse_deps) == [dists["root-b"]]
+
+    assert _get_cycle(dists["root"], set(dists["root"].dependencies)) == {dists["root"], dists["root-a"], dists["root-b"], dists["common"]}
+    assert _get_cycle(dists["dep-c"], set(dists["dep-c"].dependencies)) == {dists["dep-c"]}
 
     for node in dists:
         assert node.complete, str(node)
