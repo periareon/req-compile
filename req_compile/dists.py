@@ -5,7 +5,7 @@ import itertools
 import logging
 import sys
 from collections import deque
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Union
+from typing import Any, Dict, Iterable, Iterator, List, Mapping, Optional, Set, Union
 
 import pkg_resources
 
@@ -100,7 +100,12 @@ class DependencyNode:
                 assert result is not None
         return result
 
-    def update_complete(self, _force_complete: bool = True) -> None:
+    def update_complete(
+        self,
+        _overrides: Optional[dict[NormName, bool]] = None,
+        _start_node: Optional[DependencyNode] = None,
+        _recurse: bool = True,
+    ) -> bool:
         """Update the complete flag for this dependency.
 
         A dependency is considered complete, or "solved", if it and its dependencies
@@ -108,36 +113,50 @@ class DependencyNode:
         flag for this node and all reverse dependencies up to the root.
 
         Args:
-            _force_complete: Whether to force the node to be considered complete. This is
-                used to fake completeness for this node to see if it was the last dependency
-                required in a circular dependency chain to mark it all complete.
         """
-        if self.metadata is None:
-            _force_complete = False
+        if _overrides is None:
+            _overrides = {}
+
+        if _start_node is None:
+            _start_node = self
 
         # We may assume this node is complete, and see if it remains so after checking all
         # reverse deps. This will properly mark any circular deps as complete by assuming
         # this one will be complete. If it ends up not being complete, we'll run again for
         # force to false.
-        self.complete = _force_complete
-        ancestors = deque(sorted(self.reverse_deps))
+        if self is _start_node:
+            logging.getLogger("req_compile.dists").debug("Updating completeness: %s", self)
 
+        if self.metadata is not None:
+            if self.key in _overrides:
+                return True
+            _overrides = {self.key: True, **_overrides}
+            for cur_node in sorted(self.reverse_deps):
+                if cur_node is _start_node:
+                    continue
+                reverse_dep_result = cur_node.update_complete(_start_node=_start_node, _overrides=_overrides)
+                _overrides[cur_node.key] = reverse_dep_result
+
+        result = self.metadata is not None and all(
+            _overrides.get(dep.key, dep.complete) for dep in self.dependencies
+        )
+        if self is _start_node:
+            logging.getLogger("req_compile.dists").debug("Overrides: %s, overrides %s", self, _overrides)
+            logging.getLogger("req_compile.dists").debug("Final completeness: %s = %s", self, result)
+            self.complete = result
+            if _recurse:
+                self._update_complete_reverse_deps()
+        return result
+    
+    def _update_complete_reverse_deps(self) -> None:
         visited = set()
-        while ancestors:
-            cur_node = ancestors.popleft()
+        reverse_deps = deque(sorted(self.reverse_deps))
+        while reverse_deps:
+            cur_node = reverse_deps.popleft()
             visited.add(cur_node)
-
-            was_complete = cur_node.complete
-            cur_node.complete = all(dep.complete for dep in cur_node.dependencies)
-            # Reconsider any reverse dependencies that were visited if a node was completed.
-            if not was_complete and cur_node.complete:
-                visited -= cur_node.reverse_deps
-            ancestors.extend(sorted(cur_node.reverse_deps - visited))
-
-        self.complete = all(dep.complete for dep in self.dependencies)
-        if not self.complete and _force_complete:
-            self.update_complete(_force_complete=False)
-
+            cur_node.update_complete(_recurse=False)
+            reverse_deps.extend(sorted(set(cur_node.reverse_deps) - visited))
+        return
 
 def build_explanation(root_node: DependencyNode) -> collections.abc.Collection[str]:
     """Build an explanation for why a node was included in the solution.
@@ -277,8 +296,10 @@ class DistributionCollection:
         if node.key not in self.nodes:
             raise ValueError("The node {} is gone, while adding".format(node.key))
 
-        if node.metadata is not None:
+        if metadata_to_apply is not None:
             node.update_complete()
+            for x in self.nodes.values():
+                self.logger.debug(f"{x.key} - {x.complete}")
         return node
 
     def _update_dists(
