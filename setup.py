@@ -23,7 +23,7 @@ setup(
     author_email="sputt@alumni.iu.edu",
     description="Python requirements compiler",
     long_description=open("CHANGELOG.rst").read() + "\n" + open("README.rst").read(),
-    url="https://github.com/sputt/req-compile",
+    url="https://github.com/periareon/req-compile",
     install_requires=open("requirements.in").readlines(),
     packages=find_packages(include=["req_compile*"]),
     package_data={"": ["py.typed"]},
