@@ -239,17 +239,32 @@ def test_big_circular_invalidate() -> None:
     for node in dists:
         assert node.complete
 
+
 def test_base_plugin_circular_completed() -> None:
     """Create a root and plugin-style circular dependency and ensure that the graph is completed."""
     dists = DistributionCollection()
-    metadata_root = DistInfo("root", "1.0.0", reqs=pkg_resources.parse_requirements(["root-c", "root-a", "root-b"]))
-    metadata_root_a = DistInfo("root-a", "1.0.0", reqs=pkg_resources.parse_requirements(["root", "dep-a"]))
+    metadata_root = DistInfo(
+        "root",
+        "1.0.0",
+        reqs=pkg_resources.parse_requirements(["root-c", "root-a", "root-b"]),
+    )
+    metadata_root_a = DistInfo(
+        "root-a", "1.0.0", reqs=pkg_resources.parse_requirements(["root", "dep-a"])
+    )
     metadata_dep_a = DistInfo("dep-a", "1.0.0", reqs=[])
-    metadata_root_b = DistInfo("root-b", "1.0.0", reqs=pkg_resources.parse_requirements(["root", "dep-b", "common"]))
+    metadata_root_b = DistInfo(
+        "root-b",
+        "1.0.0",
+        reqs=pkg_resources.parse_requirements(["root", "dep-b", "common"]),
+    )
     metadata_dep_b = DistInfo("dep-b", "1.0.0", reqs=[])
-    metadata_root_c = DistInfo("root-c", "1.0.0", reqs=pkg_resources.parse_requirements(["dep-c"]))
+    metadata_root_c = DistInfo(
+        "root-c", "1.0.0", reqs=pkg_resources.parse_requirements(["dep-c"])
+    )
     metadata_dep_c = DistInfo("dep-c", "1.0.0", reqs=[])
-    metadata_common = DistInfo("common", "1.0.0", reqs=pkg_resources.parse_requirements(["root", "dep-a"]))
+    metadata_common = DistInfo(
+        "common", "1.0.0", reqs=pkg_resources.parse_requirements(["root", "dep-a"])
+    )
 
     root_node = dists.add_dist(metadata_root, None, Requirement.parse("root"))
     a_node = dists.add_dist(metadata_root_a, root_node, Requirement.parse("root-a"))
@@ -260,15 +275,22 @@ def test_base_plugin_circular_completed() -> None:
     dists.add_dist(metadata_dep_b, b_node, Requirement.parse("dep-b"))
     c_node = dists.add_dist(metadata_root_c, root_node, Requirement.parse("root-c"))
     dists.add_dist(metadata_dep_c, c_node, Requirement.parse("dep-c"))
-    
+
     assert list(dists["root-c"].dependencies) == [dists["dep-c"]]
     assert list(dists["root-c"].reverse_deps) == [dists["root"]]
 
     assert set(dists["common"].dependencies) == {dists["root"], dists["dep-a"]}
     assert list(dists["common"].reverse_deps) == [dists["root-b"]]
 
-    assert _get_cycle(dists["root"], set(dists["root"].dependencies)) == {dists["root"], dists["root-a"], dists["root-b"], dists["common"]}
-    assert _get_cycle(dists["dep-c"], set(dists["dep-c"].dependencies)) == {dists["dep-c"]}
+    assert _get_cycle(dists["root"], set(dists["root"].dependencies)) == {
+        dists["root"],
+        dists["root-a"],
+        dists["root-b"],
+        dists["common"],
+    }
+    assert _get_cycle(dists["dep-c"], set(dists["dep-c"].dependencies)) == {
+        dists["dep-c"]
+    }
 
     for node in dists:
         assert node.complete, str(node)
