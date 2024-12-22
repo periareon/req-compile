@@ -41,25 +41,33 @@ def test_no_candidates(tmp_path):
 
 def test_compile_req_compile(tmp_path):
     """Test compiling this project from source."""
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "req_compile",
-            "-i",
-            read_pip_default_index() or "https://pypi.org/simple",
-            ".",
-            "--wheel-dir",
-            str(tmp_path),
-        ],
-        check=True,
-        encoding="utf-8",
-        capture_output=True,
-        cwd=ROOT_DIR,
-    )
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-W",
+                "ignore",
+                "-m",
+                "req_compile",
+                "-i",
+                read_pip_default_index() or "https://pypi.org/simple",
+                ".",
+                "--wheel-dir",
+                str(tmp_path),
+            ],
+            check=True,
+            encoding="utf-8",
+            capture_output=True,
+            cwd=ROOT_DIR,
+        )
+    except subprocess.CalledProcessError as ex:
+        print(ex.stdout, file=sys.stderr)
+        print(ex.stderr, file=sys.stderr)
+        raise
+
     assert "req-compile" in result.stdout
     assert "toml" in result.stdout
-    assert result.stderr == ""
+    assert result.stderr == "", result.stderr
 
     # Ensure that setup requires are included.
     all_items = {path.name.split("-", 1)[0] for path in tmp_path.iterdir()}

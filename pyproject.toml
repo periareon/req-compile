@@ -19,6 +19,7 @@ disable = [
     "too-many-arguments",
     "raise-missing-from",
     "consider-using-f-string",
+    "useless-import-alias",  # Conflict with ruff check.
 ]
 
 [tool.isort]

@@ -161,12 +161,11 @@ filegroup(
 )
 """
 
-def parse_constraint(data, repository_name, lockfile, wheel_dirs):
+def parse_constraint(data, lockfile, wheel_dirs):
     """Parse a section of a requirements lock file from `req-compile`.
 
     Args:
         data (list): The stripped lines of a constraint's section in a lock file.
-        repository_name (str): The name of the current repository.
         lockfile (Label): The label of the current lockfile. Used to resolve paths to
             constraints represented by relative paths instead of urls.
         wheel_dirs (list): A list of strings that represent directories containing
@@ -185,18 +184,13 @@ def parse_constraint(data, repository_name, lockfile, wheel_dirs):
     package, _, version = data[0].partition("==")
     version = version.strip(" \\")
 
-    if len(data) > 1:
-        if not data[1].startswith("--hash=sha256:"):
-            fail("Unexpected data found where a sha256 hash value was expected for {}:\n{}".format(
-                package,
-                data[1],
-            ))
+    if len(data) > 1 and data[1].startswith("--hash=sha256:"):
         sha256 = data[1][len("--hash=sha256:"):]
     else:
         sha256 = ""
 
+    via = []
     if len(data) > 2:
-        via = []
         for entry in data[2:-1]:
             text = entry.replace("# via", "#")
             pkg, _, _ = text.strip(" #").partition(" ")
@@ -210,7 +204,8 @@ def parse_constraint(data, repository_name, lockfile, wheel_dirs):
 
             via.append(sanitize_package_name(pkg))
 
-    if len(data) > 3:
+    whl = None
+    if len(data) >= 4:
         url = data[-1].strip(" #")
         if not url.startswith(("http://", "https://", "file://")):
             if wheel_dirs and url.startswith(*wheel_dirs):
@@ -233,11 +228,7 @@ def parse_constraint(data, repository_name, lockfile, wheel_dirs):
                     whl = str(lockfile.same_package_label(url))
                 url = None
             else:
-                fail("Unexpected data found where url was expected for {} ({}):\n{}".format(
-                    repository_name,
-                    data[0].rstrip("\\ "),
-                    data[-1],
-                ))
+                url = None
 
     return {
         "annotations": {},
@@ -253,7 +244,6 @@ def parse_constraint(data, repository_name, lockfile, wheel_dirs):
 
 def parse_lockfile(
         content,
-        repository_name,
         annotations,
         lockfile,
         constraint = None):
@@ -261,7 +251,6 @@ def parse_lockfile(
 
     Args:
         content (str): The string content of a requirements lock file.
-        repository_name (str): The name of the current repository
         annotations (dict): Annotation data for packages in the current lock file.
         lockfile (Label): The label of the lockfile containing `content`.
         constraint (Label): An optional Label which represents the constraint value of the package.
@@ -285,7 +274,6 @@ def parse_lockfile(
             if not text or not text.startswith(("#", "-")):
                 entries.append(parse_constraint(
                     capturing,
-                    repository_name,
                     lockfile,
                     wheel_dirs,
                 ))
@@ -303,7 +291,6 @@ def parse_lockfile(
     if capturing:
         entries.append(parse_constraint(
             capturing,
-            repository_name,
             lockfile,
             wheel_dirs,
         ))
@@ -348,12 +335,11 @@ def _write_defs_file(repository_ctx, hub_name, packages, defs_output, id = "", n
         interpreter = repr(repository_ctx.attr.interpreter),
     ))
 
-def _process_lockfile(ctx, hub_name, requirements_lock, annotations = None, constraint = None):
+def _process_lockfile(ctx, requirements_lock, annotations = None, constraint = None):
     """Convert a lockfile into a map of packages.
 
     Args:
         ctx (repository_ctx): The repository or module context object
-        hub_name: Name of the hub to process the lock file for.
         requirements_lock (Label): The label of the lock file.
         annotations: The annotations to apply to the requirements from this lock.
         constraint (Label, optional): An optional constraint label associated
@@ -370,7 +356,6 @@ def _process_lockfile(ctx, hub_name, requirements_lock, annotations = None, cons
 
     packages = parse_lockfile(
         content = content,
-        repository_name = hub_name,
         annotations = annotations or {},
         lockfile = requirements_lock,
         constraint = constraint,
@@ -527,7 +512,6 @@ def parse_requirements_locks(hub_name, ctx, attrs, annotations):
     if attrs.requirements_lock:
         packages = _process_lockfile(
             ctx = ctx,
-            hub_name = hub_name,
             requirements_lock = attrs.requirements_lock,
             annotations = annotations,
         )
@@ -544,7 +528,6 @@ def parse_requirements_locks(hub_name, ctx, attrs, annotations):
 
             packages = _process_lockfile(
                 ctx = ctx,
-                hub_name = hub_name,
                 requirements_lock = lock,
                 constraint = constraint,
                 annotations = annotations,

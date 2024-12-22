@@ -19,10 +19,10 @@ from req_compile.utils import (
 
 
 class DependencyNode:
-    """
-    Class representing a node in the dependency graph of a resolution. Contains information
-    about whether or not this node has a solution yet -- meaning, is it resolved to a
-    concrete requirement resolved from a Repository
+    """Class representing a node in the dependency graph of a resolution.
+
+    Contains information about whether or not this node has a solution yet. Meaning
+    is it resolved to a concrete version sourced from a Repository.
     """
 
     def __init__(self, key: NormName, metadata: Optional[RequirementContainer]) -> None:
@@ -60,7 +60,7 @@ class DependencyNode:
         for rdep in self.reverse_deps:
             assert (
                 rdep.metadata is not None
-            ), "Reverse dependency should already have a solution"
+            ), f"Reverse dependency {rdep} should already have a solution."
             reason = rdep.dependencies[self]
             if reason is not None:
                 extras |= set(reason.extras)
@@ -98,6 +98,59 @@ class DependencyNode:
                 result = parse_requirement(str(result))
                 assert result is not None
         return result
+
+    def update_complete(self, _visited: Optional[Set[DependencyNode]] = None) -> None:
+        """Update the complete status of this node and all of its reverse dependencies.
+
+        This method should be called after the metadata of this node has been updated.
+        When the metadata is updated, the node may become complete, and this will trigger
+        the update of all of its reverse dependencies.
+
+        Note that this node may be a part of a dependency cycle, so we will need to determine
+        if these entire cycle is complete before setting complete to True on all members.
+
+        It is not enough to check if simply all dependencies are complete, because they may
+        directly or transitively depedn on this node.
+        """
+        self_cycle = _get_cycle(self, set(self.dependencies))
+        cycle_complete = True
+        for node in self_cycle:
+            if node.metadata is None:
+                cycle_complete = False
+                break
+
+        self.complete = cycle_complete and all(
+            dep.complete for dep in set(self.dependencies) - self_cycle
+        )
+        if _visited is None:
+            _visited = set()
+
+        if self in _visited:
+            return
+        _visited.add(self)
+        for reverse_dep in self.reverse_deps:
+            reverse_dep.update_complete(_visited=_visited)
+
+
+def _get_cycle(
+    node: DependencyNode,
+    deps: Set[DependencyNode],
+    _seen: Optional[Set[DependencyNode]] = None,
+) -> Set[DependencyNode]:
+    """Get the set of nodes in the cycle that this node is a part of."""
+    results = {node}
+    if _seen is None:
+        _seen = set()
+
+    for dep in deps:
+        if dep in _seen:
+            continue
+        _seen.add(dep)
+        if node in dep.dependencies:
+            results.add(dep)
+            results |= _get_cycle(node, set(dep.dependencies), _seen=_seen)
+
+    return results
 
 
 def build_explanation(root_node: DependencyNode) -> collections.abc.Collection[str]:
@@ -154,10 +207,12 @@ def _process_constraint_req(
 
 
 class DistributionCollection:
-    """A collection of dependencies and their distributions. This is the main representation
-    of the graph of dependencies when putting together a resolution. As distributions are
-    added to the collection and provide a concrete RequirementContainer (like a DistInfo from
-    a wheel), the corresponding node in this collection will be marked solved."""
+    """A collection of dependencies and their distributions.
+
+    This is the main representation of the graph of dependencies when putting together
+    a resolution. As distributions are added to the collection and provide a concrete
+    RequirementContainer (like a DistInfo from a wheel), the corresponding node in this
+    collection will be marked solved."""
 
     def __init__(self) -> None:
         self.nodes: Dict[NormName, DependencyNode] = {}
@@ -172,7 +227,7 @@ class DistributionCollection:
         name_or_metadata: Union[str, RequirementContainer],
         source: Optional[DependencyNode],
         reason: Optional[pkg_resources.Requirement],
-    ) -> Set[DependencyNode]:
+    ) -> DependencyNode:
         """Add a distribution as a placeholder or as a solution.
 
         Args:
@@ -182,7 +237,9 @@ class DistributionCollection:
             reason: The requirement that caused this distribution to be added to the
                 graph. This is used to constrain which solutions will be allowed.
         """
-        self.logger.debug("Adding dist: %s %s %s", name_or_metadata, source, reason)
+        self.logger.debug(
+            "Adding dist: %s via %s (%s)", name_or_metadata, source, reason
+        )
 
         if isinstance(name_or_metadata, str):
             req_name = name_or_metadata
@@ -200,54 +257,56 @@ class DistributionCollection:
             node = DependencyNode(key, metadata_to_apply)
             self.nodes[key] = node
 
-        # If a new extra is being supplied, update the metadata
+        # If a new extra is being supplied, update the metadata. This should run before
+        # the reverse dependency is added, as this is how the current extras are known.
         if (
-            reason
+            reason is not None
             and node.metadata
             and reason.extras
             and set(reason.extras) - node.extras
         ):
-            metadata_to_apply = node.metadata
-            node.complete = False
+            metadata_to_apply = metadata_to_apply or node.metadata
 
+        # Add a reference in the source's dependencies to this node.
+        # The source is the node that caused this node to be added to the graph.
         if source is not None and source.key in self.nodes:
             node.reverse_deps.add(source)
             source.add_reason(node, reason)
 
-        nodes = set()
-        if metadata_to_apply is not None:
-            nodes |= self._update_dists(node, metadata_to_apply)
-
-        self._discard_metadata_if_necessary(node, reason)
-
-        if node.key not in self.nodes:
-            raise ValueError("The node {} is gone, while adding".format(node.key))
-
-        return nodes
-
-    def _discard_metadata_if_necessary(
-        self, node: DependencyNode, reason: Optional[pkg_resources.Requirement]
-    ) -> None:
-        if node.metadata is not None and not node.metadata.meta and reason is not None:
+        # If this requirement is conflicting, clear the metadata but keep the node.
+        # We'll need to find more suitable metadata later.
+        if reason is not None and node.metadata is not None:
             if node.metadata.version is not None and not reason.specifier.contains(
                 node.metadata.version, prereleases=True
             ):
                 self.logger.debug(
                     "Existing solution (%s) invalidated by %s", node.metadata, reason
                 )
-                # Discard the metadata
                 self.remove_dists(node, remove_upstream=False)
+                return node
+
+        if metadata_to_apply is not None:
+            self._update_dists(node, metadata_to_apply)
+            node.update_complete()
+
+        if node.key not in self.nodes:
+            raise ValueError("The node {} is gone, while adding".format(node.key))
+
+        return node
 
     def _update_dists(
         self, node: DependencyNode, metadata: RequirementContainer
-    ) -> Set[DependencyNode]:
+    ) -> None:
         node.metadata = metadata
-        add_nodes = {node}
-        for extra in {None} | node.extras:
+        for extra in list({None} | node.extras):
+            # An extra may disappear while we are iterating due to conflicts.
+            if extra is not None and extra not in node.extras:
+                continue
             for req in metadata.requires(extra):
-                # This adds a placeholder entry
-                add_nodes |= self.add_dist(req.name, node, req)
-        return add_nodes
+                # This adds a placeholder entry if we don't already have a solution for
+                # the new dependency. It also adds a reason for the node, which could
+                # potentially cause a conflict if two requirements contradict.
+                self.add_dist(req.name, node, req)
 
     def remove_dists(
         self,
@@ -259,7 +318,7 @@ class DistributionCollection:
                 self.remove_dists(single_node, remove_upstream=remove_upstream)
             return
 
-        self.logger.info("Removing dist(s): %s (upstream = %s)", node, remove_upstream)
+        self.logger.info("Removing dist: %s (upstream = %s)", node, remove_upstream)
 
         if node.key not in self.nodes:
             self.logger.debug("Node %s was already removed", node.key)
@@ -271,15 +330,21 @@ class DistributionCollection:
                 del reverse_dep.dependencies[node]
 
         for dep in node.dependencies:
-            if remove_upstream or dep.key != node.key:
+            self.logger.debug("Checking dep %s", dep)
+            if node in dep.reverse_deps:
                 dep.reverse_deps.remove(node)
-                if not dep.reverse_deps:
-                    self.remove_dists(dep)
+            self.logger.debug("Remaining %s", dep.reverse_deps)
+            if not dep.reverse_deps:
+                self.remove_dists(dep, remove_upstream=True)
 
+        # Reset the node back to an unsolved state, but keep the reverse dependencies.
         if not remove_upstream:
             node.dependencies = {}
             node.metadata = None
-            node.complete = False
+            if node.complete:
+                node.complete = False
+                self.logger.debug("Node %r is no longer complete", node)
+            self.nodes[node.key] = node
 
     def visit_nodes(
         self,
@@ -326,6 +391,15 @@ class DistributionCollection:
     def __iter__(self) -> Iterator[DependencyNode]:
         return iter(self.nodes.values())
 
+    def __len__(self) -> int:
+        return len(self.nodes)
+
     def __getitem__(self, project_name: str) -> DependencyNode:
         req_name = project_name.split("[")[0]
         return self.nodes[normalize_project_name(req_name)]
+
+    def __str__(self) -> str:
+        return "\n".join(str(node) for node in sorted(self.nodes.values()))
+
+    def __repr__(self):
+        return repr(sorted(self.nodes.values()))

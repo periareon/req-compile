@@ -1,3 +1,4 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@rules_cc//cc:defs.bzl", "cc_toolchain")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load("//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
@@ -149,4 +150,10 @@ py_test(
         "PYTHON_ZIP_FILE_WINDOWS": "$(rlocationpath :cross_platform_windows)",
     },
     deps = ["@rules_python//python/runfiles"],
+)
+
+bzl_library(
+    name = "cross_platform_test_utils",
+    srcs = ["cross_platform_test_utils.bzl"],
+    visibility = ["//:__subpackages__"],
 )

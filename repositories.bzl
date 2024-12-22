@@ -33,8 +33,8 @@ def req_compile_dependencies():
         py_requirements_repository,
         name = "req_compile_deps",
         requirements_locks = {
-            Label("//3rdparty:requirements.linux.311.txt"): "@platforms//os:linux",
-            Label("//3rdparty:requirements.macos.311.txt"): "@platforms//os:macos",
-            Label("//3rdparty:requirements.windows.311.txt"): "@platforms//os:windows",
+            Label("//3rdparty:requirements.linux.txt"): "@platforms//os:linux",
+            Label("//3rdparty:requirements.macos.txt"): "@platforms//os:macos",
+            Label("//3rdparty:requirements.windows.txt"): "@platforms//os:windows",
         },
     )

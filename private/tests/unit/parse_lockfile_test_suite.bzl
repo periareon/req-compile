@@ -8,7 +8,6 @@ def _parse_lockfile_test_impl(ctx):
 
     constraints = parse_lockfile(
         content = ctx.attr.content,
-        repository_name = "parse_lockfile_test",
         annotations = {},
         lockfile = Label(ctx.attr.mock_lockfile),
     )

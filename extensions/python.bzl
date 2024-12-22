@@ -16,6 +16,7 @@ def _requirements_impl(ctx):
     annotations = {}
 
     override_module_repos = {}
+    interpreter = None
 
     # Gather all annotations first.
     for mod in ctx.modules:
@@ -34,6 +35,19 @@ def _requirements_impl(ctx):
                 patches = annotation.patches,
             )
         for parse in mod.tags.parse:
+            # Determine the interpreter to use, if provided. This is required for
+            # source dists.
+            if not interpreter:
+                if ctx.os.name == "mac os x":
+                    if ctx.os.arch == "amd64":
+                        interpreter = parse.interpreter_macos_intel
+                    else:
+                        interpreter = parse.interpreter_macos_aarch64
+                elif ctx.os.name == "linux":
+                    interpreter = parse.interpreter_linux
+                elif ctx.os.name.startswith("windows"):
+                    interpreter = parse.interpreter_windows
+
             if mod.is_root and parse.override_module_repos:
                 for override_mod, override_repos in parse.override_module_repos.items():
                     if override_mod in override_module_repos:
@@ -42,32 +56,14 @@ def _requirements_impl(ctx):
                         ))
                     override_module_repos[override_mod] = struct(hub_name = parse.name, override_repos = list(override_repos))
 
+    created_repos = {}
+
     # Create hubs for each parse tag.
     for mod in ctx.modules:
         for parse in mod.tags.parse:
-            # Determine the interpreter to use, if provided. This is required for
-            # source dists.
-            interpreter = None
-            if ctx.os.name == "mac os x":
-                if ctx.os.arch == "amd64":
-                    interpreter = parse.interpreter_macos_intel
-                else:
-                    interpreter = parse.interpreter_macos_aarch64
-            elif ctx.os.name == "linux":
-                interpreter = parse.interpreter_linux
-            elif ctx.os.name.startswith("windows"):
-                interpreter = parse.interpreter_windows
-
             if mod.name in override_module_repos and parse.name in override_module_repos[mod.name].override_repos:
-                py_requirements_repository(
-                    name = parse.name,
-                    hub_name = override_module_repos[mod.name].hub_name,
-                    requirements_lock = parse.requirements_lock,
-                    requirements_locks = parse.requirements_locks,
-                    interpreter = interpreter,
-                )
-                override_module_repos[mod.name].override_repos.remove(parse.name)
                 continue
+            created_repos[parse.name] = parse
 
             py_requirements_repository(
                 name = parse.name,
@@ -90,6 +86,21 @@ def _requirements_impl(ctx):
                 if defs_id:
                     spoke_prefix += "_" + defs_id
                 create_spoke_repos(spoke_prefix, data.packages, interpreter)
+
+    for mod in ctx.modules:
+        for parse in mod.tags.parse:
+            if mod.name in override_module_repos and parse.name in override_module_repos[mod.name].override_repos:
+                override_module_repos[mod.name].override_repos.remove(parse.name)
+                if parse.name in created_repos:
+                    continue
+                py_requirements_repository(
+                    name = parse.name,
+                    hub_name = override_module_repos[mod.name].hub_name,
+                    requirements_lock = parse.requirements_lock,
+                    requirements_locks = parse.requirements_locks,
+                    interpreter = interpreter,
+                )
+                continue
 
     for mod in sorted(override_module_repos):
         repos = override_module_repos[mod].override_repos
@@ -139,9 +150,9 @@ requirements = use_extension("@rules_req_compile//extensions:python.bzl", "requi
 requirements.parse(
     name = "pip_deps",
     requirements_locks = {
-        "//3rdparty:requirements.linux.311.txt": "@platforms//os:linux",
-        "//3rdparty:requirements.macos.311.txt": "@platforms//os:macos",
-        "//3rdparty:requirements.windows.311.txt": "@platforms//os:windows",
+        "//3rdparty:requirements.linux.txt": "@platforms//os:linux",
+        "//3rdparty:requirements.macos.txt": "@platforms//os:macos",
+        "//3rdparty:requirements.windows.txt": "@platforms//os:windows",
     },
 )
 use_repo(requirements, "pip_deps")

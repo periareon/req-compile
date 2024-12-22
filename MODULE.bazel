@@ -2,16 +2,16 @@
 
 module(
     name = "rules_req_compile",
-    version = "1.0.0rc32",
+    version = "1.0.0rc33",
 )
 
-bazel_dep(name = "platforms", version = "0.0.9")
-bazel_dep(name = "rules_python", version = "0.34.0")
+bazel_dep(name = "platforms", version = "0.0.10")
+bazel_dep(name = "rules_python", version = "0.40.0")
 
 bazel_dep(name = "buildozer", version = "7.1.2", dev_dependency = True)
 
-bazel_dep(name = "bazel_skylib", version = "1.6.1")
-bazel_dep(name = "rules_cc", version = "0.0.9")
+bazel_dep(name = "bazel_skylib", version = "1.7.1")
+bazel_dep(name = "rules_cc", version = "0.0.16")
 
 bazel_dep(
     name = "buildifier_prebuilt",
@@ -30,20 +30,20 @@ python.toolchain(
 )
 use_repo(
     python,
-    "python_3_11",
     "python_3_11_aarch64-apple-darwin",
     "python_3_11_x86_64-apple-darwin",
     "python_3_11_x86_64-pc-windows-msvc",
     "python_3_11_x86_64-unknown-linux-gnu",
+    python311 = "python_3_11",
 )
 
 requirements = use_extension("//extensions:python.bzl", "requirements")
 requirements.parse(
     name = "req_compile_deps",
     requirements_locks = {
-        "//3rdparty:requirements.linux.311.txt": "@platforms//os:linux",
-        "//3rdparty:requirements.macos.311.txt": "@platforms//os:macos",
-        "//3rdparty:requirements.windows.311.txt": "@platforms//os:windows",
+        "//3rdparty:requirements.linux.txt": "@platforms//os:linux",
+        "//3rdparty:requirements.macos.txt": "@platforms//os:macos",
+        "//3rdparty:requirements.windows.txt": "@platforms//os:windows",
     },
 )
 use_repo(requirements, "req_compile_deps")
@@ -210,3 +210,13 @@ dev_requirements.parse(
     },
 )
 use_repo(dev_requirements, "req_compile_test_cross_platform")
+
+bazel_dep(name = "rules_go", version = "0.50.1", dev_dependency = True)
+
+go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk", dev_dependency = True)
+go_sdk.download(version = "1.23.1")
+
+bazel_dep(name = "gazelle", version = "0.40.0", dev_dependency = True)
+bazel_dep(name = "stardoc", version = "0.7.2", dev_dependency = True)
+bazel_dep(name = "bazel_skylib_gazelle_plugin", version = "1.7.1", dev_dependency = True)
+bazel_dep(name = "protobuf", version = "29.2", dev_dependency = True)

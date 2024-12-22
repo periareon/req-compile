@@ -1,3 +1,4 @@
+load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load("//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
 
@@ -36,4 +37,18 @@ py_test(
     deps = [
         "@req_compile_test_find_links//:pyspark",
     ],
+)
+
+bzl_library(
+    name = "extension",
+    srcs = ["extension.bzl"],
+    visibility = ["//:__subpackages__"],
+    deps = ["//extensions:python"],
+)
+
+bzl_library(
+    name = "find_links_test_repo",
+    srcs = ["find_links_test_repo.bzl"],
+    visibility = ["//:__subpackages__"],
+    deps = ["//private:whl_repo"],
 )
