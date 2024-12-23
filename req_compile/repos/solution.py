@@ -226,8 +226,8 @@ class SolutionRepository(Repository):
             self._add_sources(
                 req, sources, url=url if url else None, dist_hash=dist_hash
             )
-        except Exception:
-            raise ValueError(f"Failed to parse line: {line}")
+        except Exception as ex:
+            raise ValueError(f"Failed to parse line: {line}") from ex
 
     def _parse_multi_line(self, line: str, meta_file: Optional[str] = None) -> None:
         stripped_line = line.strip()

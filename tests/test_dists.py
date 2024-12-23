@@ -1,8 +1,22 @@
+import logging
+from typing import Any
 import pkg_resources
 from pkg_resources import Requirement
+import pytest
 
+from req_compile.compile import perform_compile
 from req_compile.containers import DistInfo
-from req_compile.dists import DistributionCollection, _get_cycle, build_explanation
+from req_compile.dists import (
+    DistributionCollection,
+    _get_cycle,
+    _paths_to_self,
+    build_explanation,
+)
+from req_compile.repos.findlinks import FindLinksRepository
+from req_compile.repos.multi import MultiRepository
+from req_compile.repos.pypi import PyPIRepository
+from req_compile.repos.source import SourceRepository
+from req_compile.repos.solution import SolutionRepository
 
 
 def test_unconstrained():
@@ -282,15 +296,125 @@ def test_base_plugin_circular_completed() -> None:
     assert set(dists["common"].dependencies) == {dists["root"], dists["dep-a"]}
     assert list(dists["common"].reverse_deps) == [dists["root-b"]]
 
-    assert _get_cycle(dists["root"], set(dists["root"].dependencies)) == {
+    assert _get_cycle(dists["root"]) == {
         dists["root"],
         dists["root-a"],
         dists["root-b"],
         dists["common"],
     }
-    assert _get_cycle(dists["dep-c"], set(dists["dep-c"].dependencies)) == {
-        dists["dep-c"]
-    }
+    assert _get_cycle(dists["dep-c"]) == set()
 
     for node in dists:
         assert node.complete, str(node)
+
+
+@pytest.fixture
+def result_graph() -> Any:
+    class _ResultGraph:
+        results = DistributionCollection()
+        previous = None
+
+        def add(self, req, deps, source=None):
+            logging.getLogger("req_compile.dists").disabled = True
+            req = pkg_resources.Requirement.parse(req)
+            dist_info = DistInfo(
+                req.project_name,
+                req.specs[0][1],
+                pkg_resources.parse_requirements(deps),
+            )
+            reason = None
+            source = source or self.previous
+            if source is not None and req.project_name in self.results:
+                for dep in source.metadata.reqs:
+                    if dep.project_name == req.project_name:
+                        reason = dep
+                        break
+            self.previous = self.results.add_dist(dist_info, source, reason)
+            return self.previous
+
+        def build(self):
+            logging.getLogger("req_compile.dists").disabled = False
+            return self.results
+
+        @property
+        def complete(self):
+            return all(dep.complete for dep in self.results)
+
+    return _ResultGraph()
+
+
+def test_simple_cycle(result_graph):
+    result_graph.add("a==1.0", ["b"])
+    result_graph.add("b==1.0", ["a"])
+    graph = result_graph.build()
+
+    assert _get_cycle(graph["a"]) == {graph["b"], graph["a"]}
+    assert _get_cycle(graph["b"]) == {graph["b"], graph["a"]}
+    assert result_graph.complete
+
+
+def test_triple_cycle(result_graph):
+    result_graph.add("a==1.0", ["b"])
+    result_graph.add("b==1.0", ["c"])
+    result_graph.add("c==1.0", ["a"])
+    graph = result_graph.build()
+
+    assert _get_cycle(graph["a"]) == {graph["b"], graph["a"], graph["c"]}
+    assert _get_cycle(graph["b"]) == {graph["b"], graph["a"], graph["c"]}
+    assert _get_cycle(graph["c"]) == {graph["b"], graph["a"], graph["c"]}
+    assert result_graph.complete
+
+
+def test_quad_cycle(result_graph):
+    result_graph.add("a==1.0", ["b"])
+    result_graph.add("b==1.0", ["c"])
+    result_graph.add("c==1.0", ["d"])
+    result_graph.add("d==1.0", ["a"])
+    graph = result_graph.build()
+
+    assert (
+        _get_cycle(graph["a"])
+        == _get_cycle(graph["b"])
+        == _get_cycle(graph["c"])
+        == _get_cycle(graph["d"])
+        == {graph["b"], graph["a"], graph["c"], graph["d"]}
+    )
+    assert result_graph.complete
+
+
+def test_dual_cycle(result_graph):
+    a = result_graph.add("a==1.0", ["b"])
+    b = result_graph.add("b==1.0", ["a"])
+    c = result_graph.add("c==1.0", ["a"], source=a)
+    graph = result_graph.build()
+
+    assert _get_cycle(a) == _get_cycle(b) == _get_cycle(c) == {a, b, c}
+    assert result_graph.complete
+
+
+def test_unrelated_dual(result_graph):
+    a = result_graph.add("a==1.0", ["b", "x"])
+    b = result_graph.add("b==1.0", ["a"])
+    x = result_graph.add("x==1.0", [], source=a)
+    c = result_graph.add("c==1.0", ["a"], source=a)
+    graph = result_graph.build()
+
+    assert set(x.dependencies) == set()
+
+    assert _paths_to_self(a) == {a, b, c}
+    assert _get_cycle(a) == _get_cycle(b) == _get_cycle(c) == {a, b, c}
+    assert _get_cycle(x) == set()
+
+    assert result_graph.complete
+
+
+def test_root_not_cycle(result_graph) -> None:
+    a = result_graph.add("a==1.0", ["b", "c"])
+    b = result_graph.add("b==1.0", ["c"])
+    c = result_graph.add("c==1.0", ["b"], source=a)
+    result_graph.build()
+
+    assert _get_cycle(a) == set()
+    assert _paths_to_self(a) == set()
+    assert _paths_to_self(b) == {b, c}
+    assert _get_cycle(b) == _get_cycle(c) == {b, c}

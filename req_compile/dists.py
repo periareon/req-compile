@@ -4,7 +4,7 @@ import collections.abc
 import itertools
 import logging
 import sys
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Union
 
 import pkg_resources
 
@@ -17,6 +17,8 @@ from req_compile.utils import (
     parse_requirement,
 )
 
+LOG = logging.getLogger("req_compile.dists")
+
 
 class DependencyNode:
     """Class representing a node in the dependency graph of a resolution.
@@ -28,9 +30,9 @@ class DependencyNode:
     def __init__(self, key: NormName, metadata: Optional[RequirementContainer]) -> None:
         self.key = key
         self.metadata = metadata
-        self.dependencies: Dict[
-            DependencyNode, Optional[pkg_resources.Requirement]
-        ] = {}
+        self.dependencies: Dict[DependencyNode, Optional[pkg_resources.Requirement]] = (
+            {}
+        )
         self.reverse_deps: Set[DependencyNode] = set()
         self.repo: Optional[Repository] = None
         self.complete = (
@@ -99,7 +101,7 @@ class DependencyNode:
                 assert result is not None
         return result
 
-    def update_complete(self, _visited: Optional[Set[DependencyNode]] = None) -> None:
+    def update_complete(self) -> None:
         """Update the complete status of this node and all of its reverse dependencies.
 
         This method should be called after the metadata of this node has been updated.
@@ -110,45 +112,89 @@ class DependencyNode:
         if these entire cycle is complete before setting complete to True on all members.
 
         It is not enough to check if simply all dependencies are complete, because they may
-        directly or transitively depedn on this node.
+        directly or transitively depend on this node.
         """
-        self_cycle = _get_cycle(self, set(self.dependencies))
+        self_cycle = set()
+        if self.metadata is not None:
+            self_cycle = _get_cycle(self)
+        if not self_cycle:
+            self_cycle = {self}
+
         cycle_complete = True
         for node in self_cycle:
             if node.metadata is None:
                 cycle_complete = False
                 break
 
+        old_value = self.complete
         self.complete = cycle_complete and all(
-            dep.complete for dep in set(self.dependencies) - self_cycle
+            dep.complete for dep in set(self.dependencies) if dep not in self_cycle
         )
-        if _visited is None:
-            _visited = set()
-
-        if self in _visited:
+        if old_value == self.complete:
             return
-        _visited.add(self)
-        for reverse_dep in self.reverse_deps:
-            reverse_dep.update_complete(_visited=_visited)
+
+        for reverse_dep in sorted(self.reverse_deps):
+            reverse_dep.update_complete()
 
 
 def _get_cycle(
     node: DependencyNode,
-    deps: Set[DependencyNode],
     _seen: Optional[Set[DependencyNode]] = None,
 ) -> Set[DependencyNode]:
     """Get the set of nodes in the cycle that this node is a part of."""
-    results = {node}
+    if node.metadata is None:
+        return set()
+
+    results = set()
     if _seen is None:
         _seen = set()
 
-    for dep in deps:
-        if dep in _seen:
+    if node in _seen:
+        return _paths_to_self(node)
+
+    _seen.add(node)
+
+    for dep in sorted(node.dependencies):
+        # Duplicate the set for each call to only include nodes that
+        # are reverse (and transitively reverse) dependencies in the set.
+        results |= _get_cycle(dep, _seen=set(_seen))
+
+    # A cycle of dependencies may not include this node.
+    if node not in results:
+        return set()
+    return results
+
+
+def _paths_to_self(
+    node: DependencyNode,
+    search_nodes: Optional[Set[DependencyNode]] = None,
+    _path_so_far=None,
+    _visited: Optional[Set[DependencyNode]] = None,
+) -> Set[DependencyNode]:
+    """Find all the nodes along the path of a circular reference of a node to itself."""
+    if _visited is None:
+        _visited = set()
+
+    if _path_so_far is None:
+        _path_so_far = set()
+
+    if search_nodes is None:
+        search_nodes = {node}
+
+    results = set()
+    for dep in sorted(search_nodes):
+        if dep in _visited:
             continue
-        _seen.add(dep)
+        this_path = _path_so_far | {dep}
+        _visited.add(dep)
         if node in dep.dependencies:
-            results.add(dep)
-            results |= _get_cycle(node, set(dep.dependencies), _seen=_seen)
+            results |= this_path
+        results |= _paths_to_self(
+            node,
+            _path_so_far=this_path,
+            search_nodes=set(dep.dependencies),
+            _visited=_visited,
+        )
 
     return results
 
@@ -216,7 +262,6 @@ class DistributionCollection:
 
     def __init__(self) -> None:
         self.nodes: Dict[NormName, DependencyNode] = {}
-        self.logger = logging.getLogger("req_compile.dists")
 
     @staticmethod
     def _build_key(name: str) -> NormName:
@@ -237,9 +282,7 @@ class DistributionCollection:
             reason: The requirement that caused this distribution to be added to the
                 graph. This is used to constrain which solutions will be allowed.
         """
-        self.logger.debug(
-            "Adding dist: %s via %s (%s)", name_or_metadata, source, reason
-        )
+        LOG.debug("Adding dist: %s via %s (%s)", name_or_metadata, source, reason)
 
         if isinstance(name_or_metadata, str):
             req_name = name_or_metadata
@@ -279,7 +322,7 @@ class DistributionCollection:
             if node.metadata.version is not None and not reason.specifier.contains(
                 node.metadata.version, prereleases=True
             ):
-                self.logger.debug(
+                LOG.debug(
                     "Existing solution (%s) invalidated by %s", node.metadata, reason
                 )
                 self.remove_dists(node, remove_upstream=False)
@@ -287,7 +330,6 @@ class DistributionCollection:
 
         if metadata_to_apply is not None:
             self._update_dists(node, metadata_to_apply)
-            node.update_complete()
 
         if node.key not in self.nodes:
             raise ValueError("The node {} is gone, while adding".format(node.key))
@@ -298,6 +340,9 @@ class DistributionCollection:
         self, node: DependencyNode, metadata: RequirementContainer
     ) -> None:
         node.metadata = metadata
+
+        # Add all dependency dists. The depenencies mapping needs to be accurate before
+        # calling update_complete() below.
         for extra in list({None} | node.extras):
             # An extra may disappear while we are iterating due to conflicts.
             if extra is not None and extra not in node.extras:
@@ -307,6 +352,9 @@ class DistributionCollection:
                 # the new dependency. It also adds a reason for the node, which could
                 # potentially cause a conflict if two requirements contradict.
                 self.add_dist(req.name, node, req)
+
+        # This this node's complete flag and update all of its reverse dependencies' complete flags.
+        node.update_complete()
 
     def remove_dists(
         self,
@@ -318,10 +366,10 @@ class DistributionCollection:
                 self.remove_dists(single_node, remove_upstream=remove_upstream)
             return
 
-        self.logger.info("Removing dist: %s (upstream = %s)", node, remove_upstream)
+        LOG.info("Removing dist: %s (upstream = %s)", node, remove_upstream)
 
         if node.key not in self.nodes:
-            self.logger.debug("Node %s was already removed", node.key)
+            LOG.debug("Node %s was already removed", node.key)
             return
 
         if remove_upstream:
@@ -330,21 +378,18 @@ class DistributionCollection:
                 del reverse_dep.dependencies[node]
 
         for dep in node.dependencies:
-            self.logger.debug("Checking dep %s", dep)
+            LOG.debug("Checking dep %s", dep)
             if node in dep.reverse_deps:
                 dep.reverse_deps.remove(node)
-            self.logger.debug("Remaining %s", dep.reverse_deps)
-            if not dep.reverse_deps:
+            LOG.debug("Remaining %s", dep.reverse_deps)
+            if not dep.reverse_deps and dep is not node:
                 self.remove_dists(dep, remove_upstream=True)
 
         # Reset the node back to an unsolved state, but keep the reverse dependencies.
         if not remove_upstream:
             node.dependencies = {}
             node.metadata = None
-            if node.complete:
-                node.complete = False
-                self.logger.debug("Node %r is no longer complete", node)
-            self.nodes[node.key] = node
+            node.update_complete()
 
     def visit_nodes(
         self,
