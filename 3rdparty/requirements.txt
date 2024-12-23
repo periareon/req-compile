@@ -6,9 +6,9 @@ appdirs==1.4.4
 astroid==3.1.0
     # via pylint (<=3.2.0-dev0,>=3.1.0)
     # https://files.pythonhosted.org/packages/ed/1c/ee18acf9070f77253954b7d71b4c0cf8f5969fb23067d8f1a8793573ba00/astroid-3.1.0-py3-none-any.whl#sha256=951798f922990137ac090c53af473db7ab4e70c770e6d7fae0cec59f74411819
-black==23.3.0
-    # via test-requirements.in
-    # https://files.pythonhosted.org/packages/24/eb/2d2d2c27cb64cfd073896f62a952a802cd83cf943a692a2f278525b57ca9/black-23.3.0-cp37-cp37m-macosx_10_16_x86_64.whl#sha256=1d06691f1eb8de91cd1b322f21e3bfc9efe0c7ca1f0e1eb1db44ea367dff656b
+black==24.3.0 \
+    # via req_compile/3rdparty/bazel-requirements.in
+    # https://files.pythonhosted.org/packages/6b/59/498885b279e890f656ea4300a2671c964acb6d97994ea626479c2e5501b4/black-24.3.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl#sha256=65c02e4ea2ae09d16314d30912a58ada9a5c4fdfedf9512d23326128ac08ac3d
 certifi==2024.2.2
     # via requests (>=2017.4.17)
     # https://files.pythonhosted.org/packages/ba/06/a07f096c664aeb9f01624f858c3add0a4e913d6c96257acb4fce61e7de14/certifi-2024.2.2-py3-none-any.whl#sha256=dc383c07b76109f368f6106eee2b593b04a011ea4d55f652c6ca24a754d1cdd1

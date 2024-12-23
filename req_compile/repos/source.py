@@ -75,9 +75,9 @@ class SourceRepository(Repository):
             )
 
         self.path = os.path.abspath(path)
-        self.distributions: Dict[
-            str, List[req_compile.repos.repository.Candidate]
-        ] = collections.defaultdict(list)
+        self.distributions: Dict[str, List[req_compile.repos.repository.Candidate]] = (
+            collections.defaultdict(list)
+        )
         self.marker_files = set(MARKER_FILES)
         self.parallelism = parallelism
 
