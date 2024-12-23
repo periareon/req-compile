@@ -176,7 +176,6 @@ def parse_constraint(data, lockfile, wheel_dirs):
     """
     url = None
     whl = None
-    via = None
 
     if "==" not in data[0]:
         fail("Unexpected line in constraints file: {}".format(data))
@@ -189,20 +188,22 @@ def parse_constraint(data, lockfile, wheel_dirs):
     else:
         sha256 = ""
 
-    via = []
+    via = {}
     if len(data) > 2:
         for entry in data[2:-1]:
             text = entry.replace("# via", "#")
             pkg, _, _ = text.strip(" #").partition(" ")
+            # TODO: Support extras.
+            # Split off the extra.
             pkg, _, _ = pkg.partition("[")
             if not pkg:
                 continue
 
-            # Skip any file paths. We only care to track packages
+            # Skip any file paths. We only care to track packages.
             if "/" in pkg or "\\" in pkg:
                 continue
 
-            via.append(sanitize_package_name(pkg))
+            via[sanitize_package_name(pkg)] = 1
 
     whl = None
     if len(data) >= 4:
@@ -238,7 +239,7 @@ def parse_constraint(data, lockfile, wheel_dirs):
         "sha256": sha256,
         "url": url,
         "version": version,
-        "via": sorted(via) if via != None else None,
+        "via": sorted(via) if via else None,
         "whl": whl,
     }
 
