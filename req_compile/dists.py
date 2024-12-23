@@ -4,7 +4,7 @@ import collections.abc
 import itertools
 import logging
 import sys
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Union
 
 import pkg_resources
 
