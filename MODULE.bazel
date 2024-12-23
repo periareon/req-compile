@@ -2,11 +2,11 @@
 
 module(
     name = "rules_req_compile",
-    version = "1.0.0rc33",
+    version = "1.0.0rc34",
 )
 
 bazel_dep(name = "platforms", version = "0.0.10")
-bazel_dep(name = "rules_python", version = "0.40.0")
+bazel_dep(name = "rules_python", version = "1.0.0")
 
 bazel_dep(name = "buildozer", version = "7.1.2", dev_dependency = True)
 
@@ -22,7 +22,7 @@ bazel_dep(
 python = use_extension("@rules_python//python/extensions:python.bzl", "python", dev_dependency = True)
 python.toolchain(
     configure_coverage_tool = True,
-    # Working around a rules_python issue wiht docker
+    # Working around a rules_python issue with docker
     # https://github.com/bazelbuild/rules_python/pull/713
     ignore_root_user_error = True,
     is_default = True,

@@ -2,6 +2,7 @@
 """Logic for compiling requirements"""
 from __future__ import print_function
 
+import itertools
 import logging
 import operator
 import os
@@ -57,14 +58,15 @@ class CompileOptions:
     only_binary: Set[NormName] = set()
 
 
-def _get_strictest_reverse_dep(node: DependencyNode) -> DependencyNode:
+def _get_strictest_reverse_dep(node: DependencyNode) -> Optional[DependencyNode]:
     """Get the strictest constraint from all reverse dependencies.
 
     Args:
         node: The node to check.
 
     Returns:
-        The single reverse dependency that was the most conflicting.
+        The single reverse dependency that was the most conflicting. If no reverse
+            dependency can be implicated, return None.
     """
     nodes = sorted(node.reverse_deps)
 
@@ -78,12 +80,18 @@ def _get_strictest_reverse_dep(node: DependencyNode) -> DependencyNode:
             ):
                 violate_score[revnode] += 1
                 violate_score[next_node] += 1
-    strictest = next(
-        node
-        for node, _ in sorted(violate_score.items(), key=operator.itemgetter(1))
-        if node.metadata is not None and not node.metadata.meta
-    )
-    return strictest
+    try:
+        # Pick the worst, but filter out meta dependencies. We can't select new versions
+        # if the entry comes directly from a requirements file or similar source.
+        return next(
+            scored_node
+            for scored_node, _ in sorted(
+                violate_score.items(), key=operator.itemgetter(1)
+            )
+            if scored_node.metadata is not None and not scored_node.metadata.meta
+        )
+    except StopIteration:
+        return None
 
 
 def compile_roots(
@@ -145,6 +153,9 @@ def compile_roots(
             # other reverse dependencies and add a new constraint to keep the same
             # version from being selected.
             reverse_dep = _get_strictest_reverse_dep(node)
+            if reverse_dep is None:
+                raise NoCandidateException(spec_req)
+
             assert reverse_dep.metadata is not None
             new_constraints = [
                 parse_requirement(
@@ -312,8 +323,13 @@ def perform_compile(
 
     try:
         LOG.info("Compiling %d root(s)", len(nodes))
+        idx = itertools.count()
         # Compile until all root nodes have a solution.
         while any(not node.complete for node in nodes):
+            if next(idx) > 1000:
+                for node in sorted(results):
+                    print(f"{node} {node.complete}")
+                raise ValueError("Iteration limit hit. This is a bug in req-compile.")
             for node in sorted(nodes):
                 compile_roots(
                     node, None, repo, results, options, max_downgrade=max_downgrade

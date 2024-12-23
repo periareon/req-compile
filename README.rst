@@ -5,9 +5,9 @@ README for Req-Compile Python Requirements Compiler
     :alt: PyPI package version
     :target: https://pypi.python.org/pypi/req-compile
 
-.. image:: https://github.com/sputt/req-compile/actions/workflows/build.yml/badge.svg
+.. image:: https://github.com/periareon/req-compile/actions/workflows/build.yml/badge.svg
     :alt: Github build status
-    :target: https://github.com/sputt/req-compile
+    :target: https://github.com/periareon/req-compile
 
 ========================================
 Req-Compile Python Requirements Compiler
@@ -52,7 +52,7 @@ Using WORKSPACE.bazel::
     http_archive(
         name = "rules_req_compile",
         sha256 = "{sha256}",
-        urls = ["https://github.com/sputt/req-compile/releases/download/{version}/rules_req_compile-v{version}.tar.gz"],
+        urls = ["https://github.com/periareon/req-compile/releases/download/{version}/rules_req_compile-v{version}.tar.gz"],
     )
 
     load("@rules_req_compile//:repositories.bzl", "req_compile_dependencies")

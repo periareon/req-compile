@@ -172,7 +172,7 @@ if sys.version_info[:2] < (3, 12):
     _SOURCES.append(["ed-1.4", "ed", None, None])
 
 # TODO: This should be added to the common list above.
-# See https://github.com/sputt/req-compile/issues/53
+# See https://github.com/periareon/req-compile/issues/53
 if platform.system() != "Windows":
     _SOURCES.extend(
         [
