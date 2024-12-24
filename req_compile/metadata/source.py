@@ -2,6 +2,9 @@
 """Parsing of metadata that comes from setup.py"""
 from __future__ import annotations
 
+# gazelle:ignore Cython
+# gazelle:ignore Cython.Build
+
 import configparser
 import functools
 import sys

@@ -16,10 +16,11 @@ from req_compile.repos.pypi import IndexType, PyPIRepository
 from req_compile.repos.solution import SolutionRepository
 from req_compile.utils import parse_requirement, parse_version
 
+TEST_DIR = os.path.dirname(__file__)
 
 def test_solution_repo():
     solution_repo = SolutionRepository(
-        os.path.join(os.path.dirname(__file__), "..", "solutionfile.txt")
+        os.path.join(TEST_DIR, "solutionfile.txt")
     )
     result, cached = solution_repo.get_dist(pkg_resources.Requirement.parse("pylint"))
     assert result.version == pkg_resources.parse_version("1.9.4")
@@ -32,11 +33,11 @@ def _get_node_strs(nodes):
 
 def test_load_bad_solution(load_solution):
     with pytest.raises(RepositoryInitializationError):
-        load_solution("bad_solutionfile.txt")
+        load_solution(os.path.join(TEST_DIR, "bad_solutionfile.txt"))
 
 
 def test_load_solution(load_solution):
-    result = load_solution("solutionfile.txt")
+    result = load_solution(os.path.join(TEST_DIR, "solutionfile.txt"))
 
     assert _get_node_strs(result["six"].reverse_deps) == {"astroid", "pylint"}
     assert _get_node_strs(result["astroid"].reverse_deps) == {"pylint"}
@@ -58,21 +59,21 @@ def test_load_solution(load_solution):
 
 
 def test_load_solution_excluded(load_solution):
-    repo = SolutionRepository("solutionfile.txt", excluded_packages=["mccabe"])
+    repo = SolutionRepository(os.path.join(TEST_DIR, "solutionfile.txt"), excluded_packages=["mccabe"])
     result = repo.get_candidates(pkg_resources.Requirement.parse("mccabe"))
     assert result == []
 
 
 def test_load_solution_excluded_normalized(load_solution):
     repo = SolutionRepository(
-        "solutionfile.txt", excluded_packages=["lazy_object_proxy"]
+        os.path.join(TEST_DIR, "solutionfile.txt"), excluded_packages=["lazy_object_proxy"]
     )
     result = repo.get_candidates(pkg_resources.Requirement.parse("lazy-object-proxy"))
     assert result == []
 
 
 def test_load_solution_extras(load_solution):
-    result = load_solution("solutionfile_extras.txt")
+    result = load_solution(os.path.join(TEST_DIR, "solutionfile_extras.txt"))
 
     # a == 1.0  # inputfile.txt
     # docpkg == 2.0  # a[docs] (>1.0), b
@@ -86,7 +87,7 @@ def test_load_solution_extras(load_solution):
 
 
 def test_load_solution_extras_not_on_req(load_solution):
-    result = load_solution("solutionfile_extras.txt")
+    result = load_solution(os.path.join(TEST_DIR, "solutionfile_extras.txt"))
 
     # a[docs, test] == 1.0  # inputfile.txt
     # docpkg == 2.0  # a[docs] (>1.0), b
@@ -100,7 +101,7 @@ def test_load_solution_extras_not_on_req(load_solution):
 
 
 def test_load_solution_fuzzywuzzy_extras(load_solution):
-    result = load_solution("solutionfile_fuzzywuzzy_extras.txt")
+    result = load_solution(os.path.join(TEST_DIR, "solutionfile_fuzzywuzzy_extras.txt"))
 
     assert _get_node_strs(result["python-Levenshtein"].reverse_deps) == {"fuzzywuzzy"}
 
@@ -112,7 +113,7 @@ def test_load_solution_fuzzywuzzy_extras(load_solution):
 
 def test_load_solution_urls(load_solution):
     """Test that URLs can be loaded properly from solutions."""
-    result = load_solution("solutionfile_urls.txt")
+    result = load_solution(os.path.join(TEST_DIR, "solutionfile_urls.txt"))
 
     assert (
         result["pylint"].metadata.candidate.link[1]
@@ -121,7 +122,7 @@ def test_load_solution_urls(load_solution):
 
 
 def test_load_remove_root_removes_all(load_solution):
-    result = load_solution("solutionfile.txt")
+    result = load_solution(os.path.join(TEST_DIR, "solutionfile.txt"))
 
     result.remove_dists(result["pylint"])
 

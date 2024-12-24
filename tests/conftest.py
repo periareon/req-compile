@@ -2,6 +2,7 @@
 import collections
 import logging
 import os
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -145,16 +146,22 @@ def mock_metadata(mocker, metadata_provider):
 def mock_targz():
     files_to_delete = []
 
-    def build_targz(directory):
+    def build_targz(relative_dir):
         directory = os.path.join(
-            os.path.dirname(__file__), "source-packages", directory
+            os.path.dirname(__file__), "source-packages", relative_dir
         )
         build_dir = tempfile.mkdtemp()
 
-        archive_name = os.path.basename(directory) + ".tar.gz"
+        archive_name = os.path.basename(relative_dir) + ".tar.gz"
         tar_archive = os.path.join(build_dir, archive_name)
         with tarfile.open(tar_archive, "w:gz") as tarf:
-            tarf.add(directory, arcname=os.path.basename(directory))
+            for root, dirs, files in os.walk(directory):
+                for each_dir in dirs:
+                    full_path = os.path.join(root, each_dir)
+                    tarf.add(full_path, recursive=False, arcname=relative_dir + "/" + os.path.relpath(full_path, directory))
+                for file in files:
+                    full_path = os.path.join(root, file)
+                    tarf.add(os.path.realpath(full_path), arcname=relative_dir + "/" + os.path.relpath(full_path, directory))
 
         files_to_delete.append(tar_archive)
         return tar_archive

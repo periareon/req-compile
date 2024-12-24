@@ -1,5 +1,7 @@
-load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_pytest//python/pytest:defs.bzl", "py_pytest_test")
 load("//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
+
+# gazelle:resolve py pyspark @req_compile_test_sdist//:pyspark
 
 py_reqs_compiler(
     name = "requirements.update",
@@ -13,10 +15,8 @@ py_reqs_solution_test(
     compiler = ":requirements.update",
 )
 
-py_test(
-    name = "sdist",
-    srcs = ["sdist.py"],
-    deps = [
-        "@req_compile_test_sdist//:pyspark",
-    ],
+py_pytest_test(
+    name = "sdist_test",
+    srcs = ["sdist_test.py"],
+    deps = ["@req_compile_test_sdist//:pyspark"],
 )

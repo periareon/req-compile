@@ -1,6 +1,7 @@
 {
     "exclude": [
         "bazel-*",
-        "venv"
+        "venv",
+        ".wheeldir"
     ]
 }

@@ -1,13 +1,11 @@
-load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_pytest//python/pytest:defs.bzl", "py_pytest_test")
 
-py_test(
+py_pytest_test(
     name = "version_test",
     srcs = ["version_test.py"],
     data = [
         "//:MODULE.bazel",
         "//:version.bzl",
     ],
-    deps = [
-        "@rules_python//python/runfiles",
-    ],
+    deps = ["@rules_python//python/runfiles"],
 )

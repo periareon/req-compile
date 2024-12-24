@@ -1,0 +1,20 @@
+load("@rules_pytest//python/pytest:defs.bzl", "py_pytest_test")
+
+py_pytest_test(
+    name = "test_dist_info",
+    srcs = ["test_dist_info.py"],
+    data = ["pex-listing.txt"],
+    deps = ["//req_compile/metadata:dist_info"],
+)
+
+py_pytest_test(
+    name = "test_source_metadata",
+    srcs = ["test_source_metadata.py"],
+    deps = [
+        "//req_compile:errors",
+        "//req_compile/metadata:dist_info",
+        "//req_compile/metadata:extractor",
+        "//req_compile/metadata:source",
+        "@req_compile_deps//:pytest",
+    ],
+)

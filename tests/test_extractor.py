@@ -25,7 +25,7 @@ def test_extractor(archive_fixture, mock_targz, mock_zip):
     elif archive_fixture == "mock_zip":
         archive = mock_zip(directory)
     else:
-        archive = os.path.abspath(os.path.join("source-packages", directory))
+        archive = os.path.abspath(os.path.join(os.path.dirname(__file__), "source-packages", directory))
 
     if archive_fixture == "mock_targz":
         extractor = req_compile.metadata.extractor.TarExtractor("gz", archive)

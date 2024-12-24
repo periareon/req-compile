@@ -1,5 +1,9 @@
-load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_pytest//python/pytest:defs.bzl", "py_pytest_test")
 load("//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
+
+# gazelle:resolve py tomli @req_compile_test_transitive_ins//:tomli
+# gazelle:resolve py toml @req_compile_test_transitive_ins//:toml
+# gazelle:resolve py yaml @req_compile_test_transitive_ins//:pyyaml
 
 filegroup(
     name = "requirements",
@@ -21,9 +25,9 @@ py_reqs_solution_test(
     compiler = ":requirements.update",
 )
 
-py_test(
-    name = "transitive_ins",
-    srcs = ["transitive_ins.py"],
+py_pytest_test(
+    name = "transitive_ins_test",
+    srcs = ["transitive_ins_test.py"],
     deps = [
         "@req_compile_test_transitive_ins//:pyyaml",
         "@req_compile_test_transitive_ins//:toml",

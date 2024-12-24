@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+# gazelle:ignore _manylinux
+
 import abc
 import distutils.util  # type: ignore  # pylint: disable=import-error,no-name-in-module,no-member,deprecated-module
 import enum

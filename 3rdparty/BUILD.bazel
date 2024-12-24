@@ -1,5 +1,7 @@
 load("//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
 
+exports_files(["requirements.linux.txt"])
+
 filegroup(
     name = "requirements",
     srcs = ["bazel-requirements.in"],

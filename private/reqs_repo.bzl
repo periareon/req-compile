@@ -193,6 +193,7 @@ def parse_constraint(data, lockfile, wheel_dirs):
         for entry in data[2:-1]:
             text = entry.replace("# via", "#")
             pkg, _, _ = text.strip(" #").partition(" ")
+
             # TODO: Support extras.
             # Split off the extra.
             pkg, _, _ = pkg.partition("[")

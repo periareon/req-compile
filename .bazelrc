@@ -22,6 +22,8 @@ build --test_output=errors
 
 coverage --combined_report=lcov
 
+build --@rules_pytest//python/pytest:extra_args=--color=yes,--disable-warnings
+
 # Stream BES reports to BuildBuddy.
 # common:bes --bes_results_url=https://req-compile.buildbuddy.io/invocation/
 # common:bes --bes_backend=grpcs://req-compile.buildbuddy.io

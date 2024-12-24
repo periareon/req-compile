@@ -1,5 +1,6 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 
+# keep
 bzl_library(
     name = "test_repositories_1",
     srcs = ["test_repositories_1.bzl"],
@@ -10,6 +11,7 @@ bzl_library(
     ],
 )
 
+# keep
 bzl_library(
     name = "test_repositories_2",
     srcs = ["test_repositories_2.bzl"],
@@ -20,9 +22,9 @@ bzl_library(
     ],
 )
 
+# keep
 bzl_library(
     name = "test_repositories_3",
     srcs = ["test_repositories_3.bzl"],
     visibility = ["//:__subpackages__"],
-    deps = [],
 )
