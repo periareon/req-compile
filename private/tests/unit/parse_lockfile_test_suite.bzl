@@ -305,7 +305,7 @@ _FIND_LINKS_NESTED_EXPECTED = {
         "sha256": "810546bb58f2aff5f51ee5c8389d936c9c8ba4c27ddace1c4a87e48635b8812a",
         "url": None,
         "version": "3.5.1",
-        "via": [],
+        "via": None,
     },
 }
 
