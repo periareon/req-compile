@@ -1,4 +1,5 @@
 import logging
+import sys
 from typing import Any
 
 import pkg_resources
@@ -337,6 +338,7 @@ def result_graph() -> Any:
 
     return _ResultGraph()
 
+
 # pylint: disable=redefined-outer-name
 def test_simple_cycle(result_graph):
     result_graph.add("a==1.0", ["b"])
@@ -411,3 +413,7 @@ def test_root_not_cycle(result_graph) -> None:
     assert _paths_to_self(a) == set()
     assert _paths_to_self(b) == {b, c}
     assert _get_cycle(b) == _get_cycle(c) == {b, c}
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__]))

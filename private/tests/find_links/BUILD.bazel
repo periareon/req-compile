@@ -2,6 +2,8 @@ load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load("//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
 
+# gazelle:resolve py pyspark @req_compile_test_find_links//:pyspark
+
 exports_files(["find_links.py"])
 
 filegroup(
@@ -16,6 +18,7 @@ filegroup(
 py_binary(
     name = "compiler_wrapper",
     srcs = ["compiler_wrapper.py"],
+    visibility = ["//:__subpackages__"],
 )
 
 py_reqs_compiler(
@@ -30,15 +33,6 @@ py_reqs_solution_test(
     compiler = ":requirements.update",
 )
 
-py_test(
-    name = "find_links",
-    srcs = ["//private/tests/find_links:find_links.py"],
-    main = "//private/tests/find_links:find_links.py",
-    deps = [
-        "@req_compile_test_find_links//:pyspark",
-    ],
-)
-
 bzl_library(
     name = "extension",
     srcs = ["extension.bzl"],
@@ -51,4 +45,10 @@ bzl_library(
     srcs = ["find_links_test_repo.bzl"],
     visibility = ["//:__subpackages__"],
     deps = ["//private:whl_repo"],
+)
+
+py_test(
+    name = "find_links_test",
+    srcs = ["find_links_test.py"],
+    deps = ["@req_compile_test_find_links//:pyspark"],
 )

@@ -201,3 +201,7 @@ def test_py_version_score():
     assert score1 > score2
     assert score2 > score3
     assert score3 > score4
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__]))

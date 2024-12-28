@@ -1,4 +1,10 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@rules_python//python:defs.bzl", "py_library")
+
+# gazelle:python_manifest_file_name private/tools/gazelle_python.yaml
+# gazelle:resolve py python.runfiles @rules_python//python/runfiles
+# gazelle:python_label_convention :$distribution_name$
+# gazelle:python_generation_mode file
 
 exports_files([
     "MODULE.bazel",
@@ -6,6 +12,7 @@ exports_files([
     "test-requirements.in",
     "version.bzl",
     "defs.bzl",
+    "pyproject.toml",
 ])
 
 alias(
@@ -13,9 +20,9 @@ alias(
     actual = "//private/tools:buildifier",
 )
 
-alias(
-    name = "buildifier.check",
-    actual = "//private/tools:buildifier.check",
+test_suite(
+    name = "buildifier_test",
+    tests = ["//private/tools:buildifier_test"],
 )
 
 alias(
@@ -24,12 +31,32 @@ alias(
     tags = ["manual"],
 )
 
+py_library(
+    name = "setup",
+    testonly = True,
+    srcs = [
+        "setup.py",
+    ],
+    data = [
+        "CHANGELOG.rst",
+        "LICENSE.txt",
+        "README.rst",
+        "requirements.in",
+        "version.bzl",
+    ],
+    visibility = ["//tests:__subpackages__"],
+    deps = [
+        "//req_compile:req_compile_bin",
+    ],
+)
+
 bzl_library(
     name = "defs",
     srcs = ["defs.bzl"],
     visibility = ["//visibility:public"],
     deps = [
         "//private:annotation",
+        "//private:compiler_rule",
         "//private:reqs_repo",
         "//private:whl_repo",
     ],
@@ -46,13 +73,12 @@ bzl_library(
     ],
 )
 
+# keep
 bzl_library(
     name = "repositories_transitive",
     srcs = ["repositories_transitive.bzl"],
     visibility = ["//visibility:public"],
-    deps = [
-        "@rules_python//python:repositories_bzl",
-    ],
+    deps = [],
 )
 
 bzl_library(

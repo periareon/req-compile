@@ -5,7 +5,7 @@ README for Req-Compile Python Requirements Compiler
     :alt: PyPI package version
     :target: https://pypi.python.org/pypi/req-compile
 
-.. image:: https://github.com/periareon/req-compile/actions/workflows/build.yml/badge.svg
+.. image:: https://github.com/periareon/req-compile/actions/workflows/build.yaml/badge.svg
     :alt: Github build status
     :target: https://github.com/periareon/req-compile
 
@@ -29,7 +29,9 @@ to compile a requirements solution and install third-party distributions from th
 project differs from ``rules_python`` in that the URLs for the distributions are written to the
 solution, enabling deterministic and repo-cacheable downloads and installs of third-party dependencies.
 
-To get started with bzlmod on Bazel 7::
+To get started with bzlmod on Bazel 7:
+
+.. code-block:: python
 
     # Find {version} on the req-compile GitHub releases page.
     bazel_dep(name = "rules_req_compile", version = "{version}")
@@ -45,7 +47,9 @@ To get started with bzlmod on Bazel 7::
     )
     use_repo(requirements, "my_pip_deps")
 
-Using WORKSPACE.bazel::
+Using WORKSPACE.bazel:
+
+.. code-block:: python
 
     load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
@@ -322,4 +326,3 @@ together and ensure that their requirements will all install into the same envir
 
     > req-candidates --paths-only | req-compile --extra test --solution compiled-requirements.txt --wheel-dir .wheeldir > compiled-requirements.txt
     .. all reqs and all test reqs compiled together...
-

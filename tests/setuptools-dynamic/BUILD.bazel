@@ -1,0 +1,18 @@
+load("@rules_python//python:defs.bzl", "py_test")
+
+# gazelle:exclude setuptools_dynamic_inner
+
+py_test(
+    name = "test_setuptools_dynamic",
+    srcs = ["test_setuptools_dynamic.py"],
+    data = [
+        "pyproject.toml",
+        "requirements.txt",
+        "setuptools_dynamic_inner/__init__.py",
+    ],
+    deps = [
+        "//req_compile:utils",
+        "//req_compile/metadata:__init__",
+        "@req_compile_deps//:wheel",  # keep
+    ],
+)

@@ -1,3 +1,4 @@
+import sys
 import pkg_resources
 import pytest
 
@@ -132,3 +133,7 @@ def test_wildcard_double_not() -> None:
     assert pkg_resources.parse_version("3") not in wildcard_req
 
     assert is_possible(wildcard_req)
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__]))

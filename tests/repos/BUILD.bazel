@@ -1,0 +1,96 @@
+load("@rules_python//python:defs.bzl", "py_test")
+
+# gazelle:exclude monorepo
+
+py_test(
+    name = "test_findlinks",
+    srcs = ["test_findlinks.py"],
+    deps = [
+        "//:setup",  # keep
+        "//req_compile/repos:findlinks",
+        "@req_compile_deps//:pytest",
+        "@req_compile_deps//:wheel",  # keep
+    ],
+)
+
+py_test(
+    name = "test_multi",
+    srcs = ["test_multi.py"],
+    deps = [
+        "//req_compile:containers",
+        "//req_compile:errors",
+        "//req_compile/repos:__init__",
+        "//req_compile/repos:multi",
+        "//req_compile/repos:repository",
+        "@req_compile_deps//:pytest",
+        "@req_compile_deps//:setuptools",
+    ],
+)
+
+py_test(
+    name = "test_pypi",
+    srcs = ["test_pypi.py"],
+    data = [
+        "numpy.html",
+        "numpy.whl-contents",
+    ],
+    deps = [
+        "//req_compile/repos:pypi",
+        "//req_compile/repos:repository",
+        "//tests:conftest",  # keep: pytest fixtures
+        "@req_compile_deps//:pytest",
+        "@req_compile_deps//:requests",
+        "@req_compile_deps//:responses",
+        "@req_compile_deps//:setuptools",
+    ],
+)
+
+py_test(
+    name = "test_solution",
+    srcs = ["test_solution.py"],
+    data = [
+        "bad_solutionfile.txt",
+        "extra_only_solution.txt",
+        "extra_only_solution_no_extras.txt",
+        "requests_kerberos_solution.txt",
+        "requests_security_solution.txt",
+        "solutionfile.txt",
+        "solutionfile_extras.txt",
+        "solutionfile_extras_not_on_req.txt",
+        "solutionfile_fuzzywuzzy_extras.txt",
+        "solutionfile_urls.txt",
+    ],
+    deps = [
+        "//req_compile:cmdline",
+        "//req_compile:compile",
+        "//req_compile:containers",
+        "//req_compile:utils",
+        "//req_compile/repos:__init__",
+        "//req_compile/repos:findlinks",
+        "//req_compile/repos:multi",
+        "//req_compile/repos:pypi",
+        "//req_compile/repos:solution",
+        "//tests:conftest",  # keep: pytest fixtures
+        "@req_compile_deps//:pytest",
+        "@req_compile_deps//:setuptools",
+    ],
+)
+
+filegroup(
+    name = "monorepo",
+    testonly = True,
+    srcs = glob(["monorepo/**"]),
+    visibility = ["//tests:__subpackages__"],
+)
+
+py_test(
+    name = "test_source",
+    srcs = ["test_source.py"],
+    data = [":monorepo"],
+    deps = [
+        "//req_compile:errors",
+        "//req_compile/repos:source",
+        "@req_compile_deps//:pytest",
+        "@req_compile_deps//:setuptools",
+    ],
+)

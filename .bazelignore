@@ -2,3 +2,7 @@ private/examples
 private/tests/override_module_repos/overrider
 private/tests/override_module_repos/overridee
 .ijwb
+build
+dist
+venv
+.wheeldir

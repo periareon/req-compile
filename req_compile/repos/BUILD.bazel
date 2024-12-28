@@ -1,0 +1,98 @@
+load("@rules_python//python:defs.bzl", "py_library")
+
+py_library(
+    name = "__init__",
+    srcs = ["__init__.py"],
+    visibility = ["//:__subpackages__"],
+    deps = [":repository"],
+)
+
+py_library(
+    name = "findlinks",
+    srcs = ["findlinks.py"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":__init__",
+        ":repository",
+        "//req_compile:containers",
+        "//req_compile:utils",
+        "//req_compile/metadata",
+        "//req_compile/metadata:__init__",
+        "@req_compile_deps//:overrides",
+        "@req_compile_deps//:setuptools",
+    ],
+)
+
+py_library(
+    name = "multi",
+    srcs = ["multi.py"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":repository",
+        "//req_compile:containers",
+        "//req_compile:errors",
+        "@req_compile_deps//:overrides",
+        "@req_compile_deps//:setuptools",
+    ],
+)
+
+py_library(
+    name = "pypi",
+    srcs = ["pypi.py"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":repository",
+        "//req_compile:containers",
+        "//req_compile:errors",
+        "//req_compile/metadata:__init__",
+        "@req_compile_deps//:overrides",
+        "@req_compile_deps//:requests",
+        "@req_compile_deps//:setuptools",
+    ],
+)
+
+py_library(
+    name = "repository",
+    srcs = ["repository.py"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//req_compile:containers",
+        "//req_compile:errors",
+        "//req_compile:filename",
+        "//req_compile:utils",
+        "@req_compile_deps//:packaging",
+        "@req_compile_deps//:setuptools",
+    ],
+)
+
+py_library(
+    name = "solution",
+    srcs = ["solution.py"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":__init__",
+        ":repository",
+        ":source",
+        "//req_compile:containers",
+        "//req_compile:dists",
+        "//req_compile:errors",
+        "//req_compile:utils",
+        "@req_compile_deps//:overrides",
+        "@req_compile_deps//:setuptools",
+    ],
+)
+
+py_library(
+    name = "source",
+    srcs = ["source.py"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":repository",
+        "//req_compile:containers",
+        "//req_compile:errors",
+        "//req_compile:utils",
+        "//req_compile/metadata",
+        "//req_compile/metadata:__init__",
+        "@req_compile_deps//:setuptools",
+    ],
+)

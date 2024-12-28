@@ -103,10 +103,12 @@ platform(
         "@platforms//cpu:x86_64",
     ],
 )
+# gazelle:resolve py black @req_compile_test_cross_platform//:black
 
 py_binary(
     name = "cross_platform",
     srcs = ["cross_platform.py"],
+    visibility = ["//:__subpackages__"],
     deps = [
         "@req_compile_test_cross_platform//:black",
     ],

@@ -1,1 +1,1 @@
-from .metadata import extract_metadata as extract_metadata
+from req_compile.metadata.metadata import extract_metadata as extract_metadata
