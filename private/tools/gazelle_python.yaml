@@ -1,0 +1,65 @@
+# GENERATED FILE - DO NOT EDIT!
+#
+# To update this file, run:
+#   bazel run //private/tools:gazelle_python_manifest.update
+
+manifest:
+  modules_mapping:
+    30fcd23745efe32ce681__mypyc: black
+    6c7190bc8b55ffe67f57__mypyc: mypy
+    alabaster: alabaster
+    appdirs: appdirs
+    astroid: astroid
+    babel: Babel
+    black: black
+    blackd: black
+    blib2to3: black
+    certifi: certifi
+    charset_normalizer: charset_normalizer
+    clang: libclang
+    click: click
+    dill: dill
+    docutils: docutils
+    idna: idna
+    imagesize: imagesize
+    iniconfig: iniconfig
+    isort: isort
+    jinja2: Jinja2
+    markupsafe: MarkupSafe
+    mccabe: mccabe
+    mypy: mypy
+    mypy_extensions: mypy_extensions
+    mypyc: mypy
+    numpy: numpy
+    overrides: overrides
+    packaging: packaging
+    pathspec: pathspec
+    pkg_resources: setuptools
+    platformdirs: platformdirs
+    pluggy: pluggy
+    py: pytest
+    pygments: pygments
+    pylint: pylint
+    pytest: pytest
+    pytest_mock: pytest_mock
+    requests: requests
+    responses: responses
+    setuptools: setuptools
+    six: six
+    snowballstemmer: snowballstemmer
+    sphinx: sphinx
+    sphinxcontrib.applehelp: sphinxcontrib_applehelp
+    sphinxcontrib.devhelp: sphinxcontrib_devhelp
+    sphinxcontrib.htmlhelp: sphinxcontrib_htmlhelp
+    sphinxcontrib.jsmath: sphinxcontrib_jsmath
+    sphinxcontrib.qthelp: sphinxcontrib_qthelp
+    sphinxcontrib.serializinghtml: sphinxcontrib_serializinghtml
+    toml: toml
+    tomlkit: tomlkit
+    typing_extensions: typing_extensions
+    urllib3: urllib3
+    wheel: wheel
+    yaml: PyYAML
+  pip_repository:
+    name: req_compile_deps
+integrity: 834f3e82d9c8c31aa9eb032f30ff40d2d86b029fb20c85b7e6e206eb97e6652f

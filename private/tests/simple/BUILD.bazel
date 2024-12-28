@@ -1,6 +1,8 @@
 load("@rules_python//python:defs.bzl", "py_test")
 load("//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
 
+# gazelle:resolve py wheel @req_compile_test_simple//:wheel
+
 py_reqs_compiler(
     name = "requirements.update",
     requirements_in = "requirements.in",
@@ -13,9 +15,7 @@ py_reqs_solution_test(
 )
 
 py_test(
-    name = "simple",
-    srcs = ["simple.py"],
-    deps = [
-        "@req_compile_test_simple//:wheel",
-    ],
+    name = "simple_test",
+    srcs = ["simple_test.py"],
+    deps = ["@req_compile_test_simple//:wheel"],
 )

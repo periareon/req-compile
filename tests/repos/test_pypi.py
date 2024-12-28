@@ -1,5 +1,7 @@
+# pylint: disable=unused-variable,redefined-outer-name
+# pylint: disable=protected-access
 import os
-import platform
+import sys
 
 import pkg_resources
 import pytest
@@ -22,7 +24,7 @@ def mocked_responses():
 @pytest.fixture
 def read_contents():
     def _do_read(resource):
-        with open(os.path.join(os.path.dirname(__file__), resource)) as handle:
+        with open(os.path.join(os.path.dirname(__file__), resource), encoding="utf-8") as handle:
             return handle.read()
 
     return _do_read
@@ -285,3 +287,7 @@ def test_wheel_platform_specific_tags():
         "test",
         DistributionType.WHEEL,
     )
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__]))

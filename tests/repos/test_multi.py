@@ -1,3 +1,4 @@
+import sys
 from unittest import mock
 
 import pkg_resources
@@ -79,7 +80,7 @@ def test_fetch_in_order():
     ]
     multi = MultiRepository(repo1, repo2, repo3)
 
-    result, cached = multi.get_dist(pkg_resources.Requirement("nonsense"))
+    result, _ = multi.get_dist(pkg_resources.Requirement("nonsense"))
 
     assert repo1.get_candidates.called
     assert repo2.get_candidates.called
@@ -91,3 +92,7 @@ def test_fetch_in_order():
     assert len(candidates) == 1
     assert candidates[0].name == "nonsense"
     assert candidates[0].version == pkg_resources.parse_version("1.0")
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__]))

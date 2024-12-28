@@ -1,0 +1,13 @@
+  File "/_main/bazel-out/darwin_arm64-fastbuild/bin/tests/test_extractor.runfiles/_main/req_compile/metadata/metadata.py", line 7, in <module>
+    import pkg_resources
+  File "/site-packages/pkg_resources/__init__.py", line 90, in <module>
+    from jaraco.text import drop_comment, join_continuation, yield_lines
+  File "/site-packages/setuptools/_vendor/jaraco/text/__init__.py", line 231, in <module>
+    files(__name__).joinpath('Lorem ipsum.txt').read_text(encoding='utf-8')
+  File "/private/var/tmp/_bazel_sputt/3b16e11ed38a9a587395e3bd748a9a16/execroot/_main/external/rules_python~~python~python_3_11_aarch64-apple-darwin/lib/python3.11/pathlib.py", line 1058, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/var/tmp/_bazel_sputt/3b16e11ed38a9a587395e3bd748a9a16/execroot/_main/external/rules_python~~python~python_3_11_aarch64-apple-darwin/lib/python3.11/pathlib.py", line 1044, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/site-packages/setuptools/_vendor/jaraco/text/Lorem ipsum.txt'

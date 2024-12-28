@@ -7,7 +7,5 @@ py_test(
         "//:MODULE.bazel",
         "//:version.bzl",
     ],
-    deps = [
-        "@rules_python//python/runfiles",
-    ],
+    deps = ["@rules_python//python/runfiles"],
 )

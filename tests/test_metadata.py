@@ -231,3 +231,7 @@ def test_self_source():
 
     metadata = req_compile.metadata.metadata.extract_metadata(path)
     assert metadata.name == "req-compile"
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__]))

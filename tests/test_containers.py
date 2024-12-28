@@ -1,4 +1,7 @@
 import os
+import sys
+
+import pytest
 
 from req_compile.containers import RequirementsFile
 
@@ -16,3 +19,7 @@ def test_gather_indices():
         "--extra-index-url",
         "https://tools/prebuilt/simple",
     ]
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__]))

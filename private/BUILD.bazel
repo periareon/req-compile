@@ -16,12 +16,18 @@ py_binary(
 )
 
 py_binary(
-    name = "compiler_bin",
+    name = "compiler",
     srcs = ["compiler.py"],
     main = "compiler.py",
     visibility = ["//visibility:public"],
     deps = [
-        "//req_compile",
+        "//req_compile:cmdline",
+        "//req_compile:compile",
+        "//req_compile:containers",
+        "//req_compile:dists",
+        "//req_compile:errors",
+        "//req_compile/repos:__init__",
+        "//req_compile/repos:repository",
         "@rules_python//python/runfiles",
     ],
 )
@@ -31,7 +37,7 @@ py_binary(
     srcs = ["solution_tester.py"],
     visibility = ["//visibility:public"],
     deps = [
-        ":compiler_bin",
+        ":compiler",
         "@rules_python//python/runfiles",
     ],
 )
@@ -40,7 +46,9 @@ bzl_library(
     name = "annotation",
     srcs = ["annotation.bzl"],
     visibility = ["//:__subpackages__"],
-    deps = ["@rules_cc//cc:bzl_srcs"],
+    deps = [
+        "@rules_cc//cc:bzl_srcs",  # keep: this is the correct import for our version of rules_cc
+    ],
 )
 
 bzl_library(
@@ -78,8 +86,8 @@ bzl_library(
 )
 
 bzl_library(
-    name = "compiler",
-    srcs = ["compiler.bzl"],
+    name = "compiler_rule",
+    srcs = ["compiler_rule.bzl"],
     visibility = ["//:__subpackages__"],
 )
 

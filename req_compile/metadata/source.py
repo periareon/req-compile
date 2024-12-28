@@ -634,6 +634,8 @@ def _parse_setup_py(
 
     old_cythonize = None
     try:
+        # gazelle:ignore Cython
+        # gazelle:ignore Cython.Build
         import Cython.Build  # type: ignore
 
         old_cythonize = Cython.Build.cythonize

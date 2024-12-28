@@ -1,6 +1,10 @@
 load("@rules_python//python:defs.bzl", "py_test")
 load("//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
 
+exports_files(["requirements.linux.txt"])
+
+# gazelle:resolve py clang @req_compile_test_platlib//:libclang
+
 py_reqs_compiler(
     name = "requirements.linux.update",
     requirements_in = "requirements.in",
@@ -38,9 +42,7 @@ py_reqs_solution_test(
 )
 
 py_test(
-    name = "platlib",
-    srcs = ["platlib.py"],
-    deps = [
-        "@req_compile_test_platlib//:libclang",
-    ],
+    name = "platlib_test",
+    srcs = ["platlib_test.py"],
+    deps = ["@req_compile_test_platlib//:libclang"],
 )

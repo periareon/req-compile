@@ -13,10 +13,10 @@ from typing import Any, List, Mapping, Optional, Tuple
 import pkg_resources
 import toml
 
-from ..containers import DistInfo
-from ..utils import parse_requirements
-from .dist_info import _fetch_from_wheel, _parse_flat_metadata
-from .patch import patch
+from req_compile.containers import DistInfo
+from req_compile.metadata.dist_info import _fetch_from_wheel, _parse_flat_metadata
+from req_compile.metadata.patch import patch
+from req_compile.utils import parse_requirements
 
 LOG = logging.getLogger("req_compile.metadata.source")
 LOCK = threading.Lock()

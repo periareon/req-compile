@@ -1,3 +1,4 @@
+import sys
 import pkg_resources
 import pytest
 
@@ -33,3 +34,7 @@ def test_parse_source_filename(filename, result_name, result_version):
         result_name,
         pkg_resources.parse_version(result_version) if result_version else None,
     )
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__]))

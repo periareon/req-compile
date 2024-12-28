@@ -8,13 +8,12 @@ import pkg_resources
 
 from req_compile.containers import RequirementContainer
 from req_compile.errors import MetadataError
+from req_compile.metadata.dist_info import _fetch_from_wheel
+from req_compile.metadata.extractor import NonExtractor, TarExtractor, ZipExtractor
+from req_compile.metadata.pyproject import fetch_from_pyproject
+from req_compile.metadata.source import _fetch_from_source
 from req_compile.repos.repository import Repository
-
-from ..utils import parse_version
-from .dist_info import _fetch_from_wheel
-from .extractor import NonExtractor, TarExtractor, ZipExtractor
-from .pyproject import fetch_from_pyproject
-from .source import _fetch_from_source
+from req_compile.utils import parse_version
 
 LOG = logging.getLogger("req_compile.metadata")
 

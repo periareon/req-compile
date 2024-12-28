@@ -1,5 +1,6 @@
 import contextlib
 import os
+import sys
 
 import pytest
 
@@ -25,7 +26,9 @@ def test_extractor(archive_fixture, mock_targz, mock_zip):
     elif archive_fixture == "mock_zip":
         archive = mock_zip(directory)
     else:
-        archive = os.path.abspath(os.path.join("source-packages", directory))
+        archive = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "source-packages", directory)
+        )
 
     if archive_fixture == "mock_targz":
         extractor = req_compile.metadata.extractor.TarExtractor("gz", archive)
@@ -72,3 +75,7 @@ def test_wrapped_encoding(mock_targz, tmp_path):
             "comtypes-1.1.7/setup.py", "r", encoding="utf-8"
         ) as utf8_file:
             assert isinstance(utf8_file.read(1), str)
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__]))

@@ -210,7 +210,7 @@ bazel run //:requirements.update -- --upgrade
         "_compiler": attr.label(
             cfg = "exec",
             executable = True,
-            default = Label("//private:compiler_bin"),
+            default = Label("//private:compiler"),
         ),
         "_copier": attr.label(
             cfg = "exec",

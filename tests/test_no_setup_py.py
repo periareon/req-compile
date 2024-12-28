@@ -1,4 +1,7 @@
 import os
+import sys
+
+import pytest
 
 from req_compile.metadata import extract_metadata
 from req_compile.utils import parse_requirements, parse_version
@@ -18,3 +21,7 @@ def test_no_setup_py():
             ]
         )
     )
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__]))

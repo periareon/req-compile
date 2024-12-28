@@ -34,15 +34,12 @@ jobs:
         pip install -r 3rdparty/requirements.txt --user
     - name: Run mypy
       run: |
-        python -m mypy req_compile
+        python -m mypy req_compile private
       env:
         MYPYPATH: req-compile/stubs
     - name: Run pylint
       run: |
-        python -m pylint req_compile tests
-    - name: Test with pytest
-      run: |
-        python -m pytest -v --ignore=private
+        python -m pylint req_compile tests private
 
   formatting:
     runs-on: ubuntu-latest
@@ -58,10 +55,10 @@ jobs:
         pip install -r 3rdparty/requirements.txt --user
     - name: Run black
       run: |
-        black --check --diff req_compile
+        black --check --diff req_compile private
     - name: Run isort
       run: |
-        isort --check-only req_compile
+        isort --check-only req_compile private
 
   bazel-bzlmod:
     strategy:
@@ -107,28 +104,3 @@ jobs:
       run: |
         bazel test //...
       working-directory: private/tests/override_module_repos/overrider
-
-  bazel_lint:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python_version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: "3.11"
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r 3rdparty/requirements.txt --user
-        pip install -e .
-    - name: Run isort
-      run: |
-        isort --check-only private
-    - name: Run black
-      run: |
-        black --check --diff private
-    - name: Run pylint
-      run: |
-        python -m pylint private
-    - name: Run buildifier
-      run: bazel run //:buildifier.check

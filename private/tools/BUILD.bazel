@@ -1,5 +1,28 @@
-load("@buildifier_prebuilt//:rules.bzl", "buildifier")
-load("@gazelle//:def.bzl", "DEFAULT_LANGUAGES", "gazelle", "gazelle_binary")
+load("@buildifier_prebuilt//:rules.bzl", "buildifier", "buildifier_test")
+load("@gazelle//:def.bzl", "DEFAULT_LANGUAGES", "gazelle", "gazelle_binary", "gazelle_test")
+load("@req_compile_deps//:defs.bzl", top_level_wheel = "all_requirements_wheels")
+load("@req_compile_test_annotations//:defs.bzl", test_annotations_wheels = "all_requirements_wheels")
+load("@req_compile_test_platlib//:defs.bzl", test_platlib_wheels = "all_requirements_wheels")
+load("@rules_python_gazelle_plugin//manifest:defs.bzl", "gazelle_python_manifest")
+load("@rules_python_gazelle_plugin//modules_mapping:def.bzl", "modules_mapping")
+
+# This rule fetches the metadata for python packages we depend on. That data is
+# required for the gazelle_python_manifest rule to update our manifest file.
+modules_mapping(
+    name = "modules_map",
+    wheels = top_level_wheel + test_annotations_wheels + test_platlib_wheels,
+)
+
+gazelle_python_manifest(
+    name = "gazelle_python_manifest",
+    modules_mapping = ":modules_map",
+    pip_repository_name = "req_compile_deps",
+    requirements = [
+        "//3rdparty:requirements.linux.txt",
+        "//private/tests/annotations:requirements.linux.txt",
+        "//private/tests/platlib:requirements.linux.txt",
+    ],
+)
 
 gazelle(
     name = "gazelle",
@@ -10,8 +33,15 @@ gazelle(
 gazelle_binary(
     name = "gazelle_bin",
     languages = DEFAULT_LANGUAGES + [
+        "@rules_python_gazelle_plugin//python:python",
         "@bazel_skylib_gazelle_plugin//bzl",
     ],
+)
+
+gazelle_test(
+    name = "gazelle_test",
+    gazelle = ":gazelle_bin",
+    workspace = "//:MODULE.bazel",
 )
 
 buildifier(
@@ -25,8 +55,8 @@ buildifier(
     visibility = ["//:__pkg__"],
 )
 
-buildifier(
-    name = "buildifier.check",
+buildifier_test(
+    name = "buildifier_test",
     diff_command = "diff -u",
     exclude_patterns = [
         "./.git/*",
@@ -34,5 +64,7 @@ buildifier(
     lint_mode = "warn",
     lint_warnings = ["all"],
     mode = "diff",
+    no_sandbox = True,
     visibility = ["//:__pkg__"],
+    workspace = "//:MODULE.bazel",
 )

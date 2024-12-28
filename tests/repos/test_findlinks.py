@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from req_compile.repos.findlinks import FindLinksRepository
 
 
@@ -37,3 +39,7 @@ def test_relative_to_repr(tmpdir: Path) -> None:
         str(FindLinksRepository(tmpdir / "wheeldir", relative_to=tmpdir / "3rdparty"))
         == "--find-links ../wheeldir"
     )
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__]))

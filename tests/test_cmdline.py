@@ -1,9 +1,12 @@
 # pylint: disable=redefined-outer-name
 import os
 from io import StringIO
+import sys
+from unittest.mock import MagicMock
 
 import pkg_resources
 import pytest
+import pytest_mock
 
 from req_compile.cmdline import _create_input_reqs, compile_main
 from req_compile.containers import DistInfo
@@ -14,7 +17,7 @@ from req_compile.repos.source import SourceRepository
 
 
 @pytest.fixture
-def basic_compile_mock(mocker):
+def basic_compile_mock(mocker: pytest_mock.MockerFixture) -> MagicMock:
     perform_compile_mock = mocker.patch("req_compile.cmdline.perform_compile")
     result = mocker.MagicMock()
     result.generate_lines.return_value = [("line", "line")]
@@ -134,3 +137,7 @@ def test_stdin_reqs(mock_stdin):
     assert set(result.reqs) == set(
         pkg_resources.parse_requirements(["pytest", "pytest-mock"])
     )
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__]))
