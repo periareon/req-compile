@@ -112,25 +112,45 @@ def _requirements_impl(ctx):
     )
 
 _annotation = tag_class(
-    doc = """\
-A tag representing a annotation editing a Python package.
-
-See [@rules_python//python:pip.bzl%package_annotation](https://github.com/bazelbuild/rules_python/blob/main/docs/pip_repository.md#package_annotation)
-for more information.
-""",
+    doc = "A tag representing a annotation editing a Python package.",
     attrs = {
-        "additive_build_file": attr.label(),
-        "additive_build_file_content": attr.string(),
-        "copy_executables": attr.string_dict(),
-        "copy_files": attr.string_dict(),
-        "copy_srcs": attr.string_dict(),
-        "data": attr.string_list(),
-        "data_exclude_glob": attr.string_list(),
-        "deps": attr.string_list(),
-        "deps_excludes": attr.string_list(),
-        "package": attr.string(mandatory = True),
-        "patches": attr.label_list(),
-        "srcs_exclude_glob": attr.string_list(),
+        "additive_build_file": attr.label(
+            doc = "The label of a `BUILD` file to add to the generated one for a pacakge.",
+        ),
+        "additive_build_file_content": attr.string(
+            doc = "Raw text to add to the generated `BUILD` file of a package.",
+        ),
+        "copy_executables": attr.string_dict(
+            doc = "A mapping of `src` and `out` files for [@bazel_skylib//rules:copy_file.bzl](https://github.com/bazelbuild/bazel-skylib/blob/1.7.1/docs/copy_file_doc.md). Targets generated here will also be flagged as executable.",
+        ),
+        "copy_files": attr.string_dict(
+            doc = "A mapping of `src` and `out` files for [@bazel_skylib//rules:copy_file.bzl](https://github.com/bazelbuild/bazel-skylib/blob/1.7.1/docs/copy_file_doc.md).",
+        ),
+        "copy_srcs": attr.string_dict(
+            doc = "A mapping of `src` and `out` files for [@bazel_skylib//rules:copy_file.bzl](https://github.com/bazelbuild/bazel-skylib/blob/1.7.1/docs/copy_file_doc.md). The output files are added to the `py_library.srcs` attribute.",
+        ),
+        "data": attr.string_list(
+            doc = "A list of labels to add as `data` dependencies to the generated `py_library` target.",
+        ),
+        "data_exclude_glob": attr.string_list(
+            doc = "A list of exclude glob patterns to add as `data` to the generated `py_library` target.",
+        ),
+        "deps": attr.string_list(
+            doc = "A list of labels to add as `data` dependencies to the generated `py_library` target.",
+        ),
+        "deps_excludes": attr.string_list(
+            doc = "A list of exclude glob patterns to add as `data` to the generated `py_library` target.",
+        ),
+        "package": attr.string(
+            doc = "The name of the package the annotations applies to.",
+            mandatory = True,
+        ),
+        "patches": attr.label_list(
+            doc = "A list of patch files to apply to the wheel.",
+        ),
+        "srcs_exclude_glob": attr.string_list(
+            doc = "A list of labels to add as `srcs` to the generated `py_library` target.",
+        ),
     },
 )
 
