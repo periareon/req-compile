@@ -5,10 +5,12 @@
 name: Build
 
 on:
+  merge_group:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
+
 
 jobs:
   build:
@@ -65,7 +67,7 @@ jobs:
 
   bazel-bzlmod:
     strategy:
-      fail-fast: false 
+      fail-fast: false
       matrix:
         platform: ["ubuntu-latest", "macos-14", "windows-latest"]
     runs-on: ${{ matrix.platform }}
