@@ -156,4 +156,5 @@ bzl_library(
     name = "cross_platform_test_utils",
     srcs = ["cross_platform_test_utils.bzl"],
     visibility = ["//:__subpackages__"],
+    deps = ["@rules_cc//cc/common"],
 )
