@@ -2,7 +2,7 @@
 
 module(
     name = "rules_req_compile",
-    version = "1.0.0rc34",
+    version = "1.0.0rc35",
 )
 
 bazel_dep(name = "platforms", version = "0.0.11")
