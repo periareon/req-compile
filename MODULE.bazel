@@ -25,6 +25,7 @@ python.toolchain(
 use_repo(
     python,
     "python_3_11_aarch64-apple-darwin",
+    "python_3_11_aarch64-unknown-linux-gnu",
     "python_3_11_x86_64-apple-darwin",
     "python_3_11_x86_64-pc-windows-msvc",
     "python_3_11_x86_64-unknown-linux-gnu",
@@ -35,9 +36,11 @@ requirements = use_extension("//:extensions.bzl", "requirements")
 requirements.parse(
     name = "req_compile_deps",
     requirements_locks = {
-        "//3rdparty:requirements.linux.txt": "@platforms//os:linux",
-        "//3rdparty:requirements.macos.txt": "@platforms//os:macos",
-        "//3rdparty:requirements.windows.txt": "@platforms//os:windows",
+        "//3rdparty:requirements.linux_aarch64.txt": "@@//3rdparty:linux_aarch64",
+        "//3rdparty:requirements.linux_x86_64.txt": "@@//3rdparty:linux_x86_64",
+        "//3rdparty:requirements.macos_aarch64.txt": "@@//3rdparty:macos_aarch64",
+        "//3rdparty:requirements.macos_x86_64.txt": "@@//3rdparty:macos_x86_64",
+        "//3rdparty:requirements.windows_x86_64.txt": "@@//3rdparty:windows_x86_64",
     },
 )
 use_repo(requirements, "req_compile_deps")
@@ -54,9 +57,10 @@ dev_requirements = use_extension("//extensions:python.bzl", "requirements", dev_
 dev_requirements.parse(
     name = "req_compile_test_sdist",
     # Required to compile sdists
-    interpreter_linux = "@python_3_11_x86_64-unknown-linux-gnu//:python",
+    interpreter_linux_aarch64 = "@python_3_11_x86_64-unknown-linux-gnu//:python",
+    interpreter_linux_x86_64 = "@python_3_11_x86_64-unknown-linux-gnu//:python",
     interpreter_macos_aarch64 = "@python_3_11_aarch64-apple-darwin//:python",
-    interpreter_macos_intel = "@python_3_11_x86_64-apple-darwin//:python",
+    interpreter_macos_x86_64 = "@python_3_11_x86_64-apple-darwin//:python",
     interpreter_windows = "@python_3_11_x86_64-pc-windows-msvc//:python",
     requirements_lock = "//private/tests/sdist:requirements.txt",
 )
