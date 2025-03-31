@@ -341,7 +341,6 @@ def _whl_repository_impl(repository_ctx):
     srcs_exclude = annotations.srcs_exclude_glob
     data_exclude = [
         whl_name,
-        "**/* *",
         "**/*.py",
         "**/*.pyc",
         "**/*.pyc.*",  # During pyc creation, temp files named *.pyc.NNNN are created

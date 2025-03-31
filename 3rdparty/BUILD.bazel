@@ -1,5 +1,50 @@
 load("//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
 
+config_setting(
+    name = "linux_aarch64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "linux_x86_64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "macos_aarch64",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:aarch64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "macos_x86_64",
+    constraint_values = [
+        "@platforms//os:macos",
+        "@platforms//cpu:x86_64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "windows_x86_64",
+    constraint_values = [
+        "@platforms//os:windows",
+        "@platforms//cpu:x86_64",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 filegroup(
     name = "requirements",
     srcs = ["bazel-requirements.in"],
@@ -12,44 +57,85 @@ filegroup(
 alias(
     name = "requirements_compiler",
     actual = select({
-        "@platforms//os:linux": ":requirements_linux_311",
-        "@platforms//os:macos": ":requirements_macos_311",
-        "@platforms//os:windows": ":requirements_windows_311",
+        ":linux_aarch64": "requirements_linux_aarch64_311",
+        ":linux_x86_64": "requirements_linux_x86_64_311",
+        ":macos_aarch64": "requirements_macos_aarch64_311",
+        ":macos_x86_64": "requirements_macos_x86_64_311",
+        ":windows_x86_64": "requirements_windows_x86_64_311",
     }),
 )
 
 py_reqs_compiler(
-    name = "requirements_linux_311",
+    name = "requirements_linux_aarch64_311",
     requirements_in = ":requirements",
-    requirements_txt = "requirements.linux.txt",
-    target_compatible_with = ["@platforms//os:linux"],
+    requirements_txt = "requirements.linux_aarch64.txt",
+    target_compatible_with = select({
+        ":linux_aarch64": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
 )
 
 py_reqs_solution_test(
-    name = "requirements_linux_311_test",
-    compiler = ":requirements_linux_311",
+    name = "requirements_linux_aarch64_311_test",
+    compiler = ":requirements_linux_aarch64_311",
 )
 
 py_reqs_compiler(
-    name = "requirements_macos_311",
+    name = "requirements_linux_x86_64_311",
     requirements_in = ":requirements",
-    requirements_txt = "requirements.macos.txt",
-    target_compatible_with = ["@platforms//os:macos"],
+    requirements_txt = "requirements.linux_x86_64.txt",
+    target_compatible_with = select({
+        ":linux_x86_64": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
 )
 
 py_reqs_solution_test(
-    name = "requirements_macos_311_test",
-    compiler = ":requirements_macos_311",
+    name = "requirements_linux_x86_64_311_test",
+    compiler = ":requirements_linux_x86_64_311",
 )
 
 py_reqs_compiler(
-    name = "requirements_windows_311",
+    name = "requirements_macos_aarch64_311",
     requirements_in = ":requirements",
-    requirements_txt = "requirements.windows.txt",
-    target_compatible_with = ["@platforms//os:windows"],
+    requirements_txt = "requirements.macos_aarch64.txt",
+    target_compatible_with = select({
+        ":macos_aarch64": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
 )
 
 py_reqs_solution_test(
-    name = "requirements_windows_311_test",
-    compiler = ":requirements_windows_311",
+    name = "requirements_macos_aarch64_311_test",
+    compiler = ":requirements_macos_aarch64_311",
+)
+
+py_reqs_compiler(
+    name = "requirements_macos_x86_64_311",
+    requirements_in = ":requirements",
+    requirements_txt = "requirements.macos_x86_64.txt",
+    target_compatible_with = select({
+        ":macos_x86_64": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+)
+
+py_reqs_solution_test(
+    name = "requirements_macos_x86_64_311_test",
+    compiler = ":requirements_macos_x86_64_311",
+)
+
+py_reqs_compiler(
+    name = "requirements_windows_x86_64_311",
+    requirements_in = ":requirements",
+    requirements_txt = "requirements.windows_x86_64.txt",
+    target_compatible_with = select({
+        ":windows_x86_64": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+)
+
+py_reqs_solution_test(
+    name = "requirements_windows_x86_64_311_test",
+    compiler = ":requirements_windows_x86_64_311",
 )

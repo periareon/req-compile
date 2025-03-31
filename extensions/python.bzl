@@ -40,11 +40,14 @@ def _requirements_impl(ctx):
             if not interpreter:
                 if ctx.os.name == "mac os x":
                     if ctx.os.arch == "amd64":
-                        interpreter = parse.interpreter_macos_intel
+                        interpreter = parse.interpreter_macos_x86_64
                     else:
                         interpreter = parse.interpreter_macos_aarch64
                 elif ctx.os.name == "linux":
-                    interpreter = parse.interpreter_linux
+                    if ctx.os.arch == "amd64":
+                        interpreter = parse.interpreter_linux_x86_64
+                    else:
+                        interpreter = parse.interpreter_linux_aarch64
                 elif ctx.os.name.startswith("windows"):
                     interpreter = parse.interpreter_windows
 
@@ -182,14 +185,17 @@ This example was a multi-platform set of solutions, pulled into a single
 hub repository named "pip_deps".
 """,
     attrs = {
-        "interpreter_linux": attr.label(
+        "interpreter_linux_aarch64": attr.label(
+            doc = "Optional Linux arm64 Python interpreter binary to use for sdists.",
+        ),
+        "interpreter_linux_x86_64": attr.label(
             doc = "Optional Linux amd64 Python interpreter binary to use for sdists.",
         ),
         "interpreter_macos_aarch64": attr.label(
             doc = "Optional MacOS ARM Python interpreter binary to use for sdists.",
         ),
-        "interpreter_macos_intel": attr.label(
-            doc = "Optional MacOS intel Python interpreter binary to use for sdists.",
+        "interpreter_macos_x86_64": attr.label(
+            doc = "Optional MacOS x86_64 Python interpreter binary to use for sdists.",
         ),
         "interpreter_windows": attr.label(
             doc = "Optional Windows x64 Python interpreter binary to use for sdists.",
