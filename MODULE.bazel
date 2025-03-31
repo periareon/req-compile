@@ -36,11 +36,11 @@ requirements = use_extension("//:extensions.bzl", "requirements")
 requirements.parse(
     name = "req_compile_deps",
     requirements_locks = {
-        "//3rdparty:requirements.linux_aarch64.txt": "@rules_req_compile//3rdparty:linux_aarch64",
-        "//3rdparty:requirements.linux_x86_64.txt": "@rules_req_compile//3rdparty:linux_x86_64",
-        "//3rdparty:requirements.macos_aarch64.txt": "@rules_req_compile//3rdparty:macos_aarch64",
-        "//3rdparty:requirements.macos_x86_64.txt": "@rules_req_compile//3rdparty:macos_x86_64",
-        "//3rdparty:requirements.windows_x86_64.txt": "@rules_req_compile//3rdparty:windows_x86_64",
+        "//3rdparty:requirements.linux_aarch64.txt": "@rules_req_compile//tools/constraints:linux_aarch_any",
+        "//3rdparty:requirements.linux_x86_64.txt": "@rules_req_compile//tools/constraints:linux_x86_64",
+        "//3rdparty:requirements.macos_aarch64.txt": "@rules_req_compile//tools/constraints:macos_aarch64",
+        "//3rdparty:requirements.macos_x86_64.txt": "@rules_req_compile//tools/constraints:macos_x86_64",
+        "//3rdparty:requirements.windows_x86_64.txt": "@rules_req_compile//tools/constraints:windows_x86_64",
     },
 )
 use_repo(requirements, "req_compile_deps")

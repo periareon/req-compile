@@ -33,10 +33,10 @@ def req_compile_dependencies():
         py_requirements_repository,
         name = "req_compile_deps",
         requirements_locks = {
-            Label("//3rdparty:requirements.linux_aarch64.txt"): str(Label("//3rdparty:linux_aarch64")),
-            Label("//3rdparty:requirements.linux_x86_64.txt"): str(Label("//3rdparty:linux_x86_64")),
-            Label("//3rdparty:requirements.macos_aarch64.txt"): str(Label("//3rdparty:macos_aarch64")),
-            Label("//3rdparty:requirements.macos_x86_64.txt"): str(Label("//3rdparty:macos_x86_64")),
-            Label("//3rdparty:requirements.windows_x86_64.txt"): str(Label("//3rdparty:windows_x86_64")),
+            Label("//3rdparty:requirements.linux_aarch64.txt"): str(Label("//tools/constraints:linux_aarch_any")),
+            Label("//3rdparty:requirements.linux_x86_64.txt"): str(Label("//tools/constraints:linux_x86_64")),
+            Label("//3rdparty:requirements.macos_aarch64.txt"): str(Label("//tools/constraints:macos_aarch64")),
+            Label("//3rdparty:requirements.macos_x86_64.txt"): str(Label("//tools/constraints:macos_x86_64")),
+            Label("//3rdparty:requirements.windows_x86_64.txt"): str(Label("//tools/constraints:windows_x86_64")),
         },
     )

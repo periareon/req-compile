@@ -9,6 +9,17 @@ PyReqsCompilerInfo = provider(
     },
 )
 
+def _compilation_mode_opt_transition_impl(settings, _attr):
+    output = dict(settings)
+    output["//command_line_option:compilation_mode"] = "opt"
+    return output
+
+_compilation_mode_opt_transition = transition(
+    implementation = _compilation_mode_opt_transition_impl,
+    outputs = ["//command_line_option:compilation_mode"],
+    inputs = [],
+)
+
 def _rlocationpath(file, workspace_name):
     """A convenience method for producing the `rlocationpath` of a file.
 
@@ -92,7 +103,7 @@ def _symlink_py_executable(ctx, target):
     return link, runfiles
 
 def _py_reqs_compiler_impl(ctx):
-    compiler, runfiles = _symlink_py_executable(ctx, ctx.attr._compiler)
+    compiler, runfiles = _symlink_py_executable(ctx, ctx.attr._compiler[0])
 
     custom_compile_command = ctx.expand_location(ctx.attr.custom_compile_command.replace("{label}", str(ctx.label)), [
         ctx.attr.requirements_in,
@@ -208,7 +219,7 @@ bazel run //:requirements.update -- --upgrade
             mandatory = True,
         ),
         "_compiler": attr.label(
-            cfg = "exec",
+            cfg = _compilation_mode_opt_transition,
             executable = True,
             default = Label("//private:compiler_bin"),
         ),

@@ -16,8 +16,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ["ubuntu-latest", "ubuntu-24.04-arm", "macos-13", "macos-latest", "windows-latest"]
+        include:
+          - name: MacOS aarch64
+            platform: macos-latest
+          - name: MacOS x86_64
+            platform: macos-13
+          - name: Linux x86_64
+            platform: ubuntu-20.04
+          - name: Linux aarch64
+            platform: ubuntu-24.04-arm
+          - name: Windows x86_64
+            platform: windows-2019
 
+    name: ${{ matrix.name }}
     runs-on: ${{ matrix.platform }}
     steps:
     - uses: actions/checkout@v4
