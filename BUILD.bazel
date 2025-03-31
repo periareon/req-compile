@@ -10,17 +10,17 @@ exports_files([
 
 alias(
     name = "buildifier",
-    actual = "//private/tools:buildifier",
+    actual = "//tools:buildifier",
 )
 
 alias(
     name = "buildifier.check",
-    actual = "//private/tools:buildifier.check",
+    actual = "//tools:buildifier.check",
 )
 
 alias(
     name = "gazelle",
-    actual = "//private/tools:gazelle",
+    actual = "//tools:gazelle",
     tags = ["manual"],
 )
 

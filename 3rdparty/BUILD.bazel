@@ -1,50 +1,5 @@
 load("//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
 
-config_setting(
-    name = "linux_aarch64",
-    constraint_values = [
-        "@platforms//os:linux",
-        "@platforms//cpu:aarch64",
-    ],
-    visibility = ["//visibility:public"],
-)
-
-config_setting(
-    name = "linux_x86_64",
-    constraint_values = [
-        "@platforms//os:linux",
-        "@platforms//cpu:x86_64",
-    ],
-    visibility = ["//visibility:public"],
-)
-
-config_setting(
-    name = "macos_aarch64",
-    constraint_values = [
-        "@platforms//os:macos",
-        "@platforms//cpu:aarch64",
-    ],
-    visibility = ["//visibility:public"],
-)
-
-config_setting(
-    name = "macos_x86_64",
-    constraint_values = [
-        "@platforms//os:macos",
-        "@platforms//cpu:x86_64",
-    ],
-    visibility = ["//visibility:public"],
-)
-
-config_setting(
-    name = "windows_x86_64",
-    constraint_values = [
-        "@platforms//os:windows",
-        "@platforms//cpu:x86_64",
-    ],
-    visibility = ["//visibility:public"],
-)
-
 filegroup(
     name = "requirements",
     srcs = ["bazel-requirements.in"],
@@ -57,11 +12,11 @@ filegroup(
 alias(
     name = "requirements_compiler",
     actual = select({
-        ":linux_aarch64": "requirements_linux_aarch64_311",
-        ":linux_x86_64": "requirements_linux_x86_64_311",
-        ":macos_aarch64": "requirements_macos_aarch64_311",
-        ":macos_x86_64": "requirements_macos_x86_64_311",
-        ":windows_x86_64": "requirements_windows_x86_64_311",
+        "//tools/constraints:linux_aarch64": "requirements_linux_aarch64_311",
+        "//tools/constraints:linux_x86_64": "requirements_linux_x86_64_311",
+        "//tools/constraints:macos_aarch64": "requirements_macos_aarch64_311",
+        "//tools/constraints:macos_x86_64": "requirements_macos_x86_64_311",
+        "//tools/constraints:windows_x86_64": "requirements_windows_x86_64_311",
     }),
 )
 
@@ -70,7 +25,7 @@ py_reqs_compiler(
     requirements_in = ":requirements",
     requirements_txt = "requirements.linux_aarch64.txt",
     target_compatible_with = select({
-        ":linux_aarch64": [],
+        "//tools/constraints:linux_aarch64": [],
         "//conditions:default": ["@platforms//:incompatible"],
     }),
 )
@@ -85,7 +40,7 @@ py_reqs_compiler(
     requirements_in = ":requirements",
     requirements_txt = "requirements.linux_x86_64.txt",
     target_compatible_with = select({
-        ":linux_x86_64": [],
+        "//tools/constraints:linux_x86_64": [],
         "//conditions:default": ["@platforms//:incompatible"],
     }),
 )
@@ -100,7 +55,7 @@ py_reqs_compiler(
     requirements_in = ":requirements",
     requirements_txt = "requirements.macos_aarch64.txt",
     target_compatible_with = select({
-        ":macos_aarch64": [],
+        "//tools/constraints:macos_aarch64": [],
         "//conditions:default": ["@platforms//:incompatible"],
     }),
 )
@@ -115,7 +70,7 @@ py_reqs_compiler(
     requirements_in = ":requirements",
     requirements_txt = "requirements.macos_x86_64.txt",
     target_compatible_with = select({
-        ":macos_x86_64": [],
+        "//tools/constraints:macos_x86_64": [],
         "//conditions:default": ["@platforms//:incompatible"],
     }),
 )
@@ -130,7 +85,7 @@ py_reqs_compiler(
     requirements_in = ":requirements",
     requirements_txt = "requirements.windows_x86_64.txt",
     target_compatible_with = select({
-        ":windows_x86_64": [],
+        "//tools/constraints:windows_x86_64": [],
         "//conditions:default": ["@platforms//:incompatible"],
     }),
 )
