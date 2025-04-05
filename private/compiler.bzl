@@ -156,6 +156,9 @@ def _py_reqs_compiler_impl(ctx):
             requirements_in = ctx.attr.requirements_in,
             solution = ctx.attr.requirements_txt,
         ),
+        OutputGroupInfo(
+            req_compile_args_file = depset([args_file]),
+        ),
     ]
 
 py_reqs_compiler = rule(
