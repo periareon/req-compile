@@ -4,8 +4,8 @@ PyReqsCompilerInfo = provider(
     doc = "Information about a python requirements provider",
     fields = {
         "args": "List[str]: A list of arguments core to the compiler.",
-        "requirements_in": "Target: The `requirements_in` target which provides requirement files.",
-        "solution": "Target: The solution file which represents the compiled result from `requirements_in`.",
+        "requirements_in": "File: Target: The `requirements_in` target which provides requirement files.",
+        "solution": "File: Target: The solution file which represents the compiled result from `requirements_in`.",
     },
 )
 
@@ -158,6 +158,7 @@ def _py_reqs_compiler_impl(ctx):
         ),
         OutputGroupInfo(
             req_compile_args_file = depset([args_file]),
+            req_compile_solution_file = depset([ctx.attr.requirements_txt]),
         ),
     ]
 
