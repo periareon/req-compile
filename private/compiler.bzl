@@ -158,6 +158,7 @@ def _py_reqs_compiler_impl(ctx):
         ),
         OutputGroupInfo(
             req_compile_args_file = depset([args_file]),
+            req_compile_solution_file = depset([ctx.file.requirements_txt]),
         ),
     ]
 
