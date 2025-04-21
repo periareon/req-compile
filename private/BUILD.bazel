@@ -5,8 +5,22 @@ exports_files(
     [
         "sdist_requirements.in",
         "sdist_requirements.txt",
+        "remote_compiler.py",
+        "remote_orchestrator.py",
     ],
     visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "remote_compiler",
+    srcs = ["remote_compiler.py"],
+    deps = ["@rules_python//python/runfiles"],
+)
+
+py_binary(
+    name = "remote_orchestrator",
+    srcs = ["remote_orchestrator.py"],
+    deps = ["@rules_python//python/runfiles"],
 )
 
 py_binary(

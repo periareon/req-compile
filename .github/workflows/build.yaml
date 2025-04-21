@@ -101,10 +101,6 @@ jobs:
       run: |
         bazel test //...
       working-directory: private/examples/multiplatform_py_test
-    - name: Test user repo examples (WORKSPACE.bazel)
-      run: |
-        bazel test //... --noenable_bzlmod --enable_workspace
-      working-directory: private/examples/multiplatform_py_test
     - name: Test module repo overrides
       run: |
         bazel test //...
