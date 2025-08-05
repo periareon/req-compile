@@ -2,32 +2,11 @@
 
 # Bazel rules for `rules_req_compile`
 
-## Setup
-
-```python
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-http_archive(
-    name = "rules_req_compile",
-    sha256 = "{see_release}",
-    urls = ["{see_release}"],
-)
-
-load("@rules_req_compile//:repositories.bzl", "req_compile_dependencies")
-
-req_compile_dependencies()
-
-load("@rules_req_compile//:repositories_transitive.bzl", "req_compile_transitive_dependencies")
-
-req_compile_transitive_dependencies()
-```
-
-## Rules
-
 - [py_package_annotation_consumer](#py_package_annotation_consumer)
 - [py_package_annotation_target](#py_package_annotation_target)
 - [py_package_annotation](#py_package_annotation)
 - [py_reqs_compiler](#py_reqs_compiler)
+- [py_reqs_remote_compiler](#py_reqs_remote_compiler)
 - [py_reqs_solution_test](#py_reqs_solution_test)
 - [py_requirements_repository](#py_requirements_repository)
 - [sdist_repository](#sdist_repository)
@@ -196,7 +175,7 @@ py_reqs_solution_test(
 <pre>
 load("@rules_req_compile//:defs.bzl", "py_package_annotation")
 
-py_package_annotation(<a href="#py_package_annotation-additive_build_file">additive_build_file</a>, <a href="#py_package_annotation-additive_build_file_content">additive_build_file_content</a>, <a href="#py_package_annotation-additive_build_content">additive_build_content</a>,
+py_package_annotation(*, <a href="#py_package_annotation-additive_build_file">additive_build_file</a>, <a href="#py_package_annotation-additive_build_file_content">additive_build_file_content</a>, <a href="#py_package_annotation-additive_build_content">additive_build_content</a>,
                       <a href="#py_package_annotation-copy_srcs">copy_srcs</a>, <a href="#py_package_annotation-copy_files">copy_files</a>, <a href="#py_package_annotation-copy_executables">copy_executables</a>, <a href="#py_package_annotation-data">data</a>, <a href="#py_package_annotation-data_exclude_glob">data_exclude_glob</a>,
                       <a href="#py_package_annotation-srcs_exclude_glob">srcs_exclude_glob</a>, <a href="#py_package_annotation-deps">deps</a>, <a href="#py_package_annotation-deps_excludes">deps_excludes</a>, <a href="#py_package_annotation-patches">patches</a>)
 </pre>
@@ -227,6 +206,34 @@ Annotations to apply to the BUILD file content from package generated from a `pi
 **RETURNS**
 
 str: A json encoded string of the provided content.
+
+
+<a id="py_reqs_remote_compiler"></a>
+
+## py_reqs_remote_compiler
+
+<pre>
+load("@rules_req_compile//:defs.bzl", "py_reqs_remote_compiler")
+
+py_reqs_remote_compiler(<a href="#py_reqs_remote_compiler-name">name</a>, <a href="#py_reqs_remote_compiler-compiler">compiler</a>, <a href="#py_reqs_remote_compiler-platform">platform</a>, <a href="#py_reqs_remote_compiler-kwargs">**kwargs</a>)
+</pre>
+
+A tool for compiling python requirements on a remote machine.
+
+This rule wraps a `py_req_compiler` target behind a transition and
+when a ssh user and host are provided, this target can deploy the
+compiler to the remote system and perform compilation.
+
+
+**PARAMETERS**
+
+
+| Name  | Description | Default Value |
+| :------------- | :------------- | :------------- |
+| <a id="py_reqs_remote_compiler-name"></a>name |  The name of the new target.   |  none |
+| <a id="py_reqs_remote_compiler-compiler"></a>compiler |  The `py_req_compiler` target.   |  none |
+| <a id="py_reqs_remote_compiler-platform"></a>platform |  The platform label to transition to.   |  `None` |
+| <a id="py_reqs_remote_compiler-kwargs"></a>kwargs |  Additional keyword arguments.   |  none |
 
 
 <a id="py_requirements_repository"></a>

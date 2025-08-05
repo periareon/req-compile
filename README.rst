@@ -29,7 +29,7 @@ to compile a requirements solution and install third-party distributions from th
 project differs from ``rules_python`` in that the URLs for the distributions are written to the
 solution, enabling deterministic and repo-cacheable downloads and installs of third-party dependencies.
 
-To get started with bzlmod on Bazel 7:
+To get started with Bazel, add the following to your ``MODULE.bazel`` file:
 
 .. code-block:: python
 
@@ -46,26 +46,6 @@ To get started with bzlmod on Bazel 7:
         },
     )
     use_repo(requirements, "my_pip_deps")
-
-Using WORKSPACE.bazel:
-
-.. code-block:: python
-
-    load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-    http_archive(
-        name = "rules_req_compile",
-        sha256 = "{sha256}",
-        urls = ["https://github.com/periareon/req-compile/releases/download/{version}/rules_req_compile-v{version}.tar.gz"],
-    )
-
-    load("@rules_req_compile//:repositories.bzl", "req_compile_dependencies")
-
-    req_compile_dependencies()
-
-    load("@rules_req_compile//:repositories_transitive.bzl", "req_compile_transitive_dependencies")
-
-    req_compile_transitive_dependencies()
 
 
 Why use it?
