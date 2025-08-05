@@ -36,26 +36,6 @@ bzl_library(
 )
 
 bzl_library(
-    name = "repositories",
-    srcs = ["repositories.bzl"],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//private:reqs_repo",
-        "@bazel_tools//tools/build_defs/repo:http.bzl",
-        "@bazel_tools//tools/build_defs/repo:utils.bzl",
-    ],
-)
-
-bzl_library(
-    name = "repositories_transitive",
-    srcs = ["repositories_transitive.bzl"],
-    visibility = ["//visibility:public"],
-    deps = [
-        "@rules_python//python:repositories_bzl",
-    ],
-)
-
-bzl_library(
     name = "extensions",
     srcs = ["extensions.bzl"],
     visibility = ["//visibility:public"],

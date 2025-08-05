@@ -1,27 +1,5 @@
 """# Bazel rules for `rules_req_compile`
 
-## Setup
-
-```python
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-http_archive(
-    name = "rules_req_compile",
-    sha256 = "{see_release}",
-    urls = ["{see_release}"],
-)
-
-load("@rules_req_compile//:repositories.bzl", "req_compile_dependencies")
-
-req_compile_dependencies()
-
-load("@rules_req_compile//:repositories_transitive.bzl", "req_compile_transitive_dependencies")
-
-req_compile_transitive_dependencies()
-```
-
-## Rules
-
 - [py_package_annotation_consumer](#py_package_annotation_consumer)
 - [py_package_annotation_target](#py_package_annotation_target)
 - [py_package_annotation](#py_package_annotation)
