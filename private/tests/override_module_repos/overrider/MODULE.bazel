@@ -3,7 +3,7 @@ module(
     version = "1.0",
 )
 
-bazel_dep(name = "rules_python", version = "0.34.0")
+bazel_dep(name = "rules_python", version = "1.7.0")
 bazel_dep(name = "rules_req_compile")
 local_path_override(
     module_name = "rules_req_compile",

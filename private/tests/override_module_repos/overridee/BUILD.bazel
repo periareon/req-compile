@@ -3,5 +3,5 @@ load("@rules_python//python:defs.bzl", "py_library")
 py_library(
     name = "test",
     visibility = ["//visibility:public"],
-    deps = ["@pip_deps//:platformdirs"],
+    deps = ["@pip_deps//platformdirs"],
 )
