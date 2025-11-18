@@ -35,7 +35,7 @@ py_test(
     srcs = ["//private/tests/find_links:find_links.py"],
     main = "//private/tests/find_links:find_links.py",
     deps = [
-        "@req_compile_test_find_links//:pyspark",
+        "@req_compile_test_find_links//pyspark",
     ],
 )
 

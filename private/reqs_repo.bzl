@@ -121,42 +121,63 @@ install_deps = repositories
 
 def requirement(name):
     \"\"\"rules_python compatibility macro\"\"\"
-    return Label("@{repository_name}" + "//:" + sanitize_package_name(name))
+    pkg_name = sanitize_package_name(name)
+    return Label("@{repository_name}" + "//" + pkg_name + ":" + pkg_name)
 """
 
 _BUILD_FILE_TEMPLATE = """\
-load(":defs.bzl", "requirement", "requirement_wheel")
-
 package(default_visibility = ["//visibility:public"])
 
 exports_files(["defs.bzl", "requirements.bzl"])
+{legacy_aliases}
+"""
 
-PACKAGES = {packages}
-
-[
-    alias(
-        name = pkg,
-        actual = requirement(pkg),
-        tags = ["manual"],
-    )
-    for pkg in PACKAGES
-]
-
-[
-    alias(
-        name = pkg + "_whl",
-        actual = requirement_wheel(pkg),
-        tags = ["manual"],
-    )
-    for pkg in PACKAGES
-]
+_WHEELS_BUILD_FILE_TEMPLATE = """\
+package(default_visibility = ["//visibility:public"])
 
 filegroup(
     name = "all_wheels",
-    srcs = [
-        pkg + "_whl"
-        for pkg in PACKAGES
-    ],
+    srcs = {all_wheels_srcs},
+    tags = ["manual"],
+)
+"""
+
+_PACKAGE_BUILD_FILE_TEMPLATE = """\
+load("//:defs.bzl", "requirement", "requirement_wheel")
+
+package(default_visibility = ["//visibility:public"])
+
+alias(
+    name = "{pkg}",
+    actual = requirement("{pkg}"),
+    tags = ["manual"],
+)
+
+alias(
+    name = "whl",
+    actual = requirement_wheel("{pkg}"),
+    tags = ["manual"],
+)
+"""
+
+_LEGACY_ALIAS_TEMPLATE = """\
+alias(
+    name = "{pkg}",
+    actual = "//{pkg}",
+    tags = ["manual"],
+)
+
+alias(
+    name = "{pkg}_whl",
+    actual = "//{pkg}:whl",
+    tags = ["manual"],
+)
+"""
+
+_LEGACY_ALL_WHEELS_TEMPLATE = """\
+alias(
+    name = "all_wheels",
+    actual = "//all_wheels",
     tags = ["manual"],
 )
 """
@@ -569,8 +590,38 @@ def _py_requirements_repository_impl(repository_ctx):
     if len(defs) > 1:
         repository_ctx.file("defs.bzl", generate_interface_bzl_content(defs, repository_ctx.name))
 
+    # Create a BUILD.bazel file for each package
+    unique_packages = sorted(depset(all_packages).to_list())
+    for pkg in unique_packages:
+        repository_ctx.file(
+            "{}/BUILD.bazel".format(pkg),
+            _PACKAGE_BUILD_FILE_TEMPLATE.format(pkg = pkg),
+        )
+
+    # Create the wheels subpackage with all_wheels filegroup
+    all_wheels_srcs = [
+        "//{}:whl".format(pkg)
+        for pkg in unique_packages
+    ]
+    repository_ctx.file(
+        "all_wheels/BUILD.bazel",
+        _WHEELS_BUILD_FILE_TEMPLATE.format(
+            all_wheels_srcs = json.encode_indent(all_wheels_srcs, indent = " " * 4),
+        ),
+    )
+
+    # Generate legacy aliases in root BUILD if requested
+    legacy_aliases = ""
+    if repository_ctx.attr.legacy_root_pkg_aliases:
+        legacy_alias_lines = [_LEGACY_ALL_WHEELS_TEMPLATE]
+        for pkg in unique_packages:
+            legacy_alias_lines.append(_LEGACY_ALIAS_TEMPLATE.format(
+                pkg = pkg,
+            ))
+        legacy_aliases = "\n" + "\n".join(legacy_alias_lines)
+
     repository_ctx.file("BUILD.bazel", _BUILD_FILE_TEMPLATE.format(
-        packages = json.encode_indent(sorted(depset(all_packages).to_list()), indent = " " * 4),
+        legacy_aliases = legacy_aliases,
     ))
     _requirements_repository_common(repository_ctx, hub_name)
 
@@ -668,6 +719,14 @@ cross-platform behavior when using `requirements_locks`.
                 "users may experience unexpected cache invalidation or unexpected cross-platform behavior."
             ),
             allow_files = True,
+        ),
+        "legacy_root_pkg_aliases": attr.bool(
+            doc = (
+                "If True, creates aliases in the root BUILD.bazel file pointing to the " +
+                "package targets in their subpackages. This provides backward compatibility " +
+                "for code that references packages at the root (e.g., `@repo//:package_name`)."
+            ),
+            default = False,
         ),
         "requirements_lock": attr.label(
             doc = (
