@@ -5,7 +5,7 @@ py_test(
     name = "hello_test",
     size = "small",
     srcs = ["hello_test.py"],
-    deps = ["@pip_deps//:flask"],
+    deps = ["@pip_deps//flask"],
 )
 
 py_reqs_compiler(
