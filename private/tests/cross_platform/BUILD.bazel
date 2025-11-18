@@ -123,7 +123,7 @@ py_binary(
     name = "cross_platform",
     srcs = ["cross_platform.py"],
     deps = [
-        "@req_compile_test_cross_platform//:black",
+        "@req_compile_test_cross_platform//black",
     ],
 )
 

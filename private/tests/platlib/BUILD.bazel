@@ -41,6 +41,6 @@ py_test(
     name = "platlib",
     srcs = ["platlib.py"],
     deps = [
-        "@req_compile_test_platlib//:libclang",
+        "@req_compile_test_platlib//libclang",
     ],
 )
