@@ -543,6 +543,13 @@ def parse_requirements_locks(hub_name, ctx, attrs, annotations):
     if attrs.requirements_locks:
         platform_packages = {}
         for lock, constraint in attrs.requirements_locks.items():
+            # If the constraint is a workspace relative label, assume
+            # the lock (which is a key in an `attr.label_keyed_string_dict`
+            # ) has the desired fully resolved workspace name.
+            if not constraint.startswith("@"):
+                workspace, _, _ = str(lock).partition("//")
+                constraint = "{}{}".format(workspace, constraint)
+
             constraint = str(Label(constraint))
             lockfile = ctx.path(lock)
 
