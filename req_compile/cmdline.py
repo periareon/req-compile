@@ -128,6 +128,42 @@ def _generate_no_candidate_display(
             sum(len(list(candidates)) for candidates in all_candidates.values()) == 0
         )
 
+        if failure.conflicting_node:
+            print(
+                "No solution for {} could be found that does not conflict:".format(
+                    failure.conflicting_node.key,
+                ),
+                file=sys.stderr,
+            )
+
+            paths = _find_paths_to_root(failure.conflicting_node)
+            _print_paths_to_root(failure.conflicting_node, paths, True)
+
+            walkback_project = failure.walkback_project or req.project_name
+            print(
+                f"Tried walking the most conflicted reverse dependency ({walkback_project}) back:",
+                file=sys.stderr,
+            )
+            if failure.do_not_use:
+                for version in sorted(failure.do_not_use, reverse=True):
+                    pinned_req = parse_requirement(f"{walkback_project}=={version}")
+                    print(f"  {pinned_req}", file=sys.stderr, end="")
+                    try:
+                        collection = DistributionCollection()
+                        collection.add_dist(
+                            repo.get_dist(pinned_req)[0], None, pinned_req
+                        )
+                        print(
+                            f" ({collection[failure.conflicting_node.key].build_constraints()})",
+                            file=sys.stderr,
+                        )
+                    except NoCandidateException:
+                        print("", file=sys.stderr)
+                        continue
+            else:
+                print("  (no additional versions were attempted)", file=sys.stderr)
+            return
+
         if not can_satisfy:
             print(
                 "No version of {} could possibly satisfy the following requirements ({}):".format(

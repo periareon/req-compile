@@ -10,7 +10,7 @@ build
 dist
 .wheeldir
 /req_compile.egg-info
-/bazel-*
+bazel-*
 user.bazelrc
 /.github/ci.bazelrc
 /private/examples/multiplatform_py_test/bazel-*

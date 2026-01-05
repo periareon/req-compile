@@ -7,12 +7,12 @@ module(
 
 bazel_dep(name = "bazel_skylib", version = "1.8.2")
 bazel_dep(name = "platforms", version = "1.0.0")
-bazel_dep(name = "rules_cc", version = "0.2.4")
+bazel_dep(name = "rules_cc", version = "0.2.14")
 bazel_dep(name = "rules_python", version = "1.7.0")
 bazel_dep(name = "rules_venv", version = "0.7.0")
 
-bazel_dep(name = "buildozer", version = "8.2.0.bcr.1", dev_dependency = True)
-bazel_dep(name = "buildifier_prebuilt", version = "8.2.0.2", dev_dependency = True)
+bazel_dep(name = "buildozer", version = "8.2.1", dev_dependency = True)
+bazel_dep(name = "buildifier_prebuilt", version = "8.2.1.2", dev_dependency = True)
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python", dev_dependency = True)
 python.toolchain(
@@ -33,7 +33,7 @@ use_repo(
     python311 = "python_3_11",
 )
 
-requirements = use_extension("//:extensions.bzl", "requirements")
+requirements = use_extension("//extensions:python.bzl", "requirements")
 requirements.parse(
     name = "req_compile_deps",
     requirements_locks = {

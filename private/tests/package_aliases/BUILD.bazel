@@ -1,0 +1,27 @@
+load("@rules_python//python:py_library.bzl", "py_library")
+load("@rules_python//python:py_test.bzl", "py_test")
+
+py_library(
+    name = "improved_setuptools",
+    srcs = ["setuptools.py"],
+    imports = ["."],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "direct_test",
+    srcs = ["dep_checker.py"],
+    main = "dep_checker.py",
+    deps = [
+        "@pip_deps//setuptools",
+    ],
+)
+
+py_test(
+    name = "transitive_test",
+    srcs = ["dep_checker.py"],
+    main = "dep_checker.py",
+    deps = [
+        "@pip_deps//:types_setuptools",  # Use legacy_root_pkg_aliases style.
+    ],
+)

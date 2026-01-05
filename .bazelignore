@@ -1,4 +1,8 @@
 private/examples
 private/tests/override_module_repos/overrider
 private/tests/override_module_repos/overridee
+private/tests/package_aliases
+private/tests/workspace_user
+venv
+venv3
 .ijwb

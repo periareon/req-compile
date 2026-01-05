@@ -57,7 +57,11 @@ def _requirements_impl(ctx):
                         fail("Module {} already has overrides from this module.".format(
                             override_mod,
                         ))
-                    override_module_repos[override_mod] = struct(hub_name = parse.name, override_repos = list(override_repos))
+                    override_module_repos[override_mod] = struct(
+                        hub_name = parse.name,
+                        override_repos = list(override_repos),
+                        defs_id_map = parse.defs_id_map,
+                    )
 
     created_repos = {}
 
@@ -74,6 +78,8 @@ def _requirements_impl(ctx):
                 requirements_lock = parse.requirements_lock,
                 requirements_locks = parse.requirements_locks,
                 interpreter = interpreter,
+                package_aliases = parse.package_aliases,
+                legacy_root_pkg_aliases = parse.legacy_root_pkg_aliases,
             )
             platform_packages = parse_requirements_locks(
                 hub_name = parse.name,
@@ -88,7 +94,7 @@ def _requirements_impl(ctx):
                 # the referenced platform-specific spokes.
                 if defs_id:
                     spoke_prefix += "_" + defs_id
-                create_spoke_repos(spoke_prefix, data.packages, interpreter)
+                create_spoke_repos(parse.name, spoke_prefix, data.packages, interpreter)
 
     for mod in ctx.modules:
         for parse in mod.tags.parse:
@@ -102,6 +108,9 @@ def _requirements_impl(ctx):
                     requirements_lock = parse.requirements_lock,
                     requirements_locks = parse.requirements_locks,
                     interpreter = interpreter,
+                    package_aliases = parse.package_aliases,
+                    legacy_root_pkg_aliases = parse.legacy_root_pkg_aliases,
+                    defs_id_map = override_module_repos[mod.name].defs_id_map,
                 )
                 continue
 
@@ -185,6 +194,15 @@ This example was a multi-platform set of solutions, pulled into a single
 hub repository named "pip_deps".
 """,
     attrs = {
+        "defs_id_map": attr.string_dict(
+            doc = """\
+Optional mapping of derived lockfile IDs to alternate IDs when naming spoke repositories.
+
+This is useful when overriding a dependent module's hub and its lock file names differ
+from the root module's naming. For example, if the child uses `requirements.linux_x86_64.txt`
+but the root uses `requirements.linux.txt`, pass `{"linux_x86_64": "linux"}` to align spokes.""",
+            default = {},
+        ),
         "interpreter_linux_aarch64": attr.label(
             doc = "Optional Linux arm64 Python interpreter binary to use for sdists.",
         ),
@@ -199,6 +217,14 @@ hub repository named "pip_deps".
         ),
         "interpreter_windows": attr.label(
             doc = "Optional Windows x64 Python interpreter binary to use for sdists.",
+        ),
+        "legacy_root_pkg_aliases": attr.bool(
+            doc = (
+                "If True, creates aliases in the root BUILD.bazel file pointing to the " +
+                "package targets in their subpackages. This provides backward compatibility " +
+                "for code that references packages at the root (e.g., `@repo//:package_name`)."
+            ),
+            default = False,
         ),
         "name": attr.string(
             doc = "Name of the hub repository to create.",
@@ -216,6 +242,13 @@ This attribute is intended to have the root module coordinate all Python package
 that Python libraries from dependencies can be safely imported into the same interpreter.
 Do not override repos for libraries that will never be mixed. To inject Python dependencies
 for use in most child modules, a custom toolchain type is most appropriate.""",
+            default = {},
+        ),
+        "package_aliases": attr.label_keyed_string_dict(
+            doc = """\
+Map `py_library` targets to replace instances of the paired distribution when
+used. This allows local source code to directly replaced a library which normally comes from
+a downloaded wheel.""",
             default = {},
         ),
         "requirements_lock": attr.label(

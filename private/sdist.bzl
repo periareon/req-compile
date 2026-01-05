@@ -14,7 +14,12 @@ def _sdist_deps_module_impl(module_ctx):
         annotations = {},
     )
     for data in platform_packages.values():
-        create_spoke_repos("req_compile_sdist_compiler", data.packages, interpreter = None)
+        create_spoke_repos(
+            "req_compile_sdist_compiler",
+            "req_compile_sdist_compiler",
+            data.packages,
+            interpreter = None,
+        )
 
     return module_ctx.extension_metadata(
         root_module_direct_deps = "all",

@@ -1,9 +1,12 @@
 """Errors describing problems that can occur when extracting metadata"""
 
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import packaging.version
 import pkg_resources
+
+if TYPE_CHECKING:
+    from req_compile.dists import DependencyNode
 
 
 class ExceptionWithDetails(Exception):
@@ -33,6 +36,12 @@ class NoCandidateException(ExceptionWithDetails):
         self.req = req
         self.results = results
         self.check_level = 0
+        # List of versions marked do not use because they produce conflicts with other deps.
+        self.do_not_use: list[packaging.version.Version] = []
+        # Node that conflicted with this req, if applicable.
+        self.conflicting_node: Optional["DependencyNode"] = None
+        # Project name that was walked back, if applicable.
+        self.walkback_project: Optional[str] = None
 
     def __str__(self) -> str:
         if self.req.specifier:

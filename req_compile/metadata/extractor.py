@@ -42,22 +42,46 @@ class Extractor(metaclass=abc.ABCMeta):
         self.renames[self.to_relative(new_name)] = self.to_relative(name)
 
     def open(
-        self, file: str, mode: str = "r", encoding: Optional[str] = None, **_kwargs: Any
+        self,
+        file: Union[str, os.PathLike[str], int],
+        mode: str = "r",
+        buffering: int = -1,
+        encoding: Optional[str] = None,
+        errors: Optional[str] = None,
+        newline: Optional[str] = None,
+        closefd: bool = True,
+        opener: Optional[Any] = None,
+        **_kwargs: Any,
     ) -> IO[str]:
         """Open a real file or a file within the archive"""
-        relative_filename = self.to_relative(file)
+        file_path: Union[str, int]
+        if isinstance(file, int):
+            file_path = file
+        else:
+            file_path = os.fspath(file)
+
+        relative_filename = self.to_relative(file_path)
         if (
             isinstance(relative_filename, int)
-            or file == os.devnull
+            or file_path == os.devnull
             or os.path.isabs(relative_filename)
         ):
-            return self.io_open(file, mode=mode, encoding=encoding)
+            return self.io_open(
+                file_path,
+                mode=mode,
+                buffering=buffering,
+                encoding=encoding,
+                errors=errors,
+                newline=newline,
+                closefd=closefd,
+                opener=opener,
+            )
 
         handle = self._open_handle(relative_filename)
         if "b" in mode:
             return handle
 
-        return cast(IO[str], WithDecoding(handle, encoding or "ascii"))
+        return cast(IO[str], WithDecoding(handle, encoding or "ascii", errors, newline))
 
     @abc.abstractmethod
     def names(self) -> Iterable[str]:
@@ -88,7 +112,9 @@ class Extractor(metaclass=abc.ABCMeta):
     def close(self) -> None:
         raise NotImplementedError
 
-    def to_relative(self, filename: Union[str, int]) -> Union[str, int]:
+    def to_relative(
+        self, filename: Union[str, os.PathLike[str], int]
+    ) -> Union[str, int]:
         """Convert a path to an archive relative path if possible. If the target file is not
         within the archive, the path will be returned as is
 
@@ -97,17 +123,18 @@ class Extractor(metaclass=abc.ABCMeta):
         """
         if isinstance(filename, int):
             return filename
+        filename_str = os.fspath(filename)
 
-        if filename.replace("\\", "/").startswith("./"):
-            filename = filename[2:]
-        result = filename
-        if os.path.isabs(filename):
-            if self.contains_path(filename):
-                result = filename.replace(self.fake_root, ".", 1)
+        if filename_str.replace("\\", "/").startswith("./"):
+            filename_str = filename_str[2:]
+        result = filename_str
+        if os.path.isabs(filename_str):
+            if self.contains_path(filename_str):
+                result = filename_str.replace(self.fake_root, ".", 1)
         else:
             cur = os.getcwd()
             if cur != self.fake_root:
-                result = os.path.relpath(cur, self.fake_root) + "/" + filename
+                result = os.path.relpath(cur, self.fake_root) + "/" + filename_str
 
         result = result.replace("\\", "/")
         if result.startswith("./"):
@@ -170,7 +197,8 @@ class TarExtractor(Extractor):
 
     def __init__(self, ext: Literal["gz"], filename: str):
         super(TarExtractor, self).__init__("tar", filename)
-        self.tar = tarfile.open(filename, "r:" + ext)
+        mode = cast(Literal["r:gz"], "r:" + ext)
+        self.tar = tarfile.open(filename, mode)
         self.io_open = io.open
 
     def names(self) -> Iterable[str]:
@@ -230,13 +258,20 @@ class ZipExtractor(Extractor):
 class WithDecoding:
     """Wrap a file object and handle decoding."""
 
-    def __init__(self, wrap: IO[bytes], encoding: str) -> None:
+    def __init__(
+        self,
+        wrap: IO[bytes],
+        encoding: str,
+        errors: Optional[str] = None,
+        newline: Optional[str] = None,
+    ) -> None:
         super().__init__()
         if wrap is None:
             raise FileNotFoundError
 
         self.wrap = wrap
-        self.reader = codecs.getreader(encoding)(wrap)
+        self.reader = codecs.getreader(encoding)(wrap, errors or "strict")
+        self.newline = newline
 
     def read(self, __n: int = 1024 * 1024) -> str:
         return self.reader.read(__n)

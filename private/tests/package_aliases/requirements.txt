@@ -1,0 +1,10 @@
+setuptools==79.0.1 \
+    --hash=sha256:e147c0549f27767ba362f9da434eab9c5dc0045d5304feb602a0af001089fc51
+    # via
+    #   requirements.in (<80)
+    #   types-setuptools
+    # https://files.pythonhosted.org/packages/0d/6d/b4752b044bf94cb802d88a888dc7d288baaf77d7910b7dedda74b5ceea0c/setuptools-79.0.1-py3-none-any.whl#sha256=e147c0549f27767ba362f9da434eab9c5dc0045d5304feb602a0af001089fc51
+types-setuptools==79.0.0.20250422 \
+    --hash=sha256:55238c0b18cdc08dd26c32d6d8385ca1ea59b93dde760dae96d15868b7911990
+    # via requirements.in (<80)
+    # https://files.pythonhosted.org/packages/08/43/410e2978d4e2f3d8355e80141a64d89616fada864403479477c1058f056d/types_setuptools-79.0.0.20250422-py3-none-any.whl#sha256=55238c0b18cdc08dd26c32d6d8385ca1ea59b93dde760dae96d15868b7911990

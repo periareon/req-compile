@@ -1,5 +1,6 @@
 """Bazel rules for testing cross-platform apabilities of req-compile repository rules"""
 
+load("@rules_cc//cc:defs.bzl", "CcToolchainConfigInfo")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 
 def _platform_transition_impl(_, attr):

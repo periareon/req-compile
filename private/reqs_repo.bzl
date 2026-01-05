@@ -52,15 +52,16 @@ all_requirements_wheels = [
 
 def repositories():
     \"\"\"Define repositories for {spoke_prefix}.\"\"\"
-    create_spoke_repos("{spoke_prefix}", _CONSTRAINTS, {interpreter})
+    create_spoke_repos("{hub_name}", "{spoke_prefix}", _CONSTRAINTS, {interpreter})
 """
 
-def create_spoke_repos(spoke_prefix, constraints, interpreter):
+def create_spoke_repos(hub_name, spoke_prefix, constraints, interpreter):
     """Create the repos for each Python project from a constraints file.
 
     These are the "spokes" of the wheel, attached to the central "hub".
 
     Args:
+        hub_name: Hub to create spokes from.
         spoke_prefix: A name prefix including the hub and a platform identifier.
         constraints: Mapping of Python project name to data about the project.
         interpreter: Python interpreter to use to build sdists.
@@ -88,7 +89,7 @@ def create_spoke_repos(spoke_prefix, constraints, interpreter):
             constraint = data["constraint"],
             deps = data["deps"],
             package = name,
-            spoke_prefix = spoke_prefix,
+            hub_name = hub_name,
             sha256 = data["sha256"],
             urls = [data["url"]] if data.get("url", None) else None,
             version = data["version"],
@@ -122,7 +123,7 @@ install_deps = repositories
 def requirement(name):
     \"\"\"rules_python compatibility macro\"\"\"
     pkg_name = sanitize_package_name(name)
-    return Label("@{repository_name}" + "//" + pkg_name + ":" + pkg_name)
+    return Label("@{repository_name}" + "//" + ("" if {legacy_root_pkg_aliases} else pkg_name) + ":" + pkg_name)
 """
 
 _BUILD_FILE_TEMPLATE = """\
@@ -353,6 +354,7 @@ def parse_lockfile(
 def _write_defs_file(repository_ctx, hub_name, packages, defs_output, id = "", name = None):
     repository_ctx.file(defs_output, _DEFS_BZL_TEMPLATE.format(
         constraints = json.encode_indent(packages, indent = " " * 4).replace(" null", " None"),
+        hub_name = hub_name,
         spoke_prefix = "{}_{}".format(hub_name, id).rstrip("_"),
         repository_defs = defs_output.basename,
         interpreter = repr(repository_ctx.attr.interpreter),
@@ -392,6 +394,7 @@ def _requirements_repository_common(repository_ctx, hub_name):
     ))
     repository_ctx.file("requirements.bzl", _RULES_PYTHON_COMPAT.format(
         repository_name = hub_name,
+        legacy_root_pkg_aliases = "True" if repository_ctx.attr.legacy_root_pkg_aliases else "False",
     ))
 
 _LOAD_TEMPLATE = """\
@@ -556,6 +559,10 @@ def parse_requirements_locks(hub_name, ctx, attrs, annotations):
             defs_id, _, _ = lockfile.basename.rpartition(".")
             defs_id = defs_id.replace("requirements", "").replace(".", "_").replace("-", "_").strip(" -_.")
 
+            # Allow remapping child module defs_ids (e.g. from a more specific platform name where the root may not care about that specificity).
+            if hasattr(attrs, "defs_id_map") and defs_id in attrs.defs_id_map:
+                defs_id = attrs.defs_id_map[defs_id]
+
             packages = _process_lockfile(
                 ctx = ctx,
                 requirements_lock = lock,
@@ -582,6 +589,10 @@ def _py_requirements_repository_impl(repository_ctx):
         annotations = repository_ctx.attr.annotations,
     )
 
+    alias_dict = {}
+    for target, package_name in repository_ctx.attr.package_aliases.items():
+        alias_dict[package_name] = target
+
     all_packages = []
     defs = {}
     for defs_id, data in platform_packages.items():
@@ -597,12 +608,26 @@ def _py_requirements_repository_impl(repository_ctx):
     if len(defs) > 1:
         repository_ctx.file("defs.bzl", generate_interface_bzl_content(defs, repository_ctx.name))
 
+    legacy_alias_lines = [_LEGACY_ALL_WHEELS_TEMPLATE]
+
     # Create a BUILD.bazel file for each package
-    unique_packages = sorted(depset(all_packages).to_list())
+    unique_packages = sorted(depset(all_packages + alias_dict.keys()).to_list())
     for pkg in unique_packages:
+        if pkg in alias_dict:
+            contents = """
+alias(
+    name = "{name}",
+    actual = "{target}",
+    visibility = ["//visibility:public"],
+    tags = ["manual"],
+)
+""".format(name = pkg, target = alias_dict[pkg])
+            legacy_alias_lines.append(contents)
+        else:
+            contents = _PACKAGE_BUILD_FILE_TEMPLATE.format(pkg = pkg)
         repository_ctx.file(
             "{}/BUILD.bazel".format(pkg),
-            _PACKAGE_BUILD_FILE_TEMPLATE.format(pkg = pkg),
+            contents,
         )
 
     # Create the wheels subpackage with all_wheels filegroup
@@ -620,11 +645,11 @@ def _py_requirements_repository_impl(repository_ctx):
     # Generate legacy aliases in root BUILD if requested
     legacy_aliases = ""
     if repository_ctx.attr.legacy_root_pkg_aliases:
-        legacy_alias_lines = [_LEGACY_ALL_WHEELS_TEMPLATE]
         for pkg in unique_packages:
-            legacy_alias_lines.append(_LEGACY_ALIAS_TEMPLATE.format(
-                pkg = pkg,
-            ))
+            if pkg not in alias_dict:
+                legacy_alias_lines.append(_LEGACY_ALIAS_TEMPLATE.format(
+                    pkg = pkg,
+                ))
         legacy_aliases = "\n" + "\n".join(legacy_alias_lines)
 
     repository_ctx.file("BUILD.bazel", _BUILD_FILE_TEMPLATE.format(
@@ -714,6 +739,14 @@ cross-platform behavior when using `requirements_locks`.
                 "[@rules_python//python:pip.bzl%package_annotation](https://github.com/bazelbuild/rules_python/blob/main/docs/pip_repository.md#package_annotation)"
             ),
         ),
+        "defs_id_map": attr.string_dict(
+            doc = (
+                "Optional mapping of derived lockfile IDs to defs IDs to use when " +
+                "naming spoke repositories. This is primarily used by the module extension " +
+                "to align overridden hubs with the root module's spoke naming."
+            ),
+            default = {},
+        ),
         "hub_name": attr.string(
             doc = "Name of the hub repository to generate. Do not use directly.",
         ),
@@ -734,6 +767,9 @@ cross-platform behavior when using `requirements_locks`.
                 "for code that references packages at the root (e.g., `@repo//:package_name`)."
             ),
             default = False,
+        ),
+        "package_aliases": attr.label_keyed_string_dict(
+            doc = "Packages to override with a local `py_library`.",
         ),
         "requirements_lock": attr.label(
             doc = (
