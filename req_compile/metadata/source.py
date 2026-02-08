@@ -1,5 +1,6 @@
 # pylint: disable=exec-used
 """Parsing of metadata that comes from setup.py"""
+
 from __future__ import annotations
 
 import configparser
@@ -17,6 +18,7 @@ import io
 import logging
 import os
 import os.path
+import pathlib
 import re
 import shutil
 import subprocess
@@ -218,11 +220,11 @@ def _fetch_from_setup_py(
     if results is None:
         return None
 
-    if results.name is None and results.version is None:
+    if not results.name and results.version is None:
         LOG.debug("Name (%s) or version (%s) was empty", results.name, results.version)
         return None
 
-    if results.name is None:
+    if not results.name:
         results.name = name
     if results.version is None or (version and results.version != version):
         LOG.debug(
@@ -473,10 +475,9 @@ def setup(
             )
             raise
 
-    if name is not None:
-        name = name.replace(" ", "-")
+    name_value = name.replace(" ", "-") if name is not None else ""
 
-    dist_info = DistInfo(name, version, all_reqs)
+    dist_info = DistInfo(name_value, version, all_reqs)
     dist_info.setup_reqs = list(utils.parse_requirements(setup_reqs))
     results.append(dist_info)
 
@@ -620,6 +621,12 @@ def _parse_setup_py(
         sys.modules["numpy.distutils.misc_util"] = FakeModule("misc_util")
         sys.modules["numpy.distutils.system_info"] = FakeModule("system_info")
 
+    # Older Python setup.py readline imports fail on collection.Callable.
+    if "readline" not in sys.modules:
+        sys.modules["readline"] = FakeModule("readline")
+    if "pyreadline" not in sys.modules:
+        sys.modules["pyreadline"] = FakeModule("pyreadline")
+
     def _fake_exists(path: str) -> bool:
         return extractor.exists(path)
 
@@ -631,6 +638,9 @@ def _parse_setup_py(
 
     def _fake_file_input(path: str, **_kwargs: Any) -> IO[str]:
         return open(path, "r", encoding="utf-8")
+
+    def _fake_path_open(path: pathlib.Path, *args: Any, **kwargs: Any) -> IO[Any]:
+        return extractor.open(path, *args, **kwargs)
 
     old_cythonize = None
     try:
@@ -799,6 +809,7 @@ def _parse_setup_py(
         os, 'rename', _fake_rename,
         io, 'open', extractor.open,
         codecs, 'open', extractor.open,
+        pathlib.Path, 'open', _fake_path_open,
         setuptools, 'setup', setup_with_results,
         distutils.core, 'setup', setup_with_results,
         fileinput, 'input', _fake_file_input,

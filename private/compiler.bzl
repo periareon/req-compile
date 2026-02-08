@@ -61,6 +61,7 @@ def _symlink_py_executable(ctx, target):
         args.add(link)
         ctx.actions.run(
             executable = ctx.executable._copier,
+            mnemonic = "CopyFile",
             arguments = [args],
             inputs = [executable],
             outputs = [link],
@@ -88,6 +89,7 @@ def _symlink_py_executable(ctx, target):
             args.add(zipapp)
             ctx.actions.run(
                 executable = ctx.executable._copier,
+                mnemonic = "CopyFile",
                 arguments = [args],
                 inputs = [python_zip_file],
                 outputs = [zipapp],
@@ -380,7 +382,7 @@ py_reqs_solution_test(
             default = Label("//private:copier"),
         ),
         "_tester": attr.label(
-            cfg = "exec",
+            cfg = "target",
             executable = True,
             default = Label("//private:solution_tester"),
         ),

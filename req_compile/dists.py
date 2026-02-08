@@ -332,7 +332,7 @@ class DistributionCollection:
             self._update_dists(node, metadata_to_apply)
 
         if node.key not in self.nodes:
-            raise ValueError("The node {} is gone, while adding".format(node.key))
+            self.nodes[node.key] = node
 
         return node
 
@@ -361,6 +361,15 @@ class DistributionCollection:
         node: Union[DependencyNode, Iterable[DependencyNode]],
         remove_upstream: bool = True,
     ) -> None:
+        """Remove the distributions from the graph.
+
+        Args:
+            node: The node or nodes to remove.
+            remove_upstream: Whether to remove the node from the graph entirely (True) or
+                just reset it to an unsolved state (False). If False, the node remains in
+                the graph and is still referenced by its reverse dependencies, but its
+                metadata and dependencies are cleared.
+        """
         if isinstance(node, collections.abc.Iterable):
             for single_node in node:
                 self.remove_dists(single_node, remove_upstream=remove_upstream)

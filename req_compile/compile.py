@@ -1,5 +1,6 @@
 # pylint: disable=too-many-nested-blocks
 """Logic for compiling requirements"""
+
 from __future__ import print_function
 
 import itertools
@@ -13,11 +14,6 @@ import pkg_resources
 
 import req_compile.containers
 import req_compile.dists
-import req_compile.errors
-import req_compile.metadata
-import req_compile.repos.pypi
-import req_compile.repos.repository
-import req_compile.utils
 from req_compile.containers import RequirementContainer
 from req_compile.dists import DependencyNode, DistributionCollection
 from req_compile.errors import MetadataError, NoCandidateException
@@ -89,6 +85,10 @@ def _get_strictest_reverse_dep(node: DependencyNode) -> Optional[DependencyNode]
                 violate_score.items(), key=operator.itemgetter(1)
             )
             if scored_node.metadata is not None and not scored_node.metadata.meta
+            # Do not walk back source repositories, this would never be expected and would
+            # cause another index to be searched, possibly selecting an older version of the
+            # source repository that was published to an index in the past.
+            and not isinstance(scored_node.metadata.origin, SourceRepository)
         )
     except StopIteration:
         return None
@@ -101,8 +101,9 @@ def compile_roots(
     dists: DistributionCollection,
     options: CompileOptions,
     depth: int = 1,
-    max_downgrade: int = MAX_DOWNGRADE,
-    _path: Optional[Set[DependencyNode]] = None,
+    max_downgrade: Optional[int] = MAX_DOWNGRADE,
+    _path: Optional[Tuple[DependencyNode, ...]] = None,
+    _walkback_budget: Optional[int] = None,
 ) -> None:  # pylint: disable=too-many-statements,too-many-locals,too-many-branches
     """
     Args:
@@ -113,19 +114,30 @@ def compile_roots(
         options: Static options for the compile (including extras)
         depth: Depth the compilation has descended into
         max_downgrade: The maximum number of version downgrades that will be allowed for conflicts
+            (None means unlimited).
         _path: The path back to root - all nodes along the way
+        _walkback_budget: Remaining walkback attempts before giving up (internal).
 
     Raises:
         NoCandidateException: If no candidate could be found for a requirement.
     """
     if _path is None:
-        _path = set()
+        _path = ()
+    if _walkback_budget is None:
+        if max_downgrade is None:
+            _walkback_budget = MAX_COMPILE_DEPTH
+        else:
+            _walkback_budget = max_downgrade
 
     logger = LOG
-    logger.debug("Processing node %s", node)
 
     if depth > MAX_COMPILE_DEPTH:
-        raise ValueError("Recursion too deep")
+        path_str = " -> ".join(str(n.key) for n in _path)
+        raise ValueError(
+            "Recursion too deep (depth={}). Processing {}. Path: {}".format(
+                depth, node.key, path_str
+            )
+        )
 
     if node.key not in dists or dists[node.key] is not node:
         logger.debug("No need to process this node, it has been removed")
@@ -135,6 +147,8 @@ def compile_roots(
         assert node.metadata is not None
         logger.info("Reusing dist %s %s", node.metadata.name, node.metadata.version)
         return
+
+    logger.debug("Processing node %s", node)
 
     # This node is unsolved, find a candidate from the provided repository `repo`.
     if node.metadata is None:
@@ -152,11 +166,38 @@ def compile_roots(
             # to search the full space, find the one that conflicts with the most
             # other reverse dependencies and add a new constraint to keep the same
             # version from being selected.
+            # Search the full space is expensive and possibly harmful because of how heavily
+            # it must hit remote indices.
             reverse_dep = _get_strictest_reverse_dep(node)
-            if reverse_dep is None:
+            if (
+                reverse_dep is None
+                or reverse_dep.metadata is None
+                or reverse_dep.metadata.version is None
+            ):
                 raise NoCandidateException(spec_req)
 
-            assert reverse_dep.metadata is not None
+            if _walkback_budget is not None and _walkback_budget <= 0:
+                logger.info(
+                    "Requirement conflict for %s (%s). Walkback budget exhausted.",
+                    node,
+                    spec_req,
+                )
+                ex = NoCandidateException(spec_req)
+                ex.conflicting_node = node
+                ex.walkback_project = reverse_dep.metadata.name
+                raise ex
+
+            logger.debug(
+                "Conflict detected in %s. Unsolving %s and retrying (walkback remaining %s)",
+                node.key,
+                reverse_dep.key,
+                "unlimited" if _walkback_budget is None else _walkback_budget,
+            )
+
+            next_max_downgrade = None if max_downgrade is None else max_downgrade - 1
+            next_walkback_budget = (
+                None if _walkback_budget is None else _walkback_budget - 1
+            )
             new_constraints = [
                 parse_requirement(
                     "{}!={}".format(
@@ -164,10 +205,12 @@ def compile_roots(
                     )
                 )
             ]
+            do_not_use_version = reverse_dep.metadata.version
+            walkback_project = reverse_dep.metadata.name
             bad_dist = req_compile.containers.DistInfo(
                 "#donotuse#-{}-{}-{}".format(
                     reverse_dep.key,
-                    str(reverse_dep.metadata.version).replace("-", "_"),
+                    str(do_not_use_version).replace("-", "_"),
                     depth,
                 ),
                 parse_version("0.0.0"),
@@ -185,10 +228,16 @@ def compile_roots(
                     repo,
                     dists,
                     options,
-                    depth=depth + 1,
-                    max_downgrade=max_downgrade - 1,
-                    _path=_path - {reverse_dep},
+                    depth=depth,
+                    max_downgrade=next_max_downgrade,
+                    _path=tuple(n for n in _path if n != reverse_dep),
+                    _walkback_budget=next_walkback_budget,
                 )
+            except NoCandidateException as ex:
+                ex.do_not_use.append(do_not_use_version)
+                ex.conflicting_node = node
+                ex.walkback_project = walkback_project
+                raise
             finally:
                 dists.remove_dists(bad_constraint, remove_upstream=False)
             return
@@ -241,7 +290,7 @@ def compile_roots(
                         dep=dep,
                     )
                 )
-        else:
+        elif not dep.complete:
             compile_roots(
                 dep,
                 node,
@@ -250,7 +299,7 @@ def compile_roots(
                 options,
                 depth=depth + 1,
                 max_downgrade=max_downgrade,
-                _path=_path | {node},
+                _path=_path + (node,),
             )
 
 
@@ -331,9 +380,10 @@ def perform_compile(
                     print(f"{node} {node.complete}")
                 raise ValueError("Iteration limit hit. This is a bug in req-compile.")
             for node in sorted(nodes):
-                compile_roots(
-                    node, None, repo, results, options, max_downgrade=max_downgrade
-                )
+                if not node.complete:
+                    compile_roots(
+                        node, None, repo, results, options, max_downgrade=max_downgrade
+                    )
     except (NoCandidateException, MetadataError) as ex:
         if not remove_constraints:
             _add_constraints(all_pinned, constraint_reqs, results)

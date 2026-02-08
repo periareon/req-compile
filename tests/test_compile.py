@@ -193,6 +193,13 @@ def test_no_candidate(perform_compile, scenario, index, reqs, constraints):
         perform_compile(scenario, reqs, constraint_reqs=constraints, limit_reqs=index)
 
 
+def test_walkback_depth_guard(perform_compile, monkeypatch):
+    """Ensure walkback doesn't blow recursion depth when conflicts occur deep."""
+    monkeypatch.setattr(req_compile.compile, "MAX_COMPILE_DEPTH", 3)
+    with pytest.raises(req_compile.errors.NoCandidateException):
+        perform_compile("walkback-depth", ["a", "x>=2"])
+
+
 @fixture
 def local_tree():
     base_dir = os.path.join(os.path.dirname(__file__), "local-tree")

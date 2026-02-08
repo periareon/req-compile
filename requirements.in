@@ -1,8 +1,8 @@
-requests[security]
+requests
 toml
 appdirs
 packaging
 wheel
 overrides
 typing_extensions
-setuptools
+setuptools < 82  # Required for pkg_resources

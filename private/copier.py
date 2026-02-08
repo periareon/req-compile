@@ -1,5 +1,4 @@
-"""A script used to avoid https://github.com/bazelbuild/bazel/issues/21747
-"""
+"""A script used to avoid https://github.com/bazelbuild/bazel/issues/21747"""
 
 import argparse
 import shutil

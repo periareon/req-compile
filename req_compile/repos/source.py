@@ -13,7 +13,6 @@ import pkg_resources
 
 import req_compile.errors
 import req_compile.metadata
-import req_compile.metadata.metadata
 import req_compile.repos.repository
 from req_compile import utils
 from req_compile.containers import RequirementContainer
@@ -22,6 +21,8 @@ from req_compile.utils import parse_version
 
 # Special directories that will never be considered
 SPECIAL_DIRS = {
+    ".bazelbsp",
+    ".bcr",
     "site-packages",
     "dist-packages",
     ".git",
@@ -36,6 +37,7 @@ SPECIAL_DIRS = {
     "dist",
     ".pytest_cache",
     ".mypy_cache",
+    ".vscode",
 }
 
 # Files that if included in a directory would disqualify
@@ -67,7 +69,9 @@ class SourceRepository(Repository):
                 source directory should not be included in the repository
             parallelism: Number of in-process threads to execute when discovering source projects
         """
-        super(SourceRepository, self).__init__("source", allow_prerelease=True)
+        super(SourceRepository, self).__init__(
+            "source." + os.path.basename(path).replace(".", "-"), allow_prerelease=True
+        )
 
         if not os.path.exists(path):
             raise ValueError(
@@ -161,6 +165,8 @@ class SourceRepository(Repository):
             filename = os.path.basename(root)
             if filename in SPECIAL_DIRS:
                 is_excluded = True
+            elif filename.startswith("bazel-"):
+                is_excluded = True
             else:
                 for excluded_path in excluded_paths:
                     if os.path.commonprefix((root, excluded_path)) == excluded_path:
@@ -227,7 +233,7 @@ class SourceRepository(Repository):
     ) -> Tuple[RequirementContainer, bool]:
         if candidate.preparsed is None:
             raise req_compile.errors.NoCandidateException(
-                req_compile.utils.parse_requirement(candidate.name)
+                utils.parse_requirement(candidate.name)
             )
         return candidate.preparsed, True
 

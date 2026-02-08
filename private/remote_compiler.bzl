@@ -4,53 +4,39 @@ load("@rules_venv//python/venv:defs.bzl", "py_venv_binary", "py_venv_zipapp")
 load("//private:compiler.bzl", "PyReqsCompilerInfo")
 load(":transition.bzl", "platform_transitioned_file")
 
-def _rlocationpath(file, workspace_name):
-    """A convenience method for producing the `rlocationpath` of a file.
+def _req_compile_output_file_impl(ctx):
+    outputs = getattr(ctx.attr.compiler[OutputGroupInfo], ctx.attr.output_group)
+    if not outputs:
+        fail(
+            "Could not find output group '{}' in '{}'".format(
+                ctx.attr.output_group,
+                ctx.attr.compiler.label,
+            ),
+        )
 
-    Args:
-        file (File): The file object to generate the path for.
-        workspace_name (str): The current workspace name.
+    output_file = outputs.to_list()[0]
+    link = ctx.actions.declare_file(
+        "{}.{}".format(ctx.label.name, output_file.extension).rstrip("."),
+    )
+    ctx.actions.symlink(
+        output = link,
+        target_file = output_file,
+    )
 
-    Returns:
-        str: The `rlocationpath` value.
-    """
-    if file.short_path.startswith("../"):
-        return file.short_path[len("../"):]
+    return [DefaultInfo(files = depset([link]))]
 
-    return "{}/{}".format(workspace_name, file.short_path)
-
-def _req_compile_output_groups_impl(ctx):
-    compiler_info = ctx.attr.compiler[PyReqsCompilerInfo]
-
-    all_files = depset(transitive = [
-        compiler_info.requirements_in[DefaultInfo].files,
-        compiler_info.requirements_in[DefaultInfo].default_runfiles.files,
-        compiler_info.solution[DefaultInfo].files,
-        compiler_info.solution[DefaultInfo].default_runfiles.files,
-    ])
-
-    args_file = ctx.attr.compiler[OutputGroupInfo].req_compile_args_file.to_list()[0]
-    solution = compiler_info.solution[DefaultInfo].files.to_list()[0]
-
-    return [
-        DefaultInfo(
-            files = all_files,
-        ),
-        platform_common.TemplateVariableInfo({
-            "PY_REQ_COMPILER_ARGS_FILE": _rlocationpath(args_file, ctx.workspace_name),
-            "PY_REQ_COMPILER_SOLUTION_FILE": _rlocationpath(solution, ctx.workspace_name),
-        }),
-        platform_common.ToolchainInfo(),
-    ]
-
-_req_compile_output_groups = rule(
-    doc = "A rule for extracting variables attributes from the `py_req_compiler` target.",
-    implementation = _req_compile_output_groups_impl,
+_req_compile_output_file = rule(
+    doc = "A rule for accessing a single file from a `py_req_compiler` output group.",
+    implementation = _req_compile_output_file_impl,
     attrs = {
         "compiler": attr.label(
             doc = "The `py_req_compiler` target.",
             mandatory = True,
             providers = [PyReqsCompilerInfo],
+        ),
+        "output_group": attr.string(
+            doc = "The `OutputGroupInfo` field to access.",
+            mandatory = True,
         ),
     },
 )
@@ -74,9 +60,16 @@ def py_reqs_remote_compiler(name, compiler, platform = None, **kwargs):
     silence_kwargs["tags"] = depset(tags + ["manual"]).to_list()
     silence_kwargs["visibility"] = ["//visibility:private"]
 
-    _req_compile_output_groups(
-        name = name + "_output_groups",
+    _req_compile_output_file(
+        name = name + "_args_file",
         compiler = compiler,
+        output_group = "req_compile_args_file",
+        **silence_kwargs
+    )
+    _req_compile_output_file(
+        name = name + "_solution_file",
+        compiler = compiler,
+        output_group = "req_compile_solution_file",
         **silence_kwargs
     )
 
@@ -86,15 +79,13 @@ def py_reqs_remote_compiler(name, compiler, platform = None, **kwargs):
         main = Label("//private:remote_compiler.py"),
         data = [
             compiler,
-            name + "_output_groups",
-        ],
-        toolchains = [
-            name + "_output_groups",
+            name + "_args_file",
+            name + "_solution_file",
         ],
         env = {
             "COMPILER": "$(rlocationpath {})".format(compiler),
-            "PY_REQ_COMPILER_ARGS_FILE": "$(PY_REQ_COMPILER_ARGS_FILE)",
-            "PY_REQ_COMPILER_SOLUTION_FILE": "$(PY_REQ_COMPILER_SOLUTION_FILE)",
+            "PY_REQ_COMPILER_ARGS_FILE": "$(rlocationpath {})".format(name + "_args_file"),
+            "PY_REQ_COMPILER_SOLUTION_FILE": "$(rlocationpath {})".format(name + "_solution_file"),
         },
         deps = ["@rules_python//python/runfiles"],
     )

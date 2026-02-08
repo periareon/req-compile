@@ -1,0 +1,22 @@
+module(
+    name = "package_aliases",
+    version = "1.0",
+)
+
+bazel_dep(name = "rules_python", version = "1.7.0")
+bazel_dep(name = "rules_req_compile")
+local_path_override(
+    module_name = "rules_req_compile",
+    path = "../../..",
+)
+
+requirements = use_extension("@rules_req_compile//extensions:python.bzl", "requirements")
+requirements.parse(
+    name = "package_aliases_pip_deps",
+    legacy_root_pkg_aliases = True,
+    package_aliases = {
+        "//:improved_setuptools": "setuptools",
+    },
+    requirements_lock = ":requirements.txt",
+)
+use_repo(requirements, pip_deps = "package_aliases_pip_deps")

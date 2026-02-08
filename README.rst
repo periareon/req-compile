@@ -1,5 +1,5 @@
-README for Req-Compile Python Requirements Compiler
-===================================================
+Req-Compile
+===========
 
 .. image:: https://img.shields.io/pypi/v/req-compile.svg
     :alt: PyPI package version
@@ -9,17 +9,17 @@ README for Req-Compile Python Requirements Compiler
     :alt: Github build status
     :target: https://github.com/periareon/req-compile
 
-========================================
-Req-Compile Python Requirements Compiler
-========================================
+Req-Compile is a Python requirements compiler for large projects. It produces fully pinned,
+auditable solutions and supports local sources, constraint-only inputs, and cached downloads
+for offline installs.
 
-Req-Compile is a Python requirements compiler geared toward large Python projects. It allows you to:
-
+Highlights
+----------
 * Produce an output file consisting of fully constrained exact versions of your requirements
 * Identify sources of constraints on your requirements
 * Constrain your output requirements using requirements that will not be included in the output
 * Save distributions that are downloaded while compiling in a configurable location
-* Use a current solution as a source of requirements. In other words, you can easily compile a subset from an existing solution.
+* Use a current solution as a source of requirements to compile subsets without re-downloading
 
 Bazel integration
 -----------------
@@ -238,6 +238,26 @@ the execution times of builds when a separate compile step is required::
 
     > req-compile projectreqs.txt --wheel-dir .wheeldir > compiledreqs.txt
     > pip install -r compiledreqs.txt --find-links .wheeldir --no-index
+
+Environment variables
+---------------------
+The following environment variables control compile behavior. All are optional and use the
+defaults shown if not set.
+
+REQ_COMPILE_MAX_DEPTH
+  Maximum recursion depth while resolving dependencies. Default: 80.
+
+REQ_COMPILE_MAX_DOWNGRADE
+  Maximum number of version downgrades or walkback attempts used to resolve conflicts.
+  Default: 20.
+
+REQ_COMPILE_WHEEL_TIMEOUT
+  Timeout in seconds for building a wheel to extract metadata from a source distribution.
+  Default: 30.0.
+
+REQ_COMPILE_EGG_INFO_TIMEOUT
+  Timeout in seconds for running ``setup.py egg_info`` during metadata extraction.
+  Default: 15.0.
 
 Cookbook
 --------
