@@ -3,9 +3,9 @@
 appdirs==1.4.4
     # via requirements.in
     # https://files.pythonhosted.org/packages/3b/00/2344469e2084fb287c2e0b57b72910309874c3245463acd6cf5e3db69324/appdirs-1.4.4-py2.py3-none-any.whl#sha256=a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128
-astroid==3.1.0
-    # via pylint (<=3.2.0-dev0,>=3.1.0)
-    # https://files.pythonhosted.org/packages/ed/1c/ee18acf9070f77253954b7d71b4c0cf8f5969fb23067d8f1a8793573ba00/astroid-3.1.0-py3-none-any.whl#sha256=951798f922990137ac090c53af473db7ab4e70c770e6d7fae0cec59f74411819
+astroid==3.3.8
+    # via pylint (<=3.4.0-dev0,>=3.3.8)
+    # https://files.pythonhosted.org/packages/07/28/0bc8a17d6cd4cc3c79ae41b7105a2b9a327c110e5ddd37a8a27b29a5c8a2/astroid-3.3.8-py3-none-any.whl#sha256=187ccc0c248bfbba564826c26f070494f7bc964fd286b6d9fff4420e55de828c
 black==24.3.0 \
     # via req_compile/3rdparty/bazel-requirements.in
     # https://files.pythonhosted.org/packages/6b/59/498885b279e890f656ea4300a2671c964acb6d97994ea626479c2e5501b4/black-24.3.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl#sha256=65c02e4ea2ae09d16314d30912a58ada9a5c4fdfedf9512d23326128ac08ac3d
@@ -44,9 +44,9 @@ isort==5.11.5
 mccabe==0.7.0
     # via pylint (<0.8,>=0.6)
     # https://files.pythonhosted.org/packages/27/1a/1f68f9ba0c207934b35b86a8ca3aad8395a3d6dd7921c0686e23853ff5a9/mccabe-0.7.0-py2.py3-none-any.whl#sha256=6c2d30ab6be0e4a46919781807b4f0d834ebdd6c6e3dca0bda5a15f863427b6e
-mypy==1.4.1
+mypy==1.15.0
     # via test-requirements.in
-    # https://files.pythonhosted.org/packages/95/47/fb69dad9634af9f1dab69f8b4031d674592384b59c7171852b1fbed6de15/mypy-1.4.1-cp37-cp37m-macosx_10_9_x86_64.whl#sha256=470c969bb3f9a9efcedbadcd19a74ffb34a25f8e6b0e02dae7c0e71f8372f97b
+    # https://files.pythonhosted.org/packages/09/4e/a7d65c7322c510de2c409ff3828b03354a7c43f5a8ed458a7a131b41c7b9/mypy-1.15.0-py3-none-any.whl#sha256=5469affef548bd1895d86d3bf10ce2b44e33d86923c29e4d675b3e323437ea3e
 mypy-extensions==1.0.0
     # via
     #   black (>=0.4.3)
@@ -72,9 +72,9 @@ platformdirs==4.0.0
 pluggy==1.2.0
     # via pytest (<2.0,>=0.12)
     # https://files.pythonhosted.org/packages/51/32/4a79112b8b87b21450b066e102d6608907f4c885ed7b04c3fdb085d4d6ae/pluggy-1.2.0-py3-none-any.whl#sha256=c2fd55a7d7a3863cba1a013e4e2414658b1d07b6bc57b3919e0c63c9abb99849
-pylint==3.1.0
+pylint==3.3.5
     # via test-requirements.in
-    # https://files.pythonhosted.org/packages/4d/2b/dfcf298607c73c3af47d5a699c3bd84ba580f1b8642a53ba2a53eead7c49/pylint-3.1.0-py3-none-any.whl#sha256=507a5b60953874766d8a366e8e8c7af63e058b26345cfcb5f91f89d987fd6b74
+    # https://files.pythonhosted.org/packages/99/62/42199570fc199cc0f6825d746ddb0183b30739b334dc6d85edeaa8a2073c/pylint-3.3.5-py3-none-any.whl#sha256=7cb170929a371238530b2eeea09f5f28236d106b70308c3d46a9c0cf11634633
 pytest==7.4.4
     # via
     #   pytest-mock (>=5.0)
@@ -112,11 +112,6 @@ tomli==2.0.1
 tomlkit==0.12.3
     # via pylint (>=0.10.1)
     # https://files.pythonhosted.org/packages/6e/43/159750d32481f16e34cc60090b53bc0a14314ad0c1f67a9bb64f3f3a0551/tomlkit-0.12.3-py3-none-any.whl#sha256=b0a645a9156dc7cb5d3a1f0d4bab66db287fcb8e0430bdd4664a095ea16414ba
-typed-ast==1.5.5
-    # via
-    #   black (>=1.4.2)
-    #   mypy (<2,>=1.4.0)
-    # https://files.pythonhosted.org/packages/d5/00/635353c31b71ed307ab020eff6baed9987da59a1b2ba489f885ecbe293b8/typed_ast-1.5.5-cp37-cp37m-macosx_10_9_x86_64.whl#sha256=2188bc33d85951ea4ddad55d2b35598b2709d122c11c75cffd529fbc9965508e
 types-appdirs==1.4.3.5
     # via test-requirements.in
     # https://files.pythonhosted.org/packages/cf/07/41f5b9b11f11855eb67760ed680330e0ce9136a44b51c24dd52edb1c4eb1/types_appdirs-1.4.3.5-py3-none-any.whl#sha256=337c750e423c40911d389359b4edabe5bbc2cdd5cd0bd0518b71d2839646273b
@@ -138,7 +133,6 @@ typing_extensions~=4.12.2
     #   importlib-metadata (>=3.6.4)
     #   mypy (>=4.1.0)
     #   platformdirs (>=4.7.1)
-    #   requirements.in
     #   responses
     # https://files.pythonhosted.org/packages/ec/6b/63cc3df74987c36fe26157ee12e09e8f9db4de771e0f3404263117e75b95/typing_extensions-4.7.1-py3-none-any.whl#sha256=440d5dd3af93b060174bf433bccd69b0babc3b15b1a8dca43789fd7f61514b36
 urllib3==2.0.7

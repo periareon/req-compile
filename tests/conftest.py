@@ -8,7 +8,8 @@ import tempfile
 from typing import Callable, Iterable, NamedTuple, Optional, Tuple
 from zipfile import ZipFile
 
-import pkg_resources
+import packaging.requirements
+import packaging.version
 import pytest
 
 import req_compile.metadata
@@ -49,11 +50,12 @@ def metadata_provider():
 
 
 def _to_path(scenario, req):
-    if req.specs:
+    specs = list(req.specifier)
+    if specs:
         specific_path = os.path.join(
             os.path.dirname(__file__),
             scenario,
-            req.name.lower() + "-" + req.specs[0][1] + ".METADATA",
+            req.name.lower() + "-" + specs[0].version + ".METADATA",
         )
         if os.path.exists(specific_path):
             return specific_path
@@ -83,11 +85,11 @@ class MockRepository(Repository):
         for entry in metadata_entries:
             name = entry.split("-")[0]
             version = entry.rsplit(".", 1)[0].split("-")[1]
-            req = pkg_resources.Requirement.parse("{}=={}".format(name, version))
+            req = packaging.requirements.Requirement("{}=={}".format(name, version))
             if limit_reqs is None or req in limit_reqs:
                 self.index_map[entry.split("-")[0].lower()].append(req)
 
-    def _build_candidate(self, req: Optional[pkg_resources.Requirement]) -> Candidate:
+    def _build_candidate(self, req: Optional[packaging.requirements.Requirement]) -> Candidate:
         path = _to_path(self.scenario, req)
         full_name = (
             path
@@ -101,11 +103,11 @@ class MockRepository(Repository):
             )
 
         return Candidate(
-            req.project_name, path, metadata.version, None, None, "any", None
+            req.name, path, metadata.version, None, None, "any", None
         )
 
     def get_candidates(
-        self, req: Optional[pkg_resources.Requirement]
+        self, req: Optional[packaging.requirements.Requirement]
     ) -> Iterable[Candidate]:
         assert req, "Other Repository interfaces allow for None but not MockRepository"
         if self.index_map is None:
@@ -261,15 +263,15 @@ def mock_py_version(mocker: pytest.MonkeyPatch) -> Callable[[str], None]:
         )
         mocker.patch(
             "req_compile.repos.pypi.SYS_PY_VERSION",
-            pkg_resources.parse_version(version),
+            packaging.version.Version(version),
         )
         mocker.patch(
             "req_compile.repos.pypi.SYS_PY_MAJOR",
-            pkg_resources.parse_version(major_version),
+            packaging.version.Version(major_version),
         )
         mocker.patch(
             "req_compile.repos.pypi.SYS_PY_MAJOR_MINOR",
-            pkg_resources.parse_version(f"{major_version}.{minor_version}"),
+            packaging.version.Version(f"{major_version}.{minor_version}"),
         )
         mocker.patch(
             "req_compile.repos.repository.ABI_TAGS",

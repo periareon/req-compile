@@ -1,6 +1,6 @@
 import os
 
-import pkg_resources
+from packaging.requirements import Requirement
 import pytest
 
 from req_compile.errors import NoCandidateException
@@ -14,7 +14,7 @@ def monorepo_dir():
 
 def test_locate_source_package(monorepo_dir):
     source_repo = SourceRepository(monorepo_dir)
-    result, cached = source_repo.get_dist(pkg_resources.Requirement.parse("pkg2"))
+    result, cached = source_repo.get_dist(Requirement("pkg2"))
     assert cached
 
     assert result.name == "pkg2"
@@ -22,7 +22,7 @@ def test_locate_source_package(monorepo_dir):
 
 def test_nested_pkg(monorepo_dir):
     source_repo = SourceRepository(monorepo_dir)
-    result, _ = source_repo.get_dist(pkg_resources.Requirement.parse("pkg3"))
+    result, _ = source_repo.get_dist(Requirement("pkg3"))
     assert result.name == "pkg3"
 
 
@@ -30,18 +30,18 @@ def test_special_init(monorepo_dir):
     """Verify that __init__.py stops recursion"""
     source_repo = SourceRepository(monorepo_dir)
     with pytest.raises(NoCandidateException):
-        source_repo.get_dist(pkg_resources.Requirement.parse("pkg5"))
+        source_repo.get_dist(Requirement("pkg5"))
 
 
 def test_marker(monorepo_dir):
     """Verify that special marker files are respected"""
     source_repo = SourceRepository(monorepo_dir)
-    result, _ = source_repo.get_dist(pkg_resources.Requirement.parse("pkg4"))
+    result, _ = source_repo.get_dist(Requirement("pkg4"))
     assert result.name == "pkg4"
 
     source_repo_marker = SourceRepository(monorepo_dir, marker_files=[".special_dir"])
     with pytest.raises(NoCandidateException):
-        source_repo_marker.get_dist(pkg_resources.Requirement.parse("pkg4"))
+        source_repo_marker.get_dist(Requirement("pkg4"))
 
 
 def test_marker_in_dir(monorepo_dir):
@@ -49,7 +49,7 @@ def test_marker_in_dir(monorepo_dir):
     source_repo_marker = SourceRepository(
         os.path.join(monorepo_dir, "pkg4"), marker_files=[".special_dir"]
     )
-    source_repo_marker.get_dist(pkg_resources.Requirement.parse("pkg4"))
+    source_repo_marker.get_dist(Requirement("pkg4"))
 
 
 def test_exclude_dirs(monorepo_dir):
@@ -60,12 +60,12 @@ def test_exclude_dirs(monorepo_dir):
             os.path.join(monorepo_dir, "pkg2"),
         ]
     )
-    assert source_repo.get_candidates(pkg_resources.Requirement.parse("pkg1"))
-    assert source_repo.get_candidates(pkg_resources.Requirement.parse("pkg4"))
+    assert source_repo.get_candidates(Requirement("pkg1"))
+    assert source_repo.get_candidates(Requirement("pkg4"))
     with pytest.raises(NoCandidateException):
-        source_repo.get_dist(pkg_resources.Requirement.parse("pkg2"))
+        source_repo.get_dist(Requirement("pkg2"))
     with pytest.raises(NoCandidateException):
-        source_repo.get_dist(pkg_resources.Requirement.parse("pkg3"))
+        source_repo.get_dist(Requirement("pkg3"))
 
 def test_exclude_with_marker(monorepo_dir):
     """Test that having a matching marker doesn't keep exclusions from working."""
@@ -74,6 +74,6 @@ def test_exclude_with_marker(monorepo_dir):
             os.path.join(monorepo_dir, "pkg2"),
         ], marker_files=["pkg4"],
     )
-    assert source_repo.get_candidates(pkg_resources.Requirement.parse("pkg1"))
+    assert source_repo.get_candidates(Requirement("pkg1"))
     with pytest.raises(NoCandidateException):
-        source_repo.get_dist(pkg_resources.Requirement.parse("pkg2"))
+        source_repo.get_dist(Requirement("pkg2"))

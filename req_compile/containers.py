@@ -1,15 +1,17 @@
 import itertools
+import os
 from pathlib import Path
 from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
 
 import packaging.requirements
 import packaging.version
-import pkg_resources
 
 from req_compile.utils import reduce_requirements, req_iter_from_file
 
 
-def req_uses_extra(req: pkg_resources.Requirement, extra: Optional[str]) -> bool:
+def req_uses_extra(
+    req: packaging.requirements.Requirement, extra: Optional[str]
+) -> bool:
     """Determine if this requirement would be used with the given extra.
 
     If a distribution is requested with one of its extras, this filter will determine
@@ -33,25 +35,25 @@ class RequirementContainer:
     def __init__(
         self,
         name: str,
-        reqs: Iterable[pkg_resources.Requirement],
+        reqs: Iterable[packaging.requirements.Requirement],
         meta: bool = False,
     ) -> None:
         self.name = name
         self.reqs = list(reqs) if reqs else []
         # Store setup requirements for use when populating a wheeldir.
-        self.setup_reqs: List[pkg_resources.Requirement] = []
+        self.setup_reqs: List[packaging.requirements.Requirement] = []
         self.origin: Any = None
         self.meta = meta
         self.version: Optional[packaging.version.Version] = None
         self.hash: Optional[str] = None
         self.candidate: Any = None
 
-    def __iter__(self) -> Iterator[pkg_resources.Requirement]:
+    def __iter__(self) -> Iterator[packaging.requirements.Requirement]:
         return iter(self.reqs)
 
     def requires(
         self, extra: Optional[str] = None
-    ) -> Iterable[pkg_resources.Requirement]:
+    ) -> Iterable[packaging.requirements.Requirement]:
         return reduce_requirements(
             req for req in self.reqs if req_uses_extra(req, extra)
         )
@@ -64,7 +66,7 @@ class RequirementContainer:
 
 def reqs_from_files(
     requirements_files: Iterable[str], parameters: Optional[List[str]] = None
-) -> Iterable[pkg_resources.Requirement]:
+) -> Iterable[packaging.requirements.Requirement]:
     """Produce a list of requirements from multiple requirements files.
 
     Args:
@@ -76,7 +78,7 @@ def reqs_from_files(
     """
     if parameters is None:
         parameters = []
-    raw_reqs: Iterable[pkg_resources.Requirement] = iter([])
+    raw_reqs: Iterable[packaging.requirements.Requirement] = iter([])
     for reqfile_name in requirements_files:
         raw_reqs = itertools.chain(
             raw_reqs, req_iter_from_file(reqfile_name, parameters=parameters)
@@ -91,9 +93,9 @@ class RequirementsFile(RequirementContainer):
     def __init__(
         self,
         filename: str,
-        reqs: Iterable[pkg_resources.Requirement],
+        reqs: Iterable[packaging.requirements.Requirement],
         parameters: Optional[List[str]] = None,
-        **_kwargs: Any
+        **_kwargs: Any,
     ) -> None:
         super(RequirementsFile, self).__init__(filename, reqs, meta=True)
         self.parameters = parameters
@@ -133,7 +135,7 @@ class DistInfo(RequirementContainer):
         self,
         name: str,
         version: Optional[packaging.version.Version],
-        reqs: Iterable[pkg_resources.Requirement],
+        reqs: Iterable[packaging.requirements.Requirement],
         meta: bool = False,
     ) -> None:
         """
@@ -168,29 +170,87 @@ class DistInfo(RequirementContainer):
         )
 
 
-class PkgResourcesDistInfo(RequirementContainer):
-    def __init__(self, dist: pkg_resources.Distribution) -> None:
-        """
-        Args:
-            dist: The distribution to wrap
-        """
-        super(PkgResourcesDistInfo, self).__init__(dist.project_name, [])
-        self.dist = dist
-        self.version = dist.parsed_version
+class EggInfoDistInfo(DistInfo):
+    """Parse metadata from an .egg-info directory."""
 
-    def __str__(self) -> str:
-        return "{}=={}".format(*self.to_definition(None))
+    def __init__(self, egg_info_dir: str, project_name: Optional[str] = None) -> None:
+        name = project_name or ""
+        version: Optional[packaging.version.Version] = None
+        reqs: List[packaging.requirements.Requirement] = []
 
-    def requires(
-        self, extra: Optional[str] = None
-    ) -> Iterable[pkg_resources.Requirement]:
-        return self.dist.requires(extras=(extra,) if extra else ())
+        pkg_info_path = os.path.join(egg_info_dir, "PKG-INFO")
+        if os.path.exists(pkg_info_path):
+            import email.parser  # pylint: disable=import-outside-toplevel
 
-    def to_definition(
-        self, extras: Optional[Iterable[str]]
-    ) -> Tuple[str, Optional[packaging.version.Version]]:
-        req_expr = "{}{}".format(
-            self.dist.project_name,
-            ("[" + ",".join(sorted(extras)) + "]") if extras else "",
-        )
-        return req_expr, self.version
+            with open(pkg_info_path, "r", encoding="utf-8", errors="replace") as f:
+                msg = email.parser.Parser().parse(f)
+            name = msg.get("Name", name) or name
+            ver_str = msg.get("Version", "")
+            if ver_str:
+                try:
+                    version = packaging.version.Version(ver_str)
+                except packaging.version.InvalidVersion:
+                    pass
+
+        requires_path = os.path.join(egg_info_dir, "requires.txt")
+        if os.path.exists(requires_path):
+            reqs = _parse_requires_txt(requires_path)
+
+        super().__init__(name, version, reqs)
+
+
+def _format_req_str(req: packaging.requirements.Requirement) -> str:
+    """Format a Requirement back to a string, preserving extras and URL."""
+    extras = "[" + ",".join(sorted(req.extras)) + "]" if req.extras else ""
+    if req.url:
+        return f"{req.name}{extras} @ {req.url}"
+    return f"{req.name}{extras}{req.specifier}"
+
+
+def _parse_requires_txt(
+    requires_path: str,
+) -> List[packaging.requirements.Requirement]:
+    """Parse an egg-info requires.txt file into a list of requirements.
+
+    Sections like ``[extra_name]`` or ``[extra_name:marker]`` mark subsequent
+    requirements as conditional on that extra and/or environment marker.
+    """
+    reqs: List[packaging.requirements.Requirement] = []
+    current_extra: Optional[str] = None
+    current_section_marker: Optional[str] = None
+
+    with open(requires_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith("[") and line.endswith("]"):
+                section = line[1:-1]
+                # Section headers can be [extra:marker] or [:marker]
+                if ":" in section:
+                    extra_part, _, marker_part = section.partition(":")
+                    current_extra = extra_part.strip() or None
+                    current_section_marker = marker_part.strip() or None
+                else:
+                    current_extra = section
+                    current_section_marker = None
+                continue
+            try:
+                req = packaging.requirements.Requirement(line)
+                markers = []
+                if req.marker:
+                    markers.append(str(req.marker))
+                if current_extra:
+                    markers.append(f'extra == "{current_extra}"')
+                if current_section_marker:
+                    markers.append(current_section_marker)
+                if markers:
+                    base = _format_req_str(req)
+                    combined_marker = " and ".join(markers)
+                    req = packaging.requirements.Requirement(
+                        f"{base}; {combined_marker}"
+                    )
+                reqs.append(req)
+            except Exception:  # pylint: disable=broad-exception-caught
+                pass
+    return reqs

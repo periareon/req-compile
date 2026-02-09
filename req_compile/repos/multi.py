@@ -1,7 +1,7 @@
 import itertools
 from typing import Iterable, Iterator, List, Optional, Tuple
 
-import pkg_resources
+import packaging.requirements
 from overrides import overrides
 
 from req_compile.containers import RequirementContainer
@@ -30,7 +30,7 @@ class MultiRepository(Repository):
     @overrides
     def get_dist(
         self,
-        req: pkg_resources.Requirement,
+        req: packaging.requirements.Requirement,
         allow_source_dist: bool = True,
         max_downgrade: Optional[int] = None,
     ) -> Tuple[RequirementContainer, bool]:
@@ -48,7 +48,7 @@ class MultiRepository(Repository):
 
     @overrides
     def get_candidates(
-        self, req: Optional[pkg_resources.Requirement]
+        self, req: Optional[packaging.requirements.Requirement]
     ) -> Iterable[Candidate]:
         candidates: List[Candidate] = []
         for repo in self.repositories:
@@ -75,7 +75,7 @@ class PooledCandidateMultiRepository(MultiRepository):
 
     @overrides
     def get_candidates(
-        self, req: Optional[pkg_resources.Requirement]
+        self, req: Optional[packaging.requirements.Requirement]
     ) -> Iterable[Candidate]:
         candidates: List[Candidate] = []
         for idx, repo in enumerate(self.repositories):

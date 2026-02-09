@@ -1,11 +1,9 @@
-from __future__ import print_function
-
 import os
 import sys
 from pathlib import Path
 from typing import Any, Iterable, Optional, Sequence, Tuple, Union
 
-import pkg_resources
+import packaging.requirements
 from overrides import overrides
 
 import req_compile.containers
@@ -69,19 +67,16 @@ class SolutionRepository(Repository):
 
     @overrides
     def get_candidates(
-        self, req: Optional[pkg_resources.Requirement]
+        self, req: Optional[packaging.requirements.Requirement]
     ) -> Sequence[Candidate]:
         if req is None:
             return [_candidate_from_node(node) for node in self.solution]
 
-        if (
-            req_compile.utils.normalize_project_name(req.project_name)
-            in self.excluded_packages
-        ):
+        if req_compile.utils.normalize_project_name(req.name) in self.excluded_packages:
             return []
 
         try:
-            node = self.solution[req.project_name]
+            node = self.solution[req.name]
             candidate = _candidate_from_node(node)
             return [candidate]
         except KeyError:
@@ -244,7 +239,7 @@ class SolutionRepository(Repository):
 
     def _add_sources(
         self,
-        req: pkg_resources.Requirement,
+        req: packaging.requirements.Requirement,
         sources: Iterable[str],
         url: Optional[str] = None,
         dist_hash: Optional[str] = None,
@@ -258,11 +253,11 @@ class SolutionRepository(Repository):
             ),
             sources,
         )
-        version = req_compile.utils.parse_version(list(req.specs)[0][1])
+        version = req_compile.utils.parse_version(next(iter(req.specifier)).version)
 
         metadata = None
-        if req.project_name in self.solution:
-            metadata = self.solution[req.project_name].metadata
+        if req.name in self.solution:
+            metadata = self.solution[req.name].metadata
         if metadata is None:
             metadata = req_compile.containers.DistInfo(req.name, version, [])
 
@@ -272,7 +267,7 @@ class SolutionRepository(Repository):
         metadata.origin = self
 
         candidate = Candidate(
-            req.project_name,
+            req.name,
             None,
             version,
             None,
@@ -296,7 +291,6 @@ class SolutionRepository(Repository):
 
                 try:
                     constraint_req = req_compile.utils.parse_requirement(name)
-                    # Use .name instead of .project_name to avoid normalization
                     proj_name = constraint_req.name
                 except ValueError:
                     proj_name = name
@@ -322,11 +316,11 @@ class SolutionRepository(Repository):
 
 
 def _create_metadata_req(
-    req: pkg_resources.Requirement,
+    req: packaging.requirements.Requirement,
     metadata: RequirementContainer,
     name: str,
     constraints: Optional[str],
-) -> pkg_resources.Requirement:
+) -> packaging.requirements.Requirement:
     marker = ""
     if "[" in name:
         extra = next(iter(req_compile.utils.parse_requirement(name).extras))

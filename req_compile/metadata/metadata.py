@@ -4,7 +4,7 @@ import os
 import zipfile
 from typing import List, Optional
 
-import pkg_resources
+import packaging.requirements
 
 from req_compile.containers import RequirementContainer
 from req_compile.errors import MetadataError
@@ -38,7 +38,7 @@ def extract_metadata(
     ext = ext.lower()
 
     # Gather setup requires from setup.py and pyproject.toml.
-    setup_requires: List[pkg_resources.Requirement] = []
+    setup_requires: List[packaging.requirements.Requirement] = []
 
     if ext == ".whl":
         LOG.debug("Extracting from wheel")

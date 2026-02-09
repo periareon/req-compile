@@ -1,8 +1,7 @@
 from typing import Tuple
 
-import pkg_resources
+import packaging.requirements
 from packaging.version import Version
-from pkg_resources import Requirement
 
 from req_compile.utils import parse_version
 
@@ -46,7 +45,7 @@ def _build_wildcard_min_max(version: str) -> Tuple[Version, Version]:
 
 
 def is_possible(
-    req: pkg_resources.Requirement,
+    req: packaging.requirements.Requirement,
 ) -> bool:  # pylint: disable=too-many-branches
     """Determine whether the requirement with its given specifiers is even possible.
 
@@ -66,10 +65,10 @@ def is_possible(
     not_equal = []
 
     upper_bound = parse_version("{max}.{max}.{max}".format(max=PART_MAX))
-    if len(req.specifier) == 1:  # type: ignore[attr-defined]
+    if len(req.specifier) == 1:
         return True
 
-    for spec in req.specifier:  # type: ignore[attr-defined]
+    for spec in req.specifier:
         # Special block just for ==, since it may refer to wildcard versions
         # which are not parseable as a packaging.version Version.
         if spec.operator in "==":
@@ -105,11 +104,11 @@ def is_possible(
                 new_specs = ",".join(str(spec) for spec in all_specs)
 
                 spec_lower, spec_upper = _build_wildcard_min_max(spec.version)
-                req_upper = Requirement.parse(
-                    req.project_name + new_specs + ",>{}".format(spec_upper)
+                req_upper = packaging.requirements.Requirement(
+                    req.name + new_specs + ",>{}".format(spec_upper)
                 )
-                req_lower = Requirement.parse(
-                    req.project_name + new_specs + ",<{}".format(spec_lower)
+                req_lower = packaging.requirements.Requirement(
+                    req.name + new_specs + ",<{}".format(spec_lower)
                 )
                 return is_possible(req_lower) or is_possible(req_upper)
             else:
@@ -138,7 +137,7 @@ def is_possible(
         return False
 
     if exact is not None:
-        return exact in req  # type: ignore[operator]
+        return req.specifier.contains(str(exact), prereleases=True)
 
     for check in not_equal:
         if check == exact:

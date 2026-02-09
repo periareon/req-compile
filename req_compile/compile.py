@@ -1,8 +1,6 @@
 # pylint: disable=too-many-nested-blocks
 """Logic for compiling requirements"""
 
-from __future__ import print_function
-
 import itertools
 import logging
 import operator
@@ -10,7 +8,7 @@ import os
 from collections import defaultdict
 from typing import Dict, Iterable, Mapping, Optional, Set, Tuple
 
-import pkg_resources
+import packaging.requirements
 
 import req_compile.containers
 import req_compile.dists
@@ -50,7 +48,7 @@ class CompileOptions:
 
     extras: Optional[Iterable[str]] = None
     allow_circular_dependencies: bool = True
-    pinned_requirements: Mapping[NormName, pkg_resources.Requirement] = {}
+    pinned_requirements: Mapping[NormName, packaging.requirements.Requirement] = {}
     only_binary: Set[NormName] = set()
 
 
@@ -154,7 +152,7 @@ def compile_roots(
     if node.metadata is None:
         spec_req = node.build_constraints()
 
-        spec_name = normalize_project_name(spec_req.project_name)
+        spec_name = normalize_project_name(spec_req.name)
         if options.pinned_requirements:
             pin = options.pinned_requirements.get(spec_name, spec_req)
             spec_req = merge_requirements(spec_req, pin)
@@ -257,7 +255,7 @@ def compile_roots(
 
         # Add extras to the "reason" if the commandline option was specified.
         # This only applies to sourcd repositories.
-        reason: Optional[pkg_resources.Requirement] = None
+        reason: Optional[packaging.requirements.Requirement] = None
         if source is not None and node in source.dependencies:
             reason = source.dependencies[node]
             if (
@@ -268,7 +266,7 @@ def compile_roots(
                 reason = merge_requirements(
                     reason,
                     parse_requirement(
-                        reason.project_name + "[" + ",".join(options.extras) + "]"
+                        reason.name + "[" + ",".join(options.extras) + "]"
                     ),
                 )
 
@@ -338,14 +336,14 @@ def perform_compile(
     constraint_nodes = set()
     nodes = set()
     all_pinned = True
-    pinned_requirements: Dict[NormName, pkg_resources.Requirement] = {}
+    pinned_requirements: Dict[NormName, packaging.requirements.Requirement] = {}
 
     if constraint_reqs is not None:
         for constraint_source in constraint_reqs:
             all_pinned &= all([is_pinned_requirement(req) for req in constraint_source])
             if all_pinned:
                 for req in constraint_source:
-                    pinned_requirements[normalize_project_name(req.project_name)] = req
+                    pinned_requirements[normalize_project_name(req.name)] = req
 
         if not all_pinned:
             for constraint_source in constraint_reqs:

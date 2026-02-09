@@ -4,5 +4,4 @@ appdirs
 packaging
 wheel
 overrides
-typing_extensions
-setuptools < 82  # Required for pkg_resources
+setuptools

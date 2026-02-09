@@ -6,7 +6,7 @@ import logging
 import sys
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Union
 
-import pkg_resources
+import packaging.requirements
 
 from req_compile.containers import RequirementContainer
 from req_compile.repos import Repository
@@ -30,9 +30,9 @@ class DependencyNode:
     def __init__(self, key: NormName, metadata: Optional[RequirementContainer]) -> None:
         self.key = key
         self.metadata = metadata
-        self.dependencies: Dict[DependencyNode, Optional[pkg_resources.Requirement]] = (
-            {}
-        )
+        self.dependencies: Dict[
+            DependencyNode, Optional[packaging.requirements.Requirement]
+        ] = {}
         self.reverse_deps: Set[DependencyNode] = set()
         self.repo: Optional[Repository] = None
         self.complete = (
@@ -69,11 +69,11 @@ class DependencyNode:
         return extras
 
     def add_reason(
-        self, node: DependencyNode, reason: Optional[pkg_resources.Requirement]
+        self, node: DependencyNode, reason: Optional[packaging.requirements.Requirement]
     ) -> None:
         self.dependencies[node] = reason
 
-    def build_constraints(self) -> pkg_resources.Requirement:
+    def build_constraints(self) -> packaging.requirements.Requirement:
         result = None
 
         for rdep_node in self.reverse_deps:
@@ -84,7 +84,7 @@ class DependencyNode:
             for extra in rdep_node.extras:
                 all_reqs |= set(rdep_node.metadata.requires(extra=extra))
             for req in all_reqs:
-                if normalize_project_name(req.project_name) == self.key:
+                if normalize_project_name(req.name) == self.key:
                     result = merge_requirements(result, req)
 
         if result is None:
@@ -95,9 +95,10 @@ class DependencyNode:
             assert result is not None
 
             if self.extras:
-                result.extras = self.extras
-                # Reparse to create a correct hash
-                result = parse_requirement(str(result))
+                extras_str = "[" + ",".join(sorted(self.extras)) + "]"
+                result = parse_requirement(
+                    result.name + extras_str + str(result.specifier)
+                )
                 assert result is not None
         return result
 
@@ -214,13 +215,13 @@ def build_explanation(root_node: DependencyNode) -> collections.abc.Collection[s
         for extra in node.extras:
             all_reqs |= set(node.metadata.requires(extra=extra))
         for req in all_reqs:
-            if normalize_project_name(req.project_name) == root_node.key:
+            if normalize_project_name(req.name) == root_node.key:
                 constraints.append(_process_constraint_req(req, node))
     return constraints
 
 
 def _process_constraint_req(
-    req: pkg_resources.Requirement, node: DependencyNode
+    req: packaging.requirements.Requirement, node: DependencyNode
 ) -> str:
     assert node.metadata is not None, "Node {} must be solved".format(node)
     extras: Set[str] = set()
@@ -271,7 +272,7 @@ class DistributionCollection:
         self,
         name_or_metadata: Union[str, RequirementContainer],
         source: Optional[DependencyNode],
-        reason: Optional[pkg_resources.Requirement],
+        reason: Optional[packaging.requirements.Requirement],
     ) -> DependencyNode:
         """Add a distribution as a placeholder or as a solution.
 

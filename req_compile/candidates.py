@@ -2,8 +2,6 @@
 
 # pylint: disable=too-many-branches
 
-from __future__ import print_function
-
 import argparse
 import logging
 import os
@@ -11,8 +9,6 @@ import shutil
 import sys
 import tempfile
 import time
-
-import pkg_resources
 
 from req_compile.cmdline import (
     SplitProjectsFilter,
@@ -107,7 +103,11 @@ def candidates_main() -> None:
     try:
         req = None
         if args.project_name:
-            req = pkg_resources.Requirement.parse(args.project_name)
+            from req_compile.utils import (  # pylint: disable=import-outside-toplevel
+                parse_requirement,
+            )
+
+            req = parse_requirement(args.project_name)
 
         candidates = repo.get_candidates(req)
         if not args.all:

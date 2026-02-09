@@ -1,6 +1,4 @@
 # pylint: disable=too-many-lines
-from __future__ import print_function
-
 import argparse
 import datetime
 import enum
@@ -18,7 +16,7 @@ from itertools import repeat
 from pathlib import Path
 from typing import IO, Any, Iterable, List, Mapping, Optional, Sequence, Set, Union
 
-import pkg_resources
+import packaging.requirements
 
 import req_compile.compile
 import req_compile.dists
@@ -104,7 +102,7 @@ def _find_paths_to_root(
 
 
 def _generate_no_candidate_display(
-    req: pkg_resources.Requirement,
+    req: packaging.requirements.Requirement,
     repo: Repository,
     dists: DistributionCollection,
     failure: Exception,
@@ -139,7 +137,7 @@ def _generate_no_candidate_display(
             paths = _find_paths_to_root(failure.conflicting_node)
             _print_paths_to_root(failure.conflicting_node, paths, True)
 
-            walkback_project = failure.walkback_project or req.project_name
+            walkback_project = failure.walkback_project or req.name
             print(
                 f"Tried walking the most conflicted reverse dependency ({walkback_project}) back:",
                 file=sys.stderr,
@@ -186,14 +184,14 @@ def _generate_no_candidate_display(
         else:
             print(
                 "No version of {} could satisfy the following requirements ({}):".format(
-                    req.project_name, constraints
+                    req.name, constraints
                 ),
                 file=sys.stderr,
             )
     else:
         print(
             "A problem occurred while determining requirements for {name}:\n"
-            "{failure}".format(name=req.project_name, failure=failure),
+            "{failure}".format(name=req.name, failure=failure),
             file=sys.stderr,
         )
 
@@ -250,7 +248,7 @@ def _print_paths_to_root(
 
 
 def _dump_repo_candidates(
-    req: pkg_resources.Requirement,
+    req: packaging.requirements.Requirement,
     repos: Iterable[Repository],
     only_binary: Optional[Set[NormName]] = None,
 ) -> None:
@@ -304,7 +302,7 @@ def _dump_repo_candidates(
             print("  No candidates found", file=sys.stderr)
 
 
-def _create_req_from_path(path: str) -> pkg_resources.Requirement:
+def _create_req_from_path(path: str) -> packaging.requirements.Requirement:
     dist = _create_dist_from_path(path)
     return utils.parse_requirement("{}=={}".format(*dist.to_definition(None)))
 
@@ -340,7 +338,7 @@ def _create_input_reqs(input_arg: str, parameters: List[str]) -> RequirementCont
         ]
 
         if all(os.path.isdir(line.strip()) for line in stdin_contents):
-            reqs: Iterable[pkg_resources.Requirement] = [
+            reqs: Iterable[packaging.requirements.Requirement] = [
                 _create_req_from_path(line) for line in stdin_contents
             ]
             parameters.extend(f"--source={line}" for line in stdin_contents)
@@ -610,12 +608,15 @@ def _generate_repo_header(
     each line
     """
     repo_mapping = {}
-    qer_req = pkg_resources.working_set.find(
-        pkg_resources.Requirement.parse("req_compile")
-    )
+    try:
+        import importlib.metadata as _importlib_metadata  # pylint: disable=import-outside-toplevel
+
+        qer_version = _importlib_metadata.version("req_compile")
+    except Exception:  # pylint: disable=broad-exception-caught
+        qer_version = "dev"
     write_to.write(
         "# Compiled by Req-Compile ({}) on {} UTC\n".format(
-            qer_req.version if qer_req else "dev", datetime.datetime.utcnow()
+            qer_version, datetime.datetime.utcnow()
         )
     )
     write_to.write("#\n# Inputs:\n")
@@ -996,10 +997,10 @@ def compile_main(raw_args: Optional[Sequence[str]] = None) -> None:
     if args.extras:
         for req in input_reqs:
             try:
-                extra_req = pkg_resources.Requirement.parse(
+                extra_req = parse_requirement(
                     req.name + "[{}]".format(",".join(args.extras))
                 )
-            except pkg_resources.RequirementParseError:  # type: ignore[attr-defined]
+            except (ValueError, packaging.requirements.InvalidRequirement):
                 continue
             extra_constraint = DistInfo(
                 "{}-extra".format(req.name), None, [extra_req], meta=True

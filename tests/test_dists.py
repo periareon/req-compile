@@ -1,10 +1,10 @@
 import logging
 from typing import Any
 
-import pkg_resources
 import pytest
-from pkg_resources import Requirement
+from packaging.requirements import Requirement
 
+import req_compile.utils
 from req_compile.containers import DistInfo
 from req_compile.dists import (
     DistributionCollection,
@@ -17,11 +17,11 @@ from req_compile.dists import (
 def test_unconstrained():
     dists = DistributionCollection()
     dists.add_dist(
-        DistInfo("aaa", "1.2.0", pkg_resources.parse_requirements(["bbb"])),
+        DistInfo("aaa", "1.2.0", list(req_compile.utils.parse_requirements(["bbb"]))),
         None,
-        Requirement.parse("aaa"),
+        Requirement("aaa"),
     )
-    assert dists["bbb"].build_constraints() == pkg_resources.Requirement.parse("bbb")
+    assert dists["bbb"].build_constraints() == Requirement("bbb")
     assert len(dists) == 2
     assert not dists["aaa"].complete
 
@@ -29,27 +29,27 @@ def test_unconstrained():
 def test_one_source():
     dists = DistributionCollection()
     dists.add_dist(
-        DistInfo("aaa", "1.2.0", pkg_resources.parse_requirements(["bbb<1.0"])),
+        DistInfo("aaa", "1.2.0", list(req_compile.utils.parse_requirements(["bbb<1.0"]))),
         None,
-        Requirement.parse("aaa"),
+        Requirement("aaa"),
     )
-    assert dists["aaa"].build_constraints() == Requirement.parse("aaa")
-    assert dists["bbb"].build_constraints() == Requirement.parse("bbb<1.0")
+    assert dists["aaa"].build_constraints() == Requirement("aaa")
+    assert dists["bbb"].build_constraints() == Requirement("bbb<1.0")
 
 
 def test_two_sources():
     dists = DistributionCollection()
     dists.add_dist(
-        DistInfo("aaa", "1.2.0", pkg_resources.parse_requirements(["bbb<1.0"])),
+        DistInfo("aaa", "1.2.0", list(req_compile.utils.parse_requirements(["bbb<1.0"]))),
         None,
-        Requirement.parse("aaa"),
+        Requirement("aaa"),
     )
     dists.add_dist(
-        DistInfo("ccc", "1.0.0", pkg_resources.parse_requirements(["bbb>0.5"])),
+        DistInfo("ccc", "1.0.0", list(req_compile.utils.parse_requirements(["bbb>0.5"]))),
         None,
-        Requirement.parse("ccc"),
+        Requirement("ccc"),
     )
-    assert dists["bbb"].build_constraints() == pkg_resources.Requirement.parse(
+    assert dists["bbb"].build_constraints() == Requirement(
         "bbb>0.5,<1.0"
     )
 
@@ -57,16 +57,16 @@ def test_two_sources():
 def test_two_sources_same():
     dists = DistributionCollection()
     dists.add_dist(
-        DistInfo("aaa", "1.2.0", pkg_resources.parse_requirements(["bbb<1.0"])),
+        DistInfo("aaa", "1.2.0", list(req_compile.utils.parse_requirements(["bbb<1.0"]))),
         None,
-        Requirement.parse("aaa"),
+        Requirement("aaa"),
     )
     dists.add_dist(
-        DistInfo("ccc", "1.0.0", pkg_resources.parse_requirements(["bbb<1.0"])),
+        DistInfo("ccc", "1.0.0", list(req_compile.utils.parse_requirements(["bbb<1.0"]))),
         None,
-        Requirement.parse("ccc"),
+        Requirement("ccc"),
     )
-    assert dists["bbb"].build_constraints() == pkg_resources.Requirement.parse(
+    assert dists["bbb"].build_constraints() == Requirement(
         "bbb<1.0"
     )
 
@@ -74,9 +74,9 @@ def test_two_sources_same():
 def test_add_remove_dist():
     dists = DistributionCollection()
     node = dists.add_dist(
-        DistInfo("aaa", "1.2.0", pkg_resources.parse_requirements(["bbb<1.0"])),
+        DistInfo("aaa", "1.2.0", list(req_compile.utils.parse_requirements(["bbb<1.0"]))),
         None,
-        Requirement.parse("aaa"),
+        Requirement("aaa"),
     )
     dists.remove_dists(node)
     assert "bbb" not in dists
@@ -88,7 +88,7 @@ def test_dist_with_unselected_extra():
         DistInfo(
             "aaa",
             "1.2.0",
-            reqs=pkg_resources.parse_requirements(['bbb<1.0 ; extra=="x1"']),
+            reqs=list(req_compile.utils.parse_requirements(['bbb<1.0 ; extra=="x1"'])),
         ),
         None,
         None,
@@ -102,7 +102,7 @@ def test_unnormalized_dist_with_extra():
     dists = DistributionCollection()
     metadata = DistInfo("A", "1.0.0", [])
 
-    dists.add_dist(metadata, None, Requirement.parse("A[x]"))
+    dists.add_dist(metadata, None, Requirement("A[x]"))
 
     assert dists["A"].metadata.version == "1.0.0"
     assert dists["A[x]"].metadata.version == "1.0.0"
@@ -114,7 +114,7 @@ def test_metadata_violated() -> None:
     metadata_a = DistInfo("a", "1.0.0", [])
 
     dists.add_dist(metadata_a, None, None)
-    dists.add_dist(metadata_a, None, Requirement.parse("a>1.0"))
+    dists.add_dist(metadata_a, None, Requirement("a>1.0"))
 
     assert dists["a"].metadata is None
     assert dists["a"].dependencies == {}
@@ -124,10 +124,10 @@ def test_metadata_violated() -> None:
 
 def test_metadata_violated_removes_transitive():
     dists = DistributionCollection()
-    metadata_a = DistInfo("a", "1.0.0", reqs=pkg_resources.parse_requirements(["b"]))
+    metadata_a = DistInfo("a", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["b"])))
 
     dists.add_dist(metadata_a, None, None)
-    dists.add_dist(metadata_a, None, Requirement.parse("a>1.0"))
+    dists.add_dist(metadata_a, None, Requirement("a>1.0"))
 
     assert dists["a"].metadata is None
     assert "b" not in dists
@@ -137,7 +137,7 @@ def test_metadata_transitive_violated():
     dists = DistributionCollection()
     metadata_a = DistInfo("a", "1.0.0", [])
     metadata_b = DistInfo(
-        "b", "1.0.0", reqs=pkg_resources.parse_requirements(["a>1.0"])
+        "b", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["a>1.0"]))
     )
 
     dists.add_dist(metadata_a, None, None)
@@ -149,22 +149,22 @@ def test_metadata_transitive_violated():
 def test_repo_with_extra():
     dists = DistributionCollection()
     root = DistInfo(
-        "root", "1.0", pkg_resources.parse_requirements(["a[test]"]), meta=True
+        "root", "1.0", list(req_compile.utils.parse_requirements(["a[test]"])), meta=True
     )
     metadata_a = DistInfo(
-        "a", "1.0.0", pkg_resources.parse_requirements(['b ; extra=="test"', "c"])
+        "a", "1.0.0", list(req_compile.utils.parse_requirements(['b ; extra=="test"', "c"]))
     )
     metadata_b = DistInfo("b", "2.0.0", [])
     metadata_c = DistInfo("c", "2.0.0", [])
 
     root = dists.add_dist(root, None, None)
     root_a = dists.add_dist(
-        metadata_a, None, pkg_resources.Requirement.parse("a[test]")
+        metadata_a, None, Requirement("a[test]")
     )
     dists.add_dist(
-        metadata_b, root_a, pkg_resources.Requirement.parse('b ; extra=="test"')
+        metadata_b, root_a, Requirement('b ; extra=="test"')
     )
-    dists.add_dist(metadata_c, root_a, pkg_resources.Requirement.parse("a"))
+    dists.add_dist(metadata_c, root_a, Requirement("a"))
 
     results = [
         ("==".join(node.metadata.to_definition(node.extras)), build_explanation(node))
@@ -180,16 +180,16 @@ def test_repo_with_extra():
 def test_regular_and_extra_constraints():
     dists = DistributionCollection()
     root = DistInfo(
-        "root", "1.0", pkg_resources.parse_requirements(["a[test]"]), meta=True
+        "root", "1.0", list(req_compile.utils.parse_requirements(["a[test]"])), meta=True
     )
     metadata_a = DistInfo(
-        "a", "1.0.0", pkg_resources.parse_requirements(['b>3 ; extra=="test"', "b>2"])
+        "a", "1.0.0", list(req_compile.utils.parse_requirements(['b>3 ; extra=="test"', "b>2"]))
     )
 
     dists.add_dist(root, None, None)
-    dists.add_dist(metadata_a, None, pkg_resources.Requirement.parse("a[test]"))
+    dists.add_dist(metadata_a, None, Requirement("a[test]"))
 
-    assert dists["b"].build_constraints() == pkg_resources.Requirement.parse("b>2,>3")
+    assert dists["b"].build_constraints() == Requirement("b>2,>3")
     assert not dists["a"].complete
     assert not dists["b"].complete
     assert not dists["root"].complete
@@ -198,7 +198,7 @@ def test_regular_and_extra_constraints():
 def test_circular_self_dep() -> None:
     """Test that a self edge is OK."""
     dists = DistributionCollection()
-    metadata_a = DistInfo("a", "1.0.0", reqs=pkg_resources.parse_requirements(["a"]))
+    metadata_a = DistInfo("a", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["a"])))
 
     dists.add_dist(metadata_a, None, None)
 
@@ -209,10 +209,10 @@ def test_circular_self_dep() -> None:
 def test_circular_self_invalidate() -> None:
     """Test that a self edge can invalidate correctly."""
     dists = DistributionCollection()
-    metadata_a = DistInfo("a", "1.0.0", reqs=pkg_resources.parse_requirements(["a"]))
+    metadata_a = DistInfo("a", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["a"])))
 
     dists.add_dist(metadata_a, None, None)
-    dists.add_dist(metadata_a, None, Requirement.parse("a>1.0"))
+    dists.add_dist(metadata_a, None, Requirement("a>1.0"))
 
     assert dists["a"].metadata is None
     assert dists["a"].dependencies == {}
@@ -223,28 +223,28 @@ def test_circular_self_invalidate() -> None:
 def test_big_circular_invalidate() -> None:
     """Test that a two node circular dep can invalidate correctly."""
     dists = DistributionCollection()
-    metadata_a = DistInfo("a", "1.0.0", reqs=pkg_resources.parse_requirements(["b"]))
-    metadata_b = DistInfo("b", "1.0.0", reqs=pkg_resources.parse_requirements(["a"]))
+    metadata_a = DistInfo("a", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["b"])))
+    metadata_b = DistInfo("b", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["a"])))
 
     meta = dists.add_dist(
-        DistInfo("-", None, pkg_resources.parse_requirements(["a", "b"]), meta=True),
+        DistInfo("-", None, list(req_compile.utils.parse_requirements(["a", "b"])), meta=True),
         None,
         None,
     )
 
-    dists.add_dist(metadata_a, meta, Requirement.parse("a"))
-    dists.add_dist(metadata_b, meta, Requirement.parse("b"))
+    dists.add_dist(metadata_a, meta, Requirement("a"))
+    dists.add_dist(metadata_b, meta, Requirement("b"))
 
     for node in dists:
         print(node, node.complete)
 
-    dists.add_dist(metadata_a, None, Requirement.parse("a>1.0"))
+    dists.add_dist(metadata_a, None, Requirement("a>1.0"))
 
     assert dists["a"].metadata is None
     assert dists["a"].dependencies == {}
     assert dists["a"].reverse_deps == {dists["_"], dists["b"]}
 
-    dists.add_dist(metadata_a, None, Requirement.parse("a<=1.0"))
+    dists.add_dist(metadata_a, None, Requirement("a<=1.0"))
     for node in dists:
         assert node.complete
 
@@ -255,35 +255,35 @@ def test_base_plugin_circular_completed() -> None:
     metadata_root = DistInfo(
         "root",
         "1.0.0",
-        reqs=pkg_resources.parse_requirements(["root-c", "root-a", "root-b"]),
+        reqs=list(req_compile.utils.parse_requirements(["root-c", "root-a", "root-b"])),
     )
     metadata_root_a = DistInfo(
-        "root-a", "1.0.0", reqs=pkg_resources.parse_requirements(["root", "dep-a"])
+        "root-a", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["root", "dep-a"]))
     )
     metadata_dep_a = DistInfo("dep-a", "1.0.0", reqs=[])
     metadata_root_b = DistInfo(
         "root-b",
         "1.0.0",
-        reqs=pkg_resources.parse_requirements(["root", "dep-b", "common"]),
+        reqs=list(req_compile.utils.parse_requirements(["root", "dep-b", "common"])),
     )
     metadata_dep_b = DistInfo("dep-b", "1.0.0", reqs=[])
     metadata_root_c = DistInfo(
-        "root-c", "1.0.0", reqs=pkg_resources.parse_requirements(["dep-c"])
+        "root-c", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["dep-c"]))
     )
     metadata_dep_c = DistInfo("dep-c", "1.0.0", reqs=[])
     metadata_common = DistInfo(
-        "common", "1.0.0", reqs=pkg_resources.parse_requirements(["root", "dep-a"])
+        "common", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["root", "dep-a"]))
     )
 
-    root_node = dists.add_dist(metadata_root, None, Requirement.parse("root"))
-    a_node = dists.add_dist(metadata_root_a, root_node, Requirement.parse("root-a"))
-    dists.add_dist(metadata_dep_a, a_node, Requirement.parse("dep-a"))
-    b_node = dists.add_dist(metadata_root_b, root_node, Requirement.parse("root-b"))
-    dists.add_dist(metadata_dep_b, b_node, Requirement.parse("dep-b"))
-    dists.add_dist(metadata_common, b_node, Requirement.parse("common"))
-    dists.add_dist(metadata_dep_b, b_node, Requirement.parse("dep-b"))
-    c_node = dists.add_dist(metadata_root_c, root_node, Requirement.parse("root-c"))
-    dists.add_dist(metadata_dep_c, c_node, Requirement.parse("dep-c"))
+    root_node = dists.add_dist(metadata_root, None, Requirement("root"))
+    a_node = dists.add_dist(metadata_root_a, root_node, Requirement("root-a"))
+    dists.add_dist(metadata_dep_a, a_node, Requirement("dep-a"))
+    b_node = dists.add_dist(metadata_root_b, root_node, Requirement("root-b"))
+    dists.add_dist(metadata_dep_b, b_node, Requirement("dep-b"))
+    dists.add_dist(metadata_common, b_node, Requirement("common"))
+    dists.add_dist(metadata_dep_b, b_node, Requirement("dep-b"))
+    c_node = dists.add_dist(metadata_root_c, root_node, Requirement("root-c"))
+    dists.add_dist(metadata_dep_c, c_node, Requirement("dep-c"))
 
     assert list(dists["root-c"].dependencies) == [dists["dep-c"]]
     assert list(dists["root-c"].reverse_deps) == [dists["root"]]
@@ -311,17 +311,17 @@ def result_graph() -> Any:
 
         def add(self, req, deps, source=None):
             logging.getLogger("req_compile.dists").disabled = True
-            req = pkg_resources.Requirement.parse(req)
+            req = Requirement(req)
             dist_info = DistInfo(
-                req.project_name,
-                req.specs[0][1],
-                pkg_resources.parse_requirements(deps),
+                req.name,
+                next(iter(req.specifier)).version,
+                list(req_compile.utils.parse_requirements(deps)),
             )
             reason = None
             source = source or self.previous
-            if source is not None and req.project_name in self.results:
+            if source is not None and req.name in self.results:
                 for dep in source.metadata.reqs:
-                    if dep.project_name == req.project_name:
+                    if dep.name == req.name:
                         reason = dep
                         break
             self.previous = self.results.add_dist(dist_info, source, reason)

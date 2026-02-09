@@ -3,8 +3,9 @@ import os
 from typing import Iterable, Optional, Set, Tuple
 from unittest import mock
 
-import pkg_resources
+import packaging.requirements
 import pytest
+from packaging.requirements import Requirement
 from pytest import fixture
 
 import req_compile.compile
@@ -25,7 +26,7 @@ from req_compile.utils import normalize_project_name
 def test_mock_pypi(mock_pypi):
     mock_pypi.load_scenario("normal")
 
-    metadata, _ = mock_pypi.get_dist(pkg_resources.Requirement.parse("test"))
+    metadata, _ = mock_pypi.get_dist(Requirement("test"))
     assert metadata.name == "test"
     assert metadata.version == req_compile.utils.parse_version("1.0.0")
 
@@ -50,7 +51,7 @@ def perform_compile(mock_pypi, mock_metadata):
                 DistInfo(
                     "test_constraints",
                     None,
-                    [pkg_resources.Requirement.parse(req) for req in constraint_reqs],
+                    [Requirement(req) for req in constraint_reqs],
                 )
             ]
 
@@ -61,7 +62,7 @@ def perform_compile(mock_pypi, mock_metadata):
             DistInfo(
                 key,
                 None,
-                [pkg_resources.Requirement.parse(req) for req in value],
+                [Requirement(req) for req in value],
                 meta=True,
             )
             for key, value in reqs.items()
@@ -216,7 +217,7 @@ def local_tree():
 
 def test_compile_source_user1(local_tree):
     results = req_compile.compile.perform_compile(
-        [DistInfo("test", None, [pkg_resources.Requirement.parse("user1")], meta=True)],
+        [DistInfo("test", None, [Requirement("user1")], meta=True)],
         local_tree,
     )
     assert _real_outputs(results) == {"framework==1.0.1", "user1==2.0.0"}
@@ -226,7 +227,7 @@ def test_compile_source_user2(local_tree):
     results = req_compile.compile.perform_compile(
         [
             DistInfo(
-                "test", None, [pkg_resources.Requirement.parse("user-2")], meta=True
+                "test", None, [Requirement("user-2")], meta=True
             )
         ],
         local_tree,
@@ -244,7 +245,7 @@ def test_compile_source_user2_recursive_root():
     results = req_compile.compile.perform_compile(
         [
             DistInfo(
-                "test", None, [pkg_resources.Requirement.parse("user-2")], meta=True
+                "test", None, [Requirement("user-2")], meta=True
             )
         ],
         repo,
@@ -258,7 +259,7 @@ def test_compile_source_user2_recursive_root():
 
 class OnlyBinaryRepository(Repository):
     def get_candidates(
-        self, req: Optional[pkg_resources.Requirement]
+        self, req: Optional[packaging.requirements.Requirement]
     ) -> Iterable[Candidate]:
         result = [
             filename_to_candidate(None, "test-2.0.0.tar.gz"),
@@ -282,7 +283,7 @@ class OnlyBinaryRepository(Repository):
 def test_only_binary_skips_source():
     """Verify the newer source dist is skipped."""
     repo = OnlyBinaryRepository("test", True)
-    inputs = [DistInfo("-", None, [pkg_resources.Requirement.parse("test")])]
+    inputs = [DistInfo("-", None, [Requirement("test")])]
     results = req_compile.compile.perform_compile(
         inputs,
         repo,

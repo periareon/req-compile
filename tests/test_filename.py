@@ -1,7 +1,7 @@
-import pkg_resources
 import pytest
 
 import req_compile.filename
+from req_compile.utils import parse_version
 
 
 @pytest.mark.parametrize(
@@ -31,5 +31,5 @@ def test_parse_source_filename(filename, result_name, result_version):
     result = req_compile.filename.parse_source_filename(filename)
     assert result == (
         result_name,
-        pkg_resources.parse_version(result_version) if result_version else None,
+        parse_version(result_version) if result_version else None,
     )

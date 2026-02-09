@@ -11,7 +11,21 @@ from types import ModuleType
 try:
     import imp  # type: ignore  # pylint: disable=deprecated-module
 except ImportError:
+    # Python 3.12+ removed imp; provide a shim since setup.py files may use imp.load_source().
     imp = ModuleType("imp")
+
+    def _load_source(name: str, pathname: str, _file: object = None) -> ModuleType:  # type: ignore[misc]
+        import importlib.util as _ilu  # pylint: disable=import-outside-toplevel
+
+        spec = _ilu.spec_from_file_location(name, pathname)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Cannot load {name} from {pathname}")
+        mod = _ilu.module_from_spec(spec)
+        sys.modules[name] = mod
+        spec.loader.exec_module(mod)
+        return mod
+
+    imp.load_source = _load_source  # type: ignore[assignment]
     sys.modules["imp"] = imp
 
 import io
@@ -45,15 +59,15 @@ from typing import (
     Union,
 )
 
+import packaging.requirements
 import packaging.version
-import pkg_resources
 import setuptools  # type: ignore
 
 from req_compile import utils
 from req_compile.errors import MetadataError
 from req_compile.filename import parse_source_filename
 
-from ..containers import DistInfo, PkgResourcesDistInfo, RequirementContainer
+from ..containers import DistInfo, EggInfoDistInfo, RequirementContainer
 from .dist_info import _fetch_from_wheel
 from .extractor import Extractor, NonExtractor
 from .patch import PatchToken, begin_patch, end_patch, patch
@@ -165,8 +179,10 @@ def _fetch_from_setup_py(
 
     def _fake_chdir(new_dir: str) -> None:
         if os.path.isabs(new_dir):
-            dir_test = os.path.relpath(new_dir, extractor.fake_root)
-            if dir_test != "." and dir_test.startswith("."):
+            dir_test = os.path.relpath(
+                os.path.normpath(new_dir), os.path.normpath(extractor.fake_root)
+            )
+            if dir_test != "." and dir_test.startswith(".."):
                 raise ValueError(
                     "Cannot operate outside of setup dir ({})".format(dir_test)
                 )
@@ -181,14 +197,13 @@ def _fetch_from_setup_py(
         """Return the absolute version of a path."""
         if not os.path.isabs(path):
             cwd = os.getcwd()
-            path = cwd + "/" + path
+            path = os.path.join(cwd, path)
         return path
 
     # fmt: off
     patches = patch(
             os, 'chdir', _fake_chdir,
             os, 'getcwd', _fake_getcwd,
-            os, 'getcwdu', _fake_getcwd,
             os.path, 'abspath', _fake_abspath,
     )
     # fmt: on
@@ -378,14 +393,8 @@ def _build_egg_info(
                 for egg_info in os.listdir(setup_dir)
                 if egg_info.endswith(".egg-info")
             ][0]
-            metadata = pkg_resources.PathMetadata(
-                setup_dir, os.path.join(setup_dir, egg_info_dir)
-            )
-            pkg_dist = PkgResourcesDistInfo(
-                pkg_resources.Distribution(
-                    setup_dir, project_name=name, metadata=metadata
-                )
-            )
+            egg_info_path = os.path.join(setup_dir, egg_info_dir)
+            pkg_dist = EggInfoDistInfo(egg_info_path, project_name=name)
             return pkg_dist
         except IndexError:
             LOG.error(
@@ -406,7 +415,9 @@ def _build_egg_info(
         shutil.rmtree(temp_tar)
 
 
-def parse_req_with_marker(req_str: str, marker: str) -> pkg_resources.Requirement:
+def parse_req_with_marker(
+    req_str: str, marker: str
+) -> packaging.requirements.Requirement:
     return utils.parse_requirement(
         req_str + " and {}".format(marker)
         if ";" in req_str
@@ -467,7 +478,7 @@ def setup(
                     for cur_req in cur_reqs
                 ]
             all_reqs.extend(req_with_marker)
-        except pkg_resources.RequirementParseError as ex:  # type: ignore[attr-defined]
+        except (ValueError, packaging.requirements.InvalidRequirement) as ex:
             print(
                 "Failed to parse extra requirement ({}) "
                 "from the set:\n{}".format(str(ex), extra_reqs),
@@ -602,7 +613,11 @@ def _parse_setup_py(
 
     # pylint: disable=unused-import,unused-variable
     import codecs
-    import distutils.core  # type: ignore  # pylint: disable=deprecated-module,import-error
+
+    try:
+        import distutils.core  # type: ignore  # pylint: disable=deprecated-module,import-error
+    except ImportError:
+        distutils = None  # type: ignore[assignment]
     import fileinput
     import multiprocessing
 
@@ -758,8 +773,26 @@ def _parse_setup_py(
             del module  # Unused
             return ""
 
-        def load_module(self, fullname: str) -> ModuleType:
+        def create_module(self, spec: ModuleSpec) -> Optional[ModuleType]:
+            return None
+
+        def exec_module(self, module: ModuleType) -> None:
+            fullname = module.__name__
             LOG.debug("Importing module %s from archive", fullname)
+            filename = self.mod_mapping[fullname]
+            code = extractor.contents(filename)
+            ispkg = filename.endswith("__init__.py")
+            module.__file__ = filename
+            module.__loader__ = self
+            if ispkg:
+                module.__path__ = []
+                module.__package__ = fullname
+            else:
+                module.__package__ = fullname.rpartition(".")[0]
+            exec(code, module.__dict__)
+
+        def load_module(self, fullname: str) -> ModuleType:
+            LOG.debug("Importing module %s from archive (legacy)", fullname)
 
             filename = self.mod_mapping[fullname]
             code = extractor.contents(filename)
@@ -811,7 +844,7 @@ def _parse_setup_py(
         codecs, 'open', extractor.open,
         pathlib.Path, 'open', _fake_path_open,
         setuptools, 'setup', setup_with_results,
-        distutils.core, 'setup', setup_with_results,
+        'distutils.core', 'setup', setup_with_results,
         fileinput, 'input', _fake_file_input,
         setuptools, 'find_packages', _fake_find_packages,
         sys, 'argv', ['setup.py', 'egg_info'],

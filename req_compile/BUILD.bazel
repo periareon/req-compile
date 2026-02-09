@@ -5,9 +5,7 @@ py_binary(
     srcs = glob(["**/*.py"]),
     data = [
         "py.typed",
-    ] + glob([
-        "**/*.pyi",
-    ]),
+    ],
     main = "__main__.py",
     visibility = ["//visibility:public"],
     deps = [
@@ -17,7 +15,6 @@ py_binary(
         "@req_compile_deps//requests",
         "@req_compile_deps//setuptools",
         "@req_compile_deps//toml",
-        "@req_compile_deps//typing_extensions",
         "@req_compile_deps//wheel",
     ],
 )

@@ -12,9 +12,19 @@ import tarfile
 import zipfile
 from io import BytesIO
 from types import TracebackType
-from typing import IO, Any, Dict, Iterable, Iterator, List, Optional, Type, Union, cast
-
-from typing_extensions import Literal
+from typing import (
+    IO,
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Type,
+    Union,
+    cast,
+)
 
 LOG = logging.getLogger("req_compile.extractor")
 
@@ -35,7 +45,9 @@ class Extractor(metaclass=abc.ABCMeta):
         Returns:
             (bool)
         """
-        return os.path.abspath(path).startswith(self.fake_root)
+        return os.path.normpath(os.path.abspath(path)).startswith(
+            os.path.normpath(self.fake_root)
+        )
 
     def add_rename(self, name: str, new_name: str) -> None:
         """Add a rename entry for a file in the archive"""
@@ -130,11 +142,14 @@ class Extractor(metaclass=abc.ABCMeta):
         result = filename_str
         if os.path.isabs(filename_str):
             if self.contains_path(filename_str):
-                result = filename_str.replace(self.fake_root, ".", 1)
+                result = os.path.normpath(filename_str).replace(
+                    os.path.normpath(self.fake_root), ".", 1
+                )
         else:
-            cur = os.getcwd()
-            if cur != self.fake_root:
-                result = os.path.relpath(cur, self.fake_root) + "/" + filename_str
+            cur = os.path.normpath(os.getcwd())
+            fake_root = os.path.normpath(self.fake_root)
+            if cur != fake_root:
+                result = os.path.relpath(cur, fake_root) + "/" + filename_str
 
         result = result.replace("\\", "/")
         if result.startswith("./"):

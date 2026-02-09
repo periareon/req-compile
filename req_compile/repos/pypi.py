@@ -8,14 +8,14 @@ import sys
 import time
 import urllib
 import urllib.parse
-import warnings
 from functools import lru_cache
 from hashlib import sha256
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, List, Optional, Sequence, Tuple, Union
 
-import pkg_resources
+import packaging.requirements
+import packaging.version
 import requests
 from overrides import overrides
 
@@ -27,11 +27,11 @@ from req_compile.repos.repository import Candidate, Repository, filename_to_cand
 LOG = logging.getLogger("req_compile.repository.pypi")
 
 
-SYS_PY_VERSION = pkg_resources.parse_version(
+SYS_PY_VERSION = packaging.version.Version(
     sys.version.split(" ", 1)[0].replace("+", "")
 )
-SYS_PY_MAJOR = pkg_resources.parse_version("{}".format(sys.version_info.major))
-SYS_PY_MAJOR_MINOR = pkg_resources.parse_version(
+SYS_PY_MAJOR = packaging.version.Version("{}".format(sys.version_info.major))
+SYS_PY_MAJOR_MINOR = packaging.version.Version(
     "{}.{}".format(sys.version_info.major, sys.version_info.minor)
 )
 
@@ -82,7 +82,7 @@ def _check_py_constraint(version_constraint: str) -> bool:
             ref_version = SYS_PY_MAJOR_MINOR
             version_part += ".0"
 
-    version = pkg_resources.parse_version(version_part)
+    version = packaging.version.Version(version_part)
     if operator == "~=":
         # Convert ~= to the >=, < equivalent check
         # See: https://packaging.python.org/guides/distributing-packages-using-setuptools/#python-requires
@@ -102,9 +102,6 @@ class LinksHTMLParser(HTMLParser):
         self.dists: List[Candidate] = []
         self.active_link: Optional[Tuple[str, Optional[str]]] = None
         self.active_skip = False
-        warnings.filterwarnings(
-            "ignore", category=pkg_resources.PkgResourcesDeprecationWarning  # type: ignore[attr-defined]
-        )
 
     def handle_starttag(self, tag: str, attrs: List[Tuple[str, Optional[str]]]) -> None:
         self.active_link = None
@@ -290,13 +287,11 @@ class PyPIRepository(Repository):
 
     @overrides
     def get_candidates(
-        self, req: Optional[pkg_resources.Requirement]
+        self, req: Optional[packaging.requirements.Requirement]
     ) -> Sequence[Candidate]:
         if req is None:
             return []
-        return _scan_page_links(
-            self.index_url, req.project_name, self.session, self.retries
-        )
+        return _scan_page_links(self.index_url, req.name, self.session, self.retries)
 
     @overrides
     def resolve_candidate(

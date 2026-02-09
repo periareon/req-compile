@@ -1,8 +1,8 @@
 import random
 import sys
 
-import pkg_resources
 import pytest
+from req_compile.utils import parse_version
 
 from req_compile.repos.repository import (
     Candidate,
@@ -70,7 +70,7 @@ def test_sort_non_semver():
     for ver in candidate_vers:
         candidates.append(
             Candidate(
-                "pytz", None, pkg_resources.parse_version(ver), None, None, "any", None
+                "pytz", None, parse_version(ver), None, None, "any", None
             )
         )
 
@@ -126,7 +126,7 @@ def test_sort_manylinux():
     candidate1 = Candidate(
         "pytz",
         None,
-        pkg_resources.parse_version("1.0"),
+        parse_version("1.0"),
         WheelVersionTags(["cp37"]),
         "cp37m",
         ["manylinux_2_12_x86_64", "manylinux2010_x86_64"],
@@ -135,7 +135,7 @@ def test_sort_manylinux():
     candidate2 = Candidate(
         "pytz",
         None,
-        pkg_resources.parse_version("1.0"),
+        parse_version("1.0"),
         WheelVersionTags(["cp37"]),
         "cp37m",
         ["manylinux_2_11_x86_64"],
@@ -149,7 +149,7 @@ def test_sort_macos():
     candidate1 = Candidate(
         "pytz",
         None,
-        pkg_resources.parse_version("1.0"),
+        parse_version("1.0"),
         WheelVersionTags(["cp37"]),
         "cp37",
         ["macosx_10_9_x86_64"],
@@ -158,7 +158,7 @@ def test_sort_macos():
     candidate2 = Candidate(
         "pytz",
         None,
-        pkg_resources.parse_version("1.0"),
+        parse_version("1.0"),
         WheelVersionTags(["cp37"]),
         "cp37",
         ["macosx_10_8_x86_64"],
@@ -167,7 +167,7 @@ def test_sort_macos():
     candidate3 = Candidate(
         "pytz",
         None,
-        pkg_resources.parse_version("1.0"),
+        parse_version("1.0"),
         WheelVersionTags(["cp36"]),
         "cp36",
         ["macosx_10_9_x86_64"],

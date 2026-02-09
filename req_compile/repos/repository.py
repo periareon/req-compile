@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import abc
-import distutils.util  # type: ignore  # pylint: disable=import-error,no-name-in-module,no-member,deprecated-module
 import enum
 import logging
 import os
@@ -23,9 +22,9 @@ from typing import (
     Union,
 )
 
+import packaging.requirements
 import packaging.tags
 import packaging.version
-import pkg_resources
 
 import req_compile.errors
 import req_compile.utils
@@ -96,7 +95,7 @@ def _get_platform_tags() -> Sequence[str]:
 
         return ordered_mac_plats
 
-    plat = distutils.util.get_platform()  # pylint: disable=no-member
+    plat = sysconfig.get_platform()
     return (plat.replace(".", "_").replace("-", "_"),)
 
 
@@ -156,19 +155,7 @@ def manylinux_tag_is_compatible_with_this_system(tag: str) -> bool:
 
 def _get_abi_tag() -> str:
     """Build a best effort ABI tag"""
-    py_version = (sys.version_info.major, sys.version_info.minor)
-    tag = INTERPRETER_TAG + PY_VERSION_NUM
-    if py_version < (3, 8):
-        pymalloc = sysconfig.get_config_var("WITH_PYMALLOC")
-        if pymalloc or pymalloc is None:
-            tag += "m"
-        if py_version < (3, 3):
-            unicode_size = sysconfig.get_config_var("Py_UNICODE_SIZE")
-            if unicode_size == 4 or (
-                unicode_size is None and sys.maxunicode == 0x10FFFF
-            ):
-                tag += "u"
-    return tag
+    return INTERPRETER_TAG + PY_VERSION_NUM
 
 
 PLATFORM_TAGS = _get_platform_tags()
@@ -552,7 +539,7 @@ def sort_candidates(candidates: Iterable[Candidate]) -> Sequence[Candidate]:
 
 
 def check_usability(
-    req: Optional[pkg_resources.Requirement],
+    req: Optional[packaging.requirements.Requirement],
     candidate: Candidate,
     has_equality: bool = False,
     allow_prereleases: bool = False,
@@ -572,7 +559,7 @@ def check_usability(
     if not has_equality and not allow_prereleases and candidate.version.is_prerelease:
         return CantUseReason.IS_PRERELEASE
 
-    if req is not None and not req.specifier.contains(  # type: ignore[attr-defined]
+    if req is not None and not req.specifier.contains(
         candidate.version, prereleases=has_equality or allow_prereleases
     ):
         return CantUseReason.VERSION_NO_SATISFY
@@ -581,7 +568,7 @@ def check_usability(
 
 
 def filter_candidates(
-    req: Optional[pkg_resources.Requirement],
+    req: Optional[packaging.requirements.Requirement],
     candidates: Iterable[Candidate],
     allow_prereleases: bool = False,
 ) -> Iterable[Candidate]:
@@ -629,7 +616,7 @@ class Repository(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def get_candidates(
-        self, req: Optional[pkg_resources.Requirement]
+        self, req: Optional[packaging.requirements.Requirement]
     ) -> Iterable[Candidate]:
         """
         Fetch all available candidates for a given requirement.
@@ -655,7 +642,7 @@ class Repository(metaclass=abc.ABCMeta):
 
     def get_dist(
         self,
-        req: pkg_resources.Requirement,
+        req: packaging.requirements.Requirement,
         allow_source_dist: bool = True,
         max_downgrade: Optional[int] = None,
     ) -> Tuple[RequirementContainer, bool]:
@@ -681,7 +668,7 @@ class Repository(metaclass=abc.ABCMeta):
 
     def do_get_candidate(
         self,
-        req: pkg_resources.Requirement,
+        req: packaging.requirements.Requirement,
         candidates: Iterable[Candidate],
         allow_source_dist: bool = True,
         force_allow_prerelease: bool = False,
@@ -735,7 +722,7 @@ class Repository(metaclass=abc.ABCMeta):
                     if dist is not None:
                         if normalize_project_name(
                             candidate.name
-                        ) == normalize_project_name(req.project_name):
+                        ) == normalize_project_name(req.name):
                             dist.candidate = candidate
                             return dist, cached
                 except req_compile.errors.MetadataError as ex:
@@ -766,7 +753,7 @@ class Repository(metaclass=abc.ABCMeta):
     # pylint: disable-next=invalid-name
     def why_cant_I_use(
         self,
-        req: pkg_resources.Requirement,
+        req: packaging.requirements.Requirement,
         candidate: Candidate,
         only_binary: Optional[Set[NormName]] = None,
     ) -> CantUseReason:
