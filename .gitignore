@@ -6,6 +6,7 @@
 /.venv*
 /wheeldir
 /.idea
+/.vscode
 build
 dist
 .wheeldir

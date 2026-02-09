@@ -2,7 +2,7 @@
 
 module(
     name = "rules_req_compile",
-    version = "1.0.0rc41",
+    version = "1.0.0",
 )
 
 bazel_dep(name = "bazel_skylib", version = "1.8.2")
