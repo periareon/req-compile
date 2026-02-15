@@ -7,14 +7,15 @@ from packaging.requirements import Requirement
 import req_compile.utils
 from req_compile.containers import DistInfo
 from req_compile.dists import (
+    DependencyNode,
     DistributionCollection,
     _get_cycle,
-    _paths_to_self,
     build_explanation,
 )
 
 
 def test_unconstrained():
+    """Verifies an unconstrained transitive dependency keeps a bare requirement."""
     dists = DistributionCollection()
     dists.add_dist(
         DistInfo("aaa", "1.2.0", list(req_compile.utils.parse_requirements(["bbb"]))),
@@ -27,6 +28,7 @@ def test_unconstrained():
 
 
 def test_one_source():
+    """Verifies one reverse dependency contributes its single version constraint."""
     dists = DistributionCollection()
     dists.add_dist(
         DistInfo("aaa", "1.2.0", list(req_compile.utils.parse_requirements(["bbb<1.0"]))),
@@ -38,6 +40,7 @@ def test_one_source():
 
 
 def test_two_sources():
+    """Verifies constraints from two sources are merged on the shared dependency."""
     dists = DistributionCollection()
     dists.add_dist(
         DistInfo("aaa", "1.2.0", list(req_compile.utils.parse_requirements(["bbb<1.0"]))),
@@ -55,6 +58,7 @@ def test_two_sources():
 
 
 def test_two_sources_same():
+    """Verifies duplicate constraints from multiple sources are de-duplicated."""
     dists = DistributionCollection()
     dists.add_dist(
         DistInfo("aaa", "1.2.0", list(req_compile.utils.parse_requirements(["bbb<1.0"]))),
@@ -72,6 +76,7 @@ def test_two_sources_same():
 
 
 def test_add_remove_dist():
+    """Verifies removing a node also removes its orphaned transitive dependency."""
     dists = DistributionCollection()
     node = dists.add_dist(
         DistInfo("aaa", "1.2.0", list(req_compile.utils.parse_requirements(["bbb<1.0"]))),
@@ -83,6 +88,7 @@ def test_add_remove_dist():
 
 
 def test_dist_with_unselected_extra():
+    """Verifies extra-only requirements are ignored when the extra is not requested."""
     dists = DistributionCollection()
     dists.add_dist(
         DistInfo(
@@ -99,6 +105,7 @@ def test_dist_with_unselected_extra():
 
 
 def test_unnormalized_dist_with_extra():
+    """Verifies normalized and unnormalized package names resolve to one solved node."""
     dists = DistributionCollection()
     metadata = DistInfo("A", "1.0.0", [])
 
@@ -110,6 +117,7 @@ def test_unnormalized_dist_with_extra():
 
 
 def test_metadata_violated() -> None:
+    """Verifies a conflicting requirement invalidates metadata and clears solved state."""
     dists = DistributionCollection()
     metadata_a = DistInfo("a", "1.0.0", [])
 
@@ -123,6 +131,7 @@ def test_metadata_violated() -> None:
 
 
 def test_metadata_violated_removes_transitive():
+    """Verifies metadata invalidation removes transitive nodes with no remaining parents."""
     dists = DistributionCollection()
     metadata_a = DistInfo("a", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["b"])))
 
@@ -134,6 +143,7 @@ def test_metadata_violated_removes_transitive():
 
 
 def test_metadata_transitive_violated():
+    """Verifies a transitive conflict can invalidate an already solved dependency."""
     dists = DistributionCollection()
     metadata_a = DistInfo("a", "1.0.0", [])
     metadata_b = DistInfo(
@@ -147,6 +157,7 @@ def test_metadata_transitive_violated():
 
 
 def test_repo_with_extra():
+    """Verifies explanations include extra-triggered and regular dependency reasons."""
     dists = DistributionCollection()
     root = DistInfo(
         "root", "1.0", list(req_compile.utils.parse_requirements(["a[test]"])), meta=True
@@ -178,6 +189,7 @@ def test_repo_with_extra():
 
 
 def test_regular_and_extra_constraints():
+    """Verifies regular and extra constraints are both applied to the same dependency."""
     dists = DistributionCollection()
     root = DistInfo(
         "root", "1.0", list(req_compile.utils.parse_requirements(["a[test]"])), meta=True
@@ -196,7 +208,7 @@ def test_regular_and_extra_constraints():
 
 
 def test_circular_self_dep() -> None:
-    """Test that a self edge is OK."""
+    """Verifies a self-dependency is treated as a valid solved cycle."""
     dists = DistributionCollection()
     metadata_a = DistInfo("a", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["a"])))
 
@@ -207,7 +219,7 @@ def test_circular_self_dep() -> None:
 
 
 def test_circular_self_invalidate() -> None:
-    """Test that a self edge can invalidate correctly."""
+    """Verifies a self-cycle is invalidated when a conflicting requirement is added."""
     dists = DistributionCollection()
     metadata_a = DistInfo("a", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["a"])))
 
@@ -221,7 +233,7 @@ def test_circular_self_invalidate() -> None:
 
 
 def test_big_circular_invalidate() -> None:
-    """Test that a two node circular dep can invalidate correctly."""
+    """Verifies a two-node cycle invalidates and can be restored after constraints change."""
     dists = DistributionCollection()
     metadata_a = DistInfo("a", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["b"])))
     metadata_b = DistInfo("b", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["a"])))
@@ -250,7 +262,7 @@ def test_big_circular_invalidate() -> None:
 
 
 def test_base_plugin_circular_completed() -> None:
-    """Create a root and plugin-style circular dependency and ensure that the graph is completed."""
+    """Verifies a mixed cyclic/acyclic plugin-style graph reaches complete state."""
     dists = DistributionCollection()
     metadata_root = DistInfo(
         "root",
@@ -305,6 +317,7 @@ def test_base_plugin_circular_completed() -> None:
 
 @pytest.fixture
 def result_graph() -> Any:
+    """Builds a small helper for constructing dependency graphs incrementally in tests."""
     class _ResultGraph:
         results = DistributionCollection()
         previous = None
@@ -339,6 +352,7 @@ def result_graph() -> Any:
 
 # pylint: disable=redefined-outer-name
 def test_simple_cycle(result_graph):
+    """Verifies cycle detection and completeness for a two-node mutual dependency."""
     result_graph.add("a==1.0", ["b"])
     result_graph.add("b==1.0", ["a"])
     graph = result_graph.build()
@@ -349,6 +363,7 @@ def test_simple_cycle(result_graph):
 
 
 def test_triple_cycle(result_graph):
+    """Verifies cycle detection and completeness for a three-node directed cycle."""
     result_graph.add("a==1.0", ["b"])
     result_graph.add("b==1.0", ["c"])
     result_graph.add("c==1.0", ["a"])
@@ -361,6 +376,7 @@ def test_triple_cycle(result_graph):
 
 
 def test_quad_cycle(result_graph):
+    """Verifies all nodes in a four-node cycle report the same cycle membership."""
     result_graph.add("a==1.0", ["b"])
     result_graph.add("b==1.0", ["c"])
     result_graph.add("c==1.0", ["d"])
@@ -378,6 +394,7 @@ def test_quad_cycle(result_graph):
 
 
 def test_dual_cycle(result_graph):
+    """Verifies a node linked into a cycle is included in the detected cycle set."""
     a = result_graph.add("a==1.0", ["b"])
     b = result_graph.add("b==1.0", ["a"])
     c = result_graph.add("c==1.0", ["a"], source=a)
@@ -387,6 +404,7 @@ def test_dual_cycle(result_graph):
 
 
 def test_unrelated_dual(result_graph):
+    """Verifies nodes outside the cycle are excluded while cycle members are included."""
     a = result_graph.add("a==1.0", ["b", "x"])
     b = result_graph.add("b==1.0", ["a"])
     x = result_graph.add("x==1.0", [], source=a)
@@ -394,7 +412,6 @@ def test_unrelated_dual(result_graph):
 
     assert set(x.dependencies) == set()
 
-    assert _paths_to_self(a) == {a, b, c}
     assert _get_cycle(a) == _get_cycle(b) == _get_cycle(c) == {a, b, c}
     assert _get_cycle(x) == set()
 
@@ -402,12 +419,31 @@ def test_unrelated_dual(result_graph):
 
 
 def test_root_not_cycle(result_graph) -> None:
+    """Verifies a root that points to a cycle is not itself treated as part of it."""
     a = result_graph.add("a==1.0", ["b", "c"])
     b = result_graph.add("b==1.0", ["c"])
     c = result_graph.add("c==1.0", ["b"], source=a)
     result_graph.build()
 
     assert _get_cycle(a) == set()
-    assert _paths_to_self(a) == set()
-    assert _paths_to_self(b) == {b, c}
     assert _get_cycle(b) == _get_cycle(c) == {b, c}
+
+
+def test_get_cycle_deep_acyclic_graph_no_recursion_error() -> None:
+    """Verifies cycle detection handles deep acyclic chains without recursion issues."""
+    nodes = [DependencyNode(f"n{i}", DistInfo(f"n{i}", "1.0.0", [])) for i in range(2000)]
+    for idx in range(len(nodes) - 1):
+        nodes[idx].add_reason(nodes[idx + 1], None)
+
+    assert _get_cycle(nodes[0]) == set()
+
+
+def test_get_cycle_ignores_unsolved_nodes() -> None:
+    """Verifies cycle detection ignores edges through unsolved (`metadata is None`) nodes."""
+    solved = DependencyNode("a", DistInfo("a", "1.0.0", []))
+    unsolved = DependencyNode("b", None)
+
+    solved.add_reason(unsolved, None)
+    unsolved.add_reason(solved, None)
+
+    assert _get_cycle(solved) == set()

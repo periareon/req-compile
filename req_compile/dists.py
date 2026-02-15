@@ -138,66 +138,45 @@ class DependencyNode:
             reverse_dep.update_complete()
 
 
-def _get_cycle(
-    node: DependencyNode,
-    _seen: Optional[Set[DependencyNode]] = None,
-) -> Set[DependencyNode]:
+def _get_cycle(node: DependencyNode) -> Set[DependencyNode]:
     """Get the set of nodes in the cycle that this node is a part of."""
     if node.metadata is None:
         return set()
 
-    results = set()
-    if _seen is None:
-        _seen = set()
-
-    if node in _seen:
-        return _paths_to_self(node)
-
-    _seen.add(node)
-
-    for dep in sorted(node.dependencies):
-        # Duplicate the set for each call to only include nodes that
-        # are reverse (and transitively reverse) dependencies in the set.
-        results |= _get_cycle(dep, _seen=set(_seen))
-
-    # A cycle of dependencies may not include this node.
-    if node not in results:
-        return set()
-    return results
-
-
-def _paths_to_self(
-    node: DependencyNode,
-    search_nodes: Optional[Set[DependencyNode]] = None,
-    _path_so_far=None,
-    _visited: Optional[Set[DependencyNode]] = None,
-) -> Set[DependencyNode]:
-    """Find all the nodes along the path of a circular reference of a node to itself."""
-    if _visited is None:
-        _visited = set()
-
-    if _path_so_far is None:
-        _path_so_far = set()
-
-    if search_nodes is None:
-        search_nodes = {node}
-
-    results = set()
-    for dep in sorted(search_nodes):
-        if dep in _visited:
+    # Compute the solved subgraph reachable from `node` and track reverse edges.
+    reachable: Set[DependencyNode] = set()
+    reverse_edges: Dict[DependencyNode, Set[DependencyNode]] = {}
+    stack = [node]
+    while stack:
+        cur = stack.pop()
+        if cur in reachable or cur.metadata is None:
             continue
-        this_path = _path_so_far | {dep}
-        _visited.add(dep)
-        if node in dep.dependencies:
-            results |= this_path
-        results |= _paths_to_self(
-            node,
-            _path_so_far=this_path,
-            search_nodes=set(dep.dependencies),
-            _visited=_visited,
-        )
+        reachable.add(cur)
+        reverse_edges.setdefault(cur, set())
+        for dep in cur.dependencies:
+            if dep.metadata is None:
+                continue
+            reverse_edges.setdefault(dep, set()).add(cur)
+            if dep not in reachable:
+                stack.append(dep)
 
-    return results
+    # Nodes that can reach `node` in the solved reachable subgraph.
+    can_reach_node: Set[DependencyNode] = set()
+    stack = [node]
+    while stack:
+        cur = stack.pop()
+        if cur in can_reach_node:
+            continue
+        can_reach_node.add(cur)
+        stack.extend(reverse_edges.get(cur, ()))
+
+    cycle_nodes = reachable & can_reach_node
+
+    # Single-node SCCs are cycles only if they have a self-edge.
+    if len(cycle_nodes) == 1 and node not in node.dependencies:
+        return set()
+
+    return cycle_nodes
 
 
 def build_explanation(root_node: DependencyNode) -> collections.abc.Collection[str]:

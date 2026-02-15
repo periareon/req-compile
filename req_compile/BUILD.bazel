@@ -6,6 +6,7 @@ py_binary(
     data = [
         "py.typed",
     ],
+    imports = [".."],
     main = "__main__.py",
     visibility = ["//visibility:public"],
     deps = [
