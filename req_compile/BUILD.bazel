@@ -8,6 +8,7 @@ py_binary(
     ] + glob([
         "**/*.pyi",
     ]),
+    imports = [".."],
     main = "__main__.py",
     visibility = ["//visibility:public"],
     deps = [
