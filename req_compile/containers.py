@@ -1,5 +1,4 @@
 import itertools
-import logging
 import os
 from pathlib import Path
 from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
@@ -9,8 +8,6 @@ import packaging.version
 from packaging.requirements import InvalidRequirement
 
 from req_compile.utils import reduce_requirements, req_iter_from_file
-
-LOG = logging.getLogger(__name__)
 
 
 def req_uses_extra(
@@ -243,9 +240,7 @@ def _parse_requires_txt(
                 req = packaging.requirements.Requirement(line)
             except InvalidRequirement as exc:
                 raise InvalidRequirement(
-                    "Failed to parse requirement {!r} in {}: {}".format(
-                        line, requires_path, exc
-                    )
+                    f"Failed to parse requirement {line!r} in {requires_path}: {exc}"
                 ) from exc
             markers = []
             if req.marker:
