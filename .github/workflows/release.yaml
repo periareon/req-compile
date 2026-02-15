@@ -19,6 +19,8 @@ jobs:
       contents: write
       actions: write
       attestations: write
+    outputs:
+      release_version: ${{ steps.version.outputs.release_version }}
     if: ${{ github.repository_owner == 'periareon' }}
     runs-on: ubuntu-latest
     steps:
@@ -34,9 +36,11 @@ jobs:
           WHEEL_NAME="$(find dist -name '*.whl' -exec basename {} \;)"
           echo "WHEEL_NAME=${WHEEL_NAME}" >> $GITHUB_ENV
       - name: Detect the current version
+        id: version
         run: |
           version="$(grep 'VERSION =' ./version.bzl | sed 's/VERSION = "//' | sed 's/"//')"
           echo "RELEASE_VERSION=${version}" >> $GITHUB_ENV
+          echo "release_version=${version}" >> $GITHUB_OUTPUT
       - name: Create release artifact
         run: |
           tar -czf ${{ github.workspace }}/.github/rules_req_compile.tar.gz --exclude=".git" --exclude=".github" --exclude="scripts" --exclude="dist" --exclude="build" -C ${{ github.workspace }} .
@@ -81,3 +85,11 @@ jobs:
         uses: pypa/gh-action-pypi-publish@master
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
+
+  bcr-publish:
+    needs: [release]
+    uses: ./.github/workflows/bcr-publish.yaml
+    with:
+      release_version: ${{ needs.release.outputs.release_version }}
+    secrets:
+      BCR_PUBLISH_TOKEN: ${{ secrets.BCR_PUBLISH_TOKEN }}
