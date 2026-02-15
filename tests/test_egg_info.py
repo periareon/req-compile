@@ -3,6 +3,8 @@
 import textwrap
 
 import packaging.requirements
+import pytest
+from packaging.requirements import InvalidRequirement
 
 from req_compile.containers import EggInfoDistInfo, _format_req_str, _parse_requires_txt
 
@@ -119,8 +121,8 @@ def test_parse_requires_txt_empty_lines(tmp_path):
 def test_parse_requires_txt_invalid_lines(tmp_path):
     requires = tmp_path / "requires.txt"
     requires.write_text("requests>=2.0\n!!!invalid\nflask>=1.0\n")
-    reqs = _parse_requires_txt(str(requires))
-    assert len(reqs) == 2
+    with pytest.raises(InvalidRequirement, match=r"!!!invalid"):
+        _parse_requires_txt(str(requires))
 
 
 def test_egg_info_from_dir(tmp_path):

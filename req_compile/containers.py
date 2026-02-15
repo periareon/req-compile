@@ -1,12 +1,16 @@
 import itertools
+import logging
 import os
 from pathlib import Path
 from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
 
 import packaging.requirements
 import packaging.version
+from packaging.requirements import InvalidRequirement
 
 from req_compile.utils import reduce_requirements, req_iter_from_file
+
+LOG = logging.getLogger(__name__)
 
 
 def req_uses_extra(
@@ -237,20 +241,22 @@ def _parse_requires_txt(
                 continue
             try:
                 req = packaging.requirements.Requirement(line)
-                markers = []
-                if req.marker:
-                    markers.append(str(req.marker))
-                if current_extra:
-                    markers.append(f'extra == "{current_extra}"')
-                if current_section_marker:
-                    markers.append(current_section_marker)
-                if markers:
-                    base = _format_req_str(req)
-                    combined_marker = " and ".join(markers)
-                    req = packaging.requirements.Requirement(
-                        f"{base}; {combined_marker}"
+            except InvalidRequirement as exc:
+                raise InvalidRequirement(
+                    "Failed to parse requirement {!r} in {}: {}".format(
+                        line, requires_path, exc
                     )
-                reqs.append(req)
-            except Exception:  # pylint: disable=broad-exception-caught
-                pass
+                ) from exc
+            markers = []
+            if req.marker:
+                markers.append(str(req.marker))
+            if current_extra:
+                markers.append(f'extra == "{current_extra}"')
+            if current_section_marker:
+                markers.append(current_section_marker)
+            if markers:
+                base = _format_req_str(req)
+                combined_marker = " and ".join(markers)
+                req = packaging.requirements.Requirement(f"{base}; {combined_marker}")
+            reqs.append(req)
     return reqs
