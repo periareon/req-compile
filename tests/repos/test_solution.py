@@ -3,8 +3,8 @@ from io import StringIO
 from pathlib import Path
 from textwrap import dedent
 
-import pkg_resources
 import pytest
+from packaging.requirements import Requirement
 
 import req_compile.compile
 from req_compile.cmdline import write_requirements_file
@@ -14,15 +14,15 @@ from req_compile.repos.findlinks import FindLinksRepository
 from req_compile.repos.multi import MultiRepository
 from req_compile.repos.pypi import IndexType, PyPIRepository
 from req_compile.repos.solution import SolutionRepository
-from req_compile.utils import parse_requirement, parse_version
+from req_compile.utils import parse_requirement, parse_requirements, parse_version
 
 
 def test_solution_repo():
     solution_repo = SolutionRepository(
         os.path.join(os.path.dirname(__file__), "..", "solutionfile.txt")
     )
-    result, cached = solution_repo.get_dist(pkg_resources.Requirement.parse("pylint"))
-    assert result.version == pkg_resources.parse_version("1.9.4")
+    result, cached = solution_repo.get_dist(Requirement("pylint"))
+    assert result.version == parse_version("1.9.4")
     assert cached
 
 
@@ -43,23 +43,23 @@ def test_load_solution(load_solution):
     assert _get_node_strs(result["pylint"].reverse_deps) == set()
 
     assert set(result["pylint"].metadata.reqs) == {
-        pkg_resources.Requirement.parse("six"),
-        pkg_resources.Requirement.parse("colorama"),
-        pkg_resources.Requirement.parse("astroid>=1.6,<2.0"),
-        pkg_resources.Requirement.parse("mccabe"),
-        pkg_resources.Requirement.parse("isort>=4.2.5"),
+        Requirement("six"),
+        Requirement("colorama"),
+        Requirement("astroid>=1.6,<2.0"),
+        Requirement("mccabe"),
+        Requirement("isort>=4.2.5"),
     }
 
     assert set(result["astroid"].metadata.requires()) == {
-        pkg_resources.Requirement.parse("six"),
-        pkg_resources.Requirement.parse("lazy-object-proxy"),
-        pkg_resources.Requirement.parse("wrapt"),
+        Requirement("six"),
+        Requirement("lazy-object-proxy"),
+        Requirement("wrapt"),
     }
 
 
 def test_load_solution_excluded(load_solution):
     repo = SolutionRepository("solutionfile.txt", excluded_packages=["mccabe"])
-    result = repo.get_candidates(pkg_resources.Requirement.parse("mccabe"))
+    result = repo.get_candidates(Requirement("mccabe"))
     assert result == []
 
 
@@ -67,7 +67,7 @@ def test_load_solution_excluded_normalized(load_solution):
     repo = SolutionRepository(
         "solutionfile.txt", excluded_packages=["lazy_object_proxy"]
     )
-    result = repo.get_candidates(pkg_resources.Requirement.parse("lazy-object-proxy"))
+    result = repo.get_candidates(Requirement("lazy-object-proxy"))
     assert result == []
 
 
@@ -79,7 +79,7 @@ def test_load_solution_extras(load_solution):
     # pytest == 4.0  # a[test]
     # b == 1.0  # a (1.0)
     assert set(result["a"].metadata.reqs) == set(
-        pkg_resources.parse_requirements(
+        parse_requirements(
             ['docpkg>1.0 ; extra == "docs"', 'pytest ; extra == "test"', "b==1.0"]
         )
     )
@@ -93,7 +93,7 @@ def test_load_solution_extras_not_on_req(load_solution):
     # pytest == 4.0  # a[test]
     # b == 1.0  # a (1.0)
     assert set(result["a"].metadata.reqs) == set(
-        pkg_resources.parse_requirements(
+        parse_requirements(
             ['docpkg>1.0 ; extra == "docs"', 'pytest ; extra == "test"', "b==1.0"]
         )
     )
@@ -106,7 +106,7 @@ def test_load_solution_fuzzywuzzy_extras(load_solution):
 
     assert set(result["fuzzywuzzy"].metadata.requires()) == set()
     assert set(result["fuzzywuzzy"].metadata.requires("speedup")) == {
-        pkg_resources.Requirement.parse('python-Levenshtein>=0.12 ; extra=="speedup"'),
+        Requirement('python-Levenshtein>=0.12 ; extra=="speedup"'),
     }
 
 
@@ -143,7 +143,7 @@ def test_round_trip(
     mock_pypi.load_scenario(scenario)
 
     results, nodes = req_compile.compile.perform_compile(
-        [DistInfo("test", None, pkg_resources.parse_requirements(roots), meta=True)],
+        [DistInfo("test", None, list(parse_requirements(roots)), meta=True)],
         mock_pypi,
     )
 
@@ -180,7 +180,7 @@ def test_writing_repo_sources(mock_metadata, mock_pypi, tmp_path):
     mock_pypi.load_scenario("normal")
 
     results, nodes = req_compile.compile.perform_compile(
-        [DistInfo("foo", None, pkg_resources.parse_requirements(["a"]), meta=True)],
+        [DistInfo("foo", None, list(parse_requirements(["a"])), meta=True)],
         mock_pypi,
     )
 
@@ -226,7 +226,7 @@ def test_load_additive_constraints():
         os.path.join(os.path.dirname(__file__), "requests_security_solution.txt")
     )
     constraints = solution_repo.solution["idna"].build_constraints()
-    assert constraints == pkg_resources.Requirement.parse("idna<2.9,>=2.5")
+    assert constraints == Requirement("idna<2.9,>=2.5")
 
 
 def test_load_extras() -> None:
@@ -237,7 +237,7 @@ def test_load_extras() -> None:
     assert solution_repo.solution["pyspnego"].extras == {"kerberos"}
     assert [req for req in solution_repo.solution["requests-kerberos"].metadata.requires(
         None
-    ) if req.project_name=="pyspnego"][0] == parse_requirement("pyspnego[kerberos]>=0.9.2")
+    ) if req.name=="pyspnego"][0] == parse_requirement("pyspnego[kerberos]>=0.9.2")
 
 
 def test_load_extra_first():

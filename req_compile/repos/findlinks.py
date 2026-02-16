@@ -3,7 +3,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import Any, List, Optional, Sequence, Tuple, Union
 
-import pkg_resources
+import packaging.requirements
 from overrides import overrides
 
 import req_compile.metadata
@@ -68,11 +68,11 @@ class FindLinksRepository(Repository):
 
     @overrides
     def get_candidates(
-        self, req: Optional[pkg_resources.Requirement]
+        self, req: Optional[packaging.requirements.Requirement]
     ) -> Sequence[Candidate]:
         project_name = None
         if req is not None:
-            project_name = utils.normalize_project_name(req.project_name)
+            project_name = utils.normalize_project_name(req.name)
         results = []
         for candidate in self.links:
             if (

@@ -1,14 +1,15 @@
 import os
 import platform
 
-import pkg_resources
 import pytest
 import requests
 import responses
+from packaging.requirements import Requirement
 
 import req_compile.repos.pypi
 from req_compile.repos.pypi import PyPIRepository, check_python_compatibility
 from req_compile.repos.repository import Candidate, DistributionType, WheelVersionTags
+from req_compile.utils import parse_version
 
 INDEX_URL = "https://pypi.org"
 
@@ -40,7 +41,7 @@ def test_successful_numpy(mocked_responses, mock_py_version, tmpdir, read_conten
     )
     repo = PyPIRepository(INDEX_URL, wheeldir)
 
-    candidates = repo.get_candidates(pkg_resources.Requirement.parse("numpy"))
+    candidates = repo.get_candidates(Requirement("numpy"))
 
     # The total is the total number of links - exe links, which we do not support
     assert len(candidates) == 2273 - 34
@@ -52,7 +53,7 @@ def test_no_candidates(mocked_responses, tmpdir):
     mocked_responses.add(responses.GET, INDEX_URL + "/garbage/", status=404)
     repo = PyPIRepository(INDEX_URL, wheeldir)
 
-    candidates = repo.get_candidates(pkg_resources.Requirement.parse("garbage"))
+    candidates = repo.get_candidates(Requirement("garbage"))
 
     assert candidates == []
     assert len(mocked_responses.calls) == 1
@@ -64,7 +65,7 @@ def test_pypi_500(mocked_responses, tmpdir):
     repo = PyPIRepository(INDEX_URL, wheeldir)
 
     with pytest.raises(requests.HTTPError):
-        repo.get_candidates(pkg_resources.Requirement.parse("numpy"))
+        repo.get_candidates(Requirement("numpy"))
 
 
 def test_resolve_new_numpy(
@@ -81,7 +82,7 @@ def test_resolve_new_numpy(
     )
 
     repo = PyPIRepository(INDEX_URL, wheeldir)
-    candidates = repo.get_candidates(pkg_resources.Requirement.parse("numpy"))
+    candidates = repo.get_candidates(Requirement("numpy"))
     for candidate in candidates:
         if "1.26.3" in candidate.link[1]:
             mocked_responses.add(
@@ -95,7 +96,7 @@ def test_resolve_new_numpy(
     mock_extract.return_value.name = "numpy"
 
     mocker.patch("req_compile.repos.pypi.extract_metadata", mock_extract)
-    candidate, cached = repo.get_dist(pkg_resources.Requirement.parse("numpy"))
+    candidate, cached = repo.get_dist(Requirement("numpy"))
     assert candidate is not None
     assert not cached
 
@@ -132,7 +133,7 @@ def test_python_requires_wheel_tags(
     repo = PyPIRepository(INDEX_URL, wheeldir)
     candidate = [
         candidate
-        for candidate in repo.get_candidates(pkg_resources.Requirement.parse("numpy"))
+        for candidate in repo.get_candidates(Requirement("numpy"))
         if candidate.link[1] == url_to_check
     ][0]
     if candidate.py_version:
@@ -183,7 +184,7 @@ def test_links_parser_wheel():
         Candidate(
             "pytest",
             filename,
-            pkg_resources.parse_version("4.3.0"),
+            parse_version("4.3.0"),
             WheelVersionTags(("py2", "py3")),
             None,
             "any",
@@ -203,7 +204,7 @@ def test_links_py3_wheel():
         Candidate(
             "PyVISA",
             filename,
-            pkg_resources.parse_version("1.9.1"),
+            parse_version("1.9.1"),
             WheelVersionTags(("py3",)),
             None,
             "any",
@@ -223,7 +224,7 @@ def test_links_parser_tar_gz_hyph():
         Candidate(
             "PyVISA-py",
             filename,
-            pkg_resources.parse_version("0.3.1"),
+            parse_version("0.3.1"),
             None,
             None,
             "any",
@@ -242,7 +243,7 @@ def test_tar_gz_dot():
     assert candidate == Candidate(
         "backports.html",
         filename,
-        pkg_resources.parse_version("1.1.0"),
+        parse_version("1.1.0"),
         None,
         None,
         "any",
@@ -260,7 +261,7 @@ def test_wheel_dot():
     assert candidate == Candidate(
         "backports.html",
         filename,
-        pkg_resources.parse_version("1.1.0"),
+        parse_version("1.1.0"),
         WheelVersionTags(("py2", "py3")),
         None,
         "any",
@@ -278,7 +279,7 @@ def test_wheel_platform_specific_tags():
     assert candidate == Candidate(
         "pywin32",
         filename,
-        pkg_resources.parse_version("224"),
+        parse_version("224"),
         WheelVersionTags(("cp27",)),
         "cp27m",
         "win_amd64",

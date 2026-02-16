@@ -5,22 +5,22 @@ from collections import defaultdict
 from functools import lru_cache
 from typing import DefaultDict, Dict, Iterable, Optional, Tuple
 
+import packaging.requirements
 import packaging.version
-import pkg_resources
 
 
 def reduce_requirements(
-    raw_reqs: Iterable[pkg_resources.Requirement],
-) -> Iterable[pkg_resources.Requirement]:
+    raw_reqs: Iterable[packaging.requirements.Requirement],
+) -> Iterable[packaging.requirements.Requirement]:
     """Reduce a list of requirements to a minimal list.
 
     Combine requirements with the same key.
     """
-    reqs: DefaultDict[str, Optional[pkg_resources.Requirement]] = defaultdict(
+    reqs: DefaultDict[str, Optional[packaging.requirements.Requirement]] = defaultdict(
         lambda: None
     )
     for req in raw_reqs:
-        reqs[req.project_name] = merge_requirements(reqs[req.project_name], req)
+        reqs[req.name] = merge_requirements(reqs[req.name], req)
 
     return list(req for req in reqs.values() if req is not None)
 
@@ -31,15 +31,15 @@ class CommentError(ValueError):
 
 
 @lru_cache(maxsize=None)
-def parse_requirement(req_text: str) -> pkg_resources.Requirement:
+def parse_requirement(req_text: str) -> packaging.requirements.Requirement:
     """Parse a string into a Requirement object.
 
     Args:
-        req_text (str): The pkg_resources style requirement string,
+        req_text (str): The PEP 508 requirement string,
             e.g. flask==1.1 ; python_version >= '3.0'
 
     Returns:
-        (pkg_resources.Requirement) The parsed requirement.
+        The parsed requirement.
 
     Raises:
         A flavor of a ValueError if the requirement string is invalid.
@@ -49,7 +49,7 @@ def parse_requirement(req_text: str) -> pkg_resources.Requirement:
         raise ValueError("No requirement given")
     if req_text[0] == "#":
         raise CommentError
-    return pkg_resources.Requirement.parse(req_text)
+    return packaging.requirements.Requirement(req_text)
 
 
 @lru_cache(maxsize=None)
@@ -59,10 +59,12 @@ def parse_version(version: str) -> packaging.version.Version:
     Args:
         version: Version to parse
     """
-    return pkg_resources.parse_version(version)
+    return packaging.version.Version(version)
 
 
-def parse_requirements(reqs: Iterable[str]) -> Iterable[pkg_resources.Requirement]:
+def parse_requirements(
+    reqs: Iterable[str],
+) -> Iterable[packaging.requirements.Requirement]:
     """Parse a list of strings into Requirements."""
     for req in reqs:
         req = req.strip().rstrip("\\")
@@ -74,6 +76,12 @@ def parse_requirements(reqs: Iterable[str]) -> Iterable[pkg_resources.Requiremen
                 continue
             if req[0] == "#" or req.startswith("--"):
                 continue
+            # Strip inline comments.
+            comment_idx = req.find(" #")
+            if comment_idx != -1:
+                req = req[:comment_idx].rstrip()
+                if not req:
+                    continue
             result = parse_requirement(req)
             if result is not None:
                 yield result
@@ -81,7 +89,7 @@ def parse_requirements(reqs: Iterable[str]) -> Iterable[pkg_resources.Requiremen
 
 def req_iter_from_file(
     reqfile_name: str, parameters: typing.List[str]
-) -> Iterable[pkg_resources.Requirement]:
+) -> Iterable[packaging.requirements.Requirement]:
     """Create an iterator to step through a requirements file."""
     with open(reqfile_name, "r", encoding="utf-8") as reqfile:
         lines = reqfile.readlines()
@@ -95,7 +103,7 @@ def req_iter_from_lines(
     lines: Iterable[str],
     parameters: typing.List[str],
     relative_dir: Optional[str] = None,
-) -> Iterable[pkg_resources.Requirement]:
+) -> Iterable[packaging.requirements.Requirement]:
     full_line = ""
     continuation = False
 
@@ -106,6 +114,15 @@ def req_iter_from_lines(
 
         if req_line.startswith("#"):
             continue
+
+        # Strip inline comments (e.g. "setuptools<82  # pin").
+        # packaging.requirements.Requirement is strict PEP 508 and does not
+        # tolerate trailing comments the way pkg_resources did.
+        comment_idx = req_line.find(" #")
+        if comment_idx != -1:
+            req_line = req_line[:comment_idx].rstrip()
+            if not req_line:
+                continue
 
         if continuation or not full_line:
             full_line += req_line.rstrip("\\")
@@ -161,9 +178,9 @@ def merge_extras(
 
 
 def merge_requirements(
-    req1: Optional[pkg_resources.Requirement],
-    req2: Optional[pkg_resources.Requirement],
-) -> pkg_resources.Requirement:
+    req1: Optional[packaging.requirements.Requirement],
+    req2: Optional[packaging.requirements.Requirement],
+) -> packaging.requirements.Requirement:
     """Merge two requirements into a single requirement that would satisfy both."""
     if req1 is not None and req2 is None:
         return req1
@@ -221,7 +238,7 @@ def normalize_project_name(project_name: str) -> NormName:
     return value
 
 
-def is_pinned_requirement(req: pkg_resources.Requirement) -> bool:
+def is_pinned_requirement(req: packaging.requirements.Requirement) -> bool:
     """Returns whether an InstallRequirement is a "pinned" requirement.
 
     An InstallRequirement is considered pinned if:
@@ -243,7 +260,7 @@ def is_pinned_requirement(req: pkg_resources.Requirement) -> bool:
     )
 
 
-def has_prerelease(req: pkg_resources.Requirement) -> bool:
+def has_prerelease(req: packaging.requirements.Requirement) -> bool:
     """Returns whether an InstallRequirement has a prerelease specifier."""
     for spec in req.specifier:
         try:
@@ -270,7 +287,6 @@ def get_glibc_version() -> Optional[Tuple[int, int]]:
     # Call gnu_get_libc_version, which returns a string like "2.5".
     gnu_get_libc_version.restype = ctypes.c_char_p
     version_str = gnu_get_libc_version()
-    # py2 / py3 compatibility:
     if not isinstance(version_str, str):
         version_str = version_str.decode("ascii")
 

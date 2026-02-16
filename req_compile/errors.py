@@ -2,8 +2,8 @@
 
 from typing import TYPE_CHECKING, Any, Optional
 
+import packaging.requirements
 import packaging.version
-import pkg_resources
 
 if TYPE_CHECKING:
     from req_compile.dists import DependencyNode
@@ -31,7 +31,9 @@ class MetadataError(ExceptionWithDetails):
 
 
 class NoCandidateException(ExceptionWithDetails):
-    def __init__(self, req: pkg_resources.Requirement, results: Any = None) -> None:
+    def __init__(
+        self, req: packaging.requirements.Requirement, results: Any = None
+    ) -> None:
         super(NoCandidateException, self).__init__()
         self.req = req
         self.results = results
@@ -46,8 +48,8 @@ class NoCandidateException(ExceptionWithDetails):
     def __str__(self) -> str:
         if self.req.specifier:
             return 'NoCandidateException - no candidate for "{}" satisfies {}'.format(
-                self.req.project_name, self.req.specifier
+                self.req.name, self.req.specifier
             )
         return 'NoCandidateException - no candidates found for "{}"'.format(
-            self.req.project_name
+            self.req.name
         )

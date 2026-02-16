@@ -1,3 +1,9 @@
+New in version 1.1.0:
+
+* Python 3.13 and 3.14 support.
+* Replaced ``pkg_resources`` with the ``packaging`` library.
+* Minimum Python version is now 3.9.
+
 New in version 1.0.0:
 
 * ``--hashes`` option for hashing the distributions used in a solution.

@@ -4,8 +4,10 @@ import platform
 import sys
 from typing import Callable
 
-import pkg_resources
 import pytest
+from packaging.version import Version
+
+from req_compile.utils import parse_requirement, parse_requirements
 
 import req_compile.filename
 import req_compile.metadata
@@ -18,7 +20,7 @@ import req_compile.metadata.source
 def test_a_with_no_extra(metadata_provider):
     info = metadata_provider("normal/a-1.0.0.METADATA")
     assert info.name == "a"
-    assert info.version == pkg_resources.parse_version("0.1.0")
+    assert info.version == Version("0.1.0")
     assert not list(info.requires())
 
 
@@ -29,7 +31,7 @@ def test_parse_flat_metadata_extra_space():
             encoding="utf-8",
         ).read()
     )
-    assert results.requires() == [pkg_resources.Requirement.parse("django")]
+    assert results.requires() == [parse_requirement("django")]
 
 
 def test_parse_flat_metadata_two_names():
@@ -71,23 +73,23 @@ def test_parse_flat_metadata_complex_marker(
 def test_a_with_extra(metadata_provider):
     info = metadata_provider("normal/a-1.0.0.METADATA")
     assert info.name == "a"
-    assert info.version == pkg_resources.parse_version("0.1.0")
+    assert info.version == Version("0.1.0")
     assert list(info.requires("x1")) == [
-        pkg_resources.Requirement.parse("b (>1); extra == 'x1'")
+        parse_requirement("b (>1); extra == 'x1'")
     ]
 
 
 def test_a_with_wrong_extra(metadata_provider):
     info = metadata_provider("normal/a-1.0.0.METADATA", extras=("plop",))
     assert info.name == "a"
-    assert info.version == pkg_resources.parse_version("0.1.0")
+    assert info.version == Version("0.1.0")
     assert not list(info.requires())
 
 
 def test_pylint_python(metadata_provider):
     info = metadata_provider("real/pylint-1.9.4.METADATA", extras=())
     assert info.name == "pylint"
-    assert info.version == pkg_resources.parse_version("1.9.4")
+    assert info.version == Version("1.9.4")
 
     if sys.platform == "win32":
         expected_reqs = [
@@ -99,7 +101,7 @@ def test_pylint_python(metadata_provider):
         ]
     else:
         expected_reqs = ["astroid (<2.0,>=1.6)", "six", "isort (>=4.2.5)", "mccabe"]
-    assert set(info.requires()) == set(pkg_resources.parse_requirements(expected_reqs))
+    assert set(info.requires()) == set(parse_requirements(expected_reqs))
 
 
 @pytest.mark.skipif(sys.version_info[:2] > (3, 11), reason="ed not supported on 3.12")
@@ -206,9 +208,9 @@ def test_source_dist(
     if archive_fixture != "mock_fs":
         assert metadata.name == name
         if version is not None:
-            assert metadata.version == pkg_resources.parse_version(version)
+            assert metadata.version == Version(version)
     if reqs is not None:
-        assert set(metadata.reqs) == set(pkg_resources.parse_requirements(reqs))
+        assert set(metadata.reqs) == set(parse_requirements(reqs))
 
 
 def test_relative_import(mock_targz):
@@ -216,7 +218,7 @@ def test_relative_import(mock_targz):
 
     metadata = req_compile.metadata.metadata.extract_metadata(archive)
     assert metadata.name == "relative-import"
-    assert metadata.version == pkg_resources.parse_version("1.0")
+    assert metadata.version == Version("1.0")
 
 
 def test_extern_import(mock_targz):

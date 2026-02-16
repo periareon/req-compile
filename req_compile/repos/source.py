@@ -1,7 +1,5 @@
 """Definition of source repository."""
 
-from __future__ import print_function
-
 import collections
 import functools
 import itertools
@@ -9,7 +7,7 @@ import os
 from multiprocessing.pool import ThreadPool
 from typing import Any, Callable, Deque, Dict, Iterable, List, Optional, Sequence, Tuple
 
-import pkg_resources
+import packaging.requirements
 
 import req_compile.errors
 import req_compile.metadata
@@ -220,7 +218,7 @@ class SourceRepository(Repository):
         return hash("source") ^ hash(self.path)
 
     def get_candidates(
-        self, req: Optional[pkg_resources.Requirement]
+        self, req: Optional[packaging.requirements.Requirement]
     ) -> Sequence[Candidate]:
         if req is None:
             return list(itertools.chain(*self.distributions.values()))

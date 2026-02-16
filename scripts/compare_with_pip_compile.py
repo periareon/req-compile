@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import os
 import subprocess
 import sys
@@ -8,7 +6,8 @@ import threading
 import time
 from argparse import ArgumentParser
 
-import pkg_resources
+import packaging.requirements
+import packaging.version
 
 from req_compile.containers import reqs_from_files
 from req_compile.utils import normalize_project_name, has_prerelease
@@ -75,7 +74,7 @@ def filter_out_blacklist(req_set):
 
 def normalize_reqs(req_set):
     return {
-        pkg_resources.Requirement.parse(
+        packaging.requirements.Requirement(
             str(req).replace(req.name, normalize_project_name(req.name))
         )
         for req in req_set
@@ -171,10 +170,10 @@ def main():
                         req for req in pip_only if req.name == qer_req.name
                     ]
                     for req in matching_pip_req:
-                        qver = pkg_resources.parse_version(
+                        qver = packaging.version.Version(
                             next(iter(qer_req.specifier)).version
                         )
-                        pver = pkg_resources.parse_version(
+                        pver = packaging.version.Version(
                             next(iter(req.specifier)).version
                         )
 

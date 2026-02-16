@@ -10,7 +10,7 @@ import threading
 from io import StringIO
 from typing import Any, List, Mapping, Optional, Tuple
 
-import pkg_resources
+import packaging.requirements
 import toml
 
 from ..containers import DistInfo
@@ -97,7 +97,7 @@ def _parse_from_wheel(backend: Mapping[str, Any]) -> Optional[DistInfo]:
 
 def fetch_from_pyproject(
     source_file: str,
-) -> Tuple[Optional[DistInfo], List[pkg_resources.Requirement]]:
+) -> Tuple[Optional[DistInfo], List[packaging.requirements.Requirement]]:
     """Fetch metadata from pyproject.toml either by relying on the backend to provide metadata, or by building
     a wheel and extracting the metadata"""
     try:

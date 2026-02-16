@@ -2,7 +2,6 @@
 import os
 from io import StringIO
 
-import pkg_resources
 import pytest
 
 from req_compile.cmdline import _create_input_reqs, compile_main
@@ -11,6 +10,7 @@ from req_compile.repos.findlinks import FindLinksRepository
 from req_compile.repos.pypi import PyPIRepository
 from req_compile.repos.solution import SolutionRepository
 from req_compile.repos.source import SourceRepository
+from req_compile.utils import parse_requirements
 
 
 @pytest.fixture
@@ -119,7 +119,7 @@ def test_stdin_paths(mock_stdin):
         f"--source={mono3}",
     }
     assert set(result.reqs) == set(
-        pkg_resources.parse_requirements(["pkg1==1.0.0", "pkg2==2.0.1", "pkg3==0.0.0"])
+        parse_requirements(["pkg1==1.0.0", "pkg2==2.0.1", "pkg3==0.0.0"])
     )
 
 
@@ -132,5 +132,5 @@ def test_stdin_reqs(mock_stdin):
 
     assert not extra_sources
     assert set(result.reqs) == set(
-        pkg_resources.parse_requirements(["pytest", "pytest-mock"])
+        parse_requirements(["pytest", "pytest-mock"])
     )
