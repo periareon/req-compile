@@ -1,13 +1,16 @@
-load("@buildifier_prebuilt//:rules.bzl", "buildifier", "buildifier_test")
+load("@buildifier_prebuilt//:rules.bzl", "buildifier_test")
 load("@gazelle//:def.bzl", "DEFAULT_LANGUAGES", "gazelle", "gazelle_binary", "gazelle_test")
 load("@req_compile_deps//:defs.bzl", top_level_wheel = "all_requirements_wheels")
 load("@req_compile_test_annotations//:defs.bzl", test_annotations_wheels = "all_requirements_wheels")
 load("@req_compile_test_platlib//:defs.bzl", test_platlib_wheels = "all_requirements_wheels")
+load("@rules_python//python:defs.bzl", "py_binary")
 load("@rules_python_gazelle_plugin//manifest:defs.bzl", "gazelle_python_manifest")
 load("@rules_python_gazelle_plugin//modules_mapping:def.bzl", "modules_mapping")
 
 exports_files(
-    ["rules_python_gazelle_plugin_windows.patch"],
+    [
+        "rules_python_gazelle_plugin_windows.patch",
+    ],
     visibility = ["//visibility:public"],
 )
 
@@ -49,15 +52,18 @@ gazelle_test(
     workspace = "//:MODULE.bazel",
 )
 
-buildifier(
+py_binary(
     name = "buildifier",
-    diff_command = "diff -u",
-    exclude_patterns = [
-        "./.git/*",
+    srcs = ["buildifier_runner.py"],
+    data = [
+        "@buildifier_prebuilt//:buildifier",
     ],
-    lint_mode = "fix",
-    lint_warnings = ["all"],
+    env = {
+        "BUILDIFIER_BIN_RLOCATION": "$(rlocationpath @buildifier_prebuilt//:buildifier)",
+    },
+    main = "buildifier_runner.py",
     visibility = ["//:__pkg__"],
+    deps = ["@rules_python//python/runfiles"],
 )
 
 buildifier_test(
