@@ -8,6 +8,12 @@ on:
     paths:
       # Only trigger for new releases
       - "version.bzl"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/release.yaml"
+      - ".github/workflows/bcr-publish.yaml"
 
 defaults:
   run:
@@ -21,7 +27,7 @@ jobs:
       attestations: write
     outputs:
       release_version: ${{ steps.version.outputs.release_version }}
-    if: ${{ github.repository_owner == 'periareon' }}
+    if: ${{ github.repository_owner == 'periareon' && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -88,8 +94,19 @@ jobs:
 
   bcr-publish:
     needs: [release]
+    permissions:
+      contents: write
     uses: ./.github/workflows/bcr-publish.yaml
     with:
       release_version: ${{ needs.release.outputs.release_version }}
     secrets:
       BCR_PUBLISH_TOKEN: ${{ secrets.BCR_PUBLISH_TOKEN }}
+
+  bcr-publish-dry-run:
+    if: ${{ github.event_name == 'pull_request' }}
+    permissions:
+      contents: write
+    uses: ./.github/workflows/bcr-publish.yaml
+    with:
+      release_version: dry-run
+      dry_run: true
