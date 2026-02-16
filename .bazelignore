@@ -6,3 +6,7 @@ private/tests/workspace_user
 venv
 venv3
 .ijwb
+build
+dist
+venv
+.wheeldir

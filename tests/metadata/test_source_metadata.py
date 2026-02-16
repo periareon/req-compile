@@ -1,4 +1,5 @@
 import functools
+import sys
 
 import pytest
 
@@ -32,3 +33,7 @@ def test_junk_wheel(tmp_path):
     junk_whl.write_bytes(b"junk")
 
     assert _fetch_from_wheel(junk_whl) is None
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__]))

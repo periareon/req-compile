@@ -1,0 +1,217 @@
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+
+# gazelle:exclude local-tree
+# gazelle:exclude no-setup-py
+# gazelle:exclude source-packages
+
+py_library(
+    name = "conftest",
+    testonly = False,  # keep: provided as a dep to the pytest toolchain.
+    srcs = ["conftest.py"],
+    data = glob([
+        "normal/**",
+        "early-violated/**",
+        "extra-violated/**",
+        "flask-like-walkback/**",
+        "gather_indices/**",
+        "local-tree/**",
+        "multi/**",
+        "walk-back/**",
+        "walkback-depth/**",
+        "repeat-violated/**",
+    ]),
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//req_compile:containers",
+        "//req_compile:utils",
+        "//req_compile/metadata",
+        "//req_compile/metadata:__init__",
+        "//req_compile/metadata:dist_info",
+        "//req_compile/repos:repository",
+        "//req_compile/repos:solution",
+        "@req_compile_deps//pytest",
+        "@req_compile_deps//pytest_mock",
+        "@req_compile_deps//setuptools",
+    ],
+)
+
+py_test(
+    name = "test_cmdline",
+    srcs = ["test_cmdline.py"],
+    data = ["//tests/repos:monorepo"],
+    deps = [
+        ":conftest",
+        "//req_compile:cmdline",
+        "//req_compile:containers",
+        "//req_compile/repos:findlinks",
+        "//req_compile/repos:pypi",
+        "//req_compile/repos:solution",
+        "//req_compile/repos:source",
+        "@req_compile_deps//pytest",
+        "@req_compile_deps//pytest_mock",
+        "@req_compile_deps//setuptools",
+    ],
+)
+
+py_test(
+    name = "test_compile",
+    srcs = ["test_compile.py"],
+    deps = [
+        ":conftest",
+        "//req_compile:compile",
+        "//req_compile:containers",
+        "//req_compile:dists",
+        "//req_compile:errors",
+        "//req_compile:utils",
+        "//req_compile/repos:multi",
+        "//req_compile/repos:pypi",
+        "//req_compile/repos:repository",
+        "//req_compile/repos:source",
+        "@req_compile_deps//pytest",
+        "@req_compile_deps//pytest_mock",
+        "@req_compile_deps//setuptools",
+    ],
+)
+
+py_test(
+    name = "test_containers",
+    srcs = ["test_containers.py"],
+    deps = [
+        ":conftest",
+        "//req_compile:containers",
+        "@req_compile_deps//pytest",
+    ],
+)
+
+py_test(
+    name = "test_dists",
+    srcs = ["test_dists.py"],
+    deps = [
+        ":conftest",
+        "//req_compile:containers",
+        "//req_compile:dists",
+        "@req_compile_deps//pytest",
+        "@req_compile_deps//setuptools",
+    ],
+)
+
+py_test(
+    name = "test_extractor",
+    srcs = ["test_extractor.py"],
+    data = glob(["source-packages/comtypes-1.1.7/**"]),
+    deps = [
+        ":conftest",
+        "//req_compile/metadata:extractor",
+        "@req_compile_deps//pytest",
+    ],
+)
+
+py_test(
+    name = "test_filename",
+    srcs = ["test_filename.py"],
+    deps = [
+        ":conftest",
+        "//req_compile:filename",
+        "@req_compile_deps//pytest",
+        "@req_compile_deps//setuptools",
+    ],
+)
+
+py_test(
+    name = "test_integration",
+    srcs = ["test_integration.py"],
+    tags = ["requires-network"],
+    deps = [
+        ":conftest",
+        "//:setup",  # keep: used in subprocess
+        "//req_compile:candidates",  # keep: used in subprocess
+        "//req_compile:config",
+        "@req_compile_deps//packaging",  # keep: used in subprocess
+        "@req_compile_deps//pytest",
+        "@req_compile_deps//setuptools",  # keep: used in subprocess
+    ],
+)
+
+py_test(
+    name = "test_merge_requirements",
+    srcs = ["test_merge_requirements.py"],
+    deps = [
+        ":conftest",
+        "//req_compile:utils",
+        "@req_compile_deps//pytest",
+        "@req_compile_deps//setuptools",
+    ],
+)
+
+py_test(
+    name = "test_metadata",
+    srcs = ["test_metadata.py"],
+    data = [
+        "METADATA-bizarre-extra",
+        "METADATA-extra-space",
+        "METADATA-implementation-marker",
+        "METADATA-two-names",
+    ] + glob([
+        "source-packages/**",
+        "real/**",
+    ]),
+    deps = [
+        ":conftest",
+        "//:setup",  # keep: test_self_source
+        "//req_compile:filename",
+        "//req_compile/metadata",
+        "//req_compile/metadata:__init__",
+        "//req_compile/metadata:dist_info",
+        "//req_compile/metadata:extractor",
+        "//req_compile/metadata:source",
+        "//req_compile/repos:pypi",  # keep: patched
+        "@req_compile_deps//pytest",
+        "@req_compile_deps//setuptools",
+        "@req_compile_deps//six",  # keep: used by test_extern_import
+    ],
+)
+
+py_test(
+    name = "test_no_setup_py",
+    srcs = ["test_no_setup_py.py"],
+    data = glob(["no-setup-py/**"]),
+    deps = [
+        ":conftest",
+        "//req_compile:utils",
+        "//req_compile/metadata:__init__",
+        "@req_compile_deps//pytest",
+    ],
+)
+
+py_test(
+    name = "test_repositories",
+    srcs = ["test_repositories.py"],
+    deps = [
+        ":conftest",
+        "//req_compile/repos:pypi",  # keep
+        "//req_compile/repos:repository",
+        "@req_compile_deps//pytest",
+        "@req_compile_deps//setuptools",
+    ],
+)
+
+py_test(
+    name = "test_utils",
+    srcs = ["test_utils.py"],
+    deps = [
+        ":conftest",
+        "//req_compile:utils",
+        "@req_compile_deps//pytest",
+    ],
+)
+
+py_test(
+    name = "test_versions",
+    srcs = ["test_versions.py"],
+    deps = [
+        ":conftest",
+        "//req_compile:versions",
+        "@req_compile_deps//pytest",
+        "@req_compile_deps//setuptools",
+    ],
+)

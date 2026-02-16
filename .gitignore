@@ -1,6 +1,7 @@
 *.whl
 *.tar.gz
 *.pyc
+__pycache__/
 .pytest_cache
 /venv*
 /.venv*
@@ -14,8 +15,9 @@ dist
 bazel-*
 user.bazelrc
 /.github/ci.bazelrc
+/private/examples/dep_with_dup_extras/bazel-*
 /private/examples/multiplatform_py_test/bazel-*
 
 # Ignore the module lock for now, since the sdist repo rules incorrectly record the calling
-# platform's Python intepreter as the _only_ interprete in the lock.
+# platform's Python intepreter as the _only_ interpreter in the lock.
 MODULE.bazel.lock

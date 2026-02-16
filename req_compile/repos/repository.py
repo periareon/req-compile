@@ -129,6 +129,7 @@ def manylinux_tag_is_compatible_with_this_system(tag: str) -> bool:
 
     # Check for manual override
     try:
+        # gazelle:ignore _manylinux
         import _manylinux  # type: ignore  # pylint: disable=bad-option-value,import-outside-toplevel
     except ImportError:
         pass

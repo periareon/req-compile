@@ -1,4 +1,4 @@
-load("//private:compiler.bzl", "py_reqs_solution_test")
+load("//private:compiler_rule.bzl", "py_reqs_solution_test")
 
 py_reqs_solution_test(
     name = "sdist_requirements_test",

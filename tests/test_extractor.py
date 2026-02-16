@@ -2,6 +2,7 @@ import contextlib
 import io
 import os
 from pathlib import Path
+import sys
 
 import pytest
 
@@ -27,7 +28,9 @@ def test_extractor(archive_fixture, mock_targz, mock_zip):
     elif archive_fixture == "mock_zip":
         archive = mock_zip(directory)
     else:
-        archive = os.path.abspath(os.path.join("source-packages", directory))
+        archive = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "source-packages", directory)
+        )
 
     if archive_fixture == "mock_targz":
         extractor = req_compile.metadata.extractor.TarExtractor("gz", archive)
@@ -93,3 +96,7 @@ def test_pathlib_open_with_encoding(monkeypatch, mock_targz, tmp_path):
             path = Path("comtypes-1.1.7/setup.py")
             with path.open(encoding="utf-8") as handle:
                 assert isinstance(handle.read(1), str)
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__]))

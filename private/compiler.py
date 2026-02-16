@@ -12,6 +12,7 @@ import tempfile
 from io import StringIO
 from pathlib import Path
 from typing import (
+    Any,
     Dict,
     List,
     Mapping,
@@ -37,8 +38,6 @@ from req_compile.compile import AllOnlyBinarySet, perform_compile
 from req_compile.containers import RequirementsFile
 from req_compile.dists import DependencyNode, DistributionCollection
 from req_compile.errors import NoCandidateException
-from req_compile.repos import Repository
-from req_compile.repos.repository import DistributionType
 
 _HEADER = """\
 ################################################################################
@@ -153,7 +152,9 @@ def parse_index_urls(content: str) -> Tuple[Set[str], Set[str], Set[str]]:
 class CompilationError(Exception):
     """The error type for requirements compilation errors."""
 
-    def __init__(self, repo: Repository, parent: NoCandidateException) -> None:
+    def __init__(
+        self, repo: Any, parent: NoCandidateException
+    ) -> None:
         self.repo = repo
         self.parent = parent
 
@@ -163,7 +164,7 @@ class CompilationResult(NamedTuple):
 
     solution: DistributionCollection
     dep_nodes: Set[DependencyNode]
-    repo: Repository
+    repo: Any
 
 
 def compile_requirements(
@@ -298,7 +299,10 @@ def _is_wheel(node: DependencyNode) -> Optional[bool]:
     if node.metadata.candidate.type is None:
         return None
 
-    return bool(node.metadata.candidate.type == DistributionType.WHEEL)
+    candidate_type = node.metadata.candidate.type
+    if candidate_type is None:
+        return None
+    return getattr(candidate_type, "name", "") == "WHEEL"
 
 
 def init_logging(verbose: bool) -> None:

@@ -14,8 +14,12 @@ import req_compile.utils
 from req_compile.containers import RequirementContainer
 from req_compile.dists import DependencyNode, DistributionCollection
 from req_compile.errors import NoCandidateException
-from req_compile.repos import RepositoryInitializationError
-from req_compile.repos.repository import Candidate, DistributionType, Repository
+from req_compile.repos.repository import (
+    Candidate,
+    DistributionType,
+    Repository,
+    RepositoryInitializationError,
+)
 from req_compile.repos.source import ReferenceSourceRepository
 
 

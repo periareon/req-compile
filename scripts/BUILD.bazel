@@ -1,0 +1,18 @@
+load("@rules_python//python:defs.bzl", "py_binary")
+
+py_binary(
+    name = "compare_with_pip_compile",
+    srcs = ["compare_with_pip_compile.py"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//req_compile:containers",
+        "//req_compile:utils",
+        "@req_compile_deps//setuptools",
+    ],
+)
+
+py_binary(
+    name = "pypi_compare",
+    srcs = ["pypi_compare.py"],
+    visibility = ["//:__subpackages__"],
+)

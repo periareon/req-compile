@@ -11,8 +11,11 @@ import req_compile.metadata.metadata
 import req_compile.repos.repository
 from req_compile import utils
 from req_compile.containers import RequirementContainer
-from req_compile.repos import Repository, RepositoryInitializationError
-from req_compile.repos.repository import Candidate
+from req_compile.repos.repository import (
+    Candidate,
+    Repository,
+    RepositoryInitializationError,
+)
 
 
 class FindLinksRepository(Repository):

@@ -1,4 +1,5 @@
 import logging
+import sys
 from typing import Any
 
 import pkg_resources
@@ -350,6 +351,7 @@ def result_graph() -> Any:
 
     return _ResultGraph()
 
+
 # pylint: disable=redefined-outer-name
 def test_simple_cycle(result_graph):
     """Verifies cycle detection and completeness for a two-node mutual dependency."""
@@ -447,3 +449,7 @@ def test_get_cycle_ignores_unsolved_nodes() -> None:
     unsolved.add_reason(solved, None)
 
     assert _get_cycle(solved) == set()
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__]))

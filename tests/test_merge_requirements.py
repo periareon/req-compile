@@ -1,4 +1,6 @@
+import sys
 from pkg_resources import Requirement
+import pytest
 
 from req_compile.utils import merge_requirements
 
@@ -90,3 +92,7 @@ def test_combine_with_extras_markers():
 
     result = merge_requirements(req1, req2)
     assert result == Requirement.parse('pylint; extra=="test"')
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__]))

@@ -1,7 +1,7 @@
 """Utilities for compiling requirements on a remote machine"""
 
 load("@rules_venv//python/venv:defs.bzl", "py_venv_binary", "py_venv_zipapp")
-load("//private:compiler.bzl", "PyReqsCompilerInfo")
+load("//private:compiler_rule.bzl", "PyReqsCompilerInfo")
 load(":transition.bzl", "platform_transitioned_file")
 
 def _req_compile_output_file_impl(ctx):
@@ -55,7 +55,7 @@ def py_reqs_remote_compiler(name, compiler, platform = None, **kwargs):
         **kwargs (dict): Additional keyword arguments.
     """
     tags = kwargs.pop("tags", [])
-    visibility = kwargs.pop("tags", [])
+    visibility = kwargs.pop("visibility", [])
     silence_kwargs = dict(kwargs.items())
     silence_kwargs["tags"] = depset(tags + ["manual"]).to_list()
     silence_kwargs["visibility"] = ["//visibility:private"]

@@ -1,24 +1,140 @@
-load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+
+py_library(
+    name = "candidates",
+    srcs = ["candidates.py"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":cmdline",
+        "//req_compile/repos:pypi",
+        "//req_compile/repos:repository",
+        "//req_compile/repos:source",
+        "@req_compile_deps//setuptools",
+    ],
+)
+
+py_library(
+    name = "cmdline",
+    srcs = ["cmdline.py"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":__init__",
+        ":compile",
+        ":config",
+        ":containers",
+        ":dists",
+        ":errors",
+        ":utils",
+        ":versions",
+        "//req_compile/metadata",
+        "//req_compile/metadata:__init__",
+        "//req_compile/repos:findlinks",
+        "//req_compile/repos:multi",
+        "//req_compile/repos:pypi",
+        "//req_compile/repos:repository",
+        "//req_compile/repos:solution",
+        "//req_compile/repos:source",
+        "@req_compile_deps//setuptools",
+    ],
+)
+
+py_library(
+    name = "compile",
+    srcs = ["compile.py"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":containers",
+        ":dists",
+        ":errors",
+        ":utils",
+        ":versions",
+        "//req_compile/repos:repository",
+        "//req_compile/repos:source",
+        "@req_compile_deps//setuptools",
+    ],
+)
+
+py_library(
+    name = "config",
+    srcs = ["config.py"],
+    visibility = ["//:__subpackages__"],
+    deps = ["@req_compile_deps//appdirs"],
+)
+
+py_library(
+    name = "containers",
+    srcs = ["containers.py"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":utils",
+        "@req_compile_deps//packaging",
+        "@req_compile_deps//setuptools",
+    ],
+)
+
+py_library(
+    name = "dists",
+    srcs = ["dists.py"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":containers",
+        ":utils",
+        "//req_compile/repos:repository",
+        "@req_compile_deps//setuptools",
+    ],
+)
+
+py_library(
+    name = "errors",
+    srcs = ["errors.py"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "@req_compile_deps//packaging",
+        "@req_compile_deps//setuptools",
+    ],
+)
+
+py_library(
+    name = "filename",
+    srcs = ["filename.py"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":__init__",
+        "@req_compile_deps//packaging",
+    ],
+)
+
+py_library(
+    name = "utils",
+    srcs = ["utils.py"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "@req_compile_deps//packaging",
+        "@req_compile_deps//setuptools",
+    ],
+)
+
+py_library(
+    name = "versions",
+    srcs = ["versions.py"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":utils",
+        "@req_compile_deps//packaging",
+        "@req_compile_deps//setuptools",
+    ],
+)
 
 py_binary(
-    name = "req_compile",
-    srcs = glob(["**/*.py"]),
-    data = [
-        "py.typed",
-    ] + glob([
-        "**/*.pyi",
-    ]),
-    imports = [".."],
+    name = "req_compile_bin",
+    srcs = ["__main__.py"],
     main = "__main__.py",
-    visibility = ["//visibility:public"],
-    deps = [
-        "@req_compile_deps//appdirs",
-        "@req_compile_deps//overrides",
-        "@req_compile_deps//packaging",
-        "@req_compile_deps//requests",
-        "@req_compile_deps//setuptools",
-        "@req_compile_deps//toml",
-        "@req_compile_deps//typing_extensions",
-        "@req_compile_deps//wheel",
-    ],
+    visibility = ["//:__subpackages__"],
+    deps = [":cmdline"],
+)
+
+py_library(
+    name = "__init__",
+    srcs = ["__init__.py"],
+    visibility = ["//:__subpackages__"],
 )

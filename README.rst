@@ -5,7 +5,7 @@ Req-Compile
     :alt: PyPI package version
     :target: https://pypi.python.org/pypi/req-compile
 
-.. image:: https://github.com/periareon/req-compile/actions/workflows/build.yml/badge.svg
+.. image:: https://github.com/periareon/req-compile/actions/workflows/build.yaml/badge.svg
     :alt: Github build status
     :target: https://github.com/periareon/req-compile
 

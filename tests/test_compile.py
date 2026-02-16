@@ -1,11 +1,13 @@
 # pylint: disable=redefined-outer-name
 import os
-from typing import Iterable, Optional, Set, Tuple
+import sys
+from typing import Callable, Collection, Iterable, Optional, Set, Tuple
 from unittest import mock
 
 import pkg_resources
 import pytest
 from pytest import fixture
+import pytest_mock
 
 import req_compile.compile
 import req_compile.errors
@@ -42,11 +44,25 @@ def _real_outputs(results: Tuple[DistributionCollection, Set[DependencyNode]]):
 
 @fixture
 # pylint: disable-next=unused-argument
-def perform_compile(mock_pypi, mock_metadata):
-    def _compile(scenario, reqs, constraint_reqs=None, limit_reqs=None):
+def perform_compile(mock_pypi, mock_metadata: pytest_mock.MockerFixture) -> Callable[
+    [
+        str,
+        Iterable[str],
+        Optional[Iterable[str]],
+        Optional[Collection[pkg_resources.Requirement]],
+    ],
+    Set[str],
+]:
+    def _compile(
+        scenario: str,
+        reqs: Iterable[str],
+        constraint_reqs: Optional[Iterable[str]] = None,
+        limit_reqs: Optional[Collection[pkg_resources.Requirement]] = None,
+    ) -> Set[str]:
         mock_pypi.load_scenario(scenario, limit_reqs=limit_reqs)
+        constraint_inputs: list[RequirementContainer] = []
         if constraint_reqs is not None:
-            constraint_reqs = [
+            constraint_inputs = [
                 DistInfo(
                     "test_constraints",
                     None,
@@ -68,7 +84,7 @@ def perform_compile(mock_pypi, mock_metadata):
         ]
         return _real_outputs(
             req_compile.compile.perform_compile(
-                input_reqs, mock_pypi, constraint_reqs=constraint_reqs
+                input_reqs, mock_pypi, constraint_reqs=constraint_inputs
             )
         )
 
@@ -306,3 +322,7 @@ def test_only_binary_skips_source():
     assert _real_outputs(results) == {
         "test==1.0.0",
     }
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__]))

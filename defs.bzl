@@ -21,7 +21,7 @@ load(
     _py_package_annotation_target = "py_package_annotation_target",
 )
 load(
-    "//private:compiler.bzl",
+    "//private:compiler_rule.bzl",
     _py_reqs_compiler = "py_reqs_compiler",
     _py_reqs_solution_test = "py_reqs_solution_test",
 )

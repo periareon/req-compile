@@ -1,5 +1,13 @@
 load("//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
 
+exports_files([
+    "requirements.linux_aarch64.txt",
+    "requirements.linux_x86_64.txt",
+    "requirements.macos_aarch64.txt",
+    "requirements.macos_x86_64.txt",
+    "requirements.windows_x86_64.txt",
+])
+
 filegroup(
     name = "requirements",
     srcs = ["bazel-requirements.in"],

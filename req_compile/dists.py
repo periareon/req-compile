@@ -9,7 +9,7 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Set, Union
 import pkg_resources
 
 from req_compile.containers import RequirementContainer
-from req_compile.repos import Repository
+from req_compile.repos.repository import Repository
 from req_compile.utils import (
     NormName,
     merge_requirements,

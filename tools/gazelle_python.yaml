@@ -1,0 +1,65 @@
+# GENERATED FILE - DO NOT EDIT!
+#
+# To update this file, run:
+#   bazel run /tools:gazelle_python_manifest.update
+
+---
+manifest:
+  modules_mapping:
+    alabaster: alabaster
+    appdirs: appdirs
+    astroid: astroid
+    babel: Babel
+    black: black
+    blackd: black
+    blib2to3: black
+    certifi: certifi
+    charset_normalizer: charset_normalizer
+    clang: libclang
+    click: click
+    colorama: colorama
+    dill: dill
+    docutils: docutils
+    idna: idna
+    imagesize: imagesize
+    iniconfig: iniconfig
+    isort: isort
+    jinja2: Jinja2
+    markupsafe: MarkupSafe
+    mccabe: mccabe
+    mypy: mypy
+    mypy_extensions: mypy_extensions
+    mypyc: mypy
+    numpy: numpy
+    overrides: overrides
+    packaging: packaging
+    pathspec: pathspec
+    pkg_resources: setuptools
+    platformdirs: platformdirs
+    pluggy: pluggy
+    py: pytest
+    pygments: pygments
+    pylint: pylint
+    pytest: pytest
+    pytest_mock: pytest_mock
+    requests: requests
+    responses: responses
+    setuptools: setuptools
+    six: six
+    snowballstemmer: snowballstemmer
+    sphinx: sphinx
+    sphinxcontrib.applehelp: sphinxcontrib_applehelp
+    sphinxcontrib.devhelp: sphinxcontrib_devhelp
+    sphinxcontrib.htmlhelp: sphinxcontrib_htmlhelp
+    sphinxcontrib.jsmath: sphinxcontrib_jsmath
+    sphinxcontrib.qthelp: sphinxcontrib_qthelp
+    sphinxcontrib.serializinghtml: sphinxcontrib_serializinghtml
+    toml: toml
+    tomlkit: tomlkit
+    typing_extensions: typing_extensions
+    urllib3: urllib3
+    wheel: wheel
+    yaml: PyYAML
+  pip_repository:
+    name: req_compile_deps
+integrity: 73ffb8c86cf73ade89c5c45b3ec0c7578ad9ee4cd8ca70a79eb1e1fc976f5832

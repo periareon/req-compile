@@ -53,10 +53,10 @@ from req_compile import utils
 from req_compile.errors import MetadataError
 from req_compile.filename import parse_source_filename
 
-from ..containers import DistInfo, PkgResourcesDistInfo, RequirementContainer
-from .dist_info import _fetch_from_wheel
-from .extractor import Extractor, NonExtractor
-from .patch import PatchToken, begin_patch, end_patch, patch
+from req_compile.containers import DistInfo, PkgResourcesDistInfo, RequirementContainer
+from req_compile.metadata.dist_info import _fetch_from_wheel
+from req_compile.metadata.extractor import Extractor, NonExtractor
+from req_compile.metadata.patch import PatchToken, begin_patch, end_patch, patch
 
 LOG = logging.getLogger("req_compile.metadata.source")
 
@@ -644,6 +644,8 @@ def _parse_setup_py(
 
     old_cythonize = None
     try:
+        # gazelle:ignore Cython
+        # gazelle:ignore Cython.Build
         import Cython.Build  # type: ignore
 
         old_cythonize = Cython.Build.cythonize

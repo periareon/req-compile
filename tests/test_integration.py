@@ -1,11 +1,20 @@
 """Integration tests."""
+
 import os
 import subprocess
 import sys
 
+import pytest
+
 from req_compile.config import read_pip_default_index
 
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir))
+
+
+def _subprocess_env():
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join(sys.path)
+    return env
 
 
 def test_source_candidates():
@@ -15,6 +24,7 @@ def test_source_candidates():
         encoding="utf-8",
         capture_output=True,
         cwd=ROOT_DIR,
+        env=_subprocess_env(),
         check=True,
     )
     assert "req-compile" in result.stdout
@@ -24,8 +34,8 @@ def test_source_candidates():
 
 def test_no_candidates(tmp_path):
     """Verify finding no candidates works correctly."""
-    env_copy = os.environ.copy()
-    env_copy["PYTHONPATH"] = ROOT_DIR
+    env_copy = _subprocess_env()
+    env_copy["PYTHONPATH"] = os.pathsep.join([ROOT_DIR, env_copy["PYTHONPATH"]])
 
     result = subprocess.run(
         [sys.executable, "-m", "req_compile.candidates", "--pre"],
@@ -33,10 +43,11 @@ def test_no_candidates(tmp_path):
         capture_output=True,
         env=env_copy,
         cwd=tmp_path,
-        check=True,
+        check=False,
     )
     assert result.stdout == ""
     assert "0" in result.stderr, result.stderr
+    assert result.returncode == 0
 
 
 def test_compile_req_compile(tmp_path):
@@ -48,7 +59,7 @@ def test_compile_req_compile(tmp_path):
                 "-W",
                 "ignore",
                 "-m",
-                "req_compile",
+                "req_compile.cmdline",
                 "-i",
                 read_pip_default_index() or "https://pypi.org/simple",
                 ".",
@@ -59,6 +70,7 @@ def test_compile_req_compile(tmp_path):
             encoding="utf-8",
             capture_output=True,
             cwd=ROOT_DIR,
+            env=_subprocess_env(),
         )
     except subprocess.CalledProcessError as ex:
         print(ex.stdout, file=sys.stderr)
@@ -72,3 +84,7 @@ def test_compile_req_compile(tmp_path):
     # Ensure that setup requires are included.
     all_items = {path.name.split("-", 1)[0] for path in tmp_path.iterdir()}
     assert "setuptools" in all_items
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__]))

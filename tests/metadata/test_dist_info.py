@@ -1,4 +1,7 @@
 import os
+import sys
+
+import pytest
 
 from req_compile.metadata.dist_info import _find_dist_info_metadata
 
@@ -6,7 +9,7 @@ from req_compile.metadata.dist_info import _find_dist_info_metadata
 def test_wheel_with_vendored():
     """Verify that a wheel that contains vendored dist-info directories uses the correct one"""
     namelist_raw = open(
-        os.path.join(os.path.dirname(__file__), "pex-listing.txt")
+        os.path.join(os.path.dirname(__file__), "pex-listing.txt"), encoding="utf-8"
     ).readlines()
     namelist = [name.strip() for name in namelist_raw]
 
@@ -39,3 +42,7 @@ def test_best_effort_match():
 def test_not_found():
     """Bad zips won't have any metadata"""
     assert _find_dist_info_metadata("bad", ["totally", "wrong", "files"]) is None
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__]))
