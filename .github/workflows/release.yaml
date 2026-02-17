@@ -101,12 +101,3 @@ jobs:
       release_version: ${{ needs.release.outputs.release_version }}
     secrets:
       BCR_PUBLISH_TOKEN: ${{ secrets.BCR_PUBLISH_TOKEN }}
-
-  bcr-publish-dry-run:
-    if: ${{ github.event_name == 'pull_request' }}
-    permissions:
-      contents: write
-    uses: ./.github/workflows/bcr-publish.yaml
-    with:
-      release_version: dry-run
-      dry_run: true

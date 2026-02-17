@@ -9,13 +9,9 @@ on:
       release_version:
         required: true
         type: string
-      dry_run:
-        required: false
-        default: false
-        type: boolean
     secrets:
       BCR_PUBLISH_TOKEN:
-        required: false
+        required: true
   # In case of problems, let release engineers retry by manually dispatching
   # the workflow from the GitHub UI.
   workflow_dispatch:
@@ -28,33 +24,20 @@ on:
         default: ''
         type: string
         description: Override the ref to read .bcr templates from
-      dry_run:
-        default: false
-        type: boolean
-        description: Validate BCR publish wiring without opening a registry PR
 jobs:
-  dry-run:
-    if: ${{ inputs.dry_run }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Validate BCR publish workflow wiring
-        run: |
-          echo "BCR publish dry run for ${INPUT_RELEASE_VERSION}"
-          echo "Skipping publish-to-bcr reusable workflow invocation."
-        env:
-          INPUT_RELEASE_VERSION: ${{ inputs.release_version }}
-
   publish:
-    if: ${{ !inputs.dry_run }}
     uses: bazel-contrib/publish-to-bcr/.github/workflows/publish.yaml@v1.1.0
     with:
       attest: false
       tag_name: ${{ inputs.release_version }}
+      author_name: periareon-bot
+      author_email: 260522848+periareon-bot@users.noreply.github.com
       # Tags don't include a "v" prefix
       tag_prefix: ""
       # GitHub repository which is a fork of the upstream where the Pull Request will be opened.
       registry_fork: periareon/bazel-central-registry
       templates_ref: ${{ inputs.templates_ref || inputs.release_version }}
+      draft: false
     permissions:
       contents: write
     secrets:
