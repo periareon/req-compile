@@ -286,3 +286,58 @@ def test_wheel_platform_specific_tags():
         "test",
         DistributionType.WHEEL,
     )
+
+
+def test_links_parser_whitespace_in_data():
+    filename = "pytest-4.3.0-py2.py3-none-any.whl"
+    url = "https://url"
+    lp = req_compile.repos.pypi.LinksHTMLParser(url)
+    lp.active_link = url, filename
+    lp.handle_data("\n        " + filename + "\n    ")
+    assert lp.dists == [
+        Candidate(
+            "pytest",
+            filename,
+            parse_version("4.3.0"),
+            WheelVersionTags(("py2", "py3")),
+            None,
+            "any",
+            (url, filename),
+            DistributionType.WHEEL,
+        )
+    ]
+
+
+def test_simple_index_whitespace_in_links(mocked_responses, mock_py_version, tmpdir):
+    mock_py_version("3.11.6")
+
+    html = """\
+<!DOCTYPE html>
+<html>
+<head><title>Links for my-package</title></head>
+<body>
+  <h1>Links for my-package</h1>
+    <a href="my_package-0.0.0-py3-none-any.whl#sha256=abc123">
+        my_package-0.0.0-py3-none-any.whl
+    </a>
+    <br/>
+    <a href="my_package-0.0.1-py3-none-any.whl#sha256=def456">
+        my_package-0.0.1-py3-none-any.whl
+    </a>
+    <br/>
+</body>
+</html>"""
+
+    mocked_responses.add(
+        responses.GET,
+        INDEX_URL + "/my-package/",
+        body=html,
+        status=200,
+    )
+    repo = PyPIRepository(INDEX_URL, str(tmpdir))
+
+    candidates = repo.get_candidates(Requirement("my-package"))
+
+    assert len(candidates) == 2
+    assert candidates[0].version == parse_version("0.0.0")
+    assert candidates[1].version == parse_version("0.0.1")
