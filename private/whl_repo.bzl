@@ -262,7 +262,7 @@ def _whl_repository_impl(repository_ctx):
         whl_name = whl_file.basename
 
         whl_result = repository_ctx.download(
-            "file:///{}".format(whl_file),
+            "file://localhost/{}".format(whl_file),
             output = whl_name,
             sha256 = repository_ctx.attr.sha256,
         )
