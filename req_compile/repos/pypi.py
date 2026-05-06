@@ -130,7 +130,7 @@ class LinksHTMLParser(HTMLParser):
     def handle_data(self, data: str) -> None:
         if self.active_link is None or self.active_skip:
             return
-        candidate = filename_to_candidate(self.active_link, data)
+        candidate = filename_to_candidate(self.active_link, data.strip())
         if candidate is not None:
             self.dists.append(candidate)
 
