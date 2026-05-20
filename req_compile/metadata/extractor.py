@@ -93,7 +93,12 @@ class Extractor(metaclass=abc.ABCMeta):
         if "b" in mode:
             return handle
 
-        return cast(IO[str], WithDecoding(handle, encoding or "utf-8", errors, newline))
+        if encoding is None:
+            encoding = "utf-8"
+            if errors is None:
+                errors = "replace"
+
+        return cast(IO[str], WithDecoding(handle, encoding, errors, newline))
 
     @abc.abstractmethod
     def names(self) -> Iterable[str]:
