@@ -1,6 +1,7 @@
 import contextlib
 import io
 import os
+import tarfile
 from pathlib import Path
 
 import pytest
@@ -84,6 +85,27 @@ def test_default_encoding_handles_non_ascii(mock_targz, tmp_path):
         with archive.open("tar-utf8-1.1.0/setup.py", "r") as f:
             contents = f.read()
         assert "Puré" in contents
+
+
+def test_default_encoding_replaces_invalid_utf8(tmp_path):
+    src_dir = tmp_path / "src"
+    pkg_dir = src_dir / "pkg-1.0"
+    pkg_dir.mkdir(parents=True)
+    # 0xa6 is a continuation byte, invalid as a UTF-8 start byte
+    (pkg_dir / "data.py").write_bytes(b"version = '1.0'  # \xa6\n")
+
+    tar_path = src_dir / "pkg-1.0.tar.gz"
+    with tarfile.open(tar_path, "w:gz") as tarf:
+        tarf.add(pkg_dir, arcname="pkg-1.0")
+
+    archive = TarExtractor("gz", str(tar_path))
+    root = str(tmp_path)
+    archive.fake_root = root
+    with temp_cwd(root):
+        with archive.open("pkg-1.0/data.py", "r") as f:
+            contents = f.read()
+        assert "version = '1.0'" in contents
+        assert "�" in contents
 
 
 def test_pathlib_open_with_encoding(monkeypatch, mock_targz, tmp_path):
