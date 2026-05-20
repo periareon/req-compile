@@ -76,6 +76,16 @@ def test_wrapped_encoding(mock_targz, tmp_path):
             assert isinstance(utf8_file.read(1), str)
 
 
+def test_default_encoding_handles_non_ascii(mock_targz, tmp_path):
+    archive: TarExtractor = TarExtractor("gz", mock_targz("tar-utf8-1.1.0"))
+    root = str(tmp_path)
+    archive.fake_root = root
+    with temp_cwd(root):
+        with archive.open("tar-utf8-1.1.0/setup.py", "r") as f:
+            contents = f.read()
+        assert "Puré" in contents
+
+
 def test_pathlib_open_with_encoding(monkeypatch, mock_targz, tmp_path):
     directory = "comtypes-1.1.7"
     archive: TarExtractor = TarExtractor("gz", mock_targz(directory))
