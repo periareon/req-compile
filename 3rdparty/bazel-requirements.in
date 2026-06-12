@@ -2,3 +2,10 @@
 
 -r ../requirements.in
 -r ../test-requirements.in
+
+# The `py_mypy_toolchain` rejects anything older, as pre-2.0 releases re-check
+# every dependency of every target instead of using the cached results.
+mypy >= 2.0
+
+# Required by the `py_wheel_publisher` toolchain used to publish `req-compile`.
+twine

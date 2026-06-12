@@ -1,0 +1,22 @@
+load("@rules_req_compile//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
+load("@rules_venv//python:defs.bzl", "py_test")
+
+py_reqs_compiler(
+    name = "requirements.update",
+    allow_sdists = True,
+    requirements_in = "requirements.in",
+    requirements_txt = "requirements.txt",
+)
+
+py_reqs_solution_test(
+    name = "requirements_test",
+    compiler = ":requirements.update",
+)
+
+py_test(
+    name = "sdist",
+    srcs = ["sdist.py"],
+    deps = [
+        "@pip_deps//pyspark",
+    ],
+)

@@ -1,0 +1,45 @@
+load("@rules_req_compile//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
+load("@rules_venv//python:defs.bzl", "py_binary", "py_test")
+
+exports_files(["find_links.py"])
+
+filegroup(
+    name = "requirements",
+    srcs = ["requirements.in"],
+    data = ["wheeldir/.gitkeep"] + glob(
+        include = ["wheeldir/*.whl"],
+        allow_empty = True,
+    ),
+)
+
+py_binary(
+    name = "compiler_wrapper",
+    srcs = ["compiler_wrapper.py"],
+)
+
+py_reqs_compiler(
+    name = "requirements.update",
+    custom_compile_command = "bazel run //:compiler_wrapper",
+    requirements_in = ":requirements",
+    requirements_txt = "requirements.txt",
+)
+
+py_reqs_solution_test(
+    name = "requirements_test",
+    compiler = ":requirements.update",
+)
+
+py_reqs_compiler(
+    name = "sdist_requirements.update",
+    allow_sdists = True,
+    requirements_in = "sdist_requirements.in",
+    requirements_txt = "sdist_requirements.txt",
+)
+
+py_test(
+    name = "find_links",
+    srcs = ["find_links.py"],
+    deps = [
+        "@pip_deps//pyspark",
+    ],
+)

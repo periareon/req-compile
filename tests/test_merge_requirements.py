@@ -42,9 +42,7 @@ def test_combine_extra_with_extra():
     req1 = Requirement("fuzzywuzzy[slowdown]")
     req2 = Requirement("fuzzywuzzy[speedup]")
 
-    assert merge_requirements(req1, req2) == Requirement(
-        "fuzzywuzzy[slowdown,speedup]"
-    )
+    assert merge_requirements(req1, req2) == Requirement("fuzzywuzzy[slowdown,speedup]")
 
 
 def test_combine_extras_sorted():

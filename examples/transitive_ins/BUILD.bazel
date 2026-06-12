@@ -1,0 +1,32 @@
+load("@rules_req_compile//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
+load("@rules_venv//python:defs.bzl", "py_test")
+
+filegroup(
+    name = "requirements",
+    srcs = ["requirements.in"],
+    data = [
+        "dep_1/requirements_1.in",
+        "dep_2/requirements_2.in",
+    ],
+)
+
+py_reqs_compiler(
+    name = "requirements.update",
+    requirements_in = ":requirements",
+    requirements_txt = "requirements.txt",
+)
+
+py_reqs_solution_test(
+    name = "requirements_test",
+    compiler = ":requirements.update",
+)
+
+py_test(
+    name = "transitive_ins",
+    srcs = ["transitive_ins.py"],
+    deps = [
+        "@pip_deps//pyyaml",
+        "@pip_deps//toml",
+        "@pip_deps//tomli",
+    ],
+)

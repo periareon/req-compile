@@ -1,0 +1,45 @@
+"""An example of building a source distribution into a wheel."""
+
+module(
+    name = "req_compile_example_sdist",
+    version = "0.0.0",
+)
+
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "rules_python", version = "1.7.0")
+bazel_dep(name = "rules_venv", version = "0.26.0")
+bazel_dep(name = "rules_req_compile", version = "0.0.0")
+local_path_override(
+    module_name = "rules_req_compile",
+    path = "../..",
+)
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(
+    # Working around a rules_python issue with docker
+    # https://github.com/bazelbuild/rules_python/pull/713
+    ignore_root_user_error = True,
+    is_default = True,
+    python_version = "3.11",
+)
+use_repo(
+    python,
+    "python_3_11_aarch64-apple-darwin",
+    "python_3_11_aarch64-unknown-linux-gnu",
+    "python_3_11_x86_64-apple-darwin",
+    "python_3_11_x86_64-pc-windows-msvc",
+    "python_3_11_x86_64-unknown-linux-gnu",
+)
+
+requirements = use_extension("@rules_req_compile//extensions:python.bzl", "requirements")
+requirements.parse(
+    name = "pip_deps",
+    # Building source distributions requires an interpreter.
+    interpreter_linux_aarch64 = "@python_3_11_aarch64-unknown-linux-gnu//:python",
+    interpreter_linux_x86_64 = "@python_3_11_x86_64-unknown-linux-gnu//:python",
+    interpreter_macos_aarch64 = "@python_3_11_aarch64-apple-darwin//:python",
+    interpreter_macos_x86_64 = "@python_3_11_x86_64-apple-darwin//:python",
+    interpreter_windows = "@python_3_11_x86_64-pc-windows-msvc//:python",
+    requirements_lock = ":requirements.txt",
+)
+use_repo(requirements, "pip_deps")

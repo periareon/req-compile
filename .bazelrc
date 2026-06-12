@@ -33,6 +33,36 @@ common --noslim_profile --experimental_profile_include_target_label --experiment
 common --nolegacy_important_outputs
 common --remote_cache_compression
 
+###############################################################################
+## Lint and type check aspects
+###############################################################################
+
+# Enable black for all targets in the workspace
+build:black --aspects=@rules_venv//python/black:py_black_aspect.bzl%py_black_aspect
+build:black --output_groups=+py_black_checks
+build --@rules_venv//python/black:config=//:pyproject.toml
+
+# Enable isort for all targets in the workspace
+build:isort --aspects=@rules_venv//python/isort:py_isort_aspect.bzl%py_isort_aspect
+build:isort --output_groups=+py_isort_checks
+build --@rules_venv//python/isort:config=//:pyproject.toml
+
+# Enable mypy for all targets in the workspace
+build:mypy --aspects=@rules_venv//python/mypy:py_mypy_aspect.bzl%py_mypy_aspect
+build:mypy --output_groups=+py_mypy_checks
+build --@rules_venv//python/mypy:config=//:pyproject.toml
+
+# Enable pylint for all targets in the workspace
+build:pylint --aspects=@rules_venv//python/pylint:py_pylint_aspect.bzl%py_pylint_aspect
+build:pylint --output_groups=+py_pylint_checks
+build --@rules_venv//python/pylint:config=//:pyproject.toml
+
+# Define a config that enables all linter aspects.
+build:strict --config=black
+build:strict --config=isort
+build:strict --config=mypy
+build:strict --config=pylint
+
 # Attempt to import any CI flags
 try-import %workspace%/.github/ci.bazelrc
 
