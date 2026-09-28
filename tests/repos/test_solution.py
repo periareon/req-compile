@@ -176,6 +176,154 @@ def test_round_trip(
             assert node.key in solution_result.solution
 
 
+def _compile_to_str(roots, repo):
+    """Compile the given root requirements and render the resulting solution."""
+    results, nodes = req_compile.compile.perform_compile(
+        [DistInfo("test", None, list(parse_requirements(roots)), meta=True)],
+        repo,
+    )
+    buffer = StringIO()
+    write_requirements_file(results, nodes, repo=repo, write_to=buffer)
+    return buffer.getvalue()
+
+
+@pytest.mark.parametrize(
+    "first_roots, second_roots",
+    [
+        # An extra is added to a project that was previously solved without one.
+        (["a"], ["a[x1]"]),
+        # An extra is added alongside the one already in the solution.
+        (["a[x1]"], ["a[x1,x2]"]),
+        # The requested extra is swapped for a different one.
+        (["a[x1]"], ["a[x2]"]),
+        # A root asks for an extra of a project the solution only has transitively.
+        (["d"], ["d", "a[x2]"]),
+        # `a` gets solved from the solution via `d` (which asks for a[x1]) before
+        # `e` is reached and asks for a[x1,x2]. The new extra is therefore only
+        # discovered after `a` has already been given its metadata.
+        (["d"], ["d", "e"]),
+    ],
+)
+def test_recompile_with_new_extras(
+    mock_metadata, mock_pypi, tmp_path, first_roots, second_roots
+):
+    """Recompiling against a solution must not drop the deps of newly requested extras.
+
+    A solution only describes the extras that were active when it was compiled. When
+    it is reused as a repository and more extras are asked for, it has to defer to a
+    repository that holds the complete metadata.
+    """
+    mock_pypi.load_scenario("normal")
+
+    solution_path = tmp_path / "solution.txt"
+    solution_path.write_text(_compile_to_str(first_roots, mock_pypi), encoding="utf-8")
+
+    # Recompile using the existing solution the way `py_reqs_compiler` does.
+    incremental = _compile_to_str(
+        second_roots, MultiRepository(SolutionRepository(solution_path), mock_pypi)
+    )
+
+    assert incremental == _compile_to_str(second_roots, mock_pypi)
+
+
+def test_recompile_with_extra_sharing_a_requirement(mock_metadata, mock_pypi, tmp_path):
+    """A requirement shared by several extras must be kept for each of them.
+
+    `a` requires `b` under both `x1` and `x2`, so solving only `a[x1]` still writes
+    the annotation `b==1.1.0  # a[x1,x2]`. Both of those extras are therefore
+    described by the solution, and recompiling with `x2` must still yield `b`.
+    """
+    mock_pypi.load_scenario("multi-extra")
+
+    solution_path = tmp_path / "solution.txt"
+    solution_path.write_text(_compile_to_str(["a[x1]"], mock_pypi), encoding="utf-8")
+    assert "# via a[x1,x2]" in solution_path.read_text(encoding="utf-8")
+
+    # The solution fully describes `x2`, so it can be recompiled without an index.
+    incremental = _compile_to_str(["a[x2]"], SolutionRepository(solution_path))
+
+    assert incremental == _compile_to_str(["a[x2]"], mock_pypi)
+    assert "b==1.1.0" in incremental
+
+
+def test_solution_does_not_supply_unknown_extras():
+    """A solution can only offer a candidate for the extras it recorded."""
+    solution_repo = SolutionRepository("garbage.txt.test")
+    solution_repo._load_from_lines(
+        ["myreq==34  # requirements.in ([known])\n", "child_req==1  # myreq[known]\n"]
+    )
+
+    assert solution_repo.get_candidates(parse_requirement("myreq"))
+    assert solution_repo.get_candidates(parse_requirement("myreq[known]"))
+    assert solution_repo.get_candidates(parse_requirement("myreq[unknown]")) == []
+    assert solution_repo.get_candidates(parse_requirement("myreq[known,unknown]")) == []
+
+
+def test_solution_knows_extras_that_add_no_requirements():
+    """An extra is recorded even when it contributed nothing to the solution.
+
+    Extras like `requests[security]` are empty, or only add requirements that are
+    excluded by markers on this platform. They leave no dependency behind in the
+    solution, so the annotation on the project's own line is the only record of
+    them. Without it these would be re-resolved needlessly, and would fail
+    outright when no index is available.
+    """
+    solution_repo = SolutionRepository("garbage.txt.test")
+    solution_repo._load_from_lines(["myreq==34  # requirements.in ([empty])\n"])
+
+    assert solution_repo.get_candidates(parse_requirement("myreq[empty]"))
+    assert solution_repo.get_candidates(parse_requirement("myreq[other]")) == []
+
+
+def test_solution_reconstructs_every_annotated_extra():
+    """An annotation naming several extras describes the requirement under each.
+
+    `child_req==1  # myreq[x1,x2]` means either extra of `myreq` pulls in
+    `child_req`. Reconstructing it under only one of them would report both extras
+    as described while silently dropping `child_req` for the other.
+    """
+    solution_repo = SolutionRepository("garbage.txt.test")
+    solution_repo._load_from_lines(
+        ["myreq==34  # requirements.in ([x1,x2])\n", "child_req==1  # myreq[x1,x2]\n"]
+    )
+
+    metadata = solution_repo.solution["myreq"].metadata
+    assert [req.name for req in metadata.requires("x1")] == ["child_req"]
+    assert [req.name for req in metadata.requires("x2")] == ["child_req"]
+    assert list(metadata.requires()) == []
+
+    assert solution_repo.get_candidates(parse_requirement("myreq[x1]"))
+    assert solution_repo.get_candidates(parse_requirement("myreq[x2]"))
+    assert solution_repo.get_candidates(parse_requirement("myreq[x3]")) == []
+
+
+def test_solution_reload_forgets_previous_extras(tmp_path):
+    """Loading another solution must not leave the extras of the previous one behind."""
+    first = tmp_path / "first.txt"
+    first.write_text("myreq==34  # requirements.in ([known])\n", encoding="utf-8")
+    second = tmp_path / "second.txt"
+    second.write_text("myreq==34  # requirements.in\n", encoding="utf-8")
+
+    solution_repo = SolutionRepository(first)
+    assert solution_repo.get_candidates(parse_requirement("myreq[known]"))
+
+    solution_repo.load_from_file(str(second))
+
+    assert solution_repo.get_candidates(parse_requirement("myreq"))
+    assert solution_repo.get_candidates(parse_requirement("myreq[known]")) == []
+
+
+def test_solution_knows_extras_referenced_before_being_pinned():
+    """Extras can be referenced by another project before the pin that defines them."""
+    solution_repo = SolutionRepository("garbage.txt.test")
+    solution_repo._load_from_lines(
+        ["child_req==1  # myreq[late]\n", "myreq==34  # requirements.in\n"]
+    )
+
+    assert solution_repo.get_candidates(parse_requirement("myreq[late]"))
+    assert solution_repo.get_candidates(parse_requirement("myreq[other]")) == []
+
+
 def test_writing_repo_sources(mock_metadata, mock_pypi, tmp_path):
     mock_pypi.load_scenario("normal")
 

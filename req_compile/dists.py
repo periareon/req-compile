@@ -282,19 +282,37 @@ class DistributionCollection:
 
         # If a new extra is being supplied, update the metadata. This should run before
         # the reverse dependency is added, as this is how the current extras are known.
-        if (
-            reason is not None
-            and node.metadata
-            and reason.extras
-            and set(reason.extras) - node.extras
-        ):
-            metadata_to_apply = metadata_to_apply or node.metadata
+        new_extras: Set[str] = set()
+        if reason is not None and node.metadata and reason.extras:
+            new_extras = set(reason.extras) - node.extras
+            if new_extras:
+                metadata_to_apply = metadata_to_apply or node.metadata
 
         # Add a reference in the source's dependencies to this node.
         # The source is the node that caused this node to be added to the graph.
         if source is not None and source.key in self.nodes:
             node.reverse_deps.add(source)
             source.add_reason(node, reason)
+
+        # The metadata already on this node may only describe a subset of the
+        # distribution's extras, which is the case when it came from a solution file.
+        # Applying it would silently drop the requirements of the newly requested
+        # extras, so unsolve the node and let the repositories supply metadata that
+        # covers them. The reverse dependency was added above so that the new extras
+        # are part of the constraints used to resolve it again.
+        if (
+            new_extras
+            and node.metadata is not None
+            and metadata_to_apply is node.metadata
+            and not node.metadata.describes_extras(new_extras)
+        ):
+            LOG.debug(
+                "Existing solution (%s) does not describe the extras %s",
+                node.metadata,
+                ",".join(sorted(new_extras)),
+            )
+            self.remove_dists(node, remove_upstream=False)
+            return node
 
         # If this requirement is conflicting, clear the metadata but keep the node.
         # We'll need to find more suitable metadata later.

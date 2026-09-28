@@ -1,0 +1,7 @@
+Metadata-Version: 2.0
+Name: a
+Version: 1.0.0
+Classifier: Programming Language :: Python
+Provides-Extra: x1
+Provides-Extra: x2
+Requires-Dist: b; extra == 'x1' or extra == 'x2'

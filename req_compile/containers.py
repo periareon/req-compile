@@ -1,13 +1,18 @@
 import itertools
 import os
 from pathlib import Path
-from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
+from typing import Any, Iterable, Iterator, List, Optional, Set, Tuple, Union
 
 import packaging.requirements
 import packaging.version
 from packaging.requirements import InvalidRequirement
 
-from req_compile.utils import reduce_requirements, req_iter_from_file
+from req_compile.utils import (
+    NormName,
+    normalize_project_name,
+    reduce_requirements,
+    req_iter_from_file,
+)
 
 
 def req_uses_extra(
@@ -48,6 +53,11 @@ class RequirementContainer:
         self.version: Optional[packaging.version.Version] = None
         self.hash: Optional[str] = None
         self.candidate: Any = None
+        # The extras that `reqs` is known to fully describe. `None` means the
+        # metadata is complete, so every extra the distribution provides is
+        # described. Solutions only record the extras that were active when they
+        # were compiled, so they populate this to mark the rest as unknown.
+        self.known_extras: Optional[Set[NormName]] = None
 
     def __iter__(self) -> Iterator[packaging.requirements.Requirement]:
         return iter(self.reqs)
@@ -58,6 +68,18 @@ class RequirementContainer:
         return reduce_requirements(
             req for req in self.reqs if req_uses_extra(req, extra)
         )
+
+    def describes_extras(self, extras: Iterable[str]) -> bool:
+        """Whether this container describes the requirements of all the given extras.
+
+        A container built from incomplete metadata, such as a solution file, only
+        knows about the extras that were recorded in it. Asking it for the
+        requirements of any other extra silently yields nothing, so callers need
+        to check first and go find complete metadata instead.
+        """
+        if self.known_extras is None:
+            return True
+        return {normalize_project_name(extra) for extra in extras} <= self.known_extras
 
     def to_definition(
         self, extras: Optional[Iterable[str]]
