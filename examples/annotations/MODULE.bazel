@@ -1,0 +1,96 @@
+"""An example of applying package annotations to downloaded wheels."""
+
+module(
+    name = "req_compile_example_annotations",
+    version = "0.0.0",
+)
+
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "rules_cc", version = "0.2.4")
+bazel_dep(name = "rules_venv", version = "0.26.0")
+bazel_dep(name = "rules_req_compile", version = "0.0.0")
+local_path_override(
+    module_name = "rules_req_compile",
+    path = "../..",
+)
+
+requirements = use_extension("@rules_req_compile//extensions:python.bzl", "requirements")
+requirements.parse(
+    name = "pip_deps",
+    requirements_locks = {
+        ":requirements.linux.txt": "@platforms//os:linux",
+        ":requirements.macos.txt": "@platforms//os:macos",
+        ":requirements.windows.txt": "@platforms//os:windows",
+    },
+)
+use_repo(
+    requirements,
+    "pip_deps",
+    "pip_deps_linux__numpy",
+    "pip_deps_macos__numpy",
+    "pip_deps_windows__numpy",
+)
+
+requirements.package_annotation(
+    additive_build_file_content = """\
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_req_compile//:defs.bzl", "py_package_annotation_target")
+
+_INCLUDE_DIR = "site-packages/numpy/core/include"
+
+cc_library(
+    name = "headers",
+    hdrs = glob(["{}/**/*.h".format(_INCLUDE_DIR)]),
+    includes = [_INCLUDE_DIR],
+)
+
+py_package_annotation_target(
+    name = "pkg.headers",
+    target = ":headers",
+)
+""",
+    copy_executables = {
+        "site-packages/numpy/testing/setup.py": "site-packages/numpy/testing/setup.copy.py",
+    },
+    copy_files = {
+        "site-packages/numpy-1.26.4.dist-info/entry_points.txt": "site-packages/numpy-1.26.4.dist-info/entry_points.copy.txt",
+    },
+    copy_srcs = {
+        "site-packages/numpy/conftest.py": "site-packages/numpy/conftest.copy.py",
+    },
+    data = [":pkg.headers"],
+    package = "numpy",
+    patches = [
+        ":numpy.patch",
+    ],
+    deps = [
+        # Show that label dependencies can be added.
+        "@rules_venv//python/runfiles",
+    ],
+)
+
+# Sphinx is known to have a circular dependency. The annotations here solve for that.
+requirements.package_annotation(
+    package = "sphinxcontrib-htmlhelp",
+    deps = ["-sphinx"],
+)
+requirements.package_annotation(
+    package = "sphinxcontrib-applehelp",
+    deps = ["-sphinx"],
+)
+requirements.package_annotation(
+    package = "sphinxcontrib-devhelp",
+    deps = ["-sphinx"],
+)
+requirements.package_annotation(
+    package = "sphinxcontrib-jsmath",
+    deps = ["-sphinx"],
+)
+requirements.package_annotation(
+    package = "sphinxcontrib-qthelp",
+    deps = ["-sphinx"],
+)
+requirements.package_annotation(
+    deps_excludes = ["sphinx"],
+    package = "sphinxcontrib-serializinghtml",
+)

@@ -1,0 +1,34 @@
+"""An example of using the `rules_python` `pip_parse` compatibility interface."""
+
+module(
+    name = "req_compile_example_pip_parse_compat",
+    version = "0.0.0",
+)
+
+bazel_dep(name = "bazel_skylib", version = "1.8.2")
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "rules_venv", version = "0.26.0")
+bazel_dep(name = "rules_req_compile", version = "0.0.0")
+local_path_override(
+    module_name = "rules_req_compile",
+    path = "../..",
+)
+
+requirements = use_extension("@rules_req_compile//extensions:python.bzl", "requirements")
+requirements.parse(
+    name = "single_plat_pip_deps",
+    requirements_lock = ":requirements.txt",
+)
+requirements.parse(
+    name = "multi_plat_pip_deps",
+    requirements_locks = {
+        ":requirements.linux.txt": "@platforms//os:linux",
+        ":requirements.macos.txt": "@platforms//os:macos",
+        ":requirements.windows.txt": "@platforms//os:windows",
+    },
+)
+use_repo(
+    requirements,
+    "multi_plat_pip_deps",
+    "single_plat_pip_deps",
+)

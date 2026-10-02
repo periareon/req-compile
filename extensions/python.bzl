@@ -4,8 +4,10 @@ load(
     "//:defs.bzl",
     package_annotation = "py_package_annotation",
 )
+
+# buildifier: disable=bzl-visibility
 load(
-    "//private:reqs_repo.bzl",
+    "//req_compile/private:reqs_repo.bzl",
     "create_spoke_repos",
     "parse_requirements_locks",
     "py_requirements_repository",

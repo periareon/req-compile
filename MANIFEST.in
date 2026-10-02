@@ -1,5 +1,10 @@
 include *.py
-prune tests private .idea requirements.txt
+prune tests
+prune examples
+prune rule_tests
+prune req_compile/private
+prune .idea
+exclude requirements.txt
 include CHANGELOG.rst
 include LICENSE.txt
 include pyproject.toml

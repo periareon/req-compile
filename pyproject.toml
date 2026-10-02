@@ -2,8 +2,13 @@
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.isort]
+profile = "black"
+
 [tool.mypy]
-namespace_packages = false
+# `req_compile.private` deliberately has no `__init__.py` so that `setup.py`'s
+# `find_packages` leaves the Bazel rule helpers out of the distribution.
+namespace_packages = true
 
 [tool.pylint.main]
 max-line-length = 120
@@ -21,6 +26,3 @@ disable = [
     "consider-using-f-string",
     "useless-import-alias",  # Conflict with ruff check.
 ]
-
-[tool.isort]
-profile = "black"

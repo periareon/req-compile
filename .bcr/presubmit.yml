@@ -1,5 +1,5 @@
 bcr_test_module:
-  module_path: "private/examples/multiplatform_py_test"
+  module_path: "examples/multiplatform_py_test"
   matrix:
     platform: ["macos_arm64", "ubuntu2004", "windows"]
     bazel: [7.x, 8.x, 9.x]

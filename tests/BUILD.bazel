@@ -1,0 +1,43 @@
+load("@rules_venv//python/pytest:defs.bzl", "py_pytest_test_suite")
+
+py_pytest_test_suite(
+    name = "tests",
+    size = "small",
+    srcs = [
+        "__init__.py",
+        "conftest.py",
+    ],
+    data = glob(
+        include = ["**/*"],
+        exclude = [
+            "*.py",
+            "BUILD.bazel",
+        ],
+    ) + [
+        # `test_self_source` extracts metadata from this project's own source
+        # tree, which it locates relative to this directory.
+        "//:CHANGELOG.rst",
+        "//:README.rst",
+        "//:requirements.in",
+        "//:setup.py",
+        "//:version.bzl",
+    ],
+    # The test sources have never been type checked and mypy cannot resolve
+    # `pytest` through the cache the aspect builds for it, so every decorator
+    # reports `Module has no attribute "fixture"`. Linting is unaffected.
+    tags = ["no-mypy"],
+    tests = glob(
+        include = ["test_*.py"],
+        # `test_integration.py` shells out to `req-compile` from the source
+        # tree and reaches out to a package index. Neither works under Bazel
+        # so it remains covered by the pip based test matrix in CI.
+        exclude = ["test_integration.py"],
+    ),
+    deps = [
+        "//req_compile",
+        "@req_compile_deps//pytest",
+        "@req_compile_deps//pytest_mock",
+        # Imported by the `extern-importer-1.0` source package fixture.
+        "@req_compile_deps//six",
+    ],
+)

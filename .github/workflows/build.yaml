@@ -13,6 +13,9 @@ on:
 
 
 jobs:
+  # Bazel pins a single interpreter, so this matrix is the only coverage of
+  # `req-compile` running on the other Python versions it claims to support.
+  # Linting, type checking and the Bazel rules are all handled by `bazel-bzlmod`.
   build:
     strategy:
       fail-fast: false
@@ -34,34 +37,9 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -r 3rdparty/requirements.txt --user
-    - name: Run mypy
-      run: |
-        python -m mypy req_compile
-    - name: Run pylint
-      run: |
-        python -m pylint req_compile tests
     - name: Test with pytest
       run: |
-        python -m pytest -v --ignore=private
-
-  formatting:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v2
-      with:
-        python-version: "3.11"
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r 3rdparty/requirements.txt --user
-    - name: Run black
-      run: |
-        black --check --diff req_compile
-    - name: Run isort
-      run: |
-        isort --check-only req_compile
+        python -m pytest -v tests
 
   bazel-bzlmod:
     strategy:
@@ -81,7 +59,7 @@ jobs:
         CI_BAZELRC_PATH: .github/ci.bazelrc
     - name: Run Tests
       run: |
-        bazel test //...
+        bazel test --config=strict //...
     - name: Perform compilation
       run: |
         bazel run //3rdparty:requirements_compiler "--" --upgrade
@@ -92,39 +70,37 @@ jobs:
       matrix:
         platform: ["ubuntu-latest", "macos-14", "windows-latest"]
     runs-on: ${{ matrix.platform }}
-    name: bazel test multiplatform_py_test --build ${{ matrix.platform }}
+    name: bazel test examples ${{ matrix.platform }}
     steps:
     - uses: actions/checkout@v2
-    - name: Test user repo examples
+    - name: Test example modules
+      shell: bash
       run: |
-        bazel test //...
-      working-directory: private/examples/multiplatform_py_test
-    - name: Test module repo overrides
-      run: |
-        bazel test //...
-      working-directory: private/tests/override_module_repos/overrider
+        set -euo pipefail
+        for module in examples/*/MODULE.bazel examples/*/*/MODULE.bazel; do
+          dir="$(dirname "${module}")"
+
+          # Bazel's convenience symlinks point back at a module that was
+          # already visited.
+          if [[ "$(basename "${dir}")" == bazel-* ]]; then
+            continue
+          fi
+
+          # `overridee` deliberately ships an incomplete solution. It only
+          # resolves when `overrider` replaces its repositories, so it is
+          # covered by building that module rather than on its own.
+          if [[ "${dir}" == "examples/override_module_repos/overridee" ]]; then
+            continue
+          fi
+
+          echo "::group::${dir}"
+          (cd "${dir}" && bazel test //...)
+          echo "::endgroup::"
+        done
 
   bazel_lint:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python_version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: "3.11"
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r 3rdparty/requirements.txt --user
-        pip install -e .
-    - name: Run isort
-      run: |
-        isort --check-only private
-    - name: Run black
-      run: |
-        black --check --diff private
-    - name: Run pylint
-      run: |
-        python -m pylint private
     - name: Run buildifier
       run: bazel run //:buildifier.check

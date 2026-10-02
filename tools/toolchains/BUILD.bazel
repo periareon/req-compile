@@ -1,0 +1,93 @@
+load("@rules_venv//python:defs.bzl", "py_library")
+load("@rules_venv//python/black:defs.bzl", "py_black_toolchain")
+load("@rules_venv//python/isort:defs.bzl", "py_isort_toolchain")
+load("@rules_venv//python/mypy:defs.bzl", "py_mypy_toolchain")
+load("@rules_venv//python/pylint:defs.bzl", "py_pylint_toolchain")
+load("@rules_venv//python/pytest:defs.bzl", "py_pytest_toolchain")
+load("@rules_venv//python/wheel:defs.bzl", "py_wheel_toolchain")
+
+py_black_toolchain(
+    name = "py_black_toolchain_impl",
+    black = "@req_compile_deps//black",
+)
+
+toolchain(
+    name = "py_black_toolchain",
+    toolchain = ":py_black_toolchain_impl",
+    toolchain_type = "@rules_venv//python/black:toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
+py_isort_toolchain(
+    name = "py_isort_toolchain_impl",
+    isort = "@req_compile_deps//isort",
+)
+
+toolchain(
+    name = "py_isort_toolchain",
+    toolchain = ":py_isort_toolchain_impl",
+    toolchain_type = "@rules_venv//python/isort:toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
+# The type stubs are bundled with mypy itself rather than added to the deps of
+# the targets that need them. They are not runtime dependencies, so listing
+# them on `//req_compile` would put them in the wheel's `Requires-Dist`.
+py_library(
+    name = "mypy_with_stubs",
+    deps = [
+        "@req_compile_deps//mypy",
+        "@req_compile_deps//types_appdirs",
+        "@req_compile_deps//types_requests",
+        "@req_compile_deps//types_setuptools",
+        "@req_compile_deps//types_toml",
+    ],
+)
+
+py_mypy_toolchain(
+    name = "py_mypy_toolchain_impl",
+    mypy = ":mypy_with_stubs",
+)
+
+toolchain(
+    name = "py_mypy_toolchain",
+    toolchain = ":py_mypy_toolchain_impl",
+    toolchain_type = "@rules_venv//python/mypy:toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
+py_pylint_toolchain(
+    name = "py_pylint_toolchain_impl",
+    pylint = "@req_compile_deps//pylint",
+)
+
+toolchain(
+    name = "py_pylint_toolchain",
+    toolchain = ":py_pylint_toolchain_impl",
+    toolchain_type = "@rules_venv//python/pylint:toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
+py_pytest_toolchain(
+    name = "py_pytest_toolchain_impl",
+    pytest = "@req_compile_deps//pytest",
+)
+
+toolchain(
+    name = "py_pytest_toolchain",
+    toolchain = ":py_pytest_toolchain_impl",
+    toolchain_type = "@rules_venv//python/pytest:toolchain_type",
+    visibility = ["//visibility:public"],
+)
+
+py_wheel_toolchain(
+    name = "py_wheel_toolchain_impl",
+    twine = "@req_compile_deps//twine",
+)
+
+toolchain(
+    name = "py_wheel_toolchain",
+    toolchain = ":py_wheel_toolchain_impl",
+    toolchain_type = "@rules_venv//python/wheel:toolchain_type",
+    visibility = ["//visibility:public"],
+)

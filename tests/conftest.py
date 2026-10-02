@@ -89,7 +89,9 @@ class MockRepository(Repository):
             if limit_reqs is None or req in limit_reqs:
                 self.index_map[entry.split("-")[0].lower()].append(req)
 
-    def _build_candidate(self, req: Optional[packaging.requirements.Requirement]) -> Candidate:
+    def _build_candidate(
+        self, req: Optional[packaging.requirements.Requirement]
+    ) -> Candidate:
         path = _to_path(self.scenario, req)
         full_name = (
             path
@@ -102,9 +104,7 @@ class MockRepository(Repository):
                 handle.read()
             )
 
-        return Candidate(
-            req.name, path, metadata.version, None, None, "any", None
-        )
+        return Candidate(req.name, path, metadata.version, None, None, "any", None)
 
     def get_candidates(
         self, req: Optional[packaging.requirements.Requirement]
@@ -155,7 +155,10 @@ def mock_targz():
 
         archive_name = os.path.basename(directory) + ".tar.gz"
         tar_archive = os.path.join(build_dir, archive_name)
-        with tarfile.open(tar_archive, "w:gz") as tarf:
+        # `dereference` is required because the test sources may be presented
+        # as a tree of symlinks (e.g. a Bazel runfiles directory) and the
+        # archive is expected to contain the file contents, not dangling links.
+        with tarfile.open(tar_archive, "w:gz", dereference=True) as tarf:
             tarf.add(directory, arcname=os.path.basename(directory))
 
         files_to_delete.append(tar_archive)

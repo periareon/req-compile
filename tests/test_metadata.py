@@ -7,14 +7,13 @@ from typing import Callable
 import pytest
 from packaging.version import Version
 
-from req_compile.utils import parse_requirement, parse_requirements
-
 import req_compile.filename
 import req_compile.metadata
 import req_compile.metadata.dist_info
 import req_compile.metadata.extractor
 import req_compile.metadata.metadata
 import req_compile.metadata.source
+from req_compile.utils import parse_requirement, parse_requirements
 
 
 def test_a_with_no_extra(metadata_provider):
@@ -57,7 +56,7 @@ def test_parse_flat_metadata_bizarre_extra():
 
 
 def test_parse_flat_metadata_complex_marker(
-    mock_py_version: Callable[[str], None]
+    mock_py_version: Callable[[str], None],
 ) -> None:
     mock_py_version("3.7.12")
 
@@ -74,9 +73,7 @@ def test_a_with_extra(metadata_provider):
     info = metadata_provider("normal/a-1.0.0.METADATA")
     assert info.name == "a"
     assert info.version == Version("0.1.0")
-    assert list(info.requires("x1")) == [
-        parse_requirement("b (>1); extra == 'x1'")
-    ]
+    assert list(info.requires("x1")) == [parse_requirement("b (>1); extra == 'x1'")]
 
 
 def test_a_with_wrong_extra(metadata_provider):
@@ -164,7 +161,10 @@ _SOURCES = [
     ["file-input-1.0", "file-input", "1.0", None],
     ["capital-s-1.0", "capital-s", "1.0", []],
     ["dirsep-1.0", "dirsep", "1.0", []],
-    ["version-writer-1.2", "version-writer", "1.2", []],
+    # `setup.py` here cannot be parsed statically, so the name comes from the
+    # egg-info fallback. Modern setuptools reports the declared name verbatim
+    # rather than replacing underscores with dashes.
+    ["version-writer-1.2", "version_writer", "1.2", []],
     ["tinyrpc-1.0.4", "tinyrpc", "1.0.4", ["six"]],
     ["spec-loading-1.0", "spec-loading", "1.0", ["et_xmlfile", "jdcal"]],
 ]

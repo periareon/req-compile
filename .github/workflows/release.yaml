@@ -37,8 +37,15 @@ jobs:
           python-version: 3.11
       - name: Build a binary wheel and a source tarball
         run: |
-          python -m pip install -U setuptools wheel
-          python setup.py bdist_wheel sdist
+          bazel build //req_compile:req_compile.whl
+          mkdir -p dist
+          cp "$(bazel cquery --output=files //req_compile:req_compile.whl)" dist/
+
+          # The wheel is built by Bazel but `py_wheel_publisher` only handles
+          # wheels, so the source distribution is still built by setuptools.
+          python -m pip install -U build setuptools twine wheel
+          python -m build --sdist --outdir dist
+
           WHEEL_NAME="$(find dist -name '*.whl' -exec basename {} \;)"
           echo "WHEEL_NAME=${WHEEL_NAME}" >> $GITHUB_ENV
       - name: Detect the current version
@@ -49,7 +56,7 @@ jobs:
           echo "release_version=${version}" >> $GITHUB_OUTPUT
       - name: Create release artifact
         run: |
-          tar -czf ${{ github.workspace }}/.github/rules_req_compile.tar.gz --exclude=".git" --exclude=".github" --exclude="scripts" --exclude="dist" --exclude="build" -C ${{ github.workspace }} .
+          tar -czf ${{ github.workspace }}/.github/rules_req_compile.tar.gz --exclude=".git" --exclude=".github" --exclude="scripts" --exclude="dist" --exclude="build" --exclude="bazel-*" -C ${{ github.workspace }} .
           sha256="$(shasum --algorithm 256 ${{ github.workspace }}/.github/rules_req_compile.tar.gz | awk '{ print $1 }')"
           integrity="sha256-$(echo -n "$sha256" | xxd -r -p | base64)"
           echo "ARCHIVE_SHA256=${sha256}" >> $GITHUB_ENV
@@ -87,10 +94,16 @@ jobs:
           asset_name: ${{ env.WHEEL_NAME }}
           asset_path: ${{ github.workspace }}/dist/${{ env.WHEEL_NAME }}
           asset_content_type: application/gzip
-      - name: Publish distribution to PyPI
-        uses: pypa/gh-action-pypi-publish@master
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Publish the wheel to PyPI
+        run: bazel run //req_compile:req_compile.publish
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Publish the source distribution to PyPI
+        run: python -m twine upload dist/*.tar.gz
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
 
   bcr-publish:
     needs: [release]
