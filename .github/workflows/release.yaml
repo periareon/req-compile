@@ -2,102 +2,155 @@
 name: Release
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      # Only trigger for new releases
-      - "version.bzl"
   pull_request:
     branches:
       - main
     paths:
-      - ".github/workflows/release.yaml"
-      - ".github/workflows/bcr-publish.yaml"
+      # Run the release workflow on PRs that touch its scaffolding so
+      # changes get a dry-run before they land on `main`.
+      - version.bzl
+      - .github/workflows/release.yaml
+      - .github/workflows/release_prep.sh
+      - .github/workflows/bcr-publish.yaml
+  push:
+    branches:
+      - main
+    paths:
+      # Only fire a real release when version.bzl is bumped.
+      - version.bzl
 
 defaults:
   run:
     shell: bash
 
 jobs:
-  release:
-    permissions:
-      contents: write
-      actions: write
-      attestations: write
-    outputs:
-      release_version: ${{ steps.version.outputs.release_version }}
-    if: ${{ github.repository_owner == 'periareon' && github.event_name != 'pull_request' }}
+  # Reject the release up front if the target tag already exists on the
+  # remote. Saves a partially-published release if version.bzl wasn't
+  # bumped before merge.
+  validation:
+    if: ${{ github.repository_owner == 'periareon' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.11
-      - name: Build a binary wheel and a source tarball
+      - uses: actions/checkout@v4
+      - name: Ensure release does not already exist
+        if: startsWith(github.ref, 'refs/heads/main')
         run: |
-          python -m pip install -U setuptools wheel
-          python setup.py bdist_wheel sdist
-          WHEEL_NAME="$(find dist -name '*.whl' -exec basename {} \;)"
-          echo "WHEEL_NAME=${WHEEL_NAME}" >> $GITHUB_ENV
-      - name: Detect the current version
-        id: version
-        run: |
-          version="$(grep 'VERSION =' ./version.bzl | sed 's/VERSION = "//' | sed 's/"//')"
-          echo "RELEASE_VERSION=${version}" >> $GITHUB_ENV
-          echo "release_version=${version}" >> $GITHUB_OUTPUT
-      - name: Create release artifact
-        run: |
-          tar -czf ${{ github.workspace }}/.github/rules_req_compile.tar.gz --exclude=".git" --exclude=".github" --exclude="scripts" --exclude="dist" --exclude="build" -C ${{ github.workspace }} .
-          sha256="$(shasum --algorithm 256 ${{ github.workspace }}/.github/rules_req_compile.tar.gz | awk '{ print $1 }')"
-          integrity="sha256-$(echo -n "$sha256" | xxd -r -p | base64)"
-          echo "ARCHIVE_SHA256=${sha256}" >> $GITHUB_ENV
-          echo "ARCHIVE_INTEGRITY=${integrity}" >> $GITHUB_ENV
-      - name: Generate release notes
-        run: |
-          # Generate the release notes
-          sed 's|{version}|${{env.RELEASE_VERSION}}|g' ${{ github.workspace }}/.github/release_notes.template \
-          | sed 's|{sha256}|${{env.ARCHIVE_SHA256}}|g' \
-          | sed 's|{integrity}|${{env.ARCHIVE_INTEGRITY}}|g' \
-          > ${{ github.workspace }}/.github/release_notes.txt
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        id: rules_release
-        with:
-          generate_release_notes: true
-          tag_name: ${{ env.RELEASE_VERSION }}
-          body_path: ${{ github.workspace }}/.github/release_notes.txt
-          target_commitish: ${{ github.base_ref }}
-      - name: "Upload the rules archive"
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.rules_release.outputs.upload_url }}
-          asset_name: rules_req_compile-${{ env.RELEASE_VERSION }}.tar.gz
-          asset_path: ${{ github.workspace }}/.github/rules_req_compile.tar.gz
-          asset_content_type: application/gzip
-      - name: "Upload the wheel"
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.rules_release.outputs.upload_url }}
-          asset_name: ${{ env.WHEEL_NAME }}
-          asset_path: ${{ github.workspace }}/dist/${{ env.WHEEL_NAME }}
-          asset_content_type: application/gzip
-      - name: Publish distribution to PyPI
-        uses: pypa/gh-action-pypi-publish@master
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          git fetch origin &> /dev/null
+          version="$(grep 'VERSION =' ${{ github.workspace }}/version.bzl | sed 's/VERSION = "//' | sed 's/"//')"
+          if [[ -n "$(git tag -l ${version})" ]]; then
+            echo "A release '${version}' already exists." >&2
+            exit 1
+          else
+            echo "Tag '${version}' will be created"
+          fi
 
-  bcr-publish:
-    needs: [release]
+  # Create and push the version tag at the resolved commit before the
+  # release_ruleset workflow runs — that workflow checks out the
+  # repository at `tag_name`, so the tag must exist first.
+  tag:
+    if: ${{ github.repository_owner == 'periareon' && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/main'))) }}
+    needs: validation
+    runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      tag: ${{ steps.create_tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create and push tag
+        id: create_tag
+        run: |
+          set -euo pipefail
+          version="$(grep 'VERSION =' ${{ github.workspace }}/version.bzl | sed 's/VERSION = "//' | sed 's/"//')"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Pin the tag to the resolved SHA so a concurrent merge to
+          # main can't shift the release contents out from under us.
+          git tag -a "${version}" -m "rules_req_compile ${version}" "${{ github.sha }}"
+          git push origin "${version}"
+          echo "tag=${version}" >> $GITHUB_OUTPUT
+
+  # Delegate the release asset build + attestation + GitHub release
+  # creation to the bazel-contrib reusable workflow. BCR's verifier
+  # specifically trusts attestations whose builder ID points at this
+  # reusable workflow path; rolling our own `actions/attest-build-provenance`
+  # would produce a valid SLSA attestation that BCR would still reject.
+  #
+  # `release_prep.sh` at `.github/workflows/release_prep.sh` is the
+  # hardcoded build hook — it gets `${tag_name}` as `$1`, must write
+  # release notes to stdout, and must produce files matching the
+  # `release_files` globs in cwd. Every matched file is attested and
+  # attached to the GitHub release.
+  release:
+    needs: tag
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: bazel-contrib/.github/.github/workflows/release_ruleset.yaml@v7.6.0
+    with:
+      # CI already ran the full test matrix on the PR that bumped
+      # version.bzl, and this reusable workflow runs on a single
+      # ubuntu-latest. Skip the default `bazel test //...` here.
+      bazel_test_command: "bazel info release"
+      release_files: |
+        rules_req_compile-*.tar.gz
+        dist/*
+      prerelease: false
+      tag_name: ${{ needs.tag.outputs.tag }}
+
+  # Upload the wheel and sdist built (and attested) by the `release`
+  # job to PyPI. The `release_files` artifact is produced by the
+  # reusable workflow in this same run, so the bytes published to PyPI
+  # are exactly the ones attached to the GitHub release.
+  pypi-publish:
+    needs: [tag, release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download release files
+        uses: actions/download-artifact@v4
+        with:
+          name: release_files
+          path: release_files
+      - name: Show Python distributions
+        run: |
+          set -euo pipefail
+          if [[ ! -d release_files/dist ]]; then
+            echo "ERROR: release_files/dist was not produced by release_prep.sh" >&2
+            exit 1
+          fi
+          ls -l release_files/dist
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: release_files/dist
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          # PEP 740 attestations are only supported by PyPI when
+          # publishing via Trusted Publishing. To enable them, register
+          # this workflow as a trusted publisher for `req-compile` on
+          # PyPI (https://docs.pypi.org/trusted-publishers/), then drop
+          # the `password` input, remove this line and add
+          # `id-token: write` to the job permissions.
+          attestations: false
+
+  # Re-publish to the Bazel Central Registry, carrying the
+  # build-provenance attestation produced upstream.
+  bcr-publish:
+    needs: [tag, release]
+    permissions:
+      contents: write
+      # `id-token: write` + `attestations: write` propagate down so the
+      # reusable `publish-to-bcr` workflow can read the attestation
+      # from the GitHub Attestation Store and attach it to the
+      # registry PR.
+      id-token: write
+      attestations: write
     uses: ./.github/workflows/bcr-publish.yaml
     with:
-      release_version: ${{ needs.release.outputs.release_version }}
+      release_version: ${{ needs.tag.outputs.tag }}
     secrets:
       BCR_PUBLISH_TOKEN: ${{ secrets.BCR_PUBLISH_TOKEN }}

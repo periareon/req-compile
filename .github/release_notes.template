@@ -1,8 +1,15 @@
 # {version}
 
 ## Setup
+
+### Bazel
 ```python
 bazel_dep(name = "rules_req_compile", version = "{version}")
+```
+
+### PyPI
+```bash
+pip install req-compile=={version}
 ```
 
 Additional documentation can be found at: https://github.com/periareon/req-compile
