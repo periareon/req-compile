@@ -266,14 +266,15 @@ def _parse_entry_points_txt(content):
 
     return console_scripts
 
-def _hub_deps_expression(hub, hub_data, annotations):
+def hub_deps_expression(hub, hub_data, annotations):
     """Render the `deps` of the `py_library` a hub sees for this wheel.
 
     Args:
         hub (str): The name of the hub.
-        hub_data (dict): Mapping of lock id to a dict with the `deps` the lock
-            resolved for this wheel and the `config_setting` the hub uses to
-            select the lock, which is None when the hub has a single lock.
+        hub_data (dict): The `locks` of the hub using this wheel, a mapping of lock
+            id to a dict with the `deps` the lock resolved for this wheel and the
+            `config_setting` the hub uses to select the lock, which is None when the
+            hub has a single lock, and the `default_lock` of the hub, if any.
         annotations (struct): The deserialized annotations of the package.
 
     Returns:
@@ -294,7 +295,8 @@ def _hub_deps_expression(hub, hub_data, annotations):
     ]
 
     branches = {}
-    for lock_data in hub_data.values():
+    default_labels = None
+    for lock_id, lock_data in hub_data["locks"].items():
         deps = additive_deps + [
             sanitize_package_name(dep)
             for dep in lock_data["deps"]
@@ -305,6 +307,8 @@ def _hub_deps_expression(hub, hub_data, annotations):
             for dep in sorted(depset(deps).to_list())
         ]
         branches[lock_data["config_setting"]] = labels
+        if lock_id == hub_data.get("default_lock"):
+            default_labels = labels
 
     if len(branches) == 1 and None in branches:
         return json.encode_indent(branches[None], indent = " " * 4)
@@ -318,6 +322,11 @@ def _hub_deps_expression(hub, hub_data, annotations):
             config_setting,
             json.encode(labels),
         ))
+
+    # When the hub falls back to this wheel on a platform none of its locks
+    # match, the dependencies of the fallback lock apply as well.
+    if default_labels != None:
+        lines.append("    \"//conditions:default\": {},".format(json.encode(default_labels)))
     lines.append("})")
     return "\n".join(lines)
 
@@ -491,7 +500,7 @@ def _whl_repository_impl(repository_ctx):
     for hub, hub_data in hubs.items():
         hub_content = [_HUB_BUILD_TEMPLATE.format(
             name = package_name,
-            deps = _hub_deps_expression(hub, hub_data, annotations),
+            deps = hub_deps_expression(hub, hub_data, annotations),
         )]
         for entry_point in sorted(entry_points):
             hub_content.append(_generate_entry_point_rule(
@@ -534,10 +543,10 @@ shared by every hub that pins the same wheel, even when they resolved its depend
         ),
         "hubs": attr.string(
             doc = (
-                "A json encoded mapping of hub names to the locks of the hub using this wheel. Each lock " +
-                "maps its id to the `deps` (python package names) resolved for the package and the " +
+                "A json encoded mapping of hub names to the hub's use of this wheel: its `locks`, a mapping " +
+                "of lock id to the `deps` (python package names) resolved for the package and the " +
                 "`config_setting` label the hub uses to select the lock, which is `null` for hubs with a " +
-                "single lock."
+                "single lock, and the `default_lock` the hub falls back to, if any."
             ),
             default = "{}",
         ),

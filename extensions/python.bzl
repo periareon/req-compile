@@ -4,6 +4,7 @@ load(
     "//:defs.bzl",
     package_annotation = "py_package_annotation",
 )
+load("//private:annotation_utils.bzl", "record_annotation")
 load(
     "//private:reqs_repo.bzl",
     "create_hub_repos",
@@ -154,19 +155,7 @@ def _collect_annotations(ctx):
                 deps_excludes = annotation.deps_excludes,
                 patches = annotation.patches,
             )
-            if annotation.package in annotations and annotations[annotation.package] != data:
-                if mod.is_root:
-                    pass
-                elif owners[annotation.package] == "<root>":
-                    continue
-                else:
-                    fail("Module `{}` and module `{}` annotate the python package `{}` differently. Annotate it from the root module to decide.".format(
-                        owners[annotation.package],
-                        mod.name,
-                        annotation.package,
-                    ))
-            annotations[annotation.package] = data
-            owners[annotation.package] = "<root>" if mod.is_root else mod.name
+            record_annotation(annotations, owners, annotation.package, data, mod.name, mod.is_root)
     return annotations
 
 def _requirements_impl(ctx):

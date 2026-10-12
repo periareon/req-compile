@@ -1,6 +1,8 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_python//python:defs.bzl", "py_test")
 load("@rules_req_compile//:defs.bzl", "py_package_annotation_consumer", "py_reqs_compiler", "py_reqs_solution_test")
 load("@shared_hubs_app_deps//:defs.bzl", "all_requirements")
+load(":platform_transition.bzl", "platform_transitioned")
 
 LOCKS = {
     "linux_x86_64": "manylinux_2_28_x86_64",
@@ -76,6 +78,27 @@ py_test(
     data = [":click_lib_marker"],
     env = {"LIB_MARKER": "$(rlocationpath :click_lib_marker)"},
     deps = ["@rules_python//python/runfiles"],
+)
+
+# No lock of the hub is for Linux on aarch64, so the hub falls back to its
+# default lock there. The shared wheel's dependencies must follow the fallback.
+platform(
+    name = "linux_aarch64",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+)
+
+platform_transitioned(
+    name = "requests_on_fallback_platform",
+    platform = ":linux_aarch64",
+    target = "@shared_hubs_app_deps//requests",
+)
+
+build_test(
+    name = "fallback_lock_test",
+    targets = [":requests_on_fallback_platform"],
 )
 
 # `colorama` is only part of the Windows lock. Depending on it makes a target

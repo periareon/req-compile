@@ -224,28 +224,87 @@ def _identity(data):
         return data["whl"]
     return "{}=={}".format(data["package"], data["version"])
 
-def _check_same(name, existing, attrs, hub_name):
-    for key in ("package", "version", "sha256", "urls", "whl", "annotations"):
+def _artifact_name(attrs):
+    """The file name of the distribution of a wheel repository."""
+    if attrs["urls"]:
+        link, _, _ = attrs["urls"][0].partition("#")
+        _, _, name = link.rpartition("/")
+        return name
+    if attrs["whl"]:
+        _, _, name = str(attrs["whl"]).rpartition("/")
+        return name
+    return ""
+
+def is_sdist(attrs):
+    """Whether the distribution of a wheel repository is a source distribution."""
+    return not _artifact_name(attrs).endswith(".whl")
+
+def merge_wheel(name, existing, attrs, hub_name):
+    """Merge the attributes two hubs resolved for the same wheel repository.
+
+    Hubs share a repository when they pin the same distribution, identified by its
+    hash. They may have found it at different locations, e.g. a private mirror and
+    PyPI, in which case every location is kept as a download candidate.
+
+    Args:
+        name (str): The name of the repository.
+        existing (dict): The attributes registered so far.
+        attrs (dict): The attributes another hub resolved.
+        hub_name (str): The hub providing `attrs`, for error messages.
+
+    Returns:
+        dict: The merged attributes.
+    """
+    hubs = sorted(existing["hubs"].keys())
+
+    def conflict(what, old, new):
+        fail("Hub `{}` resolved `{}=={}` to a distribution that conflicts with hub(s) {} on {} ({} != {}).".format(
+            hub_name,
+            attrs["package"],
+            attrs["version"],
+            hubs,
+            what,
+            new,
+            old,
+        ))
+
+    for key in ("package", "version", "annotations"):
         if existing[key] != attrs[key]:
-            fail("Hub `{}` resolved `{}=={}` to a distribution that conflicts with hub(s) {} on `{}` ({} != {}). This is a bug in req-compile, please report it.".format(
-                hub_name,
-                attrs["package"],
-                attrs["version"],
-                sorted(existing["hubs"].keys()),
-                key,
-                attrs[key],
-                existing[key],
-            ))
+            conflict(key, existing[key], attrs[key])
+
+    merged = dict(existing)
+    if existing["sha256"] and attrs["sha256"]:
+        if existing["sha256"] != attrs["sha256"]:
+            conflict("sha256", existing["sha256"], attrs["sha256"])
+
+        # The same bytes, possibly from different places.
+        urls = list(existing["urls"] or [])
+        urls.extend([url for url in (attrs["urls"] or []) if url not in urls])
+        merged["urls"] = urls or None
+        merged["whl"] = existing["whl"] or attrs["whl"]
+    else:
+        # Without a hash the location is all there is to identify the distribution.
+        for key in ("sha256", "urls", "whl"):
+            if existing[key] != attrs[key]:
+                conflict(key, existing[key], attrs[key])
+
+    # Only source distributions are built, and only they depend on the interpreter.
+    if not is_sdist(merged):
+        merged["interpreter"] = None
+        return merged
+
     if existing["interpreter"] and attrs["interpreter"] and existing["interpreter"] != attrs["interpreter"]:
         fail("The source distribution `{}=={}` is used by hub `{}` and hub(s) {} with different interpreters ({} != {}). Repository `{}` can only be built with one.".format(
             attrs["package"],
             attrs["version"],
             hub_name,
-            sorted(existing["hubs"].keys()),
+            hubs,
             attrs["interpreter"],
             existing["interpreter"],
             name,
         ))
+    merged["interpreter"] = existing["interpreter"] or attrs["interpreter"]
+    return merged
 
 def plan_hubs(ctx, hubs, annotations):
     """Plan the repositories needed for a set of hubs.
@@ -347,24 +406,36 @@ def plan_hubs(ctx, hubs, annotations):
                 attrs = {
                     "annotations": annotations_json,
                     "hubs": {},
-                    "interpreter": hub.interpreter,
+                    "interpreter": None,
                     "package": data["package"],
                     "sha256": data["sha256"],
                     "urls": [data["url"]] if data["url"] else None,
                     "version": data["version"],
                     "whl": data["whl"],
                 }
+
+                # Wheels are only extracted, the interpreter is for building sdists.
+                if is_sdist(attrs):
+                    attrs["interpreter"] = hub.interpreter
+
                 if repo_name in wheel_repos:
-                    _check_same(repo_name, wheel_repos[repo_name], attrs, hub_name)
-                    if not wheel_repos[repo_name]["interpreter"]:
-                        wheel_repos[repo_name]["interpreter"] = hub.interpreter
+                    wheel_repos[repo_name] = merge_wheel(repo_name, wheel_repos[repo_name], attrs, hub_name)
                 else:
                     wheel_repos[repo_name] = attrs
 
-                wheel_repos[repo_name]["hubs"].setdefault(hub_name, {})[lock_id] = {
+                hub_use = wheel_repos[repo_name]["hubs"].setdefault(hub_name, {
+                    "default_lock": None,
+                    "locks": {},
+                })
+                hub_use["locks"][lock_id] = {
                     "config_setting": config_setting,
                     "deps": data["deps"],
                 }
+
+        # The default lock is only known once every lock of the hub was read.
+        for attrs in wheel_repos.values():
+            if hub_name in attrs["hubs"]:
+                attrs["hubs"][hub_name]["default_lock"] = default_lock
 
         if hub.alias_of:
             parent = planned.get(hub.alias_of)

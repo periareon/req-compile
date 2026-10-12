@@ -6,6 +6,7 @@ bzl_library(
     visibility = ["//visibility:public"],
     deps = [
         "//:defs",
+        "//private:annotation_utils",
         "//private:reqs_repo",
     ],
 )
