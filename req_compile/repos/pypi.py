@@ -4,7 +4,6 @@ import enum
 import logging
 import os
 import re
-import sys
 import time
 import urllib
 import urllib.parse
@@ -23,17 +22,9 @@ from req_compile.containers import RequirementContainer
 from req_compile.errors import MetadataError
 from req_compile.metadata import extract_metadata
 from req_compile.repos.repository import Candidate, Repository, filename_to_candidate
+from req_compile.target import TargetEnvironment, resolve
 
 LOG = logging.getLogger("req_compile.repository.pypi")
-
-
-SYS_PY_VERSION = packaging.version.Version(
-    sys.version.split(" ", 1)[0].replace("+", "")
-)
-SYS_PY_MAJOR = packaging.version.Version("{}".format(sys.version_info.major))
-SYS_PY_MAJOR_MINOR = packaging.version.Version(
-    "{}.{}".format(sys.version_info.major, sys.version_info.minor)
-)
 
 OPS = {
     "<": lambda x, y: x < y,
@@ -45,12 +36,16 @@ OPS = {
 }
 
 
-def check_python_compatibility(requires_python: str) -> bool:
+def check_python_compatibility(
+    requires_python: str, target: Optional[TargetEnvironment] = None
+) -> bool:
+    """Whether a `Requires-Python` expression is satisfied by the target."""
     if requires_python is None:
         return True
+    target = resolve(target)
     try:
         return all(
-            _check_py_constraint(part)
+            _check_py_constraint(part, target)
             for part in requires_python.split(",")
             if part.strip()
         )
@@ -60,8 +55,13 @@ def check_python_compatibility(requires_python: str) -> bool:
         )
 
 
-def _check_py_constraint(version_constraint: str) -> bool:
-    ref_version = SYS_PY_VERSION
+def _check_py_constraint(version_constraint: str, target: TargetEnvironment) -> bool:
+    major, minor, _ = target.python_version
+    sys_py_version = target.python_full_version
+    sys_py_major = packaging.version.Version(str(major))
+    sys_py_major_minor = packaging.version.Version(f"{major}.{minor}")
+
+    ref_version = sys_py_version
 
     version_part = re.split("[!=<>~]", version_constraint)[-1].strip()
     operator = version_constraint.replace(version_part, "").strip()
@@ -72,14 +72,14 @@ def _check_py_constraint(version_constraint: str) -> bool:
     if version_part.endswith(".*"):
         version_part = version_part.replace(".*", "")
         if dotted_parts == 3:
-            ref_version = SYS_PY_MAJOR_MINOR
+            ref_version = sys_py_major_minor
         elif dotted_parts == 2:
-            ref_version = SYS_PY_MAJOR
+            ref_version = sys_py_major
     else:
         if dotted_parts == 2:
-            ref_version = SYS_PY_MAJOR_MINOR
+            ref_version = sys_py_major_minor
         elif dotted_parts == 1:
-            ref_version = SYS_PY_MAJOR_MINOR
+            ref_version = sys_py_major_minor
             version_part += ".0"
 
     version = packaging.version.Version(version_part)
@@ -88,7 +88,7 @@ def _check_py_constraint(version_constraint: str) -> bool:
         # See: https://packaging.python.org/guides/distributing-packages-using-setuptools/#python-requires
         major_num = int(str(version_part).split(".", maxsplit=1)[0])
         equivalent_check = ">={},<{}".format(version_part, major_num + 1)
-        return check_python_compatibility(equivalent_check)
+        return check_python_compatibility(equivalent_check, target)
     try:
         return OPS[operator](ref_version, version)
     except KeyError:
@@ -96,9 +96,10 @@ def _check_py_constraint(version_constraint: str) -> bool:
 
 
 class LinksHTMLParser(HTMLParser):
-    def __init__(self, url: str) -> None:
+    def __init__(self, url: str, target: Optional[TargetEnvironment] = None) -> None:
         super().__init__()
         self.url = url
+        self.target = resolve(target)
         self.dists: List[Candidate] = []
         self.active_link: Optional[Tuple[str, Optional[str]]] = None
         self.active_skip = False
@@ -119,7 +120,9 @@ class LinksHTMLParser(HTMLParser):
 
             if requires_python:
                 try:
-                    self.active_skip = not check_python_compatibility(requires_python)
+                    self.active_skip = not check_python_compatibility(
+                        requires_python, self.target
+                    )
                 except ValueError:
                     LOG.error(
                         'Failed to parse requires expression "%s" for requirement %s',
@@ -145,7 +148,11 @@ def normalize(name: str) -> str:
 
 @lru_cache(maxsize=None)
 def _scan_page_links(
-    index_url: str, project_name: str, session: requests.Session, retries: int
+    index_url: str,
+    project_name: str,
+    session: requests.Session,
+    retries: int,
+    target: Optional[TargetEnvironment] = None,
 ) -> Sequence[Candidate]:
     """Scan a Python index's HTML page for links for a given project.
 
@@ -154,6 +161,7 @@ def _scan_page_links(
         project_name: From to fetch candidates for.
         session: Open requests session.
         retries: Numer of times to retry.
+        target: The environment to select candidates for.
 
     Returns:
         Candidates on this index's page.
@@ -169,13 +177,13 @@ def _scan_page_links(
 
     if retries and 500 <= response.status_code < 600:
         time.sleep(0.1)
-        return _scan_page_links(index_url, project_name, session, retries - 1)
+        return _scan_page_links(index_url, project_name, session, retries - 1, target)
 
     # Raise for any error status that's not 404
     if response.status_code != 404:
         response.raise_for_status()
 
-    parser = LinksHTMLParser(response.url)
+    parser = LinksHTMLParser(response.url, target)
     parser.feed(response.content.decode("utf-8"))
 
     return parser.dists
@@ -241,6 +249,7 @@ class PyPIRepository(Repository):
         allow_prerelease: bool = False,
         retries: int = 3,
         index_type: IndexType = IndexType.INDEX_URL,
+        target: Optional[TargetEnvironment] = None,
     ) -> None:
         """Constructor.
 
@@ -250,8 +259,9 @@ class PyPIRepository(Repository):
             allow_prerelease (bool, optional): Whether to consider prereleases
             retries (int): Number of times to retry. A value of 0 will never retry
             index_type: Type of PyPI repository this is, e.g. --extra-index-url.
+            target: The environment to select candidates for. Defaults to the host.
         """
-        super().__init__("pypi", allow_prerelease)
+        super().__init__("pypi", allow_prerelease, target=target)
 
         if index_url.endswith("/"):
             index_url = index_url[:-1]
@@ -291,7 +301,9 @@ class PyPIRepository(Repository):
     ) -> Sequence[Candidate]:
         if req is None:
             return []
-        return _scan_page_links(self.index_url, req.name, self.session, self.retries)
+        return _scan_page_links(
+            self.index_url, req.name, self.session, self.retries, self.target
+        )
 
     @overrides
     def resolve_candidate(

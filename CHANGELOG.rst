@@ -1,3 +1,14 @@
+New in version 1.2.0:
+
+* Cross-platform compilation. ``--platform``, ``--python-version`` and ``--implementation`` select
+  wheels and evaluate environment markers for an environment other than the one running ``req-compile``.
+  ``--platform`` takes a wheel platform tag such as ``manylinux_2_28_x86_64`` or ``macosx_11_0_arm64``,
+  which is recorded in the header of lock files compiled by Bazel.
+* The ``py_reqs_compiler`` Bazel rule has new ``platform`` and ``python_version`` attributes, so the
+  solutions for every platform a project supports can be compiled and tested from a single machine.
+* Removed the ``py_reqs_remote_compiler`` Bazel rule. Use the ``platform`` attribute of ``py_reqs_compiler``
+  instead.
+
 New in version 1.1.0:
 
 * Python 3.13 and 3.14 support.

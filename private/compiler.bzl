@@ -1,5 +1,7 @@
 """Rules for compiling requirements files"""
 
+_PYTHON_TOOLCHAIN_TYPE = "@rules_python//python:toolchain_type"
+
 PyReqsCompilerInfo = provider(
     doc = "Information about a python requirements provider",
     fields = {
@@ -124,6 +126,22 @@ def _py_reqs_compiler_impl(ctx):
     if ctx.attr.allow_sdists:
         args.append("--allow_sdists")
 
+    if ctx.attr.platform:
+        args.extend(["--platform", ctx.attr.platform])
+
+    python_version = ctx.attr.python_version
+    if not python_version:
+        # Default to the exact version of the toolchain so that the solution, and the
+        # header recorded in it, do not depend on the machine running the compiler.
+        toolchain = ctx.toolchains[_PYTHON_TOOLCHAIN_TYPE]
+        runtime = getattr(toolchain, "py3_runtime", None) if toolchain else None
+        info = getattr(runtime, "interpreter_version_info", None) if runtime else None
+        if info:
+            python_version = "{}.{}.{}".format(info.major, info.minor, info.micro)
+
+    if python_version:
+        args.extend(["--python_version", python_version])
+
     args_file = ctx.actions.declare_file("{}.args.txt".format(ctx.label.name))
     ctx.actions.write(
         output = args_file,
@@ -166,7 +184,7 @@ def _py_reqs_compiler_impl(ctx):
 
 py_reqs_compiler = rule(
     doc = """\
-A Bazel rule for compiling python requirements for the current platform.
+A Bazel rule for compiling python requirements.
 
 
 ```python
@@ -200,6 +218,44 @@ a clean resolution (fetching latest for all requirements) the `--upgrade` flag c
 ```bash
 bazel run //:requirements.update -- --upgrade
 ```
+
+By default a solution is compiled for the platform and Python version running the compiler. The `platform` and
+`python_version` attributes compile a solution for a different environment, so solutions for every platform a
+project supports can be produced and tested from any machine.
+
+```python
+load("@rules_req_compile//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
+
+[
+    py_reqs_compiler(
+        name = "requirements.{}.update".format(platform),
+        platform = platform,
+        requirements_in = ":requirements",
+        requirements_txt = "requirements.{}.txt".format(platform),
+    )
+    for platform in [
+        "manylinux_2_28_x86_64",
+        "macosx_11_0_arm64",
+        "win_amd64",
+    ]
+]
+
+[
+    py_reqs_solution_test(
+        name = "requirements.{}.test".format(platform),
+        compiler = ":requirements.{}.update".format(platform),
+    )
+    for platform in [
+        "manylinux_2_28_x86_64",
+        "macosx_11_0_arm64",
+        "win_amd64",
+    ]
+]
+```
+
+Wheels are selected and environment markers are evaluated as they would be when installing on the target.
+Source distributions (sdists) have their metadata extracted on the machine running the compiler, so solutions
+for other platforms should avoid them, which is the default (`allow_sdists = False`).
 """,
     implementation = _py_reqs_compiler_impl,
     attrs = {
@@ -213,6 +269,23 @@ bazel run //:requirements.update -- --upgrade
                 "Any references to `{label}` will be replaced with the label of this target."
             ),
             default = "bazel run \"{label}\"",
+        ),
+        "platform": attr.string(
+            doc = (
+                "The platform to compile the solution for as a wheel platform tag, as accepted by " +
+                "`pip --platform`, e.g. `manylinux_2_28_x86_64`, `manylinux2014_aarch64`, `macosx_11_0_arm64` " +
+                "or `win_amd64`. A manylinux tag accepts wheels for that glibc or older, a macosx tag wheels " +
+                "for that release or older. When unset, the solution is compiled for the platform running " +
+                "the compiler."
+            ),
+        ),
+        "python_version": attr.string(
+            doc = (
+                "The Python version to compile the solution for, e.g. `3.11.4`. When unset, the exact " +
+                "version of the resolved Python toolchain is used, which keeps the solution independent " +
+                "of the machine running the compiler. A version without a patch number, e.g. `3.9`, is " +
+                "compiled as `3.9.0`."
+            ),
         ),
         "requirements_in": attr.label(
             doc = "The input requirements file",
@@ -236,6 +309,7 @@ bazel run //:requirements.update -- --upgrade
         ),
     },
     executable = True,
+    toolchains = [config_common.toolchain_type(_PYTHON_TOOLCHAIN_TYPE, mandatory = False)],
 )
 
 def _py_reqs_solution_test_impl(ctx):

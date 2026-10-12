@@ -47,6 +47,9 @@ To get started with Bazel, add the following to your ``MODULE.bazel`` file:
     )
     use_repo(requirements, "my_pip_deps")
 
+The solutions for every platform can be compiled from a single machine with the ``platform`` attribute of
+``py_reqs_compiler``. See the `Bazel rules documentation <docs/docs.md>`_ for details.
+
 
 Why use it?
 -----------
@@ -163,6 +166,33 @@ was passed on the commandline.
 
 By default, PyPI (https://pypi.org/) or the default pip index is added as a default repository. It can be removed by passing
 ``--no-index`` on the commandline or passing a different index via ``--index-url``.
+
+Compiling for another platform
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+By default a solution is compiled for the interpreter running Req-Compile: wheels are selected and
+environment markers are evaluated for its platform, Python version and implementation. A solution for
+a different environment can be compiled from any machine with the target options::
+
+    > req-compile requirements.txt --platform macosx_11_0_arm64 --python-version 3.11 --only-binary :all:
+
+* ``--platform``
+
+  The platform to compile for as a wheel platform tag, the same values ``pip --platform`` accepts:
+  ``manylinux_2_28_x86_64``, ``manylinux2014_aarch64``, ``macosx_11_0_arm64``, ``macosx_10_15_x86_64``,
+  ``win_amd64`` and so on. A manylinux tag accepts wheels built for that glibc or older, a macosx tag
+  wheels built for that release or older, and plain ``linux_x86_64`` accepts no manylinux wheels at all,
+  as with pip.
+* ``--python-version``
+
+  The Python version to compile for, e.g. ``3.11`` or ``3.11.4``. This can be used on its own to
+  compile for a different version of Python on the current platform.
+* ``--implementation``
+
+  The interpreter tag of the implementation to compile for, ``cp`` for CPython or ``pp`` for PyPy.
+
+Source distributions have their metadata extracted by running them on the machine performing the
+compilation, which may not match the target. Prefer ``--only-binary :all:`` when compiling for another
+platform. ``req-candidates`` accepts the same options to show the candidates available for a target.
 
 Identifying source of constraints
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

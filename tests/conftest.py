@@ -15,10 +15,12 @@ import pytest
 import req_compile.metadata
 import req_compile.metadata.dist_info
 import req_compile.metadata.metadata
+import req_compile.target
 import req_compile.utils
 from req_compile.containers import RequirementContainer
 from req_compile.repos.repository import Candidate, Repository
 from req_compile.repos.solution import SolutionRepository
+from req_compile.target import TargetEnvironment
 
 
 @pytest.fixture(autouse=True)
@@ -63,8 +65,8 @@ def _to_path(scenario, req):
 
 
 class MockRepository(Repository):
-    def __init__(self):
-        super().__init__("mock")
+    def __init__(self, target: Optional[TargetEnvironment] = None):
+        super().__init__("mock", target=target)
         self.scenario = None
         self.index_map = None
 
@@ -233,22 +235,20 @@ class VersionInfo(NamedTuple):
 
 
 @pytest.fixture
-def mock_py_version(mocker: pytest.MonkeyPatch) -> Callable[[str], None]:
-    def _mock_version(version: str) -> None:
+def mock_py_version(mocker: pytest.MonkeyPatch) -> Callable[[str], TargetEnvironment]:
+    """Pretend the host runs a different version of CPython.
+
+    Returns the target describing the pretend host, for tests that need to
+    pass it explicitly.
+    """
+
+    def _mock_version(version: str) -> TargetEnvironment:
         split = version.split(".")
         assert len(split) > 2
         major_version = split.pop(0)
         minor_version = split.pop(0)
         patch_version = split.pop(0)
         if patch_version is None:
-            patch_version = "0"
-
-        abi_suffix = ""
-        if (major_version, minor_version) == ("3", "7"):
-            abi_suffix = "m"
-
-            # TODO: Python3.7 tests used to have patch versions dropped
-            # so that behavior is temporarily maintained here
             patch_version = "0"
 
         _, _, build_info = sys.version.partition(" ")
@@ -261,21 +261,26 @@ def mock_py_version(mocker: pytest.MonkeyPatch) -> Callable[[str], None]:
             "sys.version",
             f"{major_version}.{minor_version}.{patch_version} {build_info}",
         )
-        mocker.patch(
-            "req_compile.repos.pypi.SYS_PY_VERSION",
-            packaging.version.Version(version),
+        target = req_compile.target.host().replace(
+            python_version=(
+                int(major_version),
+                int(minor_version),
+                int(patch_version),
+            ),
+            python_version_str=version,
+            interpreter="cp",
+            # pylint: disable-next=protected-access
+            abi_tags=req_compile.target._abi_tags(
+                "cp", (int(major_version), int(minor_version))
+            ),
+            marker_environment=dict(
+                req_compile.target.host().marker_environment,
+                python_version=f"{major_version}.{minor_version}",
+                python_full_version=version,
+                implementation_version=version,
+            ),
         )
-        mocker.patch(
-            "req_compile.repos.pypi.SYS_PY_MAJOR",
-            packaging.version.Version(major_version),
-        )
-        mocker.patch(
-            "req_compile.repos.pypi.SYS_PY_MAJOR_MINOR",
-            packaging.version.Version(f"{major_version}.{minor_version}"),
-        )
-        mocker.patch(
-            "req_compile.repos.repository.ABI_TAGS",
-            (f"abi{major_version}", f"cp{major_version}{minor_version}{abi_suffix}"),
-        )
+        mocker.patch("req_compile.target._HOST", target)
+        return target
 
     return _mock_version

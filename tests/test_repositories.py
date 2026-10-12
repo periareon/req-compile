@@ -81,12 +81,8 @@ def test_sort_non_semver():
     assert reference == candidates
 
 
-def test_sort_specific_platforms(mock_py_version, mocker):
-    mock_py_version("3.7.4")
-    mocker.patch(
-        "req_compile.repos.repository.PLATFORM_TAGS",
-        ("this_platform",),
-    )
+def test_sort_specific_platforms(mock_py_version):
+    target = mock_py_version("3.7.4").replace(platform_tags=("this_platform",))
     candidate_wheels = (
         "sounddevice-0.4.1-cp32.cp33.cp34.cp35.cp36.cp37.cp38.cp39.pp32."
         + "pp33.pp34.pp35.pp36.pp37.py3-None-this_platform.whl",
@@ -98,16 +94,12 @@ def test_sort_specific_platforms(mock_py_version, mocker):
 
     reference = list(candidates)
 
-    candidates = sort_candidates(reversed(candidates))
+    candidates = sort_candidates(reversed(candidates), target=target)
     assert reference == candidates
 
 
-def test_sort_wheels_with_any(mock_py_version, mocker):
-    mock_py_version("3.7.4")
-    mocker.patch(
-        "req_compile.repos.repository.PLATFORM_TAGS",
-        ("this_platform",),
-    )
+def test_sort_wheels_with_any(mock_py_version):
+    target = mock_py_version("3.7.4").replace(platform_tags=("this_platform",))
     candidate_wheels = (
         "pyenchant-3.2.1-py3-None-this_platform.and_another.whl",
         "pyenchant-3.2.1-py3-None-this_platform.whl",
@@ -118,7 +110,7 @@ def test_sort_wheels_with_any(mock_py_version, mocker):
     candidates = [
         _wheel_filename_to_candidate("pypi", wheel) for wheel in candidate_wheels
     ]
-    sorted_candidates = sort_candidates(reversed(candidates))
+    sorted_candidates = sort_candidates(reversed(candidates), target=target)
     assert sorted_candidates == list(candidates)
 
 

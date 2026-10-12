@@ -4,7 +4,6 @@ import argparse
 import json
 import logging
 import os
-import platform
 import shutil
 import subprocess
 import sys
@@ -39,6 +38,7 @@ from req_compile.dists import DependencyNode, DistributionCollection
 from req_compile.errors import NoCandidateException
 from req_compile.repos import Repository
 from req_compile.repos.repository import DistributionType
+from req_compile.target import TargetEnvironment, resolve
 
 _HEADER = """\
 ################################################################################
@@ -114,12 +114,46 @@ def parse_args(args: Optional[Sequence[str]]) -> argparse.Namespace:
         help="When set, failed compilations will write wheels for sdist requirements found to this locaiton.",
     )
     parser.add_argument(
+        "--platform",
+        dest="target_platform",
+        type=str,
+        help=(
+            "The platform to compile for as a wheel platform tag, e.g. "
+            "`manylinux_2_28_x86_64`, `macosx_11_0_arm64` or `win_amd64`. "
+            "Defaults to the platform running the compiler."
+        ),
+    )
+    parser.add_argument(
+        "--python-version",
+        "--python_version",
+        dest="target_python_version",
+        type=str,
+        help=(
+            "The Python version to compile for, e.g. `3.11`. Defaults to the "
+            "interpreter running the compiler."
+        ),
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Enable verbose logging.",
     )
 
     return parser.parse_args(args)
+
+
+def build_target(args: argparse.Namespace) -> Optional[TargetEnvironment]:
+    """Build the environment to compile for from parsed arguments.
+
+    Returns:
+        The target, or None when compiling for the host.
+    """
+    if args.target_platform is None and args.target_python_version is None:
+        return None
+    return TargetEnvironment.from_spec(
+        platform_spec=args.target_platform,
+        python_version=args.target_python_version,
+    )
 
 
 def parse_index_urls(content: str) -> Tuple[Set[str], Set[str], Set[str]]:
@@ -175,6 +209,7 @@ def compile_requirements(
     only_binary: bool = False,
     promote_extra_index_urls: bool = False,
     wheeldir: Optional[Union[str, Path]] = None,
+    target: Optional[TargetEnvironment] = None,
 ) -> CompilationResult:
     """Compile a solution for a set of requirements.
 
@@ -188,6 +223,7 @@ def compile_requirements(
         only_binary: Ensure the solution is composed exclusively of wheels.
         promote_extra_index_urls: Promote extra index urls to index urls.
         wheeldir: An optional wheeldir to use during compilation.
+        target: The environment to compile for. Defaults to the host.
 
     Returns:
         The results of the compilation if successful.
@@ -242,6 +278,7 @@ def compile_requirements(
         no_index=no_index,
         wheeldir=wheeldir,
         extra_index_urls=[] if promote_extra_index_urls else sorted(extra_index_urls),
+        target=target,
     )
 
     # Compile the solution
@@ -251,6 +288,7 @@ def compile_requirements(
             repo=repo,
             constraint_reqs=constraint_reqs,
             only_binary=AllOnlyBinarySet() if only_binary else set(),
+            target=target,
         )
     except NoCandidateException as exc:
         raise CompilationError(repo=repo, parent=exc) from exc
@@ -334,6 +372,7 @@ def wheelmaker_main(args: argparse.Namespace, runfiles: Runfiles) -> None:
         upgrade=args.upgrade,
         only_binary=False,
         no_index=args.no_index,
+        target=build_target(args),
     )
 
     sdists = sorted(req for req in result.solution if _is_wheel(req) is False)
@@ -393,6 +432,7 @@ def compile_main(args: argparse.Namespace, runfiles: Runfiles) -> None:
     for requirement_file in args.requirements_files:
         requirements_files[requirement_file] = rlocation(runfiles, requirement_file)
     solution = rlocation(runfiles, args.solution)
+    target = build_target(args)
 
     # Compile all requirements
     try:
@@ -402,6 +442,7 @@ def compile_main(args: argparse.Namespace, runfiles: Runfiles) -> None:
             upgrade=args.upgrade,
             only_binary=False if args.allow_sdists else True,
             no_index=args.no_index,
+            target=target,
         )
     except CompilationError as exc:
         _generate_no_candidate_display(
@@ -422,8 +463,10 @@ def compile_main(args: argparse.Namespace, runfiles: Runfiles) -> None:
         buffer.write(
             _HEADER.format(
                 custom_compile_command=args.custom_compile_command,
-                python=platform.python_version(),
-                platform=platform.system(),
+                # The full version, so that the header does not depend on how the
+                # version was given.
+                python=".".join(str(part) for part in resolve(target).python_version),
+                platform=resolve(target).name,
             )
         )
         write_requirements_file(
@@ -445,13 +488,16 @@ def compile_main(args: argparse.Namespace, runfiles: Runfiles) -> None:
                 f"WARNING: Output {args.output} will not be written but instead printed.",
                 file=sys.stderr,
             )
-            print(buffer.getvalue)
+            print(buffer.getvalue())
         else:
             workspace_dir = Path(os.environ["BUILD_WORKSPACE_DIRECTORY"])
             output = workspace_dir / args.output
+            # Always write unix line endings so the solution does not depend on
+            # the platform that compiled it.
             output.write_text(
                 buffer.getvalue(),
                 encoding="utf-8",
+                newline="\n",
             )
             if args.verbose:
                 print(output.read_text(encoding="utf-8"))

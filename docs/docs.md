@@ -6,7 +6,6 @@
 - [py_package_annotation_target](#py_package_annotation_target)
 - [py_package_annotation](#py_package_annotation)
 - [py_reqs_compiler](#py_reqs_compiler)
-- [py_reqs_remote_compiler](#py_reqs_remote_compiler)
 - [py_reqs_solution_test](#py_reqs_solution_test)
 - [py_requirements_repository](#py_requirements_repository)
 - [sdist_repository](#sdist_repository)
@@ -65,10 +64,11 @@ A container for targets defined by `py_package_annotation` data applied to a pyt
 <pre>
 load("@rules_req_compile//:defs.bzl", "py_reqs_compiler")
 
-py_reqs_compiler(<a href="#py_reqs_compiler-name">name</a>, <a href="#py_reqs_compiler-allow_sdists">allow_sdists</a>, <a href="#py_reqs_compiler-custom_compile_command">custom_compile_command</a>, <a href="#py_reqs_compiler-requirements_in">requirements_in</a>, <a href="#py_reqs_compiler-requirements_txt">requirements_txt</a>)
+py_reqs_compiler(<a href="#py_reqs_compiler-name">name</a>, <a href="#py_reqs_compiler-allow_sdists">allow_sdists</a>, <a href="#py_reqs_compiler-custom_compile_command">custom_compile_command</a>, <a href="#py_reqs_compiler-platform">platform</a>, <a href="#py_reqs_compiler-python_version">python_version</a>,
+                 <a href="#py_reqs_compiler-requirements_in">requirements_in</a>, <a href="#py_reqs_compiler-requirements_txt">requirements_txt</a>)
 </pre>
 
-A Bazel rule for compiling python requirements for the current platform.
+A Bazel rule for compiling python requirements.
 
 
 ```python
@@ -103,6 +103,44 @@ a clean resolution (fetching latest for all requirements) the `--upgrade` flag c
 bazel run //:requirements.update -- --upgrade
 ```
 
+By default a solution is compiled for the platform and Python version running the compiler. The `platform` and
+`python_version` attributes compile a solution for a different environment, so solutions for every platform a
+project supports can be produced and tested from any machine.
+
+```python
+load("@rules_req_compile//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
+
+[
+    py_reqs_compiler(
+        name = "requirements.{}.update".format(platform),
+        platform = platform,
+        requirements_in = ":requirements",
+        requirements_txt = "requirements.{}.txt".format(platform),
+    )
+    for platform in [
+        "manylinux_2_28_x86_64",
+        "macosx_11_0_arm64",
+        "win_amd64",
+    ]
+]
+
+[
+    py_reqs_solution_test(
+        name = "requirements.{}.test".format(platform),
+        compiler = ":requirements.{}.update".format(platform),
+    )
+    for platform in [
+        "manylinux_2_28_x86_64",
+        "macosx_11_0_arm64",
+        "win_amd64",
+    ]
+]
+```
+
+Wheels are selected and environment markers are evaluated as they would be when installing on the target.
+Source distributions (sdists) have their metadata extracted on the machine running the compiler, so solutions
+for other platforms should avoid them, which is the default (`allow_sdists = False`).
+
 **ATTRIBUTES**
 
 
@@ -111,6 +149,8 @@ bazel run //:requirements.update -- --upgrade
 | <a id="py_reqs_compiler-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
 | <a id="py_reqs_compiler-allow_sdists"></a>allow_sdists |  Whether or not the solution file is allowed to contain sdist packages.   | Boolean | optional |  `False`  |
 | <a id="py_reqs_compiler-custom_compile_command"></a>custom_compile_command |  The command to display in the header of the generated lock file (`requirements_txt`). Any references to `{label}` will be replaced with the label of this target.   | String | optional |  `"bazel run \"{label}\""`  |
+| <a id="py_reqs_compiler-platform"></a>platform |  The platform to compile the solution for as a wheel platform tag, as accepted by `pip --platform`, e.g. `manylinux_2_28_x86_64`, `manylinux2014_aarch64`, `macosx_11_0_arm64` or `win_amd64`. A manylinux tag accepts wheels for that glibc or older, a macosx tag wheels for that release or older. When unset, the solution is compiled for the platform running the compiler.   | String | optional |  `""`  |
+| <a id="py_reqs_compiler-python_version"></a>python_version |  The Python version to compile the solution for, e.g. `3.11.4`. When unset, the exact version of the resolved Python toolchain is used, which keeps the solution independent of the machine running the compiler. A version without a patch number, e.g. `3.9`, is compiled as `3.9.0`.   | String | optional |  `""`  |
 | <a id="py_reqs_compiler-requirements_in"></a>requirements_in |  The input requirements file   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
 | <a id="py_reqs_compiler-requirements_txt"></a>requirements_txt |  The solution file.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
 
@@ -208,34 +248,6 @@ Annotations to apply to the BUILD file content from package generated from a `pi
 str: A json encoded string of the provided content.
 
 
-<a id="py_reqs_remote_compiler"></a>
-
-## py_reqs_remote_compiler
-
-<pre>
-load("@rules_req_compile//:defs.bzl", "py_reqs_remote_compiler")
-
-py_reqs_remote_compiler(<a href="#py_reqs_remote_compiler-name">name</a>, <a href="#py_reqs_remote_compiler-compiler">compiler</a>, <a href="#py_reqs_remote_compiler-platform">platform</a>, <a href="#py_reqs_remote_compiler-kwargs">**kwargs</a>)
-</pre>
-
-A tool for compiling python requirements on a remote machine.
-
-This rule wraps a `py_req_compiler` target behind a transition and
-when a ssh user and host are provided, this target can deploy the
-compiler to the remote system and perform compilation.
-
-
-**PARAMETERS**
-
-
-| Name  | Description | Default Value |
-| :------------- | :------------- | :------------- |
-| <a id="py_reqs_remote_compiler-name"></a>name |  The name of the new target.   |  none |
-| <a id="py_reqs_remote_compiler-compiler"></a>compiler |  The `py_req_compiler` target.   |  none |
-| <a id="py_reqs_remote_compiler-platform"></a>platform |  The platform label to transition to.   |  `None` |
-| <a id="py_reqs_remote_compiler-kwargs"></a>kwargs |  Additional keyword arguments.   |  none |
-
-
 <a id="py_requirements_repository"></a>
 
 ## py_requirements_repository
@@ -243,8 +255,9 @@ compiler to the remote system and perform compilation.
 <pre>
 load("@rules_req_compile//:defs.bzl", "py_requirements_repository")
 
-py_requirements_repository(<a href="#py_requirements_repository-name">name</a>, <a href="#py_requirements_repository-annotations">annotations</a>, <a href="#py_requirements_repository-hub_name">hub_name</a>, <a href="#py_requirements_repository-interpreter">interpreter</a>, <a href="#py_requirements_repository-repo_mapping">repo_mapping</a>,
-                           <a href="#py_requirements_repository-requirements_lock">requirements_lock</a>, <a href="#py_requirements_repository-requirements_locks">requirements_locks</a>)
+py_requirements_repository(<a href="#py_requirements_repository-name">name</a>, <a href="#py_requirements_repository-annotations">annotations</a>, <a href="#py_requirements_repository-defs_id_map">defs_id_map</a>, <a href="#py_requirements_repository-hub_name">hub_name</a>, <a href="#py_requirements_repository-interpreter">interpreter</a>,
+                           <a href="#py_requirements_repository-legacy_root_pkg_aliases">legacy_root_pkg_aliases</a>, <a href="#py_requirements_repository-package_aliases">package_aliases</a>, <a href="#py_requirements_repository-requirements_lock">requirements_lock</a>,
+                           <a href="#py_requirements_repository-requirements_locks">requirements_locks</a>)
 </pre>
 
 A rule for importing `requirements.txt` dependencies into Bazel.
@@ -325,12 +338,13 @@ cross-platform behavior when using `requirements_locks`.
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="py_requirements_repository-name"></a>name |  A unique name for this repository.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
-| <a id="py_requirements_repository-annotations"></a>annotations |  Optional annotations to apply to packages. For details see [@rules_python//python:pip.bzl%package_annotation](https://github.com/bazelbuild/rules_python/blob/main/docs/pip_repository.md#package_annotation)   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a> | optional |  `{}`  |
+| <a id="py_requirements_repository-alias_of"></a>alias_of |  The name of a hub every package of this hub is an alias of. Used to override the hubs of dependent modules.   | String | optional |  `""`  |
+| <a id="py_requirements_repository-default_lock"></a>default_lock |  The id of the lock used when no lock of the hub matches the configuration.   | String | optional |  `""`  |
 | <a id="py_requirements_repository-hub_name"></a>hub_name |  Name of the hub repository to generate. Do not use directly.   | String | optional |  `""`  |
-| <a id="py_requirements_repository-interpreter"></a>interpreter |  The label of a python interpreter to use for compiling source distributions (sdists). If this is not provided then the provided lock file must represent binary-only dependencies. Note that should this interpreter be needed (a sdist was found in `requirements_lock` or `requirements_locks`), the dependencies generated may not be byte-for-byte reproducible and users may experience unexpected cache invalidation or unexpected cross-platform behavior.   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
-| <a id="py_requirements_repository-repo_mapping"></a>repo_mapping |  In `WORKSPACE` context only: a dictionary from local repository name to global repository name. This allows controls over workspace dependency resolution for dependencies of this repository.<br><br>For example, an entry `"@foo": "@bar"` declares that, for any time this repository depends on `@foo` (such as a dependency on `@foo//some:target`, it should actually resolve that dependency within globally-declared `@bar` (`@bar//some:target`).<br><br>This attribute is _not_ supported in `MODULE.bazel` context (when invoking a repository rule inside a module extension's implementation function).   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a> | optional |  |
-| <a id="py_requirements_repository-requirements_lock"></a>requirements_lock |  A fully resolved 'requirements.txt' pip requirement file containing the transitive set of your dependencies. This file _must_ be produced by [req-compile](https://pypi.org/project/req-compile/) and include hashes and urls in the solution. This attribute is mutually exclusive with `requirements_locks`.   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
-| <a id="py_requirements_repository-requirements_locks"></a>requirements_locks |  A map of fully resolved 'requirements.txt' pip requirement file containing the transitive set of your dependencies to labels of Bazel [platforms](https://bazel.build/extending/platforms). These requirements files __must__ be produced by [req-compile](https://pypi.org/project/req-compile/) and include hashes and urls in the solution. Each lock file provided will create a dependency tree matching `{name}_{id}__{package}` where `id` is the name of the lock file with `[".", "-"]` characters are replaced by `"_"` and the name `requirements` will be stripped. This means each `requirements_locks` entry will need to be somewhat uniquely named. This attribute is mutually exclusive with `requirements_lock`.   | <a href="https://bazel.build/rules/lib/dict">Dictionary: Label -> String</a> | optional |  `{}`  |
+| <a id="py_requirements_repository-legacy_root_pkg_aliases"></a>legacy_root_pkg_aliases |  If True, creates aliases in the root BUILD.bazel file pointing to the package targets in their subpackages. This provides backward compatibility for code that references packages at the root (e.g., `@repo//:package_name`).   | Boolean | optional |  `False`  |
+| <a id="py_requirements_repository-locks"></a>locks |  A json encoded list of the locks of the hub and how each is selected.   | String | required |  |
+| <a id="py_requirements_repository-package_aliases"></a>package_aliases |  Packages to override with a local `py_library`.   | <a href="https://bazel.build/rules/lib/dict">Dictionary: Label -> String</a> | optional |  `{}`  |
+| <a id="py_requirements_repository-packages"></a>packages |  A json encoded mapping of package names to the version and `whl_repository` resolved by each lock.   | String | required |  |
 
 
 <a id="whl_repository"></a>
@@ -340,8 +354,8 @@ cross-platform behavior when using `requirements_locks`.
 <pre>
 load("@rules_req_compile//:defs.bzl", "whl_repository")
 
-whl_repository(<a href="#whl_repository-name">name</a>, <a href="#whl_repository-deps">deps</a>, <a href="#whl_repository-annotations">annotations</a>, <a href="#whl_repository-constraint">constraint</a>, <a href="#whl_repository-interpreter">interpreter</a>, <a href="#whl_repository-package">package</a>, <a href="#whl_repository-patches">patches</a>, <a href="#whl_repository-repo_mapping">repo_mapping</a>,
-               <a href="#whl_repository-sdist_deps_repos">sdist_deps_repos</a>, <a href="#whl_repository-sha256">sha256</a>, <a href="#whl_repository-spoke_prefix">spoke_prefix</a>, <a href="#whl_repository-urls">urls</a>, <a href="#whl_repository-version">version</a>, <a href="#whl_repository-whl">whl</a>)
+whl_repository(<a href="#whl_repository-name">name</a>, <a href="#whl_repository-deps">deps</a>, <a href="#whl_repository-annotations">annotations</a>, <a href="#whl_repository-constraint">constraint</a>, <a href="#whl_repository-hub_name">hub_name</a>, <a href="#whl_repository-interpreter">interpreter</a>, <a href="#whl_repository-package">package</a>, <a href="#whl_repository-patches">patches</a>,
+               <a href="#whl_repository-sdist_deps_repos">sdist_deps_repos</a>, <a href="#whl_repository-sha256">sha256</a>, <a href="#whl_repository-urls">urls</a>, <a href="#whl_repository-version">version</a>, <a href="#whl_repository-whl">whl</a>)
 </pre>
 
 A repository rule for extracting a python [wheel](https://peps.python.org/pep-0491/) and defining a `py_library`.
@@ -354,16 +368,13 @@ This repository is expected to be generated by [py_requirements_repository](#py_
 | Name  | Description | Type | Mandatory | Default |
 | :------------- | :------------- | :------------- | :------------- | :------------- |
 | <a id="whl_repository-name"></a>name |  A unique name for this repository.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
-| <a id="whl_repository-deps"></a>deps |  A list of python package names that the current package depends on.   | List of strings | required |  |
 | <a id="whl_repository-annotations"></a>annotations |  See [py_requirements_repository.annotation](#py_requirements_repository.annotation)   | String | optional |  `"{}"`  |
-| <a id="whl_repository-constraint"></a>constraint |  An optional constraint to assign to `target_compatible_with` where all other configurations will be invalid.   | String | optional |  `""`  |
+| <a id="whl_repository-hubs"></a>hubs |  A json encoded mapping of hub names to the locks of the hub using this wheel. Each lock maps its id to the `deps` (python package names) resolved for the package and the `config_setting` label the hub uses to select the lock, which is `null` for hubs with a single lock.   | String | optional |  `"{}"`  |
 | <a id="whl_repository-interpreter"></a>interpreter |  Optional Python interpreter binary to use for building sdists.   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
 | <a id="whl_repository-package"></a>package |  The name of the python package the wheel represents.   | String | required |  |
 | <a id="whl_repository-patches"></a>patches |  Patches to apply to the installed wheel.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `[]`  |
-| <a id="whl_repository-repo_mapping"></a>repo_mapping |  In `WORKSPACE` context only: a dictionary from local repository name to global repository name. This allows controls over workspace dependency resolution for dependencies of this repository.<br><br>For example, an entry `"@foo": "@bar"` declares that, for any time this repository depends on `@foo` (such as a dependency on `@foo//some:target`, it should actually resolve that dependency within globally-declared `@bar` (`@bar//some:target`).<br><br>This attribute is _not_ supported in `MODULE.bazel` context (when invoking a repository rule inside a module extension's implementation function).   | <a href="https://bazel.build/rules/lib/dict">Dictionary: String -> String</a> | optional |  |
 | <a id="whl_repository-sdist_deps_repos"></a>sdist_deps_repos |  INTERNAL: DO NOT USE. Default dependencies for building source distributions.   | <a href="https://bazel.build/concepts/labels">List of labels</a> | optional |  `["@req_compile_sdist_compiler__pip//:pkg", "@req_compile_sdist_compiler__setuptools//:pkg", "@req_compile_sdist_compiler__wheel//:pkg"]`  |
 | <a id="whl_repository-sha256"></a>sha256 |  The expected SHA-256 of the file downloaded.   | String | optional |  `""`  |
-| <a id="whl_repository-spoke_prefix"></a>spoke_prefix |  The name of the [py_requirements_repository](#py_requirements_repository) plus a friendly platform suffix.   | String | required |  |
 | <a id="whl_repository-urls"></a>urls |  A list of URLs to the python wheel.   | List of strings | optional |  `[]`  |
 | <a id="whl_repository-version"></a>version |  The version of the python package.   | String | required |  |
 | <a id="whl_repository-whl"></a>whl |  The label to a wheel.   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |

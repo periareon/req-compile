@@ -17,6 +17,7 @@ from req_compile.dists import DependencyNode, DistributionCollection
 from req_compile.errors import MetadataError, NoCandidateException
 from req_compile.repos.repository import Repository
 from req_compile.repos.source import SourceRepository
+from req_compile.target import TargetEnvironment
 from req_compile.utils import (
     NormName,
     is_pinned_requirement,
@@ -310,6 +311,7 @@ def perform_compile(
     allow_circular_dependencies: bool = True,
     only_binary: Optional[Set[NormName]] = None,
     max_downgrade: Optional[int] = None,
+    target: Optional[TargetEnvironment] = None,
 ) -> Tuple[DistributionCollection, Set[DependencyNode]]:
     """Perform a compilation using the given inputs and constraints.
 
@@ -327,11 +329,15 @@ def perform_compile(
         allow_circular_dependencies: Whether to allow circular dependencies
         only_binary: Set of projects that should only consider binary distributions.
         max_downgrade: The maximum number of version downgrades that will be allowed for conflicts.
+        target: The environment to compile for. Defaults to the target of `repo`, which
+            itself defaults to the host.
 
     Returns:
         the solution and root nodes used to generate it
     """
-    results = req_compile.dists.DistributionCollection()
+    if target is None:
+        target = repo.target
+    results = req_compile.dists.DistributionCollection(target=target)
 
     constraint_nodes = set()
     nodes = set()

@@ -14,7 +14,9 @@ from req_compile.cmdline import (
     SplitProjectsFilter,
     add_logging_args,
     add_repo_args,
+    add_target_args,
     build_repo,
+    build_target,
 )
 from req_compile.repos.pypi import PyPIRepository
 from req_compile.repos.repository import (
@@ -71,6 +73,7 @@ def candidates_main() -> None:
     )
     add_logging_args(parser)
     add_repo_args(parser)
+    add_target_args(parser)
     args = parser.parse_args()
 
     logger = logging.getLogger("req_compile")
@@ -80,6 +83,12 @@ def candidates_main() -> None:
     else:
         logging.basicConfig(level=logging.CRITICAL, stream=sys.stderr)
         logging.getLogger().setLevel(level=logging.CRITICAL)
+
+    try:
+        target = build_target(args)
+    except ValueError as ex:
+        print(f"ERROR: {ex}", file=sys.stderr)
+        sys.exit(1)
 
     start = time.monotonic()
     wheeldir = tempfile.mkdtemp(suffix="-wheeldir")
@@ -94,10 +103,13 @@ def candidates_main() -> None:
         no_index=args.no_index,
         wheeldir=wheeldir,
         allow_prerelease=args.allow_prerelease,
+        target=target,
     )
 
     if isinstance(repo, PyPIRepository) and args.project_name is None:
-        repo = SourceRepository(".", excluded_paths=args.excluded_sources)
+        repo = SourceRepository(
+            ".", excluded_paths=args.excluded_sources, target=target
+        )
 
     total_candidates = 0
     try:
@@ -112,10 +124,13 @@ def candidates_main() -> None:
         candidates = repo.get_candidates(req)
         if not args.all:
             candidates = filter_candidates(
-                req, candidates, allow_prereleases=args.allow_prerelease
+                req,
+                candidates,
+                allow_prereleases=args.allow_prerelease,
+                target=repo.target,
             )
 
-        for candidate in sort_candidates(candidates):
+        for candidate in sort_candidates(candidates, target=repo.target):
             if (
                 candidate.type == DistributionType.SDIST
                 and candidate.name in args.only_binary

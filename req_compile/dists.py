@@ -10,6 +10,7 @@ import packaging.requirements
 
 from req_compile.containers import RequirementContainer
 from req_compile.repos import Repository
+from req_compile.target import TargetEnvironment, resolve
 from req_compile.utils import (
     NormName,
     merge_requirements,
@@ -27,9 +28,21 @@ class DependencyNode:
     is it resolved to a concrete version sourced from a Repository.
     """
 
-    def __init__(self, key: NormName, metadata: Optional[RequirementContainer]) -> None:
+    def __init__(
+        self,
+        key: NormName,
+        metadata: Optional[RequirementContainer],
+        target: Optional[TargetEnvironment] = None,
+    ) -> None:
+        """
+        Args:
+            key: The normalized project name.
+            metadata: The solution for this node, if known.
+            target: The environment markers are evaluated against. Defaults to the host.
+        """
         self.key = key
         self.metadata = metadata
+        self.target = resolve(target)
         self.dependencies: Dict[
             DependencyNode, Optional[packaging.requirements.Requirement]
         ] = {}
@@ -80,9 +93,11 @@ class DependencyNode:
             assert (
                 rdep_node.metadata is not None
             ), "Reverse dependency should already have a solution"
-            all_reqs = set(rdep_node.metadata.requires())
+            all_reqs = set(rdep_node.metadata.requires(target=self.target))
             for extra in rdep_node.extras:
-                all_reqs |= set(rdep_node.metadata.requires(extra=extra))
+                all_reqs |= set(
+                    rdep_node.metadata.requires(extra=extra, target=self.target)
+                )
             for req in all_reqs:
                 if normalize_project_name(req.name) == self.key:
                     result = merge_requirements(result, req)
@@ -190,9 +205,11 @@ def build_explanation(root_node: DependencyNode) -> collections.abc.Collection[s
         assert (
             node.metadata is not None
         ), "Reverse dependency should already have a solution"
-        all_reqs = set(node.metadata.requires())
+        all_reqs = set(node.metadata.requires(target=root_node.target))
         for extra in node.extras:
-            all_reqs |= set(node.metadata.requires(extra=extra))
+            all_reqs |= set(
+                node.metadata.requires(extra=extra, target=root_node.target)
+            )
         for req in all_reqs:
             if normalize_project_name(req.name) == root_node.key:
                 constraints.append(_process_constraint_req(req, node))
@@ -240,8 +257,13 @@ class DistributionCollection:
     RequirementContainer (like a DistInfo from a wheel), the corresponding node in this
     collection will be marked solved."""
 
-    def __init__(self) -> None:
+    def __init__(self, target: Optional[TargetEnvironment] = None) -> None:
+        """
+        Args:
+            target: The environment markers are evaluated against. Defaults to the host.
+        """
         self.nodes: Dict[NormName, DependencyNode] = {}
+        self.target = resolve(target)
 
     @staticmethod
     def _build_key(name: str) -> NormName:
@@ -277,7 +299,7 @@ class DistributionCollection:
         if key in self.nodes:
             node = self.nodes[key]
         else:
-            node = DependencyNode(key, metadata_to_apply)
+            node = DependencyNode(key, metadata_to_apply, target=self.target)
             self.nodes[key] = node
 
         # If a new extra is being supplied, update the metadata. This should run before
@@ -345,7 +367,7 @@ class DistributionCollection:
             # An extra may disappear while we are iterating due to conflicts.
             if extra is not None and extra not in node.extras:
                 continue
-            for req in metadata.requires(extra):
+            for req in metadata.requires(extra, target=self.target):
                 # This adds a placeholder entry if we don't already have a solution for
                 # the new dependency. It also adds a reason for the node, which could
                 # potentially cause a conflict if two requirements contradict.

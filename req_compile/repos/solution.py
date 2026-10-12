@@ -16,6 +16,7 @@ from req_compile.errors import NoCandidateException
 from req_compile.repos import RepositoryInitializationError
 from req_compile.repos.repository import Candidate, DistributionType, Repository
 from req_compile.repos.source import ReferenceSourceRepository
+from req_compile.target import TargetEnvironment
 from req_compile.utils import NormName, normalize_project_name
 
 
@@ -34,9 +35,12 @@ class SolutionRepository(Repository):
         self,
         filename: Union[str, Path],
         excluded_packages: Optional[Iterable[str]] = None,
+        target: Optional[TargetEnvironment] = None,
     ) -> None:
         """Constructor."""
-        super(SolutionRepository, self).__init__("solution", allow_prerelease=True)
+        super(SolutionRepository, self).__init__(
+            "solution", allow_prerelease=True, target=target
+        )
         self.filename = os.path.abspath(filename) if str(filename) != "-" else "-"
         self.excluded_packages = excluded_packages or []
         if excluded_packages:
@@ -59,7 +63,7 @@ class SolutionRepository(Repository):
         if os.path.exists(filename) or self.filename == "-":
             self.load_from_file(self.filename)
         else:
-            self.solution = DistributionCollection()
+            self.solution = DistributionCollection(target=self.target)
 
     def __repr__(self) -> str:
         return "--solution {}".format(self.filename)
@@ -121,7 +125,7 @@ class SolutionRepository(Repository):
         pass
 
     def load_from_file(self, filename: str) -> None:
-        self.solution = req_compile.dists.DistributionCollection()
+        self.solution = req_compile.dists.DistributionCollection(target=self.target)
         # The extras are gathered while parsing and only describe the solution
         # being loaded now, so nothing from a previously loaded file may survive.
         self._partial_line = ""

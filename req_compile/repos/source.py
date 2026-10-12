@@ -15,6 +15,7 @@ import req_compile.repos.repository
 from req_compile import utils
 from req_compile.containers import RequirementContainer
 from req_compile.repos.repository import Candidate, Repository
+from req_compile.target import TargetEnvironment
 from req_compile.utils import parse_version
 
 # Special directories that will never be considered
@@ -56,6 +57,7 @@ class SourceRepository(Repository):
         excluded_paths: Optional[Iterable[str]] = None,
         marker_files: Optional[Iterable[str]] = None,
         parallelism: int = 1,
+        target: Optional[TargetEnvironment] = None,
     ) -> None:
         """Constructor.
 
@@ -66,9 +68,12 @@ class SourceRepository(Repository):
             marker_files (list[str]): Files or directories, that if present, indicate that a discovered
                 source directory should not be included in the repository
             parallelism: Number of in-process threads to execute when discovering source projects
+            target: The environment to select candidates for. Defaults to the host.
         """
         super(SourceRepository, self).__init__(
-            "source." + os.path.basename(path).replace(".", "-"), allow_prerelease=True
+            "source." + os.path.basename(path).replace(".", "-"),
+            allow_prerelease=True,
+            target=target,
         )
 
         if not os.path.exists(path):

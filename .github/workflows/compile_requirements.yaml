@@ -1,6 +1,5 @@
----
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+# Compile a `py_reqs_compiler` target with `--upgrade` and publish the resulting
+# changes as a patch. Solutions for every platform can be compiled from Linux.
 
 name: compile_requirements
 
@@ -12,26 +11,20 @@ on:
         required: true
 
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: MacOS aarch64
-            platform: macos-latest
-          - name: MacOS x86_64
-            platform: macos-13
-          - name: Linux x86_64
-            platform: ubuntu-20.04
-          - name: Linux aarch64
-            platform: ubuntu-24.04-arm
-          - name: Windows x86_64
-            platform: windows-2019
-
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.platform }}
+  compile:
+    name: Compile requirements
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - name: Compile requirements
       run: |
         bazel run "${{ github.event.inputs.target }}" "--" "--upgrade" "--verbose"
+    - name: Show changes
+      run: |
+        git --no-pager diff
+        git diff > requirements.patch
+    - name: Upload changes
+      uses: actions/upload-artifact@v4
+      with:
+        name: requirements.patch
+        path: requirements.patch

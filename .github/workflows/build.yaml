@@ -82,9 +82,45 @@ jobs:
     - name: Run Tests
       run: |
         bazel test //...
-    - name: Perform compilation
+    - name: Cross-compile requirements for every platform
+      shell: pwsh
       run: |
-        bazel run //3rdparty:requirements_compiler "--" --upgrade
+        foreach ($platform in @("linux_aarch64", "linux_x86_64", "macos_aarch64", "macos_x86_64", "windows_x86_64")) {
+          bazel run "//3rdparty:requirements_${platform}_311" "--" "--upgrade"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        }
+    - name: Upload cross-compiled requirements
+      uses: actions/upload-artifact@v4
+      with:
+        name: requirements-${{ matrix.platform }}
+        path: 3rdparty/requirements.*.txt
+        if-no-files-found: error
+
+  bazel-cross-platform-consistency:
+    needs: bazel-bzlmod
+    runs-on: ubuntu-latest
+    name: cross-compiled requirements agree on every host
+    steps:
+    - name: Download cross-compiled requirements
+      uses: actions/download-artifact@v4
+      with:
+        pattern: requirements-*
+        path: artifacts
+    - name: Compare the solutions compiled on each host
+      run: |
+        set -euo pipefail
+        reference="artifacts/requirements-ubuntu-latest"
+        status=0
+        for dir in artifacts/requirements-*; do
+          if [[ "${dir}" == "${reference}" ]]; then
+            continue
+          fi
+          if ! diff -r "${reference}" "${dir}"; then
+            echo "::error::Requirements compiled on $(basename "${dir}") differ from those compiled on $(basename "${reference}")"
+            status=1
+          fi
+        done
+        exit "${status}"
 
   bazel_users:
     strategy:
