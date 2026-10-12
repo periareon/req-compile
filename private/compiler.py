@@ -37,7 +37,7 @@ from req_compile.containers import RequirementsFile
 from req_compile.dists import DependencyNode, DistributionCollection
 from req_compile.errors import NoCandidateException
 from req_compile.repos import Repository
-from req_compile.repos.repository import DistributionType
+from req_compile.repos.repository import DistributionType, RepositoryInitializationError
 from req_compile.target import TargetEnvironment, resolve
 
 _HEADER = """\
@@ -456,6 +456,11 @@ def compile_main(args: argparse.Namespace, runfiles: Runfiles) -> None:
             logging.info("Attempting to build wheels for sdist dependencies.")
             wheelmaker_main(args, runfiles)
         sys.exit(1)
+    except RepositoryInitializationError as exc:
+        # E.g. the solution was compiled for another target and there is no index
+        # to resolve the requirements from again.
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     # Write out the requirements file if a location was provided.
     if args.output:
@@ -493,12 +498,10 @@ def compile_main(args: argparse.Namespace, runfiles: Runfiles) -> None:
             workspace_dir = Path(os.environ["BUILD_WORKSPACE_DIRECTORY"])
             output = workspace_dir / args.output
             # Always write unix line endings so the solution does not depend on
-            # the platform that compiled it.
-            output.write_text(
-                buffer.getvalue(),
-                encoding="utf-8",
-                newline="\n",
-            )
+            # the platform that compiled it. `Path.write_text` only accepts
+            # `newline` from Python 3.10, so use `open`.
+            with output.open("w", encoding="utf-8", newline="\n") as handle:
+                handle.write(buffer.getvalue())
             if args.verbose:
                 print(output.read_text(encoding="utf-8"))
             print(f"Successfully compiled {output}")

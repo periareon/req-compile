@@ -6,6 +6,8 @@ New in version 1.2.0:
   which is recorded in the header of lock files compiled by Bazel.
 * The ``py_reqs_compiler`` Bazel rule has new ``platform`` and ``python_version`` attributes, so the
   solutions for every platform a project supports can be compiled and tested from a single machine.
+  Solutions record their platform and Python version in their header, and a solution compiled for
+  another target is not recycled when recompiling without ``--upgrade``.
 * Removed the ``py_reqs_remote_compiler`` Bazel rule. Use the ``platform`` attribute of ``py_reqs_compiler``
   instead.
 

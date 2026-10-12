@@ -213,7 +213,9 @@ bazel run //:requirements.update
 ```
 
 By default the rule will try to recycle pins already existing in the solution file (`requirements.txt`). To perform
-a clean resolution (fetching latest for all requirements) the `--upgrade` flag can be used.
+a clean resolution (fetching latest for all requirements) the `--upgrade` flag can be used. A solution compiled for
+another platform or Python version, as recorded in its header, is not recycled: changing the `platform` or
+`python_version` of the rule resolves the requirements again.
 
 ```bash
 bazel run //:requirements.update -- --upgrade

@@ -45,7 +45,7 @@ from req_compile.repos.solution import (
     SolutionRepository,
 )
 from req_compile.repos.source import SourceRepository
-from req_compile.target import TargetEnvironment
+from req_compile.target import TargetEnvironment, resolve
 from req_compile.utils import (
     NormName,
     normalize_project_name,
@@ -56,6 +56,8 @@ from req_compile.versions import is_possible
 
 # Blacklist of requirements that will be filtered out of the output
 BLACKLIST: Iterable[str] = []
+
+LOG = logging.getLogger("req_compile.cmdline")
 
 
 def _cantusereason_to_text(
@@ -741,13 +743,12 @@ def build_repo(
             )
 
     repos: List[Repository] = []
-    if solutions:
-        repos.extend(
-            SolutionRepository(
-                solution, excluded_packages=upgrade_packages, target=target
-            )
-            for solution in solutions
-        )
+    ignored_solutions: List[SolutionRepository] = []
+    for solution_repo in load_solutions(solutions, upgrade_packages, target):
+        if solution_repo.matches_target(target):
+            repos.append(solution_repo)
+        else:
+            ignored_solutions.append(solution_repo)
     if sources:
         repos.extend(
             SourceRepository(source, excluded_paths=excluded_sources, target=target)
@@ -760,6 +761,15 @@ def build_repo(
         repos.append(pooled_repos[0])
 
     if not repos:
+        if ignored_solutions:
+            raise RepositoryInitializationError(
+                SolutionRepository,
+                "The solution {} was compiled for {}, not for {}. Recompile it for the new target.".format(
+                    ", ".join(repr(repo) for repo in ignored_solutions),
+                    _recorded_target(ignored_solutions[0]),
+                    resolve(target),
+                ),
+            )
         raise ValueError(
             "At least one source of Python distributions must be provided."
         )
@@ -768,6 +778,50 @@ def build_repo(
     else:
         repo = repos[0]
     return repo
+
+
+def _recorded_target(solution: SolutionRepository) -> str:
+    return "{} ({})".format(
+        solution.recorded_platform or "an unknown platform",
+        solution.recorded_python or "unknown Python version",
+    )
+
+
+def load_solutions(
+    solutions: Iterable[str],
+    upgrade_packages: Iterable[str],
+    target: Optional[TargetEnvironment] = None,
+) -> List[SolutionRepository]:
+    """Load previous solutions, warning about any compiled for another target.
+
+    A solution compiled for another platform or Python version pins artifacts and
+    already evaluated dependencies that do not apply to this compilation. Such
+    solutions are returned, so callers can tell the user, but must not be used.
+    See `SolutionRepository.matches_target`.
+
+    Args:
+        solutions: Paths to solution files.
+        upgrade_packages: Packages to omit from the solutions.
+        target: The environment being compiled for. Defaults to the host.
+
+    Returns:
+        A repository per solution file.
+    """
+    repos = []
+    for solution in solutions:
+        repo = SolutionRepository(
+            solution, excluded_packages=upgrade_packages, target=target
+        )
+        if not repo.matches_target(target):
+            LOG.warning(
+                "Ignoring the solution %s, it was compiled for %s but this compilation "
+                "is for %s. Requirements will be resolved again.",
+                solution,
+                _recorded_target(repo),
+                resolve(target),
+            )
+        repos.append(repo)
+    return repos
 
 
 class IndentFilter(logging.Filter):

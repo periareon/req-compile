@@ -162,6 +162,11 @@ def test_host():
     assert host.python_version == tuple(sys.version_info[:3])
     assert host.marker_environment["sys_platform"] == sys.platform
     assert TargetEnvironment.from_spec() is host
+    # Spelling out the host's own version and implementation still describes the host.
+    assert TargetEnvironment.from_spec(
+        python_version=host.python_version_str, implementation=host.interpreter
+    ).is_host
+    assert not TargetEnvironment.from_spec(python_version="3.9.2").is_host
     # The name of the host is a platform tag describing it.
     described = TargetEnvironment.from_spec(host.name, host.python_version_str)
     assert described.platform_tags == host.platform_tags

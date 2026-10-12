@@ -419,7 +419,13 @@ class TargetEnvironment:  # pylint: disable=too-many-instance-attributes
             arch=arch,
             glibc_version=glibc_version,
             marker_environment=marker_environment,
-            is_host=False,
+            # Naming the platform and interpreter of this machine explicitly still
+            # describes the host, e.g. when a build system passes the exact version.
+            is_host=(
+                platform_spec is None
+                and version == host_target.python_version
+                and implementation == host_target.interpreter
+            ),
         )
 
 
