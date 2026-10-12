@@ -5,7 +5,6 @@ import unittest
 from pathlib import Path
 
 from python.runfiles import Runfiles  # pylint: disable=import-error
-
 from runfiles_util import runfiles_repositories  # pylint: disable=import-error
 
 
