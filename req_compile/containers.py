@@ -7,6 +7,7 @@ import packaging.requirements
 import packaging.version
 from packaging.requirements import InvalidRequirement
 
+from req_compile.target import TargetEnvironment, resolve
 from req_compile.utils import (
     NormName,
     normalize_project_name,
@@ -16,22 +17,26 @@ from req_compile.utils import (
 
 
 def req_uses_extra(
-    req: packaging.requirements.Requirement, extra: Optional[str]
+    req: packaging.requirements.Requirement,
+    extra: Optional[str],
+    target: Optional[TargetEnvironment] = None,
 ) -> bool:
     """Determine if this requirement would be used with the given extra.
 
     If a distribution is requested with one of its extras, this filter will determine
     if the given requirement in its install requirements is provided. All base
     requirements that don't require the extra will also be included.
+
+    Environment markers other than ``extra`` are evaluated against ``target``,
+    which defaults to the host.
     """
     if extra and not req.marker:
         return False
     keep_req = True
     if req.marker:
-        extras = {"extra": ""}
-        if extra:
-            extras = {"extra": extra}
-        keep_req = req.marker.evaluate(extras)
+        keep_req = req.marker.evaluate(
+            resolve(target).marker_environment_with_extra(extra)
+        )
     return keep_req
 
 
@@ -63,10 +68,12 @@ class RequirementContainer:
         return iter(self.reqs)
 
     def requires(
-        self, extra: Optional[str] = None
+        self, extra: Optional[str] = None, target: Optional[TargetEnvironment] = None
     ) -> Iterable[packaging.requirements.Requirement]:
+        """The requirements that apply for the given extra on the given target."""
+        target = resolve(target)
         return reduce_requirements(
-            req for req in self.reqs if req_uses_extra(req, extra)
+            req for req in self.reqs if req_uses_extra(req, extra, target)
         )
 
     def describes_extras(self, extras: Iterable[str]) -> bool:

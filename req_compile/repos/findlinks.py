@@ -13,6 +13,7 @@ from req_compile import utils
 from req_compile.containers import RequirementContainer
 from req_compile.repos import Repository, RepositoryInitializationError
 from req_compile.repos.repository import Candidate
+from req_compile.target import TargetEnvironment
 
 
 class FindLinksRepository(Repository):
@@ -25,8 +26,9 @@ class FindLinksRepository(Repository):
         path: Union[str, Path],
         allow_prerelease: Optional[bool] = None,
         relative_to: Optional[Union[str, Path]] = None,
+        target: Optional[TargetEnvironment] = None,
     ) -> None:
-        super().__init__("findlinks", allow_prerelease=allow_prerelease)
+        super().__init__("findlinks", allow_prerelease=allow_prerelease, target=target)
         self.path = Path(path).as_posix()
         self.relative_path = (
             Path(os.path.relpath(self.path, relative_to)).as_posix()

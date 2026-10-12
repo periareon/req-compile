@@ -4,16 +4,12 @@ import abc
 import enum
 import logging
 import os
-import platform
 import re
-import sys
-import sysconfig
-from collections import defaultdict
 from typing import (
     Any,
+    Dict,
     Iterable,
     Iterator,
-    List,
     Optional,
     Sequence,
     Set,
@@ -23,7 +19,6 @@ from typing import (
 )
 
 import packaging.requirements
-import packaging.tags
 import packaging.version
 
 import req_compile.errors
@@ -31,135 +26,20 @@ import req_compile.utils
 from req_compile.containers import RequirementContainer
 from req_compile.errors import NoCandidateException
 from req_compile.filename import parse_source_filename
-from req_compile.utils import (
-    NormName,
-    get_glibc_version,
-    normalize_project_name,
-    parse_version,
+from req_compile.target import (  # pylint: disable=unused-import
+    INTERPRETER_TAGS,
+    LEGACY_ALIASES,
+    MACOSX_REGEX,
+    MANYLINUX_REGEX,
+    TargetEnvironment,
+    resolve,
 )
-
-INTERPRETER_TAGS = {
-    "CPython": "cp",
-    "IronPython": "ip",
-    "PyPy": "pp",
-    "Jython": "jy",
-}
-
-INTERPRETER_TAG = INTERPRETER_TAGS.get(platform.python_implementation(), "cp")
-PY_VERSION_NUM = str(sys.version_info.major) + str(sys.version_info.minor)
-
-# PEP-600 legacy platform tags
-LEGACY_ALIASES = {
-    "manylinux1_x86_64": "manylinux_2_5_x86_64",
-    "manylinux1_i686": "manylinux_2_5_i686",
-    "manylinux2010_x86_64": "manylinux_2_12_x86_64",
-    "manylinux2010_i686": "manylinux_2_12_i686",
-    "manylinux2014_x86_64": "manylinux_2_17_x86_64",
-    "manylinux2014_i686": "manylinux_2_17_i686",
-}
-MANYLINUX_REGEX = r"manylinux_([0-9]+)_([0-9]+)_(.*)"
-MACOSX_REGEX = r"macosx_([0-9]+)_([0-9]+)_(.*)"
-
-
-def _get_platform_tags() -> Sequence[str]:
-    if sys.platform == "darwin":
-        # Compile a sorted list where later entries are considered
-        # higher ranked platform tags.
-        mac_platforms = defaultdict(set)
-
-        for plat in packaging.tags.mac_platforms():
-            match = re.match(MACOSX_REGEX, plat)
-            if not match:
-                raise ValueError(f"Unexpected MacOS platform: {plat}")
-
-            major, minor, arch = (
-                int(match.group(1)),
-                int(match.group(2)),
-                match.group(3),
-            )
-            key = (major, minor)
-
-            # Universal and arm tags are ranked higher.
-            mac_platforms[key].add(plat)
-
-            if major == 10 and arch == "universal2":
-                mac_platforms[key].add(plat.replace(arch, "x86_64"))
-                if int(minor) <= 10:
-                    mac_platforms[key].add(plat.replace(arch, "intel"))
-
-        # Combine all collections of tags where older versions of MacOS
-        # are ranked lower than more modern ones
-        ordered_mac_plats: List[str] = []
-        for ver in reversed(sorted(mac_platforms.keys())):
-            ordered_mac_plats.extend(mac_platforms[ver])
-
-        return ordered_mac_plats
-
-    plat = sysconfig.get_platform()
-    return (plat.replace(".", "_").replace("-", "_"),)
-
-
-def get_system_arch() -> str:
-    uname_info = platform.uname()
-    return uname_info[4]
+from req_compile.utils import NormName, normalize_project_name, parse_version
 
 
 def manylinux_tag_is_compatible_with_this_system(tag: str) -> bool:
-    # Pulled from PEP 600
-    # Normalize and parse the tag
-    glibc_version = get_glibc_version()
-    if glibc_version is None:
-        return False
-
-    tag = LEGACY_ALIASES.get(tag, tag)
-    manylinux_match = re.match(MANYLINUX_REGEX, tag)
-    if not manylinux_match:
-        return False
-    tag_major_str, tag_minor_str, tag_arch = manylinux_match.groups()
-    tag_major = int(tag_major_str)
-    tag_minor = int(tag_minor_str)
-
-    sys_major, sys_minor = glibc_version
-    if (sys_major, sys_minor) < (tag_major, tag_minor):
-        return False
-    sys_arch = get_system_arch()
-    if sys_arch != tag_arch:
-        return False
-
-    # Check for manual override
-    try:
-        import _manylinux  # type: ignore  # pylint: disable=bad-option-value,import-outside-toplevel
-    except ImportError:
-        pass
-    else:
-        if hasattr(_manylinux, "manylinux_compatible"):
-            # pylint: disable=no-member
-            result = _manylinux.manylinux_compatible(
-                tag_major,
-                tag_minor,
-                tag_arch,
-            )
-            if result is not None:
-                return bool(result)
-        else:
-            if (tag_major, tag_minor) == (2, 5):
-                if hasattr(_manylinux, "manylinux1_compatible"):
-                    # pylint: disable=no-member
-                    return bool(_manylinux.manylinux1_compatible)
-            if (tag_major, tag_minor) == (2, 12):
-                if hasattr(_manylinux, "manylinux2010_compatible"):
-                    # pylint: disable=no-member
-                    return bool(_manylinux.manylinux2010_compatible)
-    return True
-
-
-def _get_abi_tag() -> str:
-    """Build a best effort ABI tag"""
-    return INTERPRETER_TAG + PY_VERSION_NUM
-
-
-PLATFORM_TAGS = _get_platform_tags()
-ABI_TAGS = ("abi" + str(sys.version_info.major), _get_abi_tag())
+    """Whether a manylinux platform tag can be installed on the host."""
+    return resolve(None).manylinux_tag_is_compatible(tag)
 
 
 class RepositoryInitializationError(ValueError):
@@ -177,7 +57,7 @@ class DistributionType(enum.IntEnum):
 
 
 class PythonVersionRequirement:
-    def check_compatibility(self) -> bool:
+    def check_compatibility(self, target: Optional[TargetEnvironment] = None) -> bool:
         raise NotImplementedError
 
 
@@ -198,10 +78,10 @@ def _impl_major_minor(py_version: str) -> Tuple[str, int, int]:
     return impl, major, minor
 
 
-def _is_py_version_compatible(py_version: str) -> bool:
+def _is_py_version_compatible(py_version: str, target: TargetEnvironment) -> bool:
     impl, major, minor = _impl_major_minor(py_version)
-    if impl == "py" or impl == INTERPRETER_TAG:
-        if major == sys.version_info.major and minor <= sys.version_info.minor:
+    if impl == "py" or impl == target.interpreter:
+        if major == target.python_version[0] and minor <= target.python_version[1]:
             return True
     return False
 
@@ -237,12 +117,15 @@ class WheelVersionTags(PythonVersionRequirement):
         if py_versions is not None:
             self.py_versions = set(py_versions)
 
-    def check_compatibility(self) -> bool:
+    def check_compatibility(self, target: Optional[TargetEnvironment] = None) -> bool:
+        """Whether any of the python tags can be installed on the target."""
         if not self.py_versions:
             return True
 
+        target = resolve(target)
         return any(
-            _is_py_version_compatible(py_version) for py_version in self.py_versions
+            _is_py_version_compatible(py_version, target)
+            for py_version in self.py_versions
         )
 
     def __str__(self) -> str:
@@ -303,10 +186,11 @@ class Candidate:  # pylint: disable=too-many-instance-attributes
         self.type = candidate_type
 
         # Sort based on tags to make sure the most specific distributions
-        # are matched first
-        self._sortkey: Optional[
-            Tuple[packaging.version.Version, str, int, Tuple[int, int, int, int]]
-        ] = None
+        # are matched first. The score depends on the target, so cache per target.
+        self._sort_keys: Dict[
+            TargetEnvironment,
+            Tuple[packaging.version.Version, Any, int, Tuple[int, int, int, int]],
+        ] = {}
         self.extra_sort_info = extra_sort_info
 
         self.preparsed: Optional[RequirementContainer] = None
@@ -317,23 +201,36 @@ class Candidate:  # pylint: disable=too-many-instance-attributes
     @property
     def sortkey(
         self,
-    ) -> Tuple[packaging.version.Version, str, int, Tuple[int, int, int, int]]:
-        if self._sortkey is None:
-            self._sortkey = (
+    ) -> Tuple[packaging.version.Version, Any, int, Tuple[int, int, int, int]]:
+        """The sort key for the host. Prefer `sort_key` with an explicit target."""
+        return self.sort_key(None)
+
+    def sort_key(
+        self, target: Optional[TargetEnvironment]
+    ) -> Tuple[packaging.version.Version, Any, int, Tuple[int, int, int, int]]:
+        """Key ranking this candidate for the given target. Higher sorts first."""
+        target = resolve(target)
+        key = self._sort_keys.get(target)
+        if key is None:
+            key = (
                 self.version,
                 self.extra_sort_info,
                 self.type.value,
-                self.tag_score,
+                self.tag_score(target),
             )
-        return self._sortkey
+            self._sort_keys[target] = key
+        return key
 
-    @property
-    def tag_score(self) -> Tuple[int, int, int, int]:
+    def tag_score(
+        self, target: Optional[TargetEnvironment] = None
+    ) -> Tuple[int, int, int, int]:
+        """Score the wheel tags of this candidate for the given target."""
+        target = resolve(target)
         py_version_score = (
             self.py_version.tag_score if self.py_version is not None else 0
         )
         try:
-            abi_score = ABI_TAGS.index(self.abi) if self.abi is not None else 0
+            abi_score = target.abi_tags.index(self.abi) if self.abi is not None else 0
         except ValueError:
             abi_score = 0
 
@@ -350,7 +247,9 @@ class Candidate:  # pylint: disable=too-many-instance-attributes
                         manylinux_match.groups()[1]
                     )
                 else:
-                    this_score = len(PLATFORM_TAGS) - PLATFORM_TAGS.index(plat.lower())
+                    this_score = len(target.platform_tags) - target.platform_tags.index(
+                        plat.lower()
+                    )
                 plat_score = max(plat_score, this_score * 100)
             except ValueError:
                 pass
@@ -499,19 +398,14 @@ def _tar_gz_filename_to_candidate(source: Tuple[str, str], filename: str) -> Can
     )
 
 
-def _check_platform_compatibility(py_platforms: Iterable[str]) -> bool:
-    return (
-        "any" in py_platforms
-        or any(py_platform.lower() in PLATFORM_TAGS for py_platform in py_platforms)
-        or any(
-            manylinux_tag_is_compatible_with_this_system(py_platform)
-            for py_platform in py_platforms
-        )
-    )
+def _check_platform_compatibility(
+    py_platforms: Iterable[str], target: TargetEnvironment
+) -> bool:
+    return any(target.platform_tag_is_compatible(plat) for plat in py_platforms)
 
 
-def _check_abi_compatibility(abi: str) -> bool:
-    return abi in ABI_TAGS
+def _check_abi_compatibility(abi: str, target: TargetEnvironment) -> bool:
+    return target.abi_tag_is_compatible(abi)
 
 
 class CantUseReason(enum.Enum):
@@ -526,16 +420,20 @@ class CantUseReason(enum.Enum):
     SOURCE_DIST_NOT_ALLOWED = 9
 
 
-def sort_candidates(candidates: Iterable[Candidate]) -> Sequence[Candidate]:
+def sort_candidates(
+    candidates: Iterable[Candidate], target: Optional[TargetEnvironment] = None
+) -> Sequence[Candidate]:
     """Sort candidates for highest compatibility and version
 
     Args:
         candidates: Candidates to sort
+        target: The environment being compiled for. Defaults to the host.
 
     Returns:
         The sorted list, starting with the best matching candidate
     """
-    return sorted(candidates, key=lambda x: x.sortkey, reverse=True)
+    target = resolve(target)
+    return sorted(candidates, key=lambda x: x.sort_key(target), reverse=True)
 
 
 def check_usability(
@@ -543,17 +441,26 @@ def check_usability(
     candidate: Candidate,
     has_equality: bool = False,
     allow_prereleases: bool = False,
+    target: Optional[TargetEnvironment] = None,
 ) -> Optional[CantUseReason]:
+    """Determine whether a candidate can be used for the requirement on the target.
+
+    Returns:
+        The reason the candidate cannot be used, or None if it can.
+    """
+    target = resolve(target)
     if (
         candidate.py_version is not None
-        and not candidate.py_version.check_compatibility()
+        and not candidate.py_version.check_compatibility(target)
     ):
         return CantUseReason.WRONG_PYTHON_VERSION
 
-    if candidate.abi is not None and not _check_abi_compatibility(candidate.abi):
+    if candidate.abi is not None and not _check_abi_compatibility(
+        candidate.abi, target
+    ):
         return CantUseReason.WRONG_ABI
 
-    if not _check_platform_compatibility(candidate.platforms):
+    if not _check_platform_compatibility(candidate.platforms, target):
         return CantUseReason.WRONG_PLATFORM
 
     if not has_equality and not allow_prereleases and candidate.version.is_prerelease:
@@ -571,10 +478,13 @@ def filter_candidates(
     req: Optional[packaging.requirements.Requirement],
     candidates: Iterable[Candidate],
     allow_prereleases: bool = False,
+    target: Optional[TargetEnvironment] = None,
 ) -> Iterable[Candidate]:
+    """Filter candidates down to the ones usable for the requirement on the target."""
     has_equality = (
         req_compile.utils.is_pinned_requirement(req) if req is not None else False
     )
+    target = resolve(target)
 
     return [
         candidate
@@ -584,6 +494,7 @@ def filter_candidates(
             candidate,
             has_equality=has_equality,
             allow_prereleases=allow_prereleases,
+            target=target,
         )
         is None
     ]
@@ -598,13 +509,23 @@ def _is_all_prereleases(candidates: Iterable[Candidate]) -> bool:
 
 class Repository(metaclass=abc.ABCMeta):
     def __init__(
-        self, logger_name: str, allow_prerelease: Optional[bool] = None
+        self,
+        logger_name: str,
+        allow_prerelease: Optional[bool] = None,
+        target: Optional[TargetEnvironment] = None,
     ) -> None:
+        """
+        Args:
+            logger_name: Name of the child logger for this repository.
+            allow_prerelease: Whether prereleases may be selected.
+            target: The environment distributions are selected for. Defaults to the host.
+        """
         super(Repository, self).__init__()
         if allow_prerelease is None:
             allow_prerelease = False
         self.logger = logging.getLogger("req_compile.repository").getChild(logger_name)
         self.allow_prerelease = allow_prerelease
+        self.target = resolve(target)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Repository):
@@ -693,11 +614,14 @@ class Repository(metaclass=abc.ABCMeta):
         allow_prereleases = force_allow_prerelease or self.allow_prerelease
         if candidates:
             filtered_candidates = filter_candidates(
-                req, candidates, allow_prereleases=allow_prereleases
+                req,
+                candidates,
+                allow_prereleases=allow_prereleases,
+                target=self.target,
             )
             tried_versions = set()
 
-            for candidate in sort_candidates(filtered_candidates):
+            for candidate in sort_candidates(filtered_candidates, target=self.target):
                 if candidate.version is None:
                     self.logger.warning(
                         "Found candidate with no version: %s", candidate
@@ -709,6 +633,13 @@ class Repository(metaclass=abc.ABCMeta):
                         self.logger.warning(
                             "Considering source distribution for %s", candidate.name
                         )
+                        if not self.target.is_host:
+                            self.logger.warning(
+                                "Metadata for the source distribution %s is extracted "
+                                "on this machine and may not match the target %s",
+                                candidate,
+                                self.target,
+                            )
                     else:
                         self.logger.debug(
                             "Skipping source distribution %s for %s (due to --only-binary)",
@@ -761,6 +692,7 @@ class Repository(metaclass=abc.ABCMeta):
             req,
             candidate,
             allow_prereleases=self.allow_prerelease,
+            target=self.target,
         )
         if reason is None or reason == CantUseReason.U_CAN_USE:
             if (

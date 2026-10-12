@@ -7,14 +7,25 @@ from overrides import overrides
 from req_compile.containers import RequirementContainer
 from req_compile.errors import NoCandidateException
 from req_compile.repos.repository import Candidate, Repository
+from req_compile.target import TargetEnvironment
 
 
 class MultiRepository(Repository):
     """Repository that sources from inner repositories, in order."""
 
-    def __init__(self, *repositories: Repository) -> None:
-        """Constructor."""
-        super(MultiRepository, self).__init__("multi")
+    def __init__(
+        self, *repositories: Repository, target: Optional[TargetEnvironment] = None
+    ) -> None:
+        """Constructor.
+
+        Args:
+            repositories: The repositories to search, in order.
+            target: The environment to select candidates for. Defaults to the target
+                of the first repository.
+        """
+        if target is None and repositories:
+            target = getattr(repositories[0], "target", None)
+        super(MultiRepository, self).__init__("multi", target=target)
         self.repositories = list(repositories)
 
     def __repr__(self) -> str:

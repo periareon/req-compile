@@ -3,9 +3,9 @@ load("//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
 
 py_reqs_compiler(
     name = "requirements.linux.update",
+    platform = "manylinux_2_28_x86_64",
     requirements_in = "requirements.in",
     requirements_txt = "requirements.linux.txt",
-    target_compatible_with = ["@platforms//os:linux"],
 )
 
 py_reqs_solution_test(
@@ -15,9 +15,9 @@ py_reqs_solution_test(
 
 py_reqs_compiler(
     name = "requirements.macos.update",
+    platform = "macosx_11_0_arm64",
     requirements_in = "requirements.in",
     requirements_txt = "requirements.macos.txt",
-    target_compatible_with = ["@platforms//os:macos"],
 )
 
 py_reqs_solution_test(
@@ -27,9 +27,9 @@ py_reqs_solution_test(
 
 py_reqs_compiler(
     name = "requirements.windows.update",
+    platform = "win_amd64",
     requirements_in = "requirements.in",
     requirements_txt = "requirements.windows.txt",
-    target_compatible_with = ["@platforms//os:windows"],
 )
 
 py_reqs_solution_test(

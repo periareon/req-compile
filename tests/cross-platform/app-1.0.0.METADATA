@@ -1,0 +1,9 @@
+Metadata-Version: 2.1
+Name: app
+Version: 1.0.0
+Requires-Dist: colorama ; sys_platform == "win32"
+Requires-Dist: uvloop ; sys_platform != "win32"
+Requires-Dist: tomli ; python_version < "3.11"
+Requires-Dist: pyobjc ; platform_system == "Darwin"
+Requires-Dist: armlib ; platform_machine == "aarch64" or platform_machine == "arm64"
+Requires-Dist: pypylib ; implementation_name == "pypy"

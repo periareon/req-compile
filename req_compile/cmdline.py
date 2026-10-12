@@ -45,6 +45,7 @@ from req_compile.repos.solution import (
     SolutionRepository,
 )
 from req_compile.repos.source import SourceRepository
+from req_compile.target import TargetEnvironment, resolve
 from req_compile.utils import (
     NormName,
     normalize_project_name,
@@ -55,6 +56,8 @@ from req_compile.versions import is_possible
 
 # Blacklist of requirements that will be filtered out of the output
 BLACKLIST: Iterable[str] = []
+
+LOG = logging.getLogger("req_compile.cmdline")
 
 
 def _cantusereason_to_text(
@@ -147,7 +150,7 @@ def _generate_no_candidate_display(
                     pinned_req = parse_requirement(f"{walkback_project}=={version}")
                     print(f"  {pinned_req}", file=sys.stderr, end="")
                     try:
-                        collection = DistributionCollection()
+                        collection = DistributionCollection(target=repo.target)
                         collection.add_dist(
                             repo.get_dist(pinned_req)[0], None, pinned_req
                         )
@@ -263,7 +266,9 @@ def _dump_repo_candidates(
         print("  {}:".format(repo), file=sys.stderr)
         if candidates:
             attempted_versions = set()
-            for num, candidate in enumerate(sort_candidates(candidates)):
+            for num, candidate in enumerate(
+                sort_candidates(candidates, target=repo.target)
+            ):
                 if not req.specifier.contains(candidate.version):
                     continue
                 attempted_versions.add(candidate.version)
@@ -682,7 +687,13 @@ def build_repo(
     extra_index_urls: Optional[Iterable[str]] = None,
     no_index: bool = False,
     allow_prerelease: bool = False,
+    target: Optional[TargetEnvironment] = None,
 ) -> Repository:
+    """Build the repository to compile against from command line style options.
+
+    Args:
+        target: The environment to compile for. Defaults to the host.
+    """
     pooled_repos: List[Repository] = []
     if find_links:
         pooled_repos.extend(
@@ -692,6 +703,7 @@ def build_repo(
                 relative_to=(
                     find_links[find_link] if isinstance(find_links, Mapping) else None
                 ),
+                target=target,
             )
             for find_link in find_links
         )
@@ -704,6 +716,7 @@ def build_repo(
                     wheeldir,
                     allow_prerelease=allow_prerelease,
                     index_type=IndexType.DEFAULT,
+                    target=target,
                 )
             )
         else:
@@ -713,6 +726,7 @@ def build_repo(
                     wheeldir,
                     allow_prerelease=allow_prerelease,
                     index_type=IndexType.INDEX_URL,
+                    target=target,
                 )
                 for index_url in index_urls
             )
@@ -723,36 +737,91 @@ def build_repo(
                     wheeldir,
                     allow_prerelease=allow_prerelease,
                     index_type=IndexType.EXTRA_INDEX_URL,
+                    target=target,
                 )
                 for index_url in extra_index_urls
             )
 
     repos: List[Repository] = []
-    if solutions:
-        repos.extend(
-            SolutionRepository(solution, excluded_packages=upgrade_packages)
-            for solution in solutions
-        )
+    ignored_solutions: List[SolutionRepository] = []
+    for solution_repo in load_solutions(solutions, upgrade_packages, target):
+        if solution_repo.matches_target(target):
+            repos.append(solution_repo)
+        else:
+            ignored_solutions.append(solution_repo)
     if sources:
         repos.extend(
-            SourceRepository(source, excluded_paths=excluded_sources)
+            SourceRepository(source, excluded_paths=excluded_sources, target=target)
             for source in sources
         )
 
     if len(pooled_repos) > 1:
-        repos.append(PooledCandidateMultiRepository(*pooled_repos))
+        repos.append(PooledCandidateMultiRepository(*pooled_repos, target=target))
     elif len(pooled_repos) == 1:
         repos.append(pooled_repos[0])
 
     if not repos:
+        if ignored_solutions:
+            raise RepositoryInitializationError(
+                SolutionRepository,
+                "The solution {} was compiled for {}, not for {}. Recompile it for the new target.".format(
+                    ", ".join(repr(repo) for repo in ignored_solutions),
+                    _recorded_target(ignored_solutions[0]),
+                    resolve(target),
+                ),
+            )
         raise ValueError(
             "At least one source of Python distributions must be provided."
         )
     if len(repos) > 1:
-        repo: Repository = MultiRepository(*repos)
+        repo: Repository = MultiRepository(*repos, target=target)
     else:
         repo = repos[0]
     return repo
+
+
+def _recorded_target(solution: SolutionRepository) -> str:
+    return "{} ({})".format(
+        solution.recorded_platform or "an unknown platform",
+        solution.recorded_python or "unknown Python version",
+    )
+
+
+def load_solutions(
+    solutions: Iterable[str],
+    upgrade_packages: Iterable[str],
+    target: Optional[TargetEnvironment] = None,
+) -> List[SolutionRepository]:
+    """Load previous solutions, warning about any compiled for another target.
+
+    A solution compiled for another platform or Python version pins artifacts and
+    already evaluated dependencies that do not apply to this compilation. Such
+    solutions are returned, so callers can tell the user, but must not be used.
+    See `SolutionRepository.matches_target`.
+
+    Args:
+        solutions: Paths to solution files.
+        upgrade_packages: Packages to omit from the solutions.
+        target: The environment being compiled for. Defaults to the host.
+
+    Returns:
+        A repository per solution file.
+    """
+    repos = []
+    for solution in solutions:
+        repo = SolutionRepository(
+            solution, excluded_packages=upgrade_packages, target=target
+        )
+        if not repo.matches_target(target):
+            LOG.warning(
+                "Ignoring the solution %s, it was compiled for %s but this compilation "
+                "is for %s. Requirements will be resolved again.",
+                solution,
+                _recorded_target(repo),
+                resolve(target),
+            )
+        repos.append(repo)
+    return repos
 
 
 class IndentFilter(logging.Filter):
@@ -914,6 +983,7 @@ def compile_main(raw_args: Optional[Sequence[str]] = None) -> None:
     )
     add_logging_args(parser)
     add_repo_args(parser)
+    add_target_args(parser)
 
     args = parser.parse_args(args=raw_args)
     logger = logging.getLogger("req_compile")
@@ -925,6 +995,12 @@ def compile_main(raw_args: Optional[Sequence[str]] = None) -> None:
         logger.getChild("compile").addFilter(IndentFilter())
     else:
         logging.basicConfig(level=logging.CRITICAL, stream=sys.stderr)
+
+    try:
+        target = build_target(args)
+    except ValueError as ex:
+        print(f"ERROR: {ex}", file=sys.stderr)
+        sys.exit(1)
 
     wheeldir = args.wheel_dir
     if wheeldir:
@@ -1018,6 +1094,7 @@ def compile_main(raw_args: Optional[Sequence[str]] = None) -> None:
         extra_index_urls=args.extra_index_urls,
         no_index=args.no_index,
         allow_prerelease=args.allow_prerelease,
+        target=target,
     )
     try:
         results, roots = perform_compile(
@@ -1027,6 +1104,7 @@ def compile_main(raw_args: Optional[Sequence[str]] = None) -> None:
             constraint_reqs=constraint_reqs,
             remove_constraints=args.remove_constraints,
             only_binary=args.only_binary,
+            target=target,
         )
     except RepositoryInitializationError as ex:
         logger.exception("Error initialization repository")
@@ -1111,6 +1189,72 @@ def add_logging_args(parser: argparse.ArgumentParser) -> None:
 def norm_index_url(index_url: str) -> str:
     """Removing trailing slashes from index URLs"""
     return index_url.rstrip("/")
+
+
+def add_target_args(parser: argparse.ArgumentParser) -> None:
+    """Add arguments describing the environment to compile for."""
+    group = parser.add_argument_group(
+        "target environment",
+        description=(
+            "Compile for an environment other than the one running req-compile. "
+            "Wheels are selected and environment markers are evaluated as if "
+            "installing on the target. Source distributions still have their "
+            "metadata extracted on this machine, so prefer --only-binary when "
+            "compiling for another platform."
+        ),
+    )
+    group.add_argument(
+        "--platform",
+        dest="target_platform",
+        default=None,
+        metavar="platform",
+        help=(
+            "Platform to compile for as a wheel platform tag, as accepted by pip, e.g. "
+            "manylinux_2_28_x86_64, manylinux2014_aarch64, macosx_11_0_arm64 or win_amd64. "
+            "A manylinux tag accepts wheels for that glibc or older, a macosx tag wheels for "
+            "that release or older. Defaults to the current platform."
+        ),
+    )
+    group.add_argument(
+        "--python-version",
+        dest="target_python_version",
+        default=None,
+        metavar="X.Y[.Z]",
+        help="Python version to compile for, e.g. 3.11. Defaults to the running interpreter.",
+    )
+    group.add_argument(
+        "--implementation",
+        dest="target_implementation",
+        default=None,
+        metavar="tag",
+        help=(
+            "Python implementation to compile for as a wheel interpreter tag, e.g. cp "
+            "for CPython or pp for PyPy. Defaults to cp when --platform or "
+            "--python-version is given, otherwise the running interpreter."
+        ),
+    )
+
+
+def build_target(args: argparse.Namespace) -> Optional[TargetEnvironment]:
+    """Build the target environment from parsed `add_target_args` arguments.
+
+    Returns:
+        The target, or None when compiling for the host.
+
+    Raises:
+        ValueError: If the arguments do not describe a supported target.
+    """
+    if (
+        args.target_platform is None
+        and args.target_python_version is None
+        and args.target_implementation is None
+    ):
+        return None
+    return TargetEnvironment.from_spec(
+        platform_spec=args.target_platform,
+        python_version=args.target_python_version,
+        implementation=args.target_implementation,
+    )
 
 
 def add_repo_args(parser: argparse.ArgumentParser) -> None:

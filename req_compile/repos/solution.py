@@ -16,7 +16,16 @@ from req_compile.errors import NoCandidateException
 from req_compile.repos import RepositoryInitializationError
 from req_compile.repos.repository import Candidate, DistributionType, Repository
 from req_compile.repos.source import ReferenceSourceRepository
+from req_compile.target import TargetEnvironment, resolve
 from req_compile.utils import NormName, normalize_project_name
+
+# The operating system names older solutions recorded in their header, mapped
+# to the `sys_platform` marker of that operating system.
+_LEGACY_PLATFORM_NAMES = {
+    "darwin": "darwin",
+    "linux": "linux",
+    "windows": "win32",
+}
 
 
 def _candidate_from_node(node: DependencyNode) -> Candidate:
@@ -34,9 +43,12 @@ class SolutionRepository(Repository):
         self,
         filename: Union[str, Path],
         excluded_packages: Optional[Iterable[str]] = None,
+        target: Optional[TargetEnvironment] = None,
     ) -> None:
         """Constructor."""
-        super(SolutionRepository, self).__init__("solution", allow_prerelease=True)
+        super(SolutionRepository, self).__init__(
+            "solution", allow_prerelease=True, target=target
+        )
         self.filename = os.path.abspath(filename) if str(filename) != "-" else "-"
         self.excluded_packages = excluded_packages or []
         if excluded_packages:
@@ -49,6 +61,12 @@ class SolutionRepository(Repository):
         # hashes
         self._partial_line = ""
 
+        # The platform and Python version recorded in the header of the solution,
+        # if it has one. Solutions compiled by Bazel record what they were compiled
+        # for so that a change of target can be detected.
+        self.recorded_platform: Optional[str] = None
+        self.recorded_python: Optional[str] = None
+
         # The extras each project was solved with, gathered from the annotations
         # in the solution. A solution only describes the requirements of the
         # extras that were active when it was compiled.
@@ -59,10 +77,52 @@ class SolutionRepository(Repository):
         if os.path.exists(filename) or self.filename == "-":
             self.load_from_file(self.filename)
         else:
-            self.solution = DistributionCollection()
+            self.solution = DistributionCollection(target=self.target)
 
     def __repr__(self) -> str:
         return "--solution {}".format(self.filename)
+
+    def matches_target(self, target: Optional[TargetEnvironment] = None) -> bool:
+        """Whether this solution was compiled for the given target.
+
+        A solution records the platform and Python version it was compiled for in
+        its header. Its pins, artifacts and already evaluated dependencies are only
+        valid for that environment, so a solution compiled for something else must
+        not be recycled.
+
+        The Python version is compared by major and minor version. The platform is
+        only compared when compiling for an explicit target, a solution compiled on
+        one machine is still recycled when compiling for whatever machine runs the
+        compiler. Solutions without a header, or with one that cannot be
+        interpreted, are assumed to match.
+
+        Args:
+            target: The environment being compiled for. Defaults to the host.
+
+        Returns:
+            False if the solution is known to have been compiled for another target.
+        """
+        target = resolve(target)
+
+        if self.recorded_python:
+            parts = self.recorded_python.split(".")
+            if len(parts) >= 2 and parts[0].isdigit() and parts[1].isdigit():
+                if (int(parts[0]), int(parts[1])) != target.python_major_minor:
+                    return False
+
+        if self.recorded_platform and not target.is_host:
+            legacy = _LEGACY_PLATFORM_NAMES.get(self.recorded_platform.lower())
+            if legacy:
+                return legacy == target.marker_environment["sys_platform"]
+            try:
+                recorded = TargetEnvironment.from_spec(
+                    self.recorded_platform, python_version="3.0"
+                )
+            except ValueError:
+                return True
+            return recorded.name == target.name
+
+        return True
 
     def __eq__(self, other: Any) -> bool:
         return (
@@ -121,11 +181,13 @@ class SolutionRepository(Repository):
         pass
 
     def load_from_file(self, filename: str) -> None:
-        self.solution = req_compile.dists.DistributionCollection()
+        self.solution = req_compile.dists.DistributionCollection(target=self.target)
         # The extras are gathered while parsing and only describe the solution
         # being loaded now, so nothing from a previously loaded file may survive.
         self._partial_line = ""
         self._known_extras.clear()
+        self.recorded_platform = None
+        self.recorded_python = None
 
         if filename == "-":
             reqfile = sys.stdin
@@ -140,9 +202,25 @@ class SolutionRepository(Repository):
 
         self._remove_nodes()
 
+    def _parse_header(self, lines: Sequence[str]) -> None:
+        """Read the platform and Python version from the leading comments, if any."""
+        for line in lines:
+            text = line.strip()
+            if not text:
+                continue
+            if not text.startswith("#"):
+                break
+            text = text.strip("# ")
+            if text.startswith("Platform:"):
+                self.recorded_platform = text[len("Platform:") :].strip() or None
+            elif text.startswith("Python:"):
+                self.recorded_python = text[len("Python:") :].strip() or None
+
     def _load_from_lines(
         self, lines: Iterable[str], meta_file: Optional[str] = None
     ) -> None:
+        lines = list(lines)
+        self._parse_header(lines)
         for line in lines:
             # Skip directives we don't process in solutions (like --index-url)
             if line.strip().startswith("--") and not self._partial_line:
