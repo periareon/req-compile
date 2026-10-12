@@ -257,29 +257,19 @@ str: A json encoded string of the provided content.
 <pre>
 load("@rules_req_compile//:defs.bzl", "py_requirements_repository")
 
-py_requirements_repository(<a href="#py_requirements_repository-name">name</a>, <a href="#py_requirements_repository-annotations">annotations</a>, <a href="#py_requirements_repository-defs_id_map">defs_id_map</a>, <a href="#py_requirements_repository-hub_name">hub_name</a>, <a href="#py_requirements_repository-interpreter">interpreter</a>,
-                           <a href="#py_requirements_repository-legacy_root_pkg_aliases">legacy_root_pkg_aliases</a>, <a href="#py_requirements_repository-package_aliases">package_aliases</a>, <a href="#py_requirements_repository-requirements_lock">requirements_lock</a>,
-                           <a href="#py_requirements_repository-requirements_locks">requirements_locks</a>)
+py_requirements_repository(<a href="#py_requirements_repository-name">name</a>, <a href="#py_requirements_repository-alias_of">alias_of</a>, <a href="#py_requirements_repository-default_lock">default_lock</a>, <a href="#py_requirements_repository-hub_name">hub_name</a>, <a href="#py_requirements_repository-legacy_root_pkg_aliases">legacy_root_pkg_aliases</a>, <a href="#py_requirements_repository-locks">locks</a>,
+                           <a href="#py_requirements_repository-package_aliases">package_aliases</a>, <a href="#py_requirements_repository-packages">packages</a>)
 </pre>
 
-A rule for importing `requirements.txt` dependencies into Bazel.
+The hub repository of a set of Python requirements.
 
-Those dependencies become available in a generated `defs.bzl` file.
+This repository is created by the `requirements` module extension, which also creates
+a [whl_repository](#whl_repository) for every distinct wheel pinned by any hub. Hubs
+sharing a pinned wheel share its repository.
 
-```python
-load("@rules_req_compile//:defs.bzl", "py_requirements_repository")
-
-py_requirements_repository(
-    name = "py_requirements",
-    requirements_lock = ":requirements.txt",
-)
-
-load("@py_requirements//:defs.bzl", "repositories")
-
-repositories()
-```
-
-You can then reference installed dependencies from a `BUILD` file with:
+The hub provides a package per Python project it contains, with the `py_library` of the
+project as its default target and the wheel file as `:whl`, as well as a generated
+`defs.bzl` file.
 
 ```python
 load("@py_requirements//:defs.bzl", "requirement")
@@ -295,8 +285,14 @@ py_library(
 )
 ```
 
+`requirement("requests")` is the same target as `@py_requirements//requests`.
+
+When a hub has more than one lock, each package selects the wheel of the lock matching the
+configuration. A package missing from some of the locks is incompatible with the platforms
+of those locks, so targets depending on it are skipped there instead of failing to analyze.
+
 In addition to the `requirement` macro, which is used to access the generated `py_library`
-target generated from a package's wheel, The generated `requirements.bzl` file contains
+target generated from a package's wheel, the generated `defs.bzl` file contains
 functionality for exposing [entry points][whl_ep] as `py_binary` targets as well.
 
 [whl_ep]: https://packaging.python.org/specifications/entry-points/
@@ -327,12 +323,11 @@ alias(
 
 A very important detail for generating python dependencies is sdist (source distribution)
 dependencies are assumed to be incapable of yielding deterministic outputs. Therefore, any
-case where a sdist (source distribution) is found in a solution file passed to either
-`requirements_lock` or `requirements_locks`, the dependencies should not be considered
-byte-for-byte reproducible. It is highly recommended solution files contain all wheels
-so the generated repositories are byte-for-byte consistent. Failure to use binary-only
+case where a sdist (source distribution) is found in a lock file, the dependencies should
+not be considered byte-for-byte reproducible. It is highly recommended solution files contain
+all wheels so the generated repositories are byte-for-byte consistent. Failure to use binary-only
 dependencies will result in unexpected cache invalidation as well as inconsistent or broken
-cross-platform behavior when using `requirements_locks`.
+cross-platform behavior.
 
 **ATTRIBUTES**
 
@@ -357,13 +352,18 @@ cross-platform behavior when using `requirements_locks`.
 <pre>
 load("@rules_req_compile//:defs.bzl", "whl_repository")
 
-whl_repository(<a href="#whl_repository-name">name</a>, <a href="#whl_repository-deps">deps</a>, <a href="#whl_repository-annotations">annotations</a>, <a href="#whl_repository-constraint">constraint</a>, <a href="#whl_repository-hub_name">hub_name</a>, <a href="#whl_repository-interpreter">interpreter</a>, <a href="#whl_repository-package">package</a>, <a href="#whl_repository-patches">patches</a>,
-               <a href="#whl_repository-sdist_deps_repos">sdist_deps_repos</a>, <a href="#whl_repository-sha256">sha256</a>, <a href="#whl_repository-urls">urls</a>, <a href="#whl_repository-version">version</a>, <a href="#whl_repository-whl">whl</a>)
+whl_repository(<a href="#whl_repository-name">name</a>, <a href="#whl_repository-annotations">annotations</a>, <a href="#whl_repository-hubs">hubs</a>, <a href="#whl_repository-interpreter">interpreter</a>, <a href="#whl_repository-package">package</a>, <a href="#whl_repository-patches">patches</a>, <a href="#whl_repository-sdist_deps_repos">sdist_deps_repos</a>, <a href="#whl_repository-sha256">sha256</a>,
+               <a href="#whl_repository-urls">urls</a>, <a href="#whl_repository-version">version</a>, <a href="#whl_repository-whl">whl</a>)
 </pre>
 
 A repository rule for extracting a python [wheel](https://peps.python.org/pep-0491/) and defining a `py_library`.
 
 This repository is expected to be generated by [py_requirements_repository](#py_requirements_repository).
+
+The root package of the repository contains the wheel (`//:whl`) and a `py_library` (`//:library`) holding its
+files but none of its dependencies. Every hub using the wheel gets a package named after it, e.g. `//pip_deps:pkg`,
+whose `py_library` adds the dependencies that hub resolved for the package. This allows a single repository to be
+shared by every hub that pins the same wheel, even when they resolved its dependencies differently.
 
 **ATTRIBUTES**
 

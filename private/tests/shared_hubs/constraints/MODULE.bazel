@@ -1,0 +1,6 @@
+module(
+    name = "shared_hubs_constraints",
+    version = "1.0",
+)
+
+bazel_dep(name = "platforms", version = "1.0.0")

@@ -36,19 +36,26 @@ To get started with Bazel, add the following to your ``MODULE.bazel`` file:
     # Find {version} on the req-compile GitHub releases page.
     bazel_dep(name = "rules_req_compile", version = "{version}")
 
-    requirements = use_extension("//extensions:python.bzl", "requirements")
+    requirements = use_extension("@rules_req_compile//extensions:python.bzl", "requirements")
     requirements.parse(
         name = "my_pip_deps",
         requirements_locks = {
-            "//3rdparty:requirements.linux.txt": "@platforms//os:linux",
-            "//3rdparty:requirements.macos.txt": "@platforms//os:macos",
-            "//3rdparty:requirements.windows.txt": "@platforms//os:windows",
+            "//3rdparty:requirements.linux_x86_64.txt": "linux_x86_64",
+            "//3rdparty:requirements.macos_aarch64.txt": "macos_aarch64",
+            "//3rdparty:requirements.windows_x86_64.txt": "windows_x86_64",
         },
     )
     use_repo(requirements, "my_pip_deps")
 
-The solutions for every platform can be compiled from a single machine with the ``platform`` attribute of
-``py_reqs_compiler``. See the `Bazel rules documentation <docs/docs.md>`_ for details.
+Each lock is the solution for one platform and is given an id. Locks compiled with the ``platform``
+attribute of ``py_reqs_compiler`` record their platform, which is used to select them. To decide
+yourself, map your own ``config_setting`` labels to the lock ids with ``config_settings``. The solutions
+for every platform can be compiled from a single machine.
+
+Every wheel is downloaded once and shared by all the hubs of all the modules pinning it, while each hub
+keeps the dependencies it resolved. Packages missing from the lock of a platform make the targets using
+them incompatible with that platform instead of failing the build.
+See the `Bazel rules documentation <docs/docs.md>`_ for details.
 
 
 Why use it?

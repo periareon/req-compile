@@ -1,0 +1,43 @@
+module(
+    name = "shared_hubs_app",
+    version = "1.0",
+)
+
+bazel_dep(name = "rules_python", version = "1.7.0")
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "rules_req_compile")
+local_path_override(
+    module_name = "rules_req_compile",
+    path = "../../../..",
+)
+
+bazel_dep(name = "shared_hubs_lib", version = "1.0")
+local_path_override(
+    module_name = "shared_hubs_lib",
+    path = "../lib",
+)
+
+# Overrides only apply from the root module, so the module providing the
+# config settings of `shared_hubs_lib` is overridden here too.
+bazel_dep(name = "shared_hubs_constraints", version = "1.0")
+local_path_override(
+    module_name = "shared_hubs_constraints",
+    path = "../constraints",
+)
+
+requirements = use_extension("@rules_req_compile//extensions:python.bzl", "requirements")
+
+# The platforms of these locks come from the header `py_reqs_compiler` writes.
+requirements.parse(
+    name = "shared_hubs_app_deps",
+    config_settings = {
+        # Unknown platforms fall back to the Linux lock.
+        "//conditions:default": "linux",
+    },
+    requirements_locks = {
+        "//:requirements.linux_x86_64.txt": "linux",
+        "//:requirements.macos_aarch64.txt": "macos",
+        "//:requirements.windows_x86_64.txt": "windows",
+    },
+)
+use_repo(requirements, "shared_hubs_app_deps")

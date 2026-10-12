@@ -56,9 +56,6 @@ def _build_sdist(repository_ctx, sdist_file):
     pythonpath = ["."] + [
         whl_repo_to_python_path(repository_ctx, repo)
         for repo in repository_ctx.attr.sdist_deps_repos
-    ] + [
-        whl_repo_to_python_path(repository_ctx, dep)
-        for dep in repository_ctx.attr.deps
     ]
 
     pythonpath_env = ":".join(pythonpath)
@@ -98,10 +95,9 @@ _ENTRY_POINT_RULE_TEMPLATE = """\
 py_binary(
     name = "{name}",
     srcs = ["{src}"],
-    # This makes this directory a top-level in the python import
-    # search path for anything that depends on this.
-    imports = ["."],
-    deps = ["{pkg}"],
+    main = "{src}",
+    deps = [":{pkg}"],
+    tags = ["manual"],
 )
 """
 
@@ -113,19 +109,22 @@ if __name__ == "__main__":
     sys.exit({attribute}())
 """
 
-_BUILD_TEMPLATE = """\
+# The root package of the repository holds the contents of the wheel. It is
+# independent of any hub so that the same repository can be shared by every hub
+# that pins this exact wheel.
+_ROOT_BUILD_TEMPLATE = """\
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
-load("@rules_req_compile//private:utils.bzl", "whl_repo_name")
-load("@rules_python//python:defs.bzl", "py_library", "py_binary")
+load("@rules_python//python:defs.bzl", "py_library")
 
 package(default_visibility = ["//visibility:public"])
 
-DEPS_LABELS = {deps_labels}
+exports_files({entry_point_scripts})
 
-DEPS_PACKAGES = {deps_packages}
-
+# The contents of the wheel without its Python dependencies. Dependencies are
+# resolved by each hub using this wheel in a package of this repository named
+# after the hub.
 py_library(
-    name = "{name}",
+    name = "library",
     srcs = {srcs} + glob(
         include = ["site-packages/**/*.py"],
         exclude = {srcs_exclude},
@@ -141,19 +140,39 @@ py_library(
     # This makes this directory a top-level in the python import
     # search path for anything that depends on this.
     imports = ["site-packages"],
-    deps = DEPS_LABELS + ["@{hub_name}//{{}}".format(dep) for dep in DEPS_PACKAGES],
-    tags = {tags},
-    target_compatible_with = {target_compatible_with},
+    deps = {deps_labels},
+    tags = ["manual"],
 )
 
 alias(
     name = "pkg",
-    actual = "{name}",
+    actual = ":library",
+    tags = ["manual"],
 )
 
 filegroup(
     name = "whl",
     srcs = ["{whl_name}"],
+)
+"""
+
+# Each hub using the wheel gets a package holding the `py_library` with the
+# dependencies that hub resolved for it.
+_HUB_BUILD_TEMPLATE = """\
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+
+package(default_visibility = ["//visibility:public"])
+
+py_library(
+    name = "{name}",
+    deps = ["//:library"] + {deps},
+    tags = ["manual"],
+)
+
+alias(
+    name = "pkg",
+    actual = ":{name}",
+    tags = ["manual"],
 )
 """
 
@@ -208,7 +227,7 @@ def _generate_entry_point_rule(*, name, script, pkg):
 
     Args:
         name (str): The name of the generated py_binary.
-        script (str): The path to the entry point's python file.
+        script (str): The label of the entry point's python file.
         pkg (str): The package owning the entry point. This is expected to
             match up with the `py_library` defined for each repository.
 
@@ -246,6 +265,61 @@ def _parse_entry_points_txt(content):
             })
 
     return console_scripts
+
+def _hub_deps_expression(hub, hub_data, annotations):
+    """Render the `deps` of the `py_library` a hub sees for this wheel.
+
+    Args:
+        hub (str): The name of the hub.
+        hub_data (dict): Mapping of lock id to a dict with the `deps` the lock
+            resolved for this wheel and the `config_setting` the hub uses to
+            select the lock, which is None when the hub has a single lock.
+        annotations (struct): The deserialized annotations of the package.
+
+    Returns:
+        str: Starlark source for the deps, either a list or a `select`.
+    """
+    negative_deps = [
+        sanitize_package_name(dep[1:])
+        for dep in annotations.deps
+        if dep.startswith("-")
+    ] + [
+        sanitize_package_name(dep)
+        for dep in annotations.deps_excludes
+    ]
+    additive_deps = [
+        sanitize_package_name(dep)
+        for dep in annotations.deps
+        if not dep.startswith(("-", "@", "//"))
+    ]
+
+    branches = {}
+    for lock_data in hub_data.values():
+        deps = additive_deps + [
+            sanitize_package_name(dep)
+            for dep in lock_data["deps"]
+            if sanitize_package_name(dep) not in negative_deps
+        ]
+        labels = [
+            "@{}//{}".format(hub, dep)
+            for dep in sorted(depset(deps).to_list())
+        ]
+        branches[lock_data["config_setting"]] = labels
+
+    if len(branches) == 1 and None in branches:
+        return json.encode_indent(branches[None], indent = " " * 4)
+
+    if None in branches:
+        fail("Hub `{}` mixes locks with and without a config setting.".format(hub))
+
+    lines = ["select({"]
+    for config_setting, labels in branches.items():
+        lines.append("    \"{}\": {},".format(
+            config_setting,
+            json.encode(labels),
+        ))
+    lines.append("})")
+    return "\n".join(lines)
 
 def _whl_repository_impl(repository_ctx):
     if not repository_ctx.attr.urls and not repository_ctx.attr.whl:
@@ -311,35 +385,15 @@ def _whl_repository_impl(repository_ctx):
             strip = 1,
         )
 
-    # Parse deps from annotations
-    negative_deps = [
-        sanitize_package_name(dep[1:])
-        for dep in annotations.deps
-        if dep.startswith("-")
-    ] + [
-        sanitize_package_name(dep)
-        for dep in annotations.deps_excludes
-    ]
-    additive_deps = [
-        sanitize_package_name(dep)
-        for dep in annotations.deps
-        if not dep.startswith(("-", "@", "//"))
-    ]
-    package_deps = additive_deps + [
-        sanitize_package_name(dep)
-        for dep in repository_ctx.attr.deps
-        if dep not in negative_deps
-    ]
-
     label_deps = [
         dep
         for dep in annotations.deps
         if dep.startswith(("@", "//"))
     ]
 
-    data = annotations.data
+    data = list(annotations.data)
     srcs = []
-    srcs_exclude = annotations.srcs_exclude_glob
+    srcs_exclude = list(annotations.srcs_exclude_glob)
     data_exclude = [
         whl_name,
         "**/*.py",
@@ -351,11 +405,7 @@ def _whl_repository_impl(repository_ctx):
         "**/*.dist-info/RECORD",
     ] + annotations.data_exclude_glob
 
-    target_compatible_with = "None"
-    if repository_ctx.attr.constraint:
-        target_compatible_with = "select({" + repr(repository_ctx.attr.constraint) + ": [], \"//conditions:default\": [\"@platforms//:incompatible\"]})"
-
-    build_content = []
+    root_content = []
 
     # Find the `dist-info` directory
     dist_info_dir = None
@@ -393,32 +443,26 @@ def _whl_repository_impl(repository_ctx):
         entry_points_content = repository_ctx.read(entry_points_path)
         entry_points = _parse_entry_points_txt(entry_points_content)
 
+    entry_point_scripts = []
     for entry_point, entry_point_data in entry_points.items():
-        entry_point_target_name = (
-            _WHEEL_ENTRY_POINT_PREFIX + "_" + entry_point
-        )
-        entry_point_script_name = entry_point_target_name + ".py"
+        entry_point_script_name = "{}_{}.py".format(_WHEEL_ENTRY_POINT_PREFIX, entry_point)
         repository_ctx.file(
             entry_point_script_name,
             _generate_entry_point_contents(entry_point_data.module, entry_point_data.attribute),
         )
-        build_content.append(_generate_entry_point_rule(
-            name = "{}_{}".format(_WHEEL_ENTRY_POINT_PREFIX, entry_point),
-            script = entry_point_script_name,
-            pkg = ":" + repository_ctx.attr.package,
-        ))
+        entry_point_scripts.append(entry_point_script_name)
 
     for src, dest in annotations.copy_srcs.items():
         srcs.append(dest)
-        build_content.append(_generate_copy_commands(src, dest))
+        root_content.append(_generate_copy_commands(src, dest))
 
     for src, dest in annotations.copy_files.items():
         data.append(dest)
-        build_content.append(_generate_copy_commands(src, dest))
+        root_content.append(_generate_copy_commands(src, dest))
 
     for src, dest in annotations.copy_executables.items():
         data.append(dest)
-        build_content.append(
+        root_content.append(
             _generate_copy_commands(src, dest, is_executable = True),
         )
 
@@ -429,27 +473,37 @@ def _whl_repository_impl(repository_ctx):
         additive_build_path = repository_ctx.path(Label(annotations.additive_build_file))
         additive_content += repository_ctx.read(additive_build_path)
 
-    build_content = [_BUILD_TEMPLATE.format(
-        hub_name = repository_ctx.attr.hub_name,
-        name = repository_ctx.attr.package,
+    root_content = [_ROOT_BUILD_TEMPLATE.format(
+        entry_point_scripts = json.encode(sorted(entry_point_scripts)),
         srcs = srcs,
         srcs_exclude = repr(srcs_exclude),
         data = repr(data),
         data_exclude = repr(data_exclude),
         deps_labels = json.encode_indent(label_deps, indent = " " * 4),
-        deps_packages = json.encode_indent(package_deps, indent = " " * 4),
-        tags = repr([]),
-        target_compatible_with = target_compatible_with,
         whl_name = whl_name,
-    )] + build_content
+    )] + root_content
 
-    repository_ctx.file("BUILD.bazel", "\n".join(build_content) + additive_content)
+    repository_ctx.file("BUILD.bazel", "\n".join(root_content) + additive_content)
+
+    # Create a package for each hub that uses this wheel.
+    hubs = json.decode(repository_ctx.attr.hubs)
+    package_name = sanitize_package_name(repository_ctx.attr.package)
+    for hub, hub_data in hubs.items():
+        hub_content = [_HUB_BUILD_TEMPLATE.format(
+            name = package_name,
+            deps = _hub_deps_expression(hub, hub_data, annotations),
+        )]
+        for entry_point in sorted(entry_points):
+            hub_content.append(_generate_entry_point_rule(
+                name = "{}_{}".format(_WHEEL_ENTRY_POINT_PREFIX, entry_point),
+                script = "//:{}_{}.py".format(_WHEEL_ENTRY_POINT_PREFIX, entry_point),
+                pkg = package_name,
+            ))
+        repository_ctx.file("{}/BUILD.bazel".format(hub), "\n".join(hub_content))
 
     return {
         "annotations": repository_ctx.attr.annotations,
-        "constraint": repository_ctx.attr.constraint,
-        "deps": repository_ctx.attr.deps,
-        "hub_name": repository_ctx.attr.hub_name,
+        "hubs": repository_ctx.attr.hubs,
         "interpreter": repository_ctx.attr.interpreter,
         "name": repository_ctx.name,
         "package": repository_ctx.attr.package,
@@ -466,6 +520,11 @@ whl_repository = repository_rule(
 A repository rule for extracting a python [wheel](https://peps.python.org/pep-0491/) and defining a `py_library`.
 
 This repository is expected to be generated by [py_requirements_repository](#py_requirements_repository).
+
+The root package of the repository contains the wheel (`//:whl`) and a `py_library` (`//:library`) holding its
+files but none of its dependencies. Every hub using the wheel gets a package named after it, e.g. `//pip_deps:pkg`,
+whose `py_library` adds the dependencies that hub resolved for the package. This allows a single repository to be
+shared by every hub that pins the same wheel, even when they resolved its dependencies differently.
 """,
     implementation = _whl_repository_impl,
     attrs = {
@@ -473,16 +532,14 @@ This repository is expected to be generated by [py_requirements_repository](#py_
             doc = "See [py_requirements_repository.annotation](#py_requirements_repository.annotation)",
             default = "{}",
         ),
-        "constraint": attr.string(
-            doc = "An optional constraint to assign to `target_compatible_with` where all other configurations will be invalid.",
-        ),
-        "deps": attr.string_list(
-            doc = "A list of python package names that the current package depends on.",
-            mandatory = True,
-        ),
-        "hub_name": attr.string(
-            doc = "The name of the [py_requirements_repository](#py_requirements_repository).",
-            mandatory = True,
+        "hubs": attr.string(
+            doc = (
+                "A json encoded mapping of hub names to the locks of the hub using this wheel. Each lock " +
+                "maps its id to the `deps` (python package names) resolved for the package and the " +
+                "`config_setting` label the hub uses to select the lock, which is `null` for hubs with a " +
+                "single lock."
+            ),
+            default = "{}",
         ),
         "interpreter": attr.label(
             doc = "Optional Python interpreter binary to use for building sdists.",

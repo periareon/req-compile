@@ -1,5 +1,18 @@
 New in version 1.2.0:
 
+* ``requirements.parse`` now maps lock files to ids in ``requirements_locks`` and config settings to those
+  ids in the new ``config_settings`` attribute. Both are label keyed, so each is resolved by the module
+  defining the hub and any config setting visible to it can be used. ``//conditions:default`` names a
+  fallback lock. Without ``config_settings``, locks compiled with the ``platform`` attribute of
+  ``py_reqs_compiler`` are selected by the platform read from the header of the file. Label strings as
+  ``requirements_locks`` values still work but are deprecated.
+* Every distinct wheel is downloaded once into a repository named ``{package}_{version}_{sha256[:8]}``
+  and shared by all hubs of all modules pinning it. Each hub keeps its own dependency edges, so extras
+  and version differences between hubs are preserved. Hub names must be unique across modules.
+* Hubs whose locks do not all contain the same packages are supported. A package missing from a lock
+  is incompatible with that lock's platform, so targets depending on it are skipped there.
+* Removed the ``defs_id_map`` attribute of the ``parse`` tag and the WORKSPACE-only ``repositories()``
+  flow. ``py_requirements_repository`` is now only instantiated by the module extension.
 * Cross-platform compilation. ``--platform``, ``--python-version`` and ``--implementation`` select
   wheels and evaluate environment markers for an environment other than the one running ``req-compile``.
   ``--platform`` takes a wheel platform tag such as ``manylinux_2_28_x86_64`` or ``macosx_11_0_arm64``,

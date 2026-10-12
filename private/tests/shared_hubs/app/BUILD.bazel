@@ -1,0 +1,87 @@
+load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_req_compile//:defs.bzl", "py_package_annotation_consumer", "py_reqs_compiler", "py_reqs_solution_test")
+load("@shared_hubs_app_deps//:defs.bzl", "all_requirements")
+
+LOCKS = {
+    "linux_x86_64": "manylinux_2_28_x86_64",
+    "macos_aarch64": "macosx_11_0_arm64",
+    "windows_x86_64": "win_amd64",
+}
+
+[
+    py_reqs_compiler(
+        name = "requirements.{}.update".format(id),
+        platform = platform,
+        requirements_in = "requirements.in",
+        requirements_txt = "requirements.{}.txt".format(id),
+    )
+    for id, platform in LOCKS.items()
+]
+
+[
+    py_reqs_solution_test(
+        name = "requirements.{}.test".format(id),
+        compiler = ":requirements.{}.update".format(id),
+    )
+    for id in LOCKS
+]
+
+# Two hubs pinning the same wheels share a single repository per wheel.
+py_test(
+    name = "shared_wheels_test",
+    srcs = ["shared_wheels_test.py"],
+    deps = [
+        "@rules_python//python/runfiles",
+        "@shared_hubs_app_deps//click",
+        "@shared_hubs_app_deps//requests",
+        "@shared_hubs_lib//:lib",
+    ],
+)
+
+# This module asked for `requests[socks]`, so its `requests` pulls in PySocks.
+py_test(
+    name = "extras_test",
+    srcs = ["extras_test.py"],
+    args = ["--expect-socks"],
+    deps = ["@shared_hubs_app_deps//requests"],
+)
+
+# The dependent module did not, so the same wheel does not pull it in there.
+py_test(
+    name = "extras_lib_test",
+    srcs = ["extras_test.py"],
+    args = ["--no-expect-socks"],
+    main = "extras_test.py",
+    deps = ["@shared_hubs_lib//:requests"],
+)
+
+# The locks of the hub do not all contain the same packages.
+py_test(
+    name = "all_requirements_test",
+    srcs = ["all_requirements_test.py"],
+    deps = all_requirements,
+)
+
+# The `click` annotation is declared by the `shared_hubs_lib` module, not by
+# this one, and still applies to the wheel this hub uses.
+py_package_annotation_consumer(
+    name = "click_lib_marker",
+    consume = "lib_marker",
+    package = "@shared_hubs_app_deps//click",
+)
+
+py_test(
+    name = "dependency_annotations_test",
+    srcs = ["dependency_annotations_test.py"],
+    data = [":click_lib_marker"],
+    env = {"LIB_MARKER": "$(rlocationpath :click_lib_marker)"},
+    deps = ["@rules_python//python/runfiles"],
+)
+
+# `colorama` is only part of the Windows lock. Depending on it makes a target
+# incompatible with every other platform, so it is skipped rather than failing.
+py_test(
+    name = "colorama_test",
+    srcs = ["colorama_test.py"],
+    deps = ["@shared_hubs_app_deps//colorama"],
+)

@@ -1,0 +1,20 @@
+# Config settings defined by a module `rules_req_compile` knows nothing about.
+# Locks selected by them prove that the labels of `lock` tags are resolved by
+# the module adding the lock.
+
+package(default_visibility = ["//visibility:public"])
+
+config_setting(
+    name = "linux",
+    constraint_values = ["@platforms//os:linux"],
+)
+
+config_setting(
+    name = "macos",
+    constraint_values = ["@platforms//os:macos"],
+)
+
+config_setting(
+    name = "windows",
+    constraint_values = ["@platforms//os:windows"],
+)

@@ -1,0 +1,58 @@
+module(
+    name = "shared_hubs_lib",
+    version = "1.0",
+)
+
+bazel_dep(name = "rules_python", version = "1.7.0")
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "rules_req_compile")
+local_path_override(
+    module_name = "rules_req_compile",
+    path = "../../../..",
+)
+
+bazel_dep(name = "shared_hubs_constraints", version = "1.0")
+local_path_override(
+    module_name = "shared_hubs_constraints",
+    path = "../constraints",
+)
+
+requirements = use_extension("@rules_req_compile//extensions:python.bzl", "requirements")
+requirements.parse(
+    name = "shared_hubs_lib_deps",
+    # The config settings live in a module only this module depends on.
+    config_settings = {
+        "@shared_hubs_constraints//:linux": "linux",
+        "@shared_hubs_constraints//:macos": "macos",
+        "@shared_hubs_constraints//:windows": "windows",
+    },
+    requirements_locks = {
+        "//:requirements.linux_x86_64.txt": "linux",
+        "//:requirements.macos_aarch64.txt": "macos",
+        "//:requirements.windows_x86_64.txt": "windows",
+    },
+)
+use_repo(requirements, "shared_hubs_lib_deps")
+
+# Annotations are collected from every module using the extension, so a
+# dependency can ship fixes for packages that apply to every hub.
+requirements.package_annotation(
+    additive_build_file_content = """\
+load("@rules_req_compile//:defs.bzl", "py_package_annotation_target")
+
+filegroup(
+    name = "lib_marker",
+    srcs = ["site-packages/click/annotated_by_lib.txt"],
+)
+
+py_package_annotation_target(
+    name = "pkg.lib_marker",
+    target = ":lib_marker",
+)
+""",
+    copy_files = {
+        "site-packages/click/__init__.py": "site-packages/click/annotated_by_lib.txt",
+    },
+    data = [":pkg.lib_marker"],
+    package = "click",
+)

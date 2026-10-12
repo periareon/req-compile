@@ -1,5 +1,4 @@
-load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-load("@req_compile_test_annotations//:defs.bzl", "requirement", "requirements")
+load("@req_compile_test_annotations//:defs.bzl", "requirement", "requirement_wheel", "requirements")
 load("@rules_cc//cc:defs.bzl", "cc_test")
 load("@rules_python//python:defs.bzl", "py_test")
 load("//:defs.bzl", "py_package_annotation_consumer", "py_reqs_compiler", "py_reqs_solution_test")
@@ -43,6 +42,11 @@ py_reqs_solution_test(
 py_test(
     name = "annotations",
     srcs = ["annotations.py"],
+    data = [requirement_wheel("numpy")],
+    env = {
+        # Used to locate the repository the numpy wheel was extracted into.
+        "NUMPY_WHEEL": "$(rlocationpath {})".format(requirement_wheel("numpy")),
+    },
     deps = [
         "@rules_python//python/runfiles",
     ] + requirements([
@@ -62,14 +66,4 @@ cc_test(
     name = "numpy_consumer_test",
     srcs = ["numpy_consumer_test.cc"],
     deps = [":numpy_headers"],
-)
-
-bzl_library(
-    name = "annotations_test_deps",
-    srcs = ["annotations_test_deps.bzl"],
-    visibility = ["//:__subpackages__"],
-    deps = [
-        "//:defs",
-        "@bazel_tools//tools/build_defs/repo:utils.bzl",
-    ],
 )

@@ -11,17 +11,63 @@ def sanitize_package_name(name):
     """
     return name.replace("-", "_").replace(".", "_").lower()
 
-def whl_repo_name(spoke_prefix, package):
-    """Compute the name name for a `whl_repository`
+def sanitize_version(version):
+    """Sanitize a python package version into a string safe for repository names.
 
     Args:
-        spoke_prefix (str): The name of a `py_requirements_repository` like rule plus a platform suffix.
-        package (str): The package name for the wheel.
+        version (str): A package version.
+
+    Returns:
+        str: The sanitized version.
+    """
+    return "".join([
+        char if char.isalnum() else "_"
+        for char in version.elems()
+    ])
+
+def short_hash(text):
+    """Produce a short, stable hexadecimal digest of a string.
+
+    Args:
+        text (str): The text to hash.
+
+    Returns:
+        str: Eight hexadecimal characters.
+    """
+    digest = "%x" % (hash(text) & 0xffffffff)
+    return "0" * (8 - len(digest)) + digest
+
+def whl_repo_name(package, version, identity, annotations = None):
+    """Compute the name of the `whl_repository` holding a particular wheel.
+
+    Wheels are shared between every hub that uses them, so the name only
+    depends on the wheel itself and on anything that changes its contents.
+
+    Args:
+        package (str): The python package name.
+        version (str): The package version.
+        identity (str): Something identifying the exact distribution, preferably
+            its sha256 digest, otherwise its URL or label.
+        annotations (str): Serialized annotations applied to the wheel, if any.
+            Annotations change the contents of the repository, so annotated
+            wheels get a distinct repository.
 
     Returns:
         str: A Bazel repository name.
     """
-    return spoke_prefix + "__" + sanitize_package_name(package)
+    if len(identity) == 64 and identity.lower() == identity and identity.isalnum():
+        suffix = identity[:8]
+    else:
+        suffix = short_hash(identity)
+
+    name = "{}_{}_{}".format(
+        sanitize_package_name(package),
+        sanitize_version(version),
+        suffix,
+    )
+    if annotations and annotations not in ("{}", "null", '""'):
+        name += "_" + short_hash(annotations)
+    return name
 
 _EXECUTE_FAIL_MESSAGE = """\
 Process exited with code '{code}'

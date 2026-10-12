@@ -143,22 +143,35 @@ PyPackageAnnotatedTargetsInfo = provider(
     },
 )
 
+def _repo_name(label):
+    return getattr(label, "repo_name", None) or label.workspace_name
+
 def _py_package_annotation_deps_aspect_impl(target, ctx):
     if PyPackageAnnotatedTargetsInfo in target:
         return []
 
     targets = []
-    for data in ctx.rule.attr.data:
+    for data in getattr(ctx.rule.attr, "data", []):
         if PyPackageAnnotatedTargetInfo in data:
             targets.append(data[PyPackageAnnotatedTargetInfo])
 
+    # The `py_library` a hub exposes for a wheel depends on the library holding the
+    # files of the wheel, which is where the annotation targets are attached. Only
+    # dependencies within the same repository are searched so that the annotations of
+    # one package are never mistaken for those of a package depending on it.
+    transitive = []
+    for dep in getattr(ctx.rule.attr, "deps", []):
+        if PyPackageAnnotatedTargetsInfo in dep and _repo_name(dep.label) == _repo_name(target.label):
+            transitive.append(dep[PyPackageAnnotatedTargetsInfo].targets)
+
     return [PyPackageAnnotatedTargetsInfo(
-        targets = depset(targets),
+        targets = depset(targets, transitive = transitive),
     )]
 
 py_package_annotation_deps_aspect = aspect(
     doc = "An aspect for locating `py_package_annotation_dep` targets.",
     implementation = _py_package_annotation_deps_aspect_impl,
+    attr_aspects = ["deps"],
 )
 
 def _py_package_annotation_consumer_impl(ctx):

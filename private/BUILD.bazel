@@ -44,13 +44,20 @@ bzl_library(
 )
 
 bzl_library(
+    name = "lockfile",
+    srcs = ["lockfile.bzl"],
+    visibility = ["//:__subpackages__"],
+    deps = [":utils"],
+)
+
+bzl_library(
     name = "reqs_repo",
     srcs = ["reqs_repo.bzl"],
     visibility = ["//:__subpackages__"],
     deps = [
+        ":lockfile",
         ":utils",
         ":whl_repo",
-        "@bazel_tools//tools/build_defs/repo:utils.bzl",
     ],
 )
 
@@ -58,7 +65,10 @@ bzl_library(
     name = "sdist",
     srcs = ["sdist.bzl"],
     visibility = ["//:__subpackages__"],
-    deps = [":reqs_repo"],
+    deps = [
+        ":lockfile",
+        ":whl_repo",
+    ],
 )
 
 bzl_library(
