@@ -1,5 +1,10 @@
+load(":extension_test_suite.bzl", "extension_test_suite")
 load(":parse_lockfile_test_suite.bzl", "parse_lockfile_test_suite")
 
 parse_lockfile_test_suite(
     name = "parse_lockfile_test_suite",
+)
+
+extension_test_suite(
+    name = "extension_test_suite",
 )

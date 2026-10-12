@@ -1,24 +1,31 @@
 """Requirements for extracting and building source dists."""
 
-load(":reqs_repo.bzl", "create_spoke_repos", "parse_requirements_locks")
+load(":lockfile.bzl", "parse_lockfile")
+load(":whl_repo.bzl", "whl_repository")
+
+SDIST_COMPILER_HUB = "req_compile_sdist_compiler"
 
 def _sdist_deps_module_impl(module_ctx):
-    attrs = struct(
-        requirements_lock = Label("//private:sdist_requirements.txt"),
-        requirements_locks = None,
-    )
-    platform_packages = parse_requirements_locks(
-        hub_name = "req_compile_sdist_compiler",
-        ctx = module_ctx,
-        attrs = attrs,
+    lockfile = Label("//private:sdist_requirements.txt")
+    packages = parse_lockfile(
+        content = module_ctx.read(module_ctx.path(lockfile)),
         annotations = {},
+        lockfile = lockfile,
     )
-    for data in platform_packages.values():
-        create_spoke_repos(
-            "req_compile_sdist_compiler",
-            "req_compile_sdist_compiler",
-            data.packages,
-            interpreter = None,
+
+    # These repositories are referenced by name from `whl_repository`, so
+    # they intentionally do not use the content based naming of hub wheels.
+    for name, data in packages.items():
+        whl_repository(
+            name = "{}__{}".format(SDIST_COMPILER_HUB, name),
+            package = name,
+            sha256 = data["sha256"],
+            urls = [data["url"]] if data["url"] else None,
+            version = data["version"],
+            whl = data["whl"],
+            # Avoid a circular dependency when creating the repos for the source dist
+            # dependencies. We don't need these for non-source dist repos anyway.
+            sdist_deps_repos = [],
         )
 
     return module_ctx.extension_metadata(

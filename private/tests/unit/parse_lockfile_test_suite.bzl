@@ -1,7 +1,7 @@
 """Starlark unit tests for `parse_lockfile`."""
 
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load("//private:reqs_repo.bzl", "parse_lockfile")
+load("//private:lockfile.bzl", "parse_lockfile")
 
 def _parse_lockfile_test_impl(ctx):
     env = unittest.begin(ctx)

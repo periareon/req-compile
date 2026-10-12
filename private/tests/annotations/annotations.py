@@ -1,6 +1,6 @@
 """The annotations integration test"""
 
-import platform
+import os
 import unittest
 from pathlib import Path
 
@@ -24,20 +24,17 @@ class IntegrationTest(unittest.TestCase):
         runfiles = Runfiles.Create()
         assert runfiles, "Failed to locate runfiles"
 
+        # The wheel is shared by every platform that pins the same file, so the
+        # repository holding it is found from the wheel rather than hard coded.
+        repository, _, _ = os.environ["NUMPY_WHEEL"].partition("/")
+
         expected = [
-            "req_compile_test_annotations_{}__numpy/site-packages/numpy/conftest.copy.py",
-            "req_compile_test_annotations_{}__numpy/site-packages/numpy-1.26.4.dist-info/entry_points.copy.txt",
-            "req_compile_test_annotations_{}__numpy/site-packages/numpy/testing/setup.copy.py",
+            f"{repository}/site-packages/numpy/conftest.copy.py",
+            f"{repository}/site-packages/numpy-1.26.4.dist-info/entry_points.copy.txt",
+            f"{repository}/site-packages/numpy/testing/setup.copy.py",
         ]
 
-        platforms = {
-            "Darwin": "macos",
-            "Windows": "windows",
-            "Linux": "linux",
-        }
-
         for rlocationpath in expected:
-            rlocationpath = rlocationpath.format(platforms[platform.system()])
             runfile = runfiles.Rlocation(rlocationpath)
             assert runfile, f"Failed to find runfile: {rlocationpath}"
             assert Path(runfile).exists(), f"Runfile does not exist: {rlocationpath}"

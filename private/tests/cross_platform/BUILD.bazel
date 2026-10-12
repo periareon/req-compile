@@ -140,6 +140,9 @@ py_test(
     name = "cross_platform_test",
     srcs = ["cross_platform_test.py"],
     data = [
+        "requirements.linux.txt",
+        "requirements.macos.txt",
+        "requirements.windows.txt",
         ":cross_platform_linux",
         ":cross_platform_macos",
         ":cross_platform_windows",
@@ -148,6 +151,9 @@ py_test(
         "PYTHON_ZIP_FILE_LINUX": "$(rlocationpath :cross_platform_linux)",
         "PYTHON_ZIP_FILE_MACOS": "$(rlocationpath :cross_platform_macos)",
         "PYTHON_ZIP_FILE_WINDOWS": "$(rlocationpath :cross_platform_windows)",
+        "REQUIREMENTS_LINUX": "$(rlocationpath requirements.linux.txt)",
+        "REQUIREMENTS_MACOS": "$(rlocationpath requirements.macos.txt)",
+        "REQUIREMENTS_WINDOWS": "$(rlocationpath requirements.windows.txt)",
     },
     deps = ["@rules_python//python/runfiles"],
 )

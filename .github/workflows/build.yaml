@@ -139,6 +139,10 @@ jobs:
       run: |
         bazel test //...
       working-directory: private/tests/override_module_repos/overrider
+    - name: Test hubs shared between modules
+      run: |
+        bazel test //...
+      working-directory: private/tests/shared_hubs/app
 
   bazel_lint:
     runs-on: ubuntu-latest

@@ -35,12 +35,20 @@ use_repo(
 requirements = use_extension("//extensions:python.bzl", "requirements")
 requirements.parse(
     name = "req_compile_deps",
+    config_settings = {
+        # Any 32 or 64 bit arm Linux platform uses the aarch64 lock.
+        "//tools/constraints:linux_aarch_any": "linux_aarch64",
+        "//tools/constraints:linux_x86_64": "linux_x86_64",
+        "//tools/constraints:macos_aarch64": "macos_aarch64",
+        "//tools/constraints:macos_x86_64": "macos_x86_64",
+        "//tools/constraints:windows_x86_64": "windows_x86_64",
+    },
     requirements_locks = {
-        "//3rdparty:requirements.linux_aarch64.txt": "@rules_req_compile//tools/constraints:linux_aarch_any",
-        "//3rdparty:requirements.linux_x86_64.txt": "@rules_req_compile//tools/constraints:linux_x86_64",
-        "//3rdparty:requirements.macos_aarch64.txt": "@rules_req_compile//tools/constraints:macos_aarch64",
-        "//3rdparty:requirements.macos_x86_64.txt": "@rules_req_compile//tools/constraints:macos_x86_64",
-        "//3rdparty:requirements.windows_x86_64.txt": "@rules_req_compile//tools/constraints:windows_x86_64",
+        "//3rdparty:requirements.linux_aarch64.txt": "linux_aarch64",
+        "//3rdparty:requirements.linux_x86_64.txt": "linux_x86_64",
+        "//3rdparty:requirements.macos_aarch64.txt": "macos_aarch64",
+        "//3rdparty:requirements.macos_x86_64.txt": "macos_x86_64",
+        "//3rdparty:requirements.windows_x86_64.txt": "windows_x86_64",
     },
 )
 use_repo(requirements, "req_compile_deps")
@@ -64,7 +72,7 @@ dev_requirements.parse(
     interpreter_windows = "@python_3_11_x86_64-pc-windows-msvc//:python",
     requirements_lock = "//private/tests/sdist:requirements.txt",
 )
-use_repo(dev_requirements, "req_compile_test_sdist", "req_compile_test_sdist__pyspark")
+use_repo(dev_requirements, "pyspark_3_5_1_dd6569e5", "req_compile_test_sdist")
 
 dev_requirements.parse(
     name = "req_compile_test_simple",
@@ -112,13 +120,7 @@ dev_requirements.parse(
         "//private/tests/annotations:requirements.windows.txt": "@platforms//os:windows",
     },
 )
-use_repo(
-    dev_requirements,
-    "req_compile_test_annotations",
-    "req_compile_test_annotations_linux__numpy",
-    "req_compile_test_annotations_macos__numpy",
-    "req_compile_test_annotations_windows__numpy",
-)
+use_repo(dev_requirements, "req_compile_test_annotations")
 
 dev_requirements.package_annotation(
     additive_build_file_content = """\
@@ -190,7 +192,7 @@ find_links_test_repository(
     name = "req_compile_find_links_test",
     build_file = "//private/tests/find_links:BUILD.find_links.bazel",
     dev_dependency = True,
-    pyspark_wheel_data = "@req_compile_test_sdist__pyspark//:whl.json",
+    pyspark_wheel_data = "@pyspark_3_5_1_dd6569e5//:whl.json",
     requirements_in = "//private/tests/find_links:requirements.in",
     requirements_txt = "//private/tests/find_links:requirements.txt",
     # Needs to match `--find-links` in `//private/tests/find_links:requirements.in`
@@ -206,12 +208,13 @@ find_links_requirements.parse(
 )
 use_repo(find_links_requirements, "req_compile_test_find_links")
 
+# The platform of each lock comes from the header `py_reqs_compiler` writes.
 dev_requirements.parse(
     name = "req_compile_test_cross_platform",
     requirements_locks = {
-        "//private/tests/cross_platform:requirements.linux.txt": "@platforms//os:linux",
-        "//private/tests/cross_platform:requirements.macos.txt": "@platforms//os:macos",
-        "//private/tests/cross_platform:requirements.windows.txt": "@platforms//os:windows",
+        "//private/tests/cross_platform:requirements.linux.txt": "linux",
+        "//private/tests/cross_platform:requirements.macos.txt": "macos",
+        "//private/tests/cross_platform:requirements.windows.txt": "windows",
     },
 )
 use_repo(dev_requirements, "req_compile_test_cross_platform")

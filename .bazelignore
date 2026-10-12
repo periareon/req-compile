@@ -2,6 +2,9 @@ private/examples
 private/tests/override_module_repos/overrider
 private/tests/override_module_repos/overridee
 private/tests/package_aliases
+private/tests/shared_hubs/app
+private/tests/shared_hubs/constraints
+private/tests/shared_hubs/lib
 private/tests/workspace_user
 venv
 venv3
