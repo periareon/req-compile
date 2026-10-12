@@ -2,6 +2,7 @@ import random
 import sys
 
 import pytest
+from req_compile.target import TargetEnvironment
 from req_compile.utils import parse_version
 
 from req_compile.repos.repository import (
@@ -165,8 +166,9 @@ def test_sort_macos():
         ["macosx_10_9_x86_64"],
         None,
     )
-    assert candidate1.sortkey > candidate2.sortkey
-    assert candidate2.sortkey > candidate3.sortkey
+    target = TargetEnvironment.from_spec("macosx_10_15_x86_64", "3.7")
+    assert candidate1.sort_key(target) > candidate2.sort_key(target)
+    assert candidate2.sort_key(target) > candidate3.sort_key(target)
 
 
 @pytest.mark.parametrize(

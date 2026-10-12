@@ -90,13 +90,9 @@ def _mac_platform_tags(
             arch = plat_arch
         key = (major, minor)
 
-        # Universal and arm tags are ranked higher.
+        # packaging already yields x86_64 and intel for an x86_64 target.
+        # Never add them for arm64: a native arm64 interpreter cannot load them.
         mac_platforms[key].add(plat)
-
-        if major == 10 and plat_arch == "universal2":
-            mac_platforms[key].add(plat.replace(plat_arch, "x86_64"))
-            if int(minor) <= 10:
-                mac_platforms[key].add(plat.replace(plat_arch, "intel"))
 
     def _rank(plat: str) -> Tuple[int, str]:
         # Within a release, prefer wheels built for exactly this architecture,
