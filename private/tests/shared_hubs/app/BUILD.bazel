@@ -1,5 +1,5 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
-load("@rules_python//python:defs.bzl", "py_test")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
 load("@rules_req_compile//:defs.bzl", "py_package_annotation_consumer", "py_reqs_compiler", "py_reqs_solution_test")
 load("@shared_hubs_app_deps//:defs.bzl", "all_requirements")
 load(":platform_transition.bzl", "platform_transitioned")
@@ -33,6 +33,7 @@ py_test(
     name = "shared_wheels_test",
     srcs = ["shared_wheels_test.py"],
     deps = [
+        ":runfiles_util",
         "@rules_python//python/runfiles",
         "@shared_hubs_app_deps//click",
         "@shared_hubs_app_deps//requests",
@@ -78,6 +79,31 @@ py_test(
     data = [":click_lib_marker"],
     env = {"LIB_MARKER": "$(rlocationpath :click_lib_marker)"},
     deps = ["@rules_python//python/runfiles"],
+)
+
+# The `idna` annotation is scoped to this hub.
+py_package_annotation_consumer(
+    name = "idna_app_marker",
+    consume = "app_marker",
+    package = "@shared_hubs_app_deps//idna",
+)
+
+py_test(
+    name = "scoped_annotations_test",
+    srcs = ["scoped_annotations_test.py"],
+    data = [":idna_app_marker"],
+    env = {"APP_MARKER": "$(rlocationpath :idna_app_marker)"},
+    deps = [
+        ":runfiles_util",
+        "@rules_python//python/runfiles",
+        "@shared_hubs_app_deps//requests",
+        "@shared_hubs_lib//:requests",
+    ],
+)
+
+py_library(
+    name = "runfiles_util",
+    srcs = ["runfiles_util.py"],
 )
 
 # No lock of the hub is for Linux on aarch64, so the hub falls back to its

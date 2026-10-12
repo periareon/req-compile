@@ -133,13 +133,43 @@ def _hub_locks(mod, parse):
 
     return locks
 
-def _collect_annotations(ctx):
-    """Gather annotations from every module.
+# The `hubs` value of annotations that apply to every hub.
+ALL_HUBS = "*"
 
-    The root module wins any disagreement. Other modules must agree with each other.
+def _collect_annotations(ctx, hubs):
+    """Gather annotations from every module and resolve the hubs each applies to.
+
+    An annotation applies to the hubs of the module declaring it unless `hubs` says
+    otherwise: particular hubs, or every hub with `"*"`. The root module wins any
+    disagreement within a scope. Other modules must agree with each other.
+
+    Args:
+        ctx (module_ctx): The extension context.
+        hubs (dict): The hubs defined by all modules, keyed by name.
+
+    Returns:
+        tuple: The annotations applying to every hub, and a mapping of hub name to the
+            annotations applying to that hub only, each keyed by package name.
     """
-    annotations = {}
+    hubs_by_module = {}
+    for name, hub in hubs.items():
+        hubs_by_module.setdefault(hub["module"], []).append(name)
+
+    # Annotations are recorded per scope: every hub, the hubs of a module, or a
+    # single hub. The owners of each scope are tracked for conflict resolution.
+    scopes = {}
     owners = {}
+
+    def record(scope, annotation, data, mod):
+        record_annotation(
+            scopes.setdefault(scope, {}),
+            owners.setdefault(scope, {}),
+            annotation.package,
+            data,
+            mod.name,
+            mod.is_root,
+        )
+
     for mod in ctx.modules:
         for annotation in mod.tags.package_annotation:
             data = package_annotation(
@@ -155,13 +185,48 @@ def _collect_annotations(ctx):
                 deps_excludes = annotation.deps_excludes,
                 patches = annotation.patches,
             )
-            record_annotation(annotations, owners, annotation.package, data, mod.name, mod.is_root)
-    return annotations
+            if not annotation.hubs:
+                if mod.name not in hubs_by_module:
+                    fail((
+                        "Module `{}` annotates the python package `{}` but defines no hub for the " +
+                        "annotation to apply to. Set `hubs` to the hubs it is for, or to `[\"*\"]` " +
+                        "to apply it to the hubs of every module."
+                    ).format(mod.name, annotation.package))
+                record(("module", mod.name), annotation, data, mod)
+                continue
+            for hub in annotation.hubs:
+                if hub == ALL_HUBS:
+                    record(("all",), annotation, data, mod)
+                elif hub not in hubs:
+                    fail("Module `{}` annotates the python package `{}` for the hub `{}`, which no module defines. Known hubs: {}".format(
+                        mod.name,
+                        annotation.package,
+                        hub,
+                        ", ".join(sorted(hubs)),
+                    ))
+                elif hubs[hub]["alias_of"]:
+                    fail("Module `{}` annotates the python package `{}` for the hub `{}`, which is provided by the hub `{}`. Annotate that hub instead.".format(
+                        mod.name,
+                        annotation.package,
+                        hub,
+                        hubs[hub]["alias_of"],
+                    ))
+                else:
+                    record(("hub", hub), annotation, data, mod)
+
+    # Narrower scopes replace wider ones, package by package.
+    everywhere = scopes.get(("all",), {})
+    per_hub = {}
+    for name, hub in hubs.items():
+        effective = {}
+        effective.update(scopes.get(("module", hub["module"]), {}))
+        effective.update(scopes.get(("hub", name), {}))
+        if effective:
+            per_hub[name] = effective
+    return everywhere, per_hub
 
 def _requirements_impl(ctx):
     """Process annotations and parse tags."""
-    annotations = _collect_annotations(ctx)
-
     hubs = {}
     override_module_repos = {}
 
@@ -209,6 +274,8 @@ def _requirements_impl(ctx):
                 fail("Hub `{}` cannot override itself.".format(hub_name))
             hubs[hub_name]["alias_of"] = override.hub_name
 
+    annotations, hub_annotations = _collect_annotations(ctx, hubs)
+
     specs = {
         name: hub_spec(
             name = name,
@@ -222,14 +289,27 @@ def _requirements_impl(ctx):
         for name, hub in hubs.items()
     }
 
-    create_hub_repos(plan_hubs(ctx, specs, annotations))
+    create_hub_repos(plan_hubs(ctx, specs, annotations, hub_annotations))
 
     return ctx.extension_metadata(
         reproducible = True,
     )
 
 _annotation = tag_class(
-    doc = "A tag representing a annotation editing a Python package.",
+    doc = """\
+A tag representing an annotation editing a Python package.
+
+By default an annotation applies to the package in the hubs defined by the same module,
+so a module never changes another module's hubs by accident. `hubs` widens or narrows
+that: the names of particular hubs, or `["*"]` for the hubs of every module, which is how
+a module ships fixes for packages its users get by depending on it. A narrower scope
+replaces a wider one for the package: a hub's own annotation beats its module's, which
+beats one for every hub. The root module wins any disagreement within a scope.
+
+Hubs sharing a wheel share its repository only while they annotate it identically, so an
+annotation that applies to some hubs and not others gives those hubs their own repository
+for the package.
+""",
     attrs = {
         "additive_build_file": attr.label(
             doc = "The label of a `BUILD` file to add to the generated one for a pacakge.",
@@ -257,6 +337,13 @@ _annotation = tag_class(
         ),
         "deps_excludes": attr.string_list(
             doc = "A list of exclude glob patterns to add as `data` to the generated `py_library` target.",
+        ),
+        "hubs": attr.string_list(
+            doc = (
+                "The hubs the annotation applies to: names of `parse` tags, or `\"*\"` for the hubs of " +
+                "every module. Defaults to the hubs defined by the same module, which must then define " +
+                "at least one."
+            ),
         ),
         "package": attr.string(
             doc = "The name of the package the annotations applies to.",

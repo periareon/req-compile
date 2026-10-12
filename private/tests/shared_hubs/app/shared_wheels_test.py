@@ -1,25 +1,12 @@
 """Check that hubs pinning the same wheel share its repository."""
 
-import os
 import unittest
 from pathlib import Path
 
 import click  # pylint: disable=import-error
 import requests  # pylint: disable=import-error
+from runfiles_util import runfiles_repositories  # pylint: disable=import-error
 from shared_hubs_lib import locations  # pylint: disable=import-error
-
-
-def runfiles_repositories() -> set[str]:
-    """The names of the repositories present in the runfiles of this test."""
-    manifest = os.environ.get("RUNFILES_MANIFEST_FILE")
-    if manifest and Path(manifest).exists():
-        entries = [
-            line.split(" ", 1)[0]
-            for line in Path(manifest).read_text(encoding="utf-8").splitlines()
-            if line.strip()
-        ]
-        return {entry.split("/", 1)[0] for entry in entries}
-    return {path.name for path in Path(os.environ["TEST_SRCDIR"]).iterdir()}
 
 
 class SharedWheelsTest(unittest.TestCase):

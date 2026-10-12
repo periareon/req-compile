@@ -306,16 +306,20 @@ def merge_wheel(name, existing, attrs, hub_name):
     merged["interpreter"] = existing["interpreter"] or attrs["interpreter"]
     return merged
 
-def plan_hubs(ctx, hubs, annotations):
+def plan_hubs(ctx, hubs, annotations, hub_annotations = {}):
     """Plan the repositories needed for a set of hubs.
 
     Every distinct wheel is downloaded into a single `whl_repository` which is
-    shared by every hub that pins it.
+    shared by every hub that pins it and annotates it the same way.
 
     Args:
         ctx (module_ctx or repository_ctx): A context able to read files.
         hubs (dict[str, struct]): `hub_spec`s keyed by hub name.
-        annotations (dict[str, str]): Serialized `py_package_annotation`s keyed by package name.
+        annotations (dict[str, str]): Serialized `py_package_annotation`s keyed by package
+            name, applying to every hub.
+        hub_annotations (dict[str, dict[str, str]]): Annotations applying to particular hubs,
+            keyed by hub name. They replace the annotation of the package in `annotations`
+            for that hub.
 
     Returns:
         struct: With `wheel_repos`, a mapping of repository name to `whl_repository`
@@ -338,6 +342,9 @@ def plan_hubs(ctx, hubs, annotations):
         # locks are compiled for the first time.
         contents = [(spec, ctx.read(ctx.path(spec.file))) for spec in hub.locks]
         contents = [(spec, content) for spec, content in contents if content.strip()]
+
+        effective_annotations = dict(annotations)
+        effective_annotations.update(hub_annotations.get(hub_name, {}))
 
         multiple = len(contents) > 1
         locks = []
@@ -380,7 +387,7 @@ def plan_hubs(ctx, hubs, annotations):
 
             lock_packages = parse_lockfile(
                 content = content,
-                annotations = annotations,
+                annotations = effective_annotations,
                 lockfile = spec.file,
             )
 

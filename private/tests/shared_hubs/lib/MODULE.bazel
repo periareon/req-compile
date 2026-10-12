@@ -34,8 +34,7 @@ requirements.parse(
 )
 use_repo(requirements, "shared_hubs_lib_deps")
 
-# Annotations are collected from every module using the extension, so a
-# dependency can ship fixes for packages that apply to every hub.
+# With `hubs = ["*"]` a dependency ships a fix that applies to every hub.
 requirements.package_annotation(
     additive_build_file_content = """\
 load("@rules_req_compile//:defs.bzl", "py_package_annotation_target")
@@ -54,5 +53,15 @@ py_package_annotation_target(
         "site-packages/click/__init__.py": "site-packages/click/annotated_by_lib.txt",
     },
     data = [":pkg.lib_marker"],
+    hubs = ["*"],
     package = "click",
+)
+
+# Without `hubs` an annotation only applies to the hubs of this module, so the
+# root module's `urllib3` is left alone and stops sharing this repository.
+requirements.package_annotation(
+    copy_files = {
+        "site-packages/urllib3/__init__.py": "site-packages/urllib3/annotated_by_lib.txt",
+    },
+    package = "urllib3",
 )

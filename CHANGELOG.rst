@@ -9,6 +9,9 @@ New in version 1.2.0:
 * Every distinct wheel is downloaded once into a repository named ``{package}_{version}_{sha256[:8]}``
   and shared by all hubs of all modules pinning it. Each hub keeps its own dependency edges, so extras
   and version differences between hubs are preserved. Hub names must be unique across modules.
+* ``package_annotation`` applies to the hubs of the module declaring it unless its new ``hubs``
+  attribute names particular hubs or ``"*"`` for every hub. Hubs annotated differently get their own
+  repository for the package.
 * Hubs whose locks do not all contain the same packages are supported. A package missing from a lock
   is incompatible with that lock's platform, so targets depending on it are skipped there.
 * Removed the ``defs_id_map`` attribute of the ``parse`` tag and the WORKSPACE-only ``repositories()``

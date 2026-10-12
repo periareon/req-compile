@@ -42,3 +42,27 @@ requirements.parse(
     },
 )
 use_repo(requirements, "shared_hubs_app_deps")
+
+# Scoped to this hub only. `shared_hubs_lib` keeps the plain `idna`, so the two
+# hubs stop sharing that one repository while still sharing every other wheel.
+requirements.package_annotation(
+    additive_build_file_content = """\
+load("@rules_req_compile//:defs.bzl", "py_package_annotation_target")
+
+filegroup(
+    name = "app_marker",
+    srcs = ["site-packages/idna/annotated_by_app.txt"],
+)
+
+py_package_annotation_target(
+    name = "pkg.app_marker",
+    target = ":app_marker",
+)
+""",
+    copy_files = {
+        "site-packages/idna/__init__.py": "site-packages/idna/annotated_by_app.txt",
+    },
+    data = [":pkg.app_marker"],
+    hubs = ["shared_hubs_app_deps"],
+    package = "idna",
+)
