@@ -8,7 +8,7 @@ SDIST_COMPILER_HUB = "req_compile_sdist_compiler"
 def _sdist_deps_module_impl(module_ctx):
     lockfile = Label("//private:sdist_requirements.txt")
     packages = parse_lockfile(
-        content = module_ctx.read(module_ctx.path(lockfile)),
+        content = module_ctx.read(lockfile),
         annotations = {},
         lockfile = lockfile,
     )
