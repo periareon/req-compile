@@ -1,12 +1,15 @@
 """Errors describing problems that can occur when extracting metadata"""
 
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, List, NamedTuple, Optional
 
 import packaging.requirements
 import packaging.version
 
+from req_compile.utils import NormName
+
 if TYPE_CHECKING:
     from req_compile.dists import DependencyNode
+    from req_compile.target import TargetEnvironment
 
 
 class ExceptionWithDetails(Exception):
@@ -53,3 +56,79 @@ class NoCandidateException(ExceptionWithDetails):
         return 'NoCandidateException - no candidates found for "{}"'.format(
             self.req.name
         )
+
+
+class PinConflictException(NoCandidateException):
+    """A soft pin could not be honored for a requirement that is otherwise solvable.
+
+    Raised in place of `NoCandidateException` when the requirement without the
+    pin can be satisfied, so the caller can lift the pin and resolve again. See
+    `CompileOptions.soft_pins`.
+    """
+
+    def __init__(
+        self,
+        name: NormName,
+        pin: packaging.requirements.Requirement,
+        req: packaging.requirements.Requirement,
+        node: "DependencyNode",
+        no_candidate: bool,
+    ) -> None:
+        """
+        Args:
+            name: The normalized name of the pinned project.
+            pin: The soft pin that could not be honored.
+            req: The requirement without the pin, as the reverse dependencies and
+                hard pins constrain it.
+            node: The node the pin applies to.
+            no_candidate: True when the pin conflicts with nothing but no candidate
+                satisfies it, e.g. the pinned version has no artifact for the
+                target. False when the pin conflicts with `req`.
+        """
+        super().__init__(req)
+        self.name = name
+        self.pin = pin
+        self.node = node
+        self.no_candidate = no_candidate
+
+    def __str__(self) -> str:
+        if self.no_candidate:
+            return f"no candidate for {self.pin}"
+        return f"{self.pin} conflicts with {self.req}"
+
+
+class Rejection(NamedTuple):
+    """A version of a project that one of the solutions compiled together cannot use."""
+
+    target: "TargetEnvironment"
+    # The version the other solutions had agreed on, or None if none had and the
+    # target cannot use any version left after the earlier rejections.
+    version: Optional[packaging.version.Version]
+    cause: PinConflictException
+
+
+class NoCommonVersionException(ExceptionWithDetails):
+    """Solutions compiled together cannot agree on the version of a project."""
+
+    def __init__(self, name: NormName, rejections: List[Rejection]) -> None:
+        """
+        Args:
+            name: The normalized name of the project.
+            rejections: The versions some target could not use, in the order they
+                were rejected, ending with the failure that stopped the search.
+        """
+        super().__init__()
+        self.name = name
+        self.rejections = list(rejections)
+
+    def __str__(self) -> str:
+        lines = [f"No version of {self.name} can be used by every solution:"]
+        for rejection in self.rejections:
+            if rejection.version is None:
+                lines.append(f"  {rejection.target.name}: {rejection.cause}")
+            else:
+                lines.append(
+                    f"  {rejection.target.name} cannot use "
+                    f"{self.name}=={rejection.version}: {rejection.cause}"
+                )
+        return "\n".join(lines)

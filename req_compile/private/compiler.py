@@ -23,22 +23,28 @@ from typing import (
     cast,
 )
 
+import packaging.version
+
 # pylint: disable-next=import-error
 from python.runfiles import Runfiles
 
 from req_compile.cmdline import (
     IndentFilter,
+    _find_paths_to_root,
     _generate_no_candidate_display,
+    _print_paths_to_root,
     build_repo,
     write_requirements_file,
 )
-from req_compile.compile import AllOnlyBinarySet, perform_compile
+from req_compile.compile import AllOnlyBinarySet, perform_compile_group
 from req_compile.containers import RequirementsFile
 from req_compile.dists import DependencyNode, DistributionCollection
-from req_compile.errors import NoCandidateException
+from req_compile.errors import NoCandidateException, NoCommonVersionException
 from req_compile.repos import Repository
 from req_compile.repos.repository import DistributionType, RepositoryInitializationError
+from req_compile.repos.solution import SolutionRepository
 from req_compile.target import TargetEnvironment, resolve
+from req_compile.utils import NormName
 
 _HEADER = """\
 ################################################################################
@@ -74,13 +80,26 @@ def parse_args(args: Optional[Sequence[str]]) -> argparse.Namespace:
     )
     parser.add_argument(
         "--solution",
+        dest="solutions",
+        action="append",
+        default=[],
         type=str,
-        help="The solution file which has all compiled outputs of `requirements_files`.",
+        help=(
+            "A solution file which has all compiled outputs of `requirements_files`. "
+            "May be repeated to compile a solution per platform, all of which will "
+            "use the same version of every package."
+        ),
     )
     parser.add_argument(
         "--output",
+        dest="outputs",
+        action="append",
+        default=[],
         type=Path,
-        help="The output path where the new solution should be written.",
+        help=(
+            "The output path where the new solution should be written. Given once "
+            "per `--solution`, in the same order."
+        ),
     )
     parser.add_argument(
         "--custom_compile_command",
@@ -115,12 +134,15 @@ def parse_args(args: Optional[Sequence[str]]) -> argparse.Namespace:
     )
     parser.add_argument(
         "--platform",
-        dest="target_platform",
+        dest="target_platforms",
+        action="append",
+        default=[],
         type=str,
         help=(
             "The platform to compile for as a wheel platform tag, e.g. "
             "`manylinux_2_28_x86_64`, `macosx_11_0_arm64` or `win_amd64`. "
-            "Defaults to the platform running the compiler."
+            "Given once per `--solution`, in the same order, or not at all to "
+            "compile for the platform running the compiler."
         ),
     )
     parser.add_argument(
@@ -139,21 +161,42 @@ def parse_args(args: Optional[Sequence[str]]) -> argparse.Namespace:
         help="Enable verbose logging.",
     )
 
-    return parser.parse_args(args)
+    parsed = parser.parse_args(args)
+
+    if not parsed.solutions:
+        parser.error("at least one --solution is required")
+    for option, values in (
+        ("--platform", parsed.target_platforms),
+        ("--output", parsed.outputs),
+    ):
+        if values and len(values) != len(parsed.solutions):
+            parser.error(
+                f"{option} must be given once per --solution ({len(parsed.solutions)}), "
+                f"got {len(values)}"
+            )
+
+    return parsed
 
 
-def build_target(args: argparse.Namespace) -> Optional[TargetEnvironment]:
-    """Build the environment to compile for from parsed arguments.
+def build_targets(args: argparse.Namespace) -> List[Optional[TargetEnvironment]]:
+    """Build the environment to compile each solution for from parsed arguments.
 
     Returns:
-        The target, or None when compiling for the host.
+        A target per solution, None where the solution is compiled for the host.
     """
-    if args.target_platform is None and args.target_python_version is None:
-        return None
-    return TargetEnvironment.from_spec(
-        platform_spec=args.target_platform,
-        python_version=args.target_python_version,
-    )
+    targets: List[Optional[TargetEnvironment]] = []
+    for index in range(len(args.solutions)):
+        platform = args.target_platforms[index] if args.target_platforms else None
+        if platform is None and args.target_python_version is None:
+            targets.append(None)
+        else:
+            targets.append(
+                TargetEnvironment.from_spec(
+                    platform_spec=platform,
+                    python_version=args.target_python_version,
+                )
+            )
+    return targets
 
 
 def parse_index_urls(content: str) -> Tuple[Set[str], Set[str], Set[str]]:
@@ -184,12 +227,23 @@ def parse_index_urls(content: str) -> Tuple[Set[str], Set[str], Set[str]]:
     return index_urls, extra_index_urls, find_links
 
 
+class Solution(NamedTuple):
+    """A solution file and the environment it is compiled for."""
+
+    path: Path
+    # None when compiling for the host.
+    target: Optional[TargetEnvironment]
+
+
 class CompilationError(Exception):
     """The error type for requirements compilation errors."""
 
-    def __init__(self, repo: Repository, parent: NoCandidateException) -> None:
+    def __init__(
+        self, repo: Repository, parent: NoCandidateException, solution: Solution
+    ) -> None:
         self.repo = repo
         self.parent = parent
+        self.solution = solution
 
 
 class CompilationResult(NamedTuple):
@@ -198,35 +252,63 @@ class CompilationResult(NamedTuple):
     solution: DistributionCollection
     dep_nodes: Set[DependencyNode]
     repo: Repository
+    target: Optional[TargetEnvironment]
+
+
+def solution_pins(
+    solutions: Sequence[Solution],
+) -> Dict[NormName, packaging.version.Version]:
+    """The versions to start a compilation of the given solutions from.
+
+    The versions of every solution are recycled for every target, so a package
+    that one platform already pins is not resolved to something else when another
+    platform starts needing it. The first solution to pin a package wins.
+    Solutions compiled for another Python version contribute nothing, versions
+    frequently do not exist for more than one Python version.
+    """
+    pins: Dict[NormName, packaging.version.Version] = {}
+    for solution in solutions:
+        repo = SolutionRepository(solution.path, target=solution.target)
+        if not repo.matches_python(solution.target):
+            continue
+        for name, version in repo.pins().items():
+            pins.setdefault(name, version)
+    return pins
 
 
 def compile_requirements(
     requirements_ins: Mapping[str, Path],
-    solution: Path,
+    solutions: Sequence[Solution],
     upgrade: bool = False,
     constraints: Optional[Mapping[str, Path]] = None,
     no_index: bool = False,
     only_binary: bool = False,
     promote_extra_index_urls: bool = False,
     wheeldir: Optional[Union[str, Path]] = None,
-    target: Optional[TargetEnvironment] = None,
-) -> CompilationResult:
-    """Compile a solution for a set of requirements.
+) -> List[CompilationResult]:
+    """Compile a solution per target for a set of requirements.
+
+    The solutions are compiled together, so every one of them uses the same
+    version of each package. See `perform_compile_group`.
 
     Args:
         requirements_ins: Map of pretty names to input files containing the requirements.
-        solution: Input solution file.
-        upgrade: Whether or not to ignore the solution when compiling.
+        solutions: The input solution files and the targets to compile them for.
+        upgrade: Whether or not to ignore the solutions when compiling.
         constraints: Constraints to use when compiling a solution.
         no_index: If True, requirements will be compiled with no index and only rely on
             existing constraints in the solutions file.
         only_binary: Ensure the solution is composed exclusively of wheels.
         promote_extra_index_urls: Promote extra index urls to index urls.
         wheeldir: An optional wheeldir to use during compilation.
-        target: The environment to compile for. Defaults to the host.
 
     Returns:
-        The results of the compilation if successful.
+        The results of the compilation if successful, one per solution.
+
+    Raises:
+        CompilationError: If the requirements cannot be resolved for a target.
+        NoCommonVersionException: If the targets cannot agree on the version of a
+            package.
     """
     input_reqs: List[RequirementsFile] = []
     index_urls: Set[str] = set()
@@ -246,7 +328,7 @@ def compile_requirements(
         extra_index_urls = extra_index_urls.union(new_extras)
         find_links.update(
             {
-                os.path.normpath(input_file.parent / link): solution.parent
+                os.path.normpath(input_file.parent / link): solutions[0].path.parent
                 for link in new_links
             }
         )
@@ -265,42 +347,64 @@ def compile_requirements(
         wheeldir = Path(tempfile.mkdtemp())
         external_wheeldir = False
 
-    # Generate the solution repository
-    repo = build_repo(
-        solutions=[] if upgrade else [str(solution)],
-        upgrade_packages=[],
-        sources=[],
-        excluded_sources=[],
-        find_links=dict(sorted(find_links.items())),
-        index_urls=sorted(
-            index_urls | (extra_index_urls if promote_extra_index_urls else set())
-        ),
-        no_index=no_index,
-        wheeldir=wheeldir,
-        extra_index_urls=[] if promote_extra_index_urls else sorted(extra_index_urls),
-        target=target,
-    )
+    # Generate a repository per target, each recycling its own solution.
+    repos = [
+        build_repo(
+            solutions=[] if upgrade else [str(solution.path)],
+            upgrade_packages=[],
+            sources=[],
+            excluded_sources=[],
+            find_links=dict(sorted(find_links.items())),
+            index_urls=sorted(
+                index_urls | (extra_index_urls if promote_extra_index_urls else set())
+            ),
+            no_index=no_index,
+            wheeldir=wheeldir,
+            extra_index_urls=(
+                [] if promote_extra_index_urls else sorted(extra_index_urls)
+            ),
+            target=solution.target,
+        )
+        for solution in solutions
+    ]
 
-    # Compile the solution
+    # Compile the solutions
     try:
-        compiled_solution, dep_nodes = perform_compile(
+        results = perform_compile_group(
             input_reqs=input_reqs,
-            repo=repo,
+            repos=repos,
             constraint_reqs=constraint_reqs,
             only_binary=AllOnlyBinarySet() if only_binary else set(),
-            target=target,
+            pins={} if upgrade else solution_pins(solutions),
         )
     except NoCandidateException as exc:
-        raise CompilationError(repo=repo, parent=exc) from exc
+        # The failing target is the one whose solution holds the partial results.
+        index = next(
+            (
+                index
+                for index, repo in enumerate(repos)
+                if exc.results is not None and exc.results.target == repo.target
+            ),
+            0,
+        )
+        raise CompilationError(
+            repo=repos[index], parent=exc, solution=solutions[index]
+        ) from exc
     finally:
         if external_wheeldir:
             shutil.rmtree(wheeldir)
 
-    return CompilationResult(
-        solution=compiled_solution,
-        dep_nodes=dep_nodes,
-        repo=repo,
-    )
+    return [
+        CompilationResult(
+            solution=compiled_solution,
+            dep_nodes=dep_nodes,
+            repo=repo,
+            target=solution.target,
+        )
+        for (compiled_solution, dep_nodes), repo, solution in zip(
+            results, repos, solutions
+        )
+    ]
 
 
 def rlocation(runfiles: Runfiles, rlocationpath: str) -> Path:
@@ -354,6 +458,14 @@ def init_logging(verbose: bool) -> None:
     logger.getChild("compile").addFilter(IndentFilter())
 
 
+def _solutions(args: argparse.Namespace, runfiles: Runfiles) -> List[Solution]:
+    """The solutions to compile and the targets to compile them for."""
+    return [
+        Solution(rlocation(runfiles, solution), target)
+        for solution, target in zip(args.solutions, build_targets(args))
+    ]
+
+
 def wheelmaker_main(args: argparse.Namespace, runfiles: Runfiles) -> None:
     """The entrypoint for building wheels for sdist requirements."""
 
@@ -365,18 +477,23 @@ def wheelmaker_main(args: argparse.Namespace, runfiles: Runfiles) -> None:
     requirements_files: Dict[str, Path] = {}
     for requirement_file in args.requirements_files:
         requirements_files[requirement_file] = rlocation(runfiles, requirement_file)
-    solution = rlocation(runfiles, args.solution)
 
-    result = compile_requirements(
+    results = compile_requirements(
         requirements_ins=requirements_files,
-        solution=solution,
+        solutions=_solutions(args, runfiles),
         upgrade=args.upgrade,
         only_binary=False,
         no_index=args.no_index,
-        target=build_target(args),
     )
 
-    sdists = sorted(req for req in result.solution if _is_wheel(req) is False)
+    sdists = sorted(
+        {
+            req
+            for result in results
+            for req in result.solution
+            if _is_wheel(req) is False
+        }
+    )
 
     if not sdists:
         logging.info("No sdist packages found!")
@@ -414,7 +531,7 @@ def wheelmaker_main(args: argparse.Namespace, runfiles: Runfiles) -> None:
             "--wheel-dir",
             str(wheel_dir),
         ]
-        + sorted(targets),
+        + sorted(set(targets)),
         check=False,
         env=env,
         stderr=None if args.verbose else subprocess.STDOUT,
@@ -426,26 +543,59 @@ def wheelmaker_main(args: argparse.Namespace, runfiles: Runfiles) -> None:
         sys.exit(proc_result.returncode)
 
 
+def _generate_no_common_version_display(exc: NoCommonVersionException) -> None:
+    """Print a human friendly display to stderr when the solutions cannot agree."""
+    print(
+        f"The solutions cannot agree on a version of {exc.name}:",
+        file=sys.stderr,
+    )
+    for rejection in exc.rejections:
+        target = rejection.target.name
+        cause = rejection.cause
+        if rejection.version is None:
+            print(
+                f"  {target} has no version of {exc.name} left: {cause}",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f"  {target} cannot use {exc.name}=={rejection.version}: {cause}",
+                file=sys.stderr,
+            )
+        if not cause.no_candidate:
+            print(f"  {exc.name} is required on {target} by:", file=sys.stderr)
+            _print_paths_to_root(cause.node, _find_paths_to_root(cause.node), True)
+    print(
+        "\nConstrain the package in the requirements to a version every platform "
+        "can use, or compile the solutions separately.",
+        file=sys.stderr,
+    )
+
+
 def compile_main(args: argparse.Namespace, runfiles: Runfiles) -> None:
     """The entrypoint for performing compilation."""
 
     requirements_files: Dict[str, Path] = {}
     for requirement_file in args.requirements_files:
         requirements_files[requirement_file] = rlocation(runfiles, requirement_file)
-    solution = rlocation(runfiles, args.solution)
-    target = build_target(args)
+    solutions = _solutions(args, runfiles)
 
     # Compile all requirements
     try:
-        result = compile_requirements(
+        results = compile_requirements(
             requirements_ins=requirements_files,
-            solution=solution,
+            solutions=solutions,
             upgrade=args.upgrade,
             only_binary=False if args.allow_sdists else True,
             no_index=args.no_index,
-            target=target,
         )
     except CompilationError as exc:
+        if len(solutions) > 1:
+            print(
+                f"Failed to compile the solution for {resolve(exc.solution.target).name} "
+                f"({exc.solution.path.name}):",
+                file=sys.stderr,
+            )
         _generate_no_candidate_display(
             exc.parent.req,
             exc.repo,
@@ -457,22 +607,28 @@ def compile_main(args: argparse.Namespace, runfiles: Runfiles) -> None:
             logging.info("Attempting to build wheels for sdist dependencies.")
             wheelmaker_main(args, runfiles)
         sys.exit(1)
+    except NoCommonVersionException as exc:
+        _generate_no_common_version_display(exc)
+        sys.exit(1)
     except RepositoryInitializationError as exc:
         # E.g. the solution was compiled for another target and there is no index
         # to resolve the requirements from again.
         print(f"ERROR: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    # Write out the requirements file if a location was provided.
-    if args.output:
+    # Write out the requirements files if locations were provided. Nothing is
+    # written until every solution compiled, so they never disagree on disk.
+    for output, result in zip(args.outputs, results):
         buffer = StringIO()
         buffer.write(
             _HEADER.format(
                 custom_compile_command=args.custom_compile_command,
                 # The full version, so that the header does not depend on how the
                 # version was given.
-                python=".".join(str(part) for part in resolve(target).python_version),
-                platform=resolve(target).name,
+                python=".".join(
+                    str(part) for part in resolve(result.target).python_version
+                ),
+                platform=resolve(result.target).name,
             )
         )
         write_requirements_file(
@@ -485,27 +641,27 @@ def compile_main(args: argparse.Namespace, runfiles: Runfiles) -> None:
             write_to=buffer,
         )
 
-        if str(args.output).startswith(".."):
+        if str(output).startswith(".."):
             print(
                 "WARNING: Outputs cannot be outside the current workspace.",
                 file=sys.stderr,
             )
             print(
-                f"WARNING: Output {args.output} will not be written but instead printed.",
+                f"WARNING: Output {output} will not be written but instead printed.",
                 file=sys.stderr,
             )
             print(buffer.getvalue())
         else:
             workspace_dir = Path(os.environ["BUILD_WORKSPACE_DIRECTORY"])
-            output = workspace_dir / args.output
+            output_path = workspace_dir / output
             # Always write unix line endings so the solution does not depend on
             # the platform that compiled it. `Path.write_text` only accepts
             # `newline` from Python 3.10, so use `open`.
-            with output.open("w", encoding="utf-8", newline="\n") as handle:
+            with output_path.open("w", encoding="utf-8", newline="\n") as handle:
                 handle.write(buffer.getvalue())
             if args.verbose:
-                print(output.read_text(encoding="utf-8"))
-            print(f"Successfully compiled {output}")
+                print(output_path.read_text(encoding="utf-8"))
+            print(f"Successfully compiled {output_path}")
 
 
 def main() -> None:

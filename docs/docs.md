@@ -65,7 +65,7 @@ A container for targets defined by `py_package_annotation` data applied to a pyt
 load("@rules_req_compile//:defs.bzl", "py_reqs_compiler")
 
 py_reqs_compiler(<a href="#py_reqs_compiler-name">name</a>, <a href="#py_reqs_compiler-allow_sdists">allow_sdists</a>, <a href="#py_reqs_compiler-custom_compile_command">custom_compile_command</a>, <a href="#py_reqs_compiler-platform">platform</a>, <a href="#py_reqs_compiler-python_version">python_version</a>,
-                 <a href="#py_reqs_compiler-requirements_in">requirements_in</a>, <a href="#py_reqs_compiler-requirements_txt">requirements_txt</a>)
+                 <a href="#py_reqs_compiler-requirements_in">requirements_in</a>, <a href="#py_reqs_compiler-requirements_txt">requirements_txt</a>, <a href="#py_reqs_compiler-requirements_txts">requirements_txts</a>)
 </pre>
 
 A Bazel rule for compiling python requirements.
@@ -107,37 +107,36 @@ bazel run //:requirements.update -- --upgrade
 
 By default a solution is compiled for the platform and Python version running the compiler. The `platform` and
 `python_version` attributes compile a solution for a different environment, so solutions for every platform a
-project supports can be produced and tested from any machine.
+project supports can be produced and tested from any machine. To support several platforms, map a solution file
+to each platform with `requirements_txts`. One target then compiles every solution, and the solutions always use
+the same version of each package: a package keeps the version the first platform resolves it to and a version
+that another platform cannot use, e.g. because no wheel is published for it, is dropped for all of them. When no
+version of a package works on every platform the compilation fails and names the platforms that disagree, so
+the package can be constrained in the requirements. A `py_reqs_solution_test` of the target checks every
+solution, including that they agree.
 
 ```python
 load("@rules_req_compile//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
 
-[
-    py_reqs_compiler(
-        name = "requirements.{}.update".format(platform),
-        platform = platform,
-        requirements_in = ":requirements",
-        requirements_txt = "requirements.{}.txt".format(platform),
-    )
-    for platform in [
-        "manylinux_2_28_x86_64",
-        "macosx_11_0_arm64",
-        "win_amd64",
-    ]
-]
+py_reqs_compiler(
+    name = "requirements.update",
+    requirements_in = ":requirements",
+    requirements_txts = {
+        "requirements.linux.txt": "manylinux_2_28_x86_64",
+        "requirements.macos.txt": "macosx_11_0_arm64",
+        "requirements.windows.txt": "win_amd64",
+    },
+)
 
-[
-    py_reqs_solution_test(
-        name = "requirements.{}.test".format(platform),
-        compiler = ":requirements.{}.update".format(platform),
-    )
-    for platform in [
-        "manylinux_2_28_x86_64",
-        "macosx_11_0_arm64",
-        "win_amd64",
-    ]
-]
+py_reqs_solution_test(
+    name = "requirements_test",
+    compiler = ":requirements.update",
+)
 ```
+
+The versions pinned by any of the solutions are recycled for all of them, so a platform added to
+`requirements_txts` starts from the versions the others use. Solutions for different Python versions frequently
+cannot share versions, so define one `py_reqs_compiler` per Python version.
 
 Wheels are selected and environment markers are evaluated as they would be when installing on the target.
 Source distributions (sdists) have their metadata extracted on the machine running the compiler, so solutions
@@ -151,10 +150,11 @@ for other platforms should avoid them, which is the default (`allow_sdists = Fal
 | <a id="py_reqs_compiler-name"></a>name |  A unique name for this target.   | <a href="https://bazel.build/concepts/labels#target-names">Name</a> | required |  |
 | <a id="py_reqs_compiler-allow_sdists"></a>allow_sdists |  Whether or not the solution file is allowed to contain sdist packages.   | Boolean | optional |  `False`  |
 | <a id="py_reqs_compiler-custom_compile_command"></a>custom_compile_command |  The command to display in the header of the generated lock file (`requirements_txt`). Any references to `{label}` will be replaced with the label of this target.   | String | optional |  `"bazel run \"{label}\""`  |
-| <a id="py_reqs_compiler-platform"></a>platform |  The platform to compile the solution for as a wheel platform tag, as accepted by `pip --platform`, e.g. `manylinux_2_28_x86_64`, `manylinux2014_aarch64`, `macosx_11_0_arm64` or `win_amd64`. A manylinux tag accepts wheels for that glibc or older, a macosx tag wheels for that release or older. When unset, the solution is compiled for the platform running the compiler.   | String | optional |  `""`  |
+| <a id="py_reqs_compiler-platform"></a>platform |  The platform to compile the solution for as a wheel platform tag, as accepted by `pip --platform`, e.g. `manylinux_2_28_x86_64`, `manylinux2014_aarch64`, `macosx_11_0_arm64` or `win_amd64`. A manylinux tag accepts wheels for that glibc or older, a macosx tag wheels for that release or older. When unset, the solution is compiled for the platform running the compiler. Only applies to `requirements_txt`, `requirements_txts` names the platform of each solution.   | String | optional |  `""`  |
 | <a id="py_reqs_compiler-python_version"></a>python_version |  The Python version to compile the solution for, e.g. `3.11.4`. When unset, the exact version of the resolved Python toolchain is used, which keeps the solution independent of the machine running the compiler. A version without a patch number, e.g. `3.9`, is compiled as `3.9.0`.   | String | optional |  `""`  |
 | <a id="py_reqs_compiler-requirements_in"></a>requirements_in |  The input requirements file   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
-| <a id="py_reqs_compiler-requirements_txt"></a>requirements_txt |  The solution file.   | <a href="https://bazel.build/concepts/labels">Label</a> | required |  |
+| <a id="py_reqs_compiler-requirements_txt"></a>requirements_txt |  The solution file. Mutually exclusive with `requirements_txts`.   | <a href="https://bazel.build/concepts/labels">Label</a> | optional |  `None`  |
+| <a id="py_reqs_compiler-requirements_txts"></a>requirements_txts |  Solution files mapped to the wheel platform tag each is compiled for, see `platform`. The solutions are compiled together and use the same version of every package. Mutually exclusive with `requirements_txt` and `platform`.   | <a href="https://bazel.build/rules/lib/dict">Dictionary: Label -> String</a> | optional |  `{}`  |
 
 
 <a id="py_reqs_solution_test"></a>

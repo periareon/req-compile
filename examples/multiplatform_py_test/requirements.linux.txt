@@ -6,7 +6,7 @@
 ##
 ## To regenerate this file, use the following command:
 ##
-##    bazel run "@@//:requirements_update.linux"
+##    bazel run "@@//:requirements.update"
 ##
 ################################################################################
 

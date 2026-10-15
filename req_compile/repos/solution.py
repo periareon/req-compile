@@ -2,9 +2,20 @@ import collections
 import os
 import sys
 from pathlib import Path
-from typing import Any, DefaultDict, Iterable, Optional, Sequence, Set, Tuple, Union
+from typing import (
+    Any,
+    DefaultDict,
+    Dict,
+    Iterable,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+)
 
 import packaging.requirements
+import packaging.version
 from overrides import overrides
 
 import req_compile.containers
@@ -82,34 +93,34 @@ class SolutionRepository(Repository):
     def __repr__(self) -> str:
         return "--solution {}".format(self.filename)
 
-    def matches_target(self, target: Optional[TargetEnvironment] = None) -> bool:
-        """Whether this solution was compiled for the given target.
+    def matches_python(self, target: Optional[TargetEnvironment] = None) -> bool:
+        """Whether this solution was compiled for the Python version of the target.
 
-        A solution records the platform and Python version it was compiled for in
-        its header. Its pins, artifacts and already evaluated dependencies are only
-        valid for that environment, so a solution compiled for something else must
-        not be recycled.
-
-        The Python version is compared by major and minor version. The platform is
-        only compared when compiling for an explicit target, a solution compiled on
-        one machine is still recycled when compiling for whatever machine runs the
-        compiler. Solutions without a header, or with one that cannot be
-        interpreted, are assumed to match.
+        Compared by major and minor version. Solutions without a header, or with one
+        that cannot be interpreted, are assumed to match.
 
         Args:
             target: The environment being compiled for. Defaults to the host.
-
-        Returns:
-            False if the solution is known to have been compiled for another target.
         """
         target = resolve(target)
-
         if self.recorded_python:
             parts = self.recorded_python.split(".")
             if len(parts) >= 2 and parts[0].isdigit() and parts[1].isdigit():
-                if (int(parts[0]), int(parts[1])) != target.python_major_minor:
-                    return False
+                return (int(parts[0]), int(parts[1])) == target.python_major_minor
+        return True
 
+    def matches_platform(self, target: Optional[TargetEnvironment] = None) -> bool:
+        """Whether this solution was compiled for the platform of the target.
+
+        The platform is only compared when compiling for an explicit target, a
+        solution compiled on one machine is still recycled when compiling for
+        whatever machine runs the compiler. Solutions without a header, or with one
+        that cannot be interpreted, are assumed to match.
+
+        Args:
+            target: The environment being compiled for. Defaults to the host.
+        """
+        target = resolve(target)
         if self.recorded_platform and not target.is_host:
             legacy = _LEGACY_PLATFORM_NAMES.get(self.recorded_platform.lower())
             if legacy:
@@ -121,8 +132,43 @@ class SolutionRepository(Repository):
             except ValueError:
                 return True
             return recorded.name == target.name
-
         return True
+
+    def matches_target(self, target: Optional[TargetEnvironment] = None) -> bool:
+        """Whether this solution was compiled for the given target.
+
+        A solution records the platform and Python version it was compiled for in
+        its header. Its pins, artifacts and already evaluated dependencies are only
+        valid for that environment, so a solution compiled for something else must
+        not be recycled. See `pins` for what a solution compiled for another
+        platform can still contribute.
+
+        Args:
+            target: The environment being compiled for. Defaults to the host.
+
+        Returns:
+            False if the solution is known to have been compiled for another target.
+        """
+        return self.matches_python(target) and self.matches_platform(target)
+
+    def pins(self) -> Dict[NormName, packaging.version.Version]:
+        """The version each package of this solution is pinned to.
+
+        The versions of a solution are portable to another platform even though its
+        artifacts and the dependencies it evaluated are not, so solutions compiled
+        together start from the versions of every one of them. See
+        `perform_compile_group`.
+
+        Returns:
+            The version of each package, keyed by normalized name.
+        """
+        return {
+            node.key: node.metadata.version
+            for node in self.solution
+            if node.metadata is not None
+            and node.metadata.version is not None
+            and node.key not in self.excluded_packages
+        }
 
     def __eq__(self, other: Any) -> bool:
         return (

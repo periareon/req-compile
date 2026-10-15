@@ -61,21 +61,8 @@ jobs:
       run: |
         bazel ${{ env.BAZEL_STARTUP_FLAGS }} test --config=strict //...
     - name: Cross-compile requirements for every platform
-      if: runner.os != 'Windows'
       run: |
-        set -euo pipefail
-        for platform in linux_aarch64 linux_x86_64 macos_aarch64 macos_x86_64 windows_x86_64; do
-          bazel ${{ env.BAZEL_STARTUP_FLAGS }} run "//3rdparty:requirements_${platform}_311" -- --upgrade
-        done
-    - name: Cross-compile requirements for every platform
-      if: runner.os == 'Windows'
-      # Bazel is launched from the native shell on Windows, not Git bash.
-      shell: pwsh
-      run: |
-        foreach ($platform in @("linux_aarch64", "linux_x86_64", "macos_aarch64", "macos_x86_64", "windows_x86_64")) {
-          bazel ${{ env.BAZEL_STARTUP_FLAGS }} run "//3rdparty:requirements_${platform}_311" "--" "--upgrade"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-        }
+        bazel ${{ env.BAZEL_STARTUP_FLAGS }} run "//3rdparty:requirements.update" "--" "--upgrade"
     - name: Upload cross-compiled requirements
       uses: actions/upload-artifact@v4
       with:

@@ -1,3 +1,15 @@
+New in version 1.3.1:
+
+* ``py_reqs_compiler`` compiles the solutions of several platforms together: ``requirements_txts`` maps a
+  solution file to each platform. The solutions use the same version of every package, a package keeps the
+  version the first platform resolves it to and a version another platform cannot use is dropped for all of
+  them. The compilation fails, naming the platforms, when no version of a package works everywhere. A
+  ``py_reqs_solution_test`` of such a target checks every solution, including that they agree.
+* The Bazel compiler accepts ``--solution``, ``--platform`` and ``--output`` once per solution.
+* ``perform_compile`` accepts soft pins, which yield with ``PinConflictException`` when a package cannot
+  satisfy them, and ``perform_compile_group`` compiles the same requirements for several targets with one
+  version per package.
+
 New in version 1.2.0:
 
 * ``requirements.parse`` now maps lock files to ids in ``requirements_locks`` and config settings to those

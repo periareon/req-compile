@@ -9,22 +9,11 @@ py_test(
 )
 
 py_reqs_compiler(
-    name = "requirements_update.linux",
-    platform = "manylinux_2_28_x86_64",
+    name = "requirements.update",
     requirements_in = "requirements.in",
-    requirements_txt = "requirements.linux.txt",
-)
-
-py_reqs_compiler(
-    name = "requirements_update.macos",
-    platform = "macosx_11_0_arm64",
-    requirements_in = "requirements.in",
-    requirements_txt = "requirements.macos.txt",
-)
-
-py_reqs_compiler(
-    name = "requirements_update.windows",
-    platform = "win_amd64",
-    requirements_in = "requirements.in",
-    requirements_txt = "requirements.windows.txt",
+    requirements_txts = {
+        "requirements.linux.txt": "manylinux_2_28_x86_64",
+        "requirements.macos.txt": "macosx_11_0_arm64",
+        "requirements.windows.txt": "win_amd64",
+    },
 )

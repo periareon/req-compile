@@ -6,7 +6,7 @@
 ##
 ## To regenerate this file, use the following command:
 ##
-##    bazel run "@@//:requirements.windows_x86_64.update"
+##    bazel run "@@//:requirements.update"
 ##
 ################################################################################
 

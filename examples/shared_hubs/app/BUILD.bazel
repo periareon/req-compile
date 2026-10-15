@@ -10,23 +10,19 @@ LOCKS = {
     "windows_x86_64": "win_amd64",
 }
 
-[
-    py_reqs_compiler(
-        name = "requirements.{}.update".format(id),
-        platform = platform,
-        requirements_in = "requirements.in",
-        requirements_txt = "requirements.{}.txt".format(id),
-    )
-    for id, platform in LOCKS.items()
-]
+py_reqs_compiler(
+    name = "requirements.update",
+    requirements_in = "requirements.in",
+    requirements_txts = {
+        "requirements.{}.txt".format(id): platform
+        for id, platform in LOCKS.items()
+    },
+)
 
-[
-    py_reqs_solution_test(
-        name = "requirements.{}.test".format(id),
-        compiler = ":requirements.{}.update".format(id),
-    )
-    for id in LOCKS
-]
+py_reqs_solution_test(
+    name = "requirements_test",
+    compiler = ":requirements.update",
+)
 
 # Two hubs pinning the same wheels share a single repository per wheel.
 py_test(

@@ -1,0 +1,6 @@
+Metadata-Version: 2.1
+Name: app
+Version: 1.0.0
+Requires-Dist: pkg
+Requires-Dist: lib
+Requires-Dist: winonly ; sys_platform == "win32"

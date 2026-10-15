@@ -7,7 +7,7 @@ PyReqsCompilerInfo = provider(
     fields = {
         "args": "List[str]: A list of arguments core to the compiler.",
         "requirements_in": "Target: The `requirements_in` target which provides requirement files.",
-        "solution": "Target: The solution file which represents the compiled result from `requirements_in`.",
+        "solutions": "List[Target]: The solution files which represent the compiled results from `requirements_in`, one per platform.",
     },
 )
 
@@ -82,28 +82,81 @@ def _symlink_py_executable(ctx, target):
 
     return link, runfiles
 
+def _solutions(ctx):
+    """Collect the solution files of a `py_reqs_compiler` target and their platforms.
+
+    Args:
+        ctx (ctx): The rule's context object
+
+    Returns:
+        List[struct]: One struct per solution with the fields `file` (File), `target`
+            (Target) and `platform` (Optional[str]).
+    """
+    if ctx.attr.requirements_txt and ctx.attr.requirements_txts:
+        fail("`requirements_txt` and `requirements_txts` are mutually exclusive. Please update {}".format(
+            ctx.label,
+        ))
+
+    if ctx.attr.requirements_txts:
+        if ctx.attr.platform:
+            fail("`platform` only applies to `requirements_txt`, `requirements_txts` maps each solution to its platform. Please update {}".format(
+                ctx.label,
+            ))
+        solutions = []
+        for target, platform in ctx.attr.requirements_txts.items():
+            files = target.files.to_list()
+            if len(files) != 1:
+                fail("`requirements_txts` entries must each be a single file, {} provides {}. Please update {}".format(
+                    target.label,
+                    len(files),
+                    ctx.label,
+                ))
+            if not platform:
+                fail("`requirements_txts` must map {} to the platform it is compiled for. Please update {}".format(
+                    target.label,
+                    ctx.label,
+                ))
+            solutions.append(struct(file = files[0], target = target, platform = platform))
+        return solutions
+
+    if not ctx.attr.requirements_txt:
+        fail("One of `requirements_txt` or `requirements_txts` is required. Please update {}".format(
+            ctx.label,
+        ))
+
+    return [struct(
+        file = ctx.file.requirements_txt,
+        target = ctx.attr.requirements_txt,
+        platform = ctx.attr.platform or None,
+    )]
+
 def _py_reqs_compiler_impl(ctx):
     compiler, runfiles = _symlink_py_executable(ctx, ctx.attr._compiler[0])
 
-    custom_compile_command = ctx.expand_location(ctx.attr.custom_compile_command.replace("{label}", str(ctx.label)), [
-        ctx.attr.requirements_in,
-        ctx.attr.requirements_txt,
-    ])
+    solutions = _solutions(ctx)
+
+    custom_compile_command = ctx.expand_location(
+        ctx.attr.custom_compile_command.replace("{label}", str(ctx.label)),
+        [ctx.attr.requirements_in] + [solution.target for solution in solutions],
+    )
 
     args = [
         "--requirements_file",
         _rlocationpath(ctx.file.requirements_in, ctx.workspace_name),
-        "--solution",
-        _rlocationpath(ctx.file.requirements_txt, ctx.workspace_name),
+    ]
+    for solution in solutions:
+        args.extend(["--solution", _rlocationpath(solution.file, ctx.workspace_name)])
+    args.extend([
         "--custom_compile_command",
         json.encode(custom_compile_command),
-    ]
+    ])
 
     if ctx.attr.allow_sdists:
         args.append("--allow_sdists")
 
-    if ctx.attr.platform:
-        args.extend(["--platform", ctx.attr.platform])
+    for solution in solutions:
+        if solution.platform:
+            args.extend(["--platform", solution.platform])
 
     python_version = ctx.attr.python_version
     if not python_version:
@@ -118,23 +171,23 @@ def _py_reqs_compiler_impl(ctx):
     if python_version:
         args.extend(["--python_version", python_version])
 
+    outputs = []
+    for solution in solutions:
+        outputs.extend(["--output", solution.file.short_path])
+
     args_file = ctx.actions.declare_file("{}.args.txt".format(ctx.label.name))
     ctx.actions.write(
         output = args_file,
-        content = "\n".join(args + [
-            "--output",
-            ctx.file.requirements_txt.short_path,
-        ]),
+        content = "\n".join(args + outputs),
     )
 
     runfiles = runfiles.merge_all([
         ctx.runfiles(files = [
             args_file,
             ctx.file.requirements_in,
-            ctx.file.requirements_txt,
-        ]),
+        ] + [solution.file for solution in solutions]),
         ctx.attr.requirements_in[DefaultInfo].default_runfiles,
-    ])
+    ] + [solution.target[DefaultInfo].default_runfiles for solution in solutions])
 
     return [
         RunEnvironmentInfo(
@@ -150,11 +203,11 @@ def _py_reqs_compiler_impl(ctx):
         PyReqsCompilerInfo(
             args = args,
             requirements_in = ctx.attr.requirements_in,
-            solution = ctx.attr.requirements_txt,
+            solutions = [solution.target for solution in solutions],
         ),
         OutputGroupInfo(
             req_compile_args_file = depset([args_file]),
-            req_compile_solution_file = depset([ctx.file.requirements_txt]),
+            req_compile_solution_file = depset([solution.file for solution in solutions]),
         ),
     ]
 
@@ -199,37 +252,36 @@ bazel run //:requirements.update -- --upgrade
 
 By default a solution is compiled for the platform and Python version running the compiler. The `platform` and
 `python_version` attributes compile a solution for a different environment, so solutions for every platform a
-project supports can be produced and tested from any machine.
+project supports can be produced and tested from any machine. To support several platforms, map a solution file
+to each platform with `requirements_txts`. One target then compiles every solution, and the solutions always use
+the same version of each package: a package keeps the version the first platform resolves it to and a version
+that another platform cannot use, e.g. because no wheel is published for it, is dropped for all of them. When no
+version of a package works on every platform the compilation fails and names the platforms that disagree, so
+the package can be constrained in the requirements. A `py_reqs_solution_test` of the target checks every
+solution, including that they agree.
 
 ```python
 load("@rules_req_compile//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
 
-[
-    py_reqs_compiler(
-        name = "requirements.{}.update".format(platform),
-        platform = platform,
-        requirements_in = ":requirements",
-        requirements_txt = "requirements.{}.txt".format(platform),
-    )
-    for platform in [
-        "manylinux_2_28_x86_64",
-        "macosx_11_0_arm64",
-        "win_amd64",
-    ]
-]
+py_reqs_compiler(
+    name = "requirements.update",
+    requirements_in = ":requirements",
+    requirements_txts = {
+        "requirements.linux.txt": "manylinux_2_28_x86_64",
+        "requirements.macos.txt": "macosx_11_0_arm64",
+        "requirements.windows.txt": "win_amd64",
+    },
+)
 
-[
-    py_reqs_solution_test(
-        name = "requirements.{}.test".format(platform),
-        compiler = ":requirements.{}.update".format(platform),
-    )
-    for platform in [
-        "manylinux_2_28_x86_64",
-        "macosx_11_0_arm64",
-        "win_amd64",
-    ]
-]
+py_reqs_solution_test(
+    name = "requirements_test",
+    compiler = ":requirements.update",
+)
 ```
+
+The versions pinned by any of the solutions are recycled for all of them, so a platform added to
+`requirements_txts` starts from the versions the others use. Solutions for different Python versions frequently
+cannot share versions, so define one `py_reqs_compiler` per Python version.
 
 Wheels are selected and environment markers are evaluated as they would be when installing on the target.
 Source distributions (sdists) have their metadata extracted on the machine running the compiler, so solutions
@@ -254,7 +306,8 @@ for other platforms should avoid them, which is the default (`allow_sdists = Fal
                 "`pip --platform`, e.g. `manylinux_2_28_x86_64`, `manylinux2014_aarch64`, `macosx_11_0_arm64` " +
                 "or `win_amd64`. A manylinux tag accepts wheels for that glibc or older, a macosx tag wheels " +
                 "for that release or older. When unset, the solution is compiled for the platform running " +
-                "the compiler."
+                "the compiler. Only applies to `requirements_txt`, `requirements_txts` names the platform " +
+                "of each solution."
             ),
         ),
         "python_version": attr.string(
@@ -271,9 +324,16 @@ for other platforms should avoid them, which is the default (`allow_sdists = Fal
             mandatory = True,
         ),
         "requirements_txt": attr.label(
-            doc = "The solution file.",
+            doc = "The solution file. Mutually exclusive with `requirements_txts`.",
             allow_single_file = True,
-            mandatory = True,
+        ),
+        "requirements_txts": attr.label_keyed_string_dict(
+            doc = (
+                "Solution files mapped to the wheel platform tag each is compiled for, see `platform`. " +
+                "The solutions are compiled together and use the same version of every package. " +
+                "Mutually exclusive with `requirements_txt` and `platform`."
+            ),
+            allow_files = True,
         ),
         "_compiler": attr.label(
             cfg = _compilation_mode_opt_transition,
@@ -311,11 +371,15 @@ def _py_reqs_solution_test_impl(ctx):
             ctx.runfiles(
                 transitive_files = depset(transitive = [
                     compile_info.requirements_in[DefaultInfo].files,
-                    compile_info.solution[DefaultInfo].files,
+                ] + [
+                    solution[DefaultInfo].files
+                    for solution in compile_info.solutions
                 ]),
             ),
             compile_info.requirements_in[DefaultInfo].default_runfiles,
-            compile_info.solution[DefaultInfo].default_runfiles,
+        ] + [
+            solution[DefaultInfo].default_runfiles
+            for solution in compile_info.solutions
         ])
     elif ctx.attr.requirements_in or ctx.attr.requirements_txt:
         if not ctx.attr.requirements_in and not ctx.attr.requirements_txt:

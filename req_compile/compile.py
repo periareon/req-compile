@@ -6,15 +6,22 @@ import logging
 import operator
 import os
 from collections import defaultdict
-from typing import Dict, Iterable, Mapping, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
 import packaging.requirements
+import packaging.version
 
 import req_compile.containers
 import req_compile.dists
 from req_compile.containers import RequirementContainer
 from req_compile.dists import DependencyNode, DistributionCollection
-from req_compile.errors import MetadataError, NoCandidateException
+from req_compile.errors import (
+    MetadataError,
+    NoCandidateException,
+    NoCommonVersionException,
+    PinConflictException,
+    Rejection,
+)
 from req_compile.repos.repository import Repository
 from req_compile.repos.source import SourceRepository
 from req_compile.target import TargetEnvironment
@@ -30,6 +37,9 @@ from req_compile.versions import is_possible
 
 MAX_COMPILE_DEPTH = int(os.environ.get("REQ_COMPILE_MAX_DEPTH", "80"))
 MAX_DOWNGRADE = int(os.environ.get("REQ_COMPILE_MAX_DOWNGRADE", "20"))
+# The number of times solutions compiled together are resolved again after one
+# of them rejected a version another had chosen.
+MAX_GROUP_PASSES = int(os.environ.get("REQ_COMPILE_MAX_GROUP_PASSES", "20"))
 
 LOG = logging.getLogger("req_compile.compile")
 
@@ -50,14 +60,24 @@ class CompileOptions:
     extras: Optional[Iterable[str]] = None
     allow_circular_dependencies: bool = True
     pinned_requirements: Mapping[NormName, packaging.requirements.Requirement] = {}
+    # Requirements applied to a project only if it is required, which yield when
+    # the project cannot satisfy them: `PinConflictException` is raised instead of
+    # resolving the reverse dependencies differently. Solutions compiled together
+    # use these to keep their versions aligned, see `perform_compile_group`.
+    soft_pins: Mapping[NormName, packaging.requirements.Requirement] = {}
     only_binary: Set[NormName] = set()
 
 
-def _get_strictest_reverse_dep(node: DependencyNode) -> Optional[DependencyNode]:
+def _get_strictest_reverse_dep(
+    node: DependencyNode,
+    soft_pin: Optional[packaging.requirements.Requirement] = None,
+) -> Optional[DependencyNode]:
     """Get the strictest constraint from all reverse dependencies.
 
     Args:
         node: The node to check.
+        soft_pin: A soft pin on the node, scored like a reverse dependency that
+            cannot itself be walked back.
 
     Returns:
         The single reverse dependency that was the most conflicting. If no reverse
@@ -67,6 +87,10 @@ def _get_strictest_reverse_dep(node: DependencyNode) -> Optional[DependencyNode]
 
     violate_score: Dict[DependencyNode, int] = defaultdict(int)
     for idx, revnode in enumerate(nodes):
+        if soft_pin is not None and not is_possible(
+            merge_requirements(revnode.dependencies[node], soft_pin)
+        ):
+            violate_score[revnode] += 1
         for next_node in nodes[idx + 1 :]:
             if not is_possible(
                 merge_requirements(
@@ -158,6 +182,20 @@ def compile_roots(
             pin = options.pinned_requirements.get(spec_name, spec_req)
             spec_req = merge_requirements(spec_req, pin)
 
+        # The requirement before any soft pin, which decides whether a failure is
+        # the pin's fault.
+        unpinned_req = spec_req
+        soft_pin = options.soft_pins.get(spec_name)
+        if soft_pin is not None:
+            spec_req = merge_requirements(spec_req, soft_pin)
+
+        def _no_candidate(no_candidate: bool) -> NoCandidateException:
+            if soft_pin is not None and is_possible(unpinned_req):
+                return PinConflictException(
+                    spec_name, soft_pin, unpinned_req, node, no_candidate
+                )
+            return NoCandidateException(spec_req)
+
         if not is_possible(spec_req):
             logger.info("Requirement conflict for %s (%s)", node, spec_req)
             # Try walking back. Some reverse dependency contributed a requirement
@@ -167,13 +205,13 @@ def compile_roots(
             # version from being selected.
             # Search the full space is expensive and possibly harmful because of how heavily
             # it must hit remote indices.
-            reverse_dep = _get_strictest_reverse_dep(node)
+            reverse_dep = _get_strictest_reverse_dep(node, soft_pin)
             if (
                 reverse_dep is None
                 or reverse_dep.metadata is None
                 or reverse_dep.metadata.version is None
             ):
-                raise NoCandidateException(spec_req)
+                raise _no_candidate(no_candidate=False)
 
             if _walkback_budget is not None and _walkback_budget <= 0:
                 logger.info(
@@ -181,7 +219,7 @@ def compile_roots(
                     node,
                     spec_req,
                 )
-                ex = NoCandidateException(spec_req)
+                ex = _no_candidate(no_candidate=False)
                 ex.conflicting_node = node
                 ex.walkback_project = reverse_dep.metadata.name
                 raise ex
@@ -241,11 +279,22 @@ def compile_roots(
                 dists.remove_dists(bad_constraint, remove_upstream=False)
             return
 
-        metadata, cached = repo.get_dist(
-            spec_req,
-            allow_source_dist=spec_name not in options.only_binary,
-            max_downgrade=max_downgrade,
-        )
+        try:
+            metadata, cached = repo.get_dist(
+                spec_req,
+                allow_source_dist=spec_name not in options.only_binary,
+                max_downgrade=max_downgrade,
+            )
+        except NoCandidateException:
+            if soft_pin is None:
+                raise
+            # The pin is only at fault if the requirement is solvable without it.
+            repo.get_dist(
+                unpinned_req,
+                allow_source_dist=spec_name not in options.only_binary,
+                max_downgrade=max_downgrade,
+            )
+            raise _no_candidate(no_candidate=True) from None
         logger.debug(
             "Acquired candidate %s %s [%s] (%s)",
             metadata,
@@ -312,6 +361,7 @@ def perform_compile(
     only_binary: Optional[Set[NormName]] = None,
     max_downgrade: Optional[int] = None,
     target: Optional[TargetEnvironment] = None,
+    pins: Optional[Mapping[NormName, packaging.requirements.Requirement]] = None,
 ) -> Tuple[DistributionCollection, Set[DependencyNode]]:
     """Perform a compilation using the given inputs and constraints.
 
@@ -331,6 +381,11 @@ def perform_compile(
         max_downgrade: The maximum number of version downgrades that will be allowed for conflicts.
         target: The environment to compile for. Defaults to the target of `repo`, which
             itself defaults to the host.
+        pins: Soft pins keyed by normalized name. Unlike constraints, a soft pin
+            never requires a package, is not recorded in the solution and yields
+            when the package cannot satisfy it: `PinConflictException` is raised
+            instead of resolving the dependents differently. See
+            `CompileOptions.soft_pins`.
 
     Returns:
         the solution and root nodes used to generate it
@@ -370,6 +425,7 @@ def perform_compile(
     if all_pinned and constraint_reqs:
         LOG.info("All constraints were pins - no need to solve the constraints")
         options.pinned_requirements = pinned_requirements
+    options.soft_pins = dict(pins or {})
 
     if max_downgrade is None:
         max_downgrade = MAX_DOWNGRADE
@@ -400,6 +456,148 @@ def perform_compile(
         _add_constraints(all_pinned, constraint_reqs, results)
 
     return results, roots
+
+
+def _soft_pins(
+    agreed: Mapping[NormName, packaging.version.Version],
+    rejected: Mapping[NormName, Sequence[Rejection]],
+) -> Dict[NormName, packaging.requirements.Requirement]:
+    """The soft pins keeping solutions compiled together aligned.
+
+    A project with an agreed version is pinned to it. A project without one, whose
+    versions some solution rejected, is kept away from those versions.
+    """
+    pins = {}
+    for name, version in agreed.items():
+        pins[name] = parse_requirement(f"{name}=={version}")
+    for name, rejections in rejected.items():
+        if name in agreed or not rejections:
+            continue
+        pins[name] = parse_requirement(
+            name + ",".join(f"!={rejection.version}" for rejection in rejections)
+        )
+    return pins
+
+
+def perform_compile_group(
+    input_reqs: Iterable[RequirementContainer],
+    repos: Sequence[Repository],
+    constraint_reqs: Optional[Iterable[RequirementContainer]] = None,
+    remove_constraints: bool = False,
+    extras: Optional[Iterable[str]] = None,
+    allow_circular_dependencies: bool = True,
+    only_binary: Optional[Set[NormName]] = None,
+    max_downgrade: Optional[int] = None,
+    pins: Optional[Mapping[NormName, packaging.version.Version]] = None,
+    max_passes: int = MAX_GROUP_PASSES,
+) -> List[Tuple[DistributionCollection, Set[DependencyNode]]]:
+    """Compile the same requirements for several targets, with one version per project.
+
+    Each repository is compiled for its own target, in order. A project keeps the
+    version the first target that needs it resolves it to, so the solutions never
+    disagree. When a later target cannot use that version at all, e.g. there is no
+    artifact for its platform or its dependencies require another version, the
+    version is rejected for every target and the group is compiled again, until a
+    pass completes without any rejection. A target may also resolve the dependents
+    of a pinned project to other versions than an earlier target did rather than
+    reject the version, in which case the next pass aligns the earlier target.
+
+    Args:
+        input_reqs: The requirements, shared by every target.
+        repos: One repository per target, compiled in this order. Each compiles for
+            its own target, see `Repository.target`.
+        constraint_reqs: Constraints to use when compiling.
+        remove_constraints: Whether to remove the constraints from the solutions.
+        extras: Extras to apply automatically to source projects.
+        allow_circular_dependencies: Whether to allow circular dependencies.
+        only_binary: Set of projects that should only consider binary distributions.
+        max_downgrade: The maximum number of version downgrades that will be allowed
+            for conflicts, and the maximum number of versions of a project the
+            targets may reject before giving up.
+        pins: Versions to start from, keyed by normalized name, e.g. those of the
+            solutions being recompiled. They are soft pins: a project is only pinned
+            if it is required, and a version that a target cannot use is rejected
+            like any other.
+        max_passes: The maximum number of times the group is compiled.
+
+    Returns:
+        The solution and root nodes of each repository, in the order given.
+
+    Raises:
+        NoCommonVersionException: If no version of a project can be used by every
+            target that needs it.
+        NoCandidateException: If the requirements cannot be resolved for a target.
+    """
+    input_reqs = list(input_reqs)
+    if max_downgrade is None:
+        max_downgrade = MAX_DOWNGRADE
+    agreed: Dict[NormName, packaging.version.Version] = dict(pins or {})
+    rejected: Dict[NormName, List[Rejection]] = defaultdict(list)
+    last: Optional[Rejection] = None
+
+    for _ in range(max_passes):
+        rejections = 0
+        results: List[Tuple[DistributionCollection, Set[DependencyNode]]] = []
+        for repo in repos:
+            target = repo.target
+            while True:
+                try:
+                    results.append(
+                        perform_compile(
+                            input_reqs,
+                            repo,
+                            constraint_reqs=constraint_reqs,
+                            remove_constraints=remove_constraints,
+                            extras=extras,
+                            allow_circular_dependencies=allow_circular_dependencies,
+                            only_binary=only_binary,
+                            max_downgrade=max_downgrade,
+                            target=target,
+                            pins=_soft_pins(agreed, rejected),
+                        )
+                    )
+                    break
+                except PinConflictException as ex:
+                    rejections += 1
+                    version = agreed.pop(ex.name, None)
+                    rejected[ex.name].append(Rejection(target, version, ex))
+                    if version is None or len(rejected[ex.name]) > max_downgrade:
+                        # Every version this target can use was rejected by
+                        # another, or the search is not converging.
+                        raise NoCommonVersionException(
+                            ex.name, rejected[ex.name]
+                        ) from ex
+                    LOG.info(
+                        "%s cannot use %s (%s), resolving it again for every target",
+                        target.name,
+                        ex.pin,
+                        ex,
+                    )
+                    last = rejected[ex.name][-1]
+
+            for node in results[-1][0]:
+                if (
+                    node.metadata is None
+                    or node.metadata.meta
+                    or node.metadata.version is None
+                ):
+                    continue
+                version = agreed.setdefault(node.key, node.metadata.version)
+                assert (
+                    version == node.metadata.version
+                ), f"{target.name} resolved {node.key} to {node.metadata.version}, not {version}"
+
+        if not rejections:
+            return results
+
+    # Every pass rejected a version, so there is a last rejection to report.
+    assert last is not None
+    LOG.error(
+        "The solutions still disagree after %d passes. REQ_COMPILE_MAX_GROUP_PASSES "
+        "raises the limit.",
+        max_passes,
+    )
+    raise NoCommonVersionException(last.cause.name, rejected[last.cause.name])
 
 
 def _add_constraints(
