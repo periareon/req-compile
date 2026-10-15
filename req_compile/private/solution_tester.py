@@ -18,9 +18,9 @@ _WARNING = """\
 
 ################################################################################
 
-The solution file {solution} is out of date.
+The solution file{plural} {solutions} {verb} out of date.
 
-Please run the following command to update it:
+Please run the following command to update {pronoun}:
 
     {custom_compile_command}
 """
@@ -46,9 +46,13 @@ def main() -> None:
         compile_main(args, runfiles)
     except SystemExit as exc:
         if exc.code == 1:
+            several = len(args.solutions) > 1
             print(
                 _WARNING.format(
-                    solution=args.solution,
+                    plural="s" if several else "",
+                    solutions=", ".join(args.solutions),
+                    verb="are" if several else "is",
+                    pronoun="them" if several else "it",
                     custom_compile_command=args.custom_compile_command,
                 ),
                 file=sys.stderr,

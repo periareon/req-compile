@@ -390,7 +390,7 @@ use_repo(requirements, "pip_deps")
 This example was a multi-platform set of solutions, pulled into a single
 hub repository named "pip_deps". Each lock is given an id. The platform of
 each lock is read from the header `req-compile` writes to lock files compiled
-with the `platform` attribute of `py_reqs_compiler` (`## Platform: manylinux_2_28_x86_64`),
+for a platform by `py_reqs_compiler` (`## Platform: manylinux_2_28_x86_64`),
 which selects on the operating system and CPU of that wheel platform tag.
 
 To control exactly when a lock is used, map your own config settings to the

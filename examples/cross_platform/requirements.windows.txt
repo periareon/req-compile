@@ -6,13 +6,13 @@
 ##
 ## To regenerate this file, use the following command:
 ##
-##    bazel run "@@//examples/cross_platform:requirements.windows.update"
+##    bazel run "@@//:requirements.update"
 ##
 ################################################################################
 
 black==24.8.0 \
     --hash=sha256:72901b4913cbac8972ad911dc4098d5753704d1f3c56e44ae8dce99eecb0e3af
-    # via _main/examples/cross_platform/requirements.in
+    # via _main/requirements.in
     # https://files.pythonhosted.org/packages/a8/69/a000fc3736f89d1bdc7f4a879f8aaf516fb03613bb51a0154070383d95d9/black-24.8.0-cp311-cp311-win_amd64.whl#sha256=72901b4913cbac8972ad911dc4098d5753704d1f3c56e44ae8dce99eecb0e3af
 click==8.1.7 \
     --hash=sha256:ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28

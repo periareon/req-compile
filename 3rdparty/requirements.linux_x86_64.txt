@@ -6,7 +6,7 @@
 ##
 ## To regenerate this file, use the following command:
 ##
-##    bazel run "@@//3rdparty:requirements_linux_x86_64_311"
+##    bazel run "@@//3rdparty:requirements.update"
 ##
 ################################################################################
 

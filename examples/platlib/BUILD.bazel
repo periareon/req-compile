@@ -2,39 +2,18 @@ load("@rules_req_compile//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test
 load("@rules_venv//python:defs.bzl", "py_test")
 
 py_reqs_compiler(
-    name = "requirements.linux.update",
-    platform = "manylinux_2_28_x86_64",
+    name = "requirements.update",
     requirements_in = "requirements.in",
-    requirements_txt = "requirements.linux.txt",
+    requirements_txts = {
+        "requirements.linux.txt": "manylinux_2_28_x86_64",
+        "requirements.macos.txt": "macosx_11_0_arm64",
+        "requirements.windows.txt": "win_amd64",
+    },
 )
 
 py_reqs_solution_test(
-    name = "requirements_linux_test",
-    compiler = ":requirements.linux.update",
-)
-
-py_reqs_compiler(
-    name = "requirements.macos.update",
-    platform = "macosx_11_0_arm64",
-    requirements_in = "requirements.in",
-    requirements_txt = "requirements.macos.txt",
-)
-
-py_reqs_solution_test(
-    name = "requirements_macos_test",
-    compiler = ":requirements.macos.update",
-)
-
-py_reqs_compiler(
-    name = "requirements.windows.update",
-    platform = "win_amd64",
-    requirements_in = "requirements.in",
-    requirements_txt = "requirements.windows.txt",
-)
-
-py_reqs_solution_test(
-    name = "requirements_windows_test",
-    compiler = ":requirements.windows.update",
+    name = "requirements_test",
+    compiler = ":requirements.update",
 )
 
 py_test(
