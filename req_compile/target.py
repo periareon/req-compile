@@ -316,6 +316,16 @@ class TargetEnvironment:  # pylint: disable=too-many-instance-attributes
         platform_tags = _host_platform_tags()
         arch = platform.uname()[4]
         glibc_version = get_glibc_version()
+        marker_environment = cast(
+            Dict[str, str], dict(packaging.markers.default_environment())
+        )
+        if not arch and sys.platform == "win32":
+            # Windows reports the machine through the `PROCESSOR_ARCHITECTURE`
+            # environment variable, which a scrubbed environment such as a Bazel
+            # test does not carry. The platform tag still names the architecture,
+            # and the `platform_machine` marker is derived the same way.
+            arch = _WINDOWS_PLATFORMS.get(platform_tags[0], "")
+            marker_environment["platform_machine"] = arch
         return cls(
             name=_host_name(platform_tags, arch, glibc_version),
             python_version=python_version,
@@ -325,9 +335,7 @@ class TargetEnvironment:  # pylint: disable=too-many-instance-attributes
             abi_tags=_abi_tags(interpreter, python_version),
             arch=arch,
             glibc_version=glibc_version,
-            marker_environment=cast(
-                Dict[str, str], dict(packaging.markers.default_environment())
-            ),
+            marker_environment=marker_environment,
             is_host=True,
         )
 

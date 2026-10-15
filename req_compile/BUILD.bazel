@@ -1,13 +1,63 @@
-load("@rules_python//python:defs.bzl", "py_binary")
+load("@bazel_skylib//rules:run_binary.bzl", "run_binary")
+load("@rules_venv//python/venv:defs.bzl", "py_venv_binary")
+load("@rules_venv//python/wheel:defs.bzl", "py_wheel_library")
+load("//:version.bzl", "VERSION")
 
-py_binary(
+run_binary(
+    name = "long_description",
+    srcs = [
+        "//:CHANGELOG.rst",
+        "//:README.rst",
+    ],
+    outs = ["long_description.rst"],
+    args = [
+        "--output",
+        "$(execpath long_description.rst)",
+        "--input",
+        "$(execpath //:CHANGELOG.rst)",
+        "--input",
+        "$(execpath //:README.rst)",
+    ],
+    tool = "//tools/concat",
+)
+
+py_wheel_library(
     name = "req_compile",
     srcs = glob(["**/*.py"]),
-    data = [
-        "py.typed",
+    author = "Spencer Putt",
+    author_email = "sputt@alumni.iu.edu",
+    classifiers = [
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
+        "Operating System :: OS Independent",
+        "Environment :: Console",
+        "Topic :: Software Development",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: MIT License",
     ],
-    imports = [".."],
-    main = "__main__.py",
+    constraints_file = "//:requirements.in",
+    data = ["py.typed"],
+    description_content_type = "text/x-rst",
+    description_file = ":long_description",
+    distribution = "req-compile",
+    # `py_wheel_library` has no `entry_points` parameter so the console scripts
+    # are provided directly as a `.dist-info` file. The license is shipped the
+    # same way, matching what `setup.cfg` had setuptools do.
+    extra_distinfo_files = {
+        "//:LICENSE.txt": "LICENSE.txt",
+        ":entry_points.txt": "entry_points.txt",
+    },
+    homepage = "https://github.com/periareon/req-compile",
+    license = "MIT License",
+    python_requires = ">=3.9",
+    repository_url = "https://upload.pypi.org/legacy/",
+    summary = "Python requirements compiler",
+    version = VERSION,
     visibility = ["//visibility:public"],
     deps = [
         "@req_compile_deps//appdirs",
@@ -18,4 +68,12 @@ py_binary(
         "@req_compile_deps//toml",
         "@req_compile_deps//wheel",
     ],
+)
+
+py_venv_binary(
+    name = "req_compile_bin",
+    srcs = ["__main__.py"],
+    main = "__main__.py",
+    visibility = ["//visibility:public"],
+    deps = [":req_compile"],
 )

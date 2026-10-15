@@ -73,15 +73,22 @@ tar -czf "${SCRATCH}/${ARCHIVE}" \
     -C "${WORKSPACE}" .
 mv "${SCRATCH}/${ARCHIVE}" "${ARCHIVE}"
 
-# Build the Python wheel and sdist into `dist/`. `python -m build` runs
-# in an isolated environment, so the host Python only needs `venv`.
-# Building these here (rather than in a separate job) means the same
-# bytes that are attested and attached to the GitHub release are the
-# ones later uploaded to PyPI by release.yaml's `pypi-publish` job.
+# Build the Python wheel and sdist into `dist/`. Building these here
+# (rather than in a separate job) means the same bytes that are attested
+# and attached to the GitHub release are the ones later uploaded to PyPI
+# by release.yaml's `pypi-publish` job.
+#
+# The wheel is the `py_wheel_library` target built by Bazel, so it is the
+# exact artifact the rest of the repository tests against. `python -m build`
+# runs in an isolated environment, so the host Python only needs `venv`, and
+# is still used for the source distribution.
+rm -rf dist
+mkdir dist
+(cd "${WORKSPACE}" && bazel build //req_compile:req_compile.whl)
+cp "${WORKSPACE}/$(cd "${WORKSPACE}" && bazel cquery --output=files //req_compile:req_compile.whl)" dist/
 python3 -m venv "${SCRATCH}/venv"
 "${SCRATCH}/venv/bin/python" -m pip install --quiet --upgrade pip build
-rm -rf dist
-"${SCRATCH}/venv/bin/python" -m build --outdir dist "${WORKSPACE}"
+"${SCRATCH}/venv/bin/python" -m build --sdist --outdir dist "${WORKSPACE}"
 
 # Render release notes by substituting {version} into the template.
 # release_notes.template lives in `.github/`.

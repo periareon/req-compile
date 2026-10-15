@@ -1,8 +1,13 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 
 exports_files([
+    "CHANGELOG.rst",
+    "LICENSE.txt",
     "MODULE.bazel",
+    "README.rst",
+    "pyproject.toml",
     "requirements.in",
+    "setup.py",
     "test-requirements.in",
     "version.bzl",
     "defs.bzl",
@@ -29,9 +34,9 @@ bzl_library(
     srcs = ["defs.bzl"],
     visibility = ["//visibility:public"],
     deps = [
-        "//private:annotation",
-        "//private:reqs_repo",
-        "//private:whl_repo",
+        "//req_compile/private:annotation",
+        "//req_compile/private:reqs_repo",
+        "//req_compile/private:whl_repo",
     ],
 )
 

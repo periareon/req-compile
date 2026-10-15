@@ -1,7 +1,7 @@
 load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
 load("@multi_plat_pip_deps//:requirements.bzl", multi_plat_requirement = "requirement")
 load("@rules_req_compile//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
-load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("@rules_venv//python:defs.bzl", "py_binary", "py_test")
 load("@single_plat_pip_deps//:requirements.bzl", single_plat_requirement = "requirement")
 
 # gazelle:ignore

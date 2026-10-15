@@ -12,7 +12,10 @@ class ScopedAnnotationsTest(unittest.TestCase):
     def test_marker_applied_to_app_hub(self) -> None:
         runfiles = Runfiles.Create()
         assert runfiles, "Failed to locate runfiles"
-        marker = runfiles.Rlocation(os.environ["APP_MARKER"])
+        # `source_repo` is given explicitly because the default inspects the call stack
+        # and fails when this script and the runfiles library live on different drives,
+        # which is the case under `rules_venv` on the Windows CI runners.
+        marker = runfiles.Rlocation(os.environ["APP_MARKER"], source_repo="")
         assert marker, "Failed to find the annotation marker"
         self.assertTrue(Path(marker).exists(), marker)
 

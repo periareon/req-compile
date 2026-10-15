@@ -117,6 +117,7 @@ def test_pathlib_open_with_encoding(monkeypatch, mock_targz, tmp_path):
     with contextlib.closing(archive):
         with temp_cwd(root):
             monkeypatch.setattr(io, "open", archive.open)
+
             # Python 3.10 does not use io.open under the hood.
             def _path_open(self, *args, **kwargs):
                 return archive.open(self, *args, **kwargs)

@@ -7,7 +7,7 @@ stardoc(
     tags = ["manual"],
     deps = [
         "//:defs",
-        "//private:compiler",
+        "//req_compile/private:compiler",
         "@rules_cc//cc:bzl_srcs",
         "@rules_cc//cc/common",
         "@rules_cc//cc/toolchains:toolchain_rules",

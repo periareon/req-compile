@@ -313,7 +313,8 @@ def rlocation(runfiles: Runfiles, rlocationpath: str) -> Path:
     Returns:
         The requested runifle.
     """
-    runfile = runfiles.Rlocation(rlocationpath)
+    # https://github.com/periareon/rules_venv/issues/37
+    runfile = runfiles.Rlocation(rlocationpath, source_repo="")
     if not runfile:
         raise FileNotFoundError(f"Failed to find runfile: {rlocationpath}")
     path = Path(runfile)

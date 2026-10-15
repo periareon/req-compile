@@ -1,6 +1,6 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_req_compile//:defs.bzl", "py_package_annotation_consumer", "py_reqs_compiler", "py_reqs_solution_test")
-load("@rules_python//python:defs.bzl", "py_library", "py_test")
+load("@rules_venv//python:defs.bzl", "py_library", "py_test")
 load("@shared_hubs_app_deps//:defs.bzl", "all_requirements")
 load(":platform_transition.bzl", "platform_transitioned")
 
@@ -34,7 +34,7 @@ py_test(
     srcs = ["shared_wheels_test.py"],
     deps = [
         ":runfiles_util",
-        "@rules_python//python/runfiles",
+        "@rules_venv//python/runfiles",
         "@shared_hubs_app_deps//click",
         "@shared_hubs_app_deps//requests",
         "@shared_hubs_lib//:lib",
@@ -78,7 +78,7 @@ py_test(
     srcs = ["dependency_annotations_test.py"],
     data = [":click_lib_marker"],
     env = {"LIB_MARKER": "$(rlocationpath :click_lib_marker)"},
-    deps = ["@rules_python//python/runfiles"],
+    deps = ["@rules_venv//python/runfiles"],
 )
 
 # The `idna` annotation is scoped to this hub.
@@ -95,7 +95,7 @@ py_test(
     env = {"APP_MARKER": "$(rlocationpath :idna_app_marker)"},
     deps = [
         ":runfiles_util",
-        "@rules_python//python/runfiles",
+        "@rules_venv//python/runfiles",
         "@shared_hubs_app_deps//requests",
         "@shared_hubs_lib//:requests",
     ],

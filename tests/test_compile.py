@@ -225,11 +225,7 @@ def test_compile_source_user1(local_tree):
 
 def test_compile_source_user2(local_tree):
     results = req_compile.compile.perform_compile(
-        [
-            DistInfo(
-                "test", None, [Requirement("user-2")], meta=True
-            )
-        ],
+        [DistInfo("test", None, [Requirement("user-2")], meta=True)],
         local_tree,
     )
     assert _real_outputs(results) == {
@@ -243,11 +239,7 @@ def test_compile_source_user2_recursive_root():
     base_dir = os.path.join(os.path.dirname(__file__), "local-tree")
     repo = SourceRepository(base_dir)
     results = req_compile.compile.perform_compile(
-        [
-            DistInfo(
-                "test", None, [Requirement("user-2")], meta=True
-            )
-        ],
+        [DistInfo("test", None, [Requirement("user-2")], meta=True)],
         repo,
     )
     assert _real_outputs(results) == {

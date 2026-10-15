@@ -504,7 +504,7 @@ def create_hub_repos(plan):
 _DEFS_BZL_TEMPLATE = """\
 \"\"\"Python requirements of the `{hub}` hub.\"\"\"
 
-load("@rules_req_compile//private:utils.bzl", "sanitize_package_name")
+load("@rules_req_compile//req_compile/private:utils.bzl", "sanitize_package_name")
 
 # The hub whose packages are defined in the shared wheel repositories.
 _WHEEL_HUB = "{wheel_hub}"
@@ -629,7 +629,7 @@ def repositories():
 _RULES_PYTHON_COMPAT = """\
 \"\"\"A compatibility file with rules_python\"\"\"
 
-load("@rules_req_compile//private:utils.bzl", "sanitize_package_name")
+load("@rules_req_compile//req_compile/private:utils.bzl", "sanitize_package_name")
 load(
     ":defs.bzl",
     "repositories",
@@ -684,7 +684,7 @@ filegroup(
 """
 
 _PACKAGE_BUILD_FILE_TEMPLATE = """\
-load("@rules_python//python:defs.bzl", "py_library")
+load("@rules_venv//python:defs.bzl", "py_library")
 
 package(default_visibility = ["//visibility:public"])
 
