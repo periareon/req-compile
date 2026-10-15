@@ -1,6 +1,6 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
-load("@rules_python//python:defs.bzl", "py_library", "py_test")
 load("@rules_req_compile//:defs.bzl", "py_package_annotation_consumer", "py_reqs_compiler", "py_reqs_solution_test")
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
 load("@shared_hubs_app_deps//:defs.bzl", "all_requirements")
 load(":platform_transition.bzl", "platform_transitioned")
 

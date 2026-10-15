@@ -1,5 +1,5 @@
-load("@rules_python//python:defs.bzl", "py_test")
 load("@rules_req_compile//:defs.bzl", "py_reqs_compiler")
+load("@rules_python//python:defs.bzl", "py_test")
 
 py_test(
     name = "hello_test",

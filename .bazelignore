@@ -1,11 +1,4 @@
-examples/multiplatform_py_test
-examples/override_module_repos/overrider
-examples/override_module_repos/overridee
-examples/package_aliases
-examples/shared_hubs/app
-examples/shared_hubs/constraints
-examples/shared_hubs/lib
-examples/workspace_user
+examples
 venv
 venv3
 .ijwb

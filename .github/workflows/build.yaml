@@ -11,6 +11,9 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  # Startup option applied to every Bazel invocation. See the file for details.
+  BAZEL_STARTUP_FLAGS: --bazelrc=${{ github.workspace }}/.github/github.bazelrc
 
 jobs:
   build:
@@ -128,21 +131,58 @@ jobs:
       matrix:
         platform: ["ubuntu-latest", "macos-14", "windows-latest"]
     runs-on: ${{ matrix.platform }}
-    name: bazel test examples --build ${{ matrix.platform }}
+    name: bazel test examples ${{ matrix.platform }}
     steps:
     - uses: actions/checkout@v2
-    - name: Test user repo examples
+    # Modules that only exist to be depended on by another example are skipped.
+    # `overridee` deliberately ships an incomplete solution that only resolves
+    # once `overrider` replaces its repositories, and the `shared_hubs`
+    # `constraints` and `lib` modules are exercised by `app`. Bazel's
+    # convenience symlinks point back at a module that was already visited.
+    - name: Test example modules
+      if: runner.os != 'Windows'
       run: |
-        bazel test //...
-      working-directory: examples/multiplatform_py_test
-    - name: Test module repo overrides
+        set -euo pipefail
+        for module in examples/*/MODULE.bazel examples/*/*/MODULE.bazel; do
+          dir="$(dirname "${module}")"
+          case "${dir}" in
+            */bazel-*) continue ;;
+            examples/override_module_repos/overridee) continue ;;
+            examples/shared_hubs/constraints | examples/shared_hubs/lib) continue ;;
+          esac
+
+          echo "::group::${dir}"
+          (cd "${dir}" && bazel ${{ env.BAZEL_STARTUP_FLAGS }} test //...)
+          echo "::endgroup::"
+        done
+    - name: Test example modules
+      if: runner.os == 'Windows'
+      # Bazel is launched from the native shell on Windows, not Git bash.
+      shell: pwsh
       run: |
-        bazel test //...
-      working-directory: examples/override_module_repos/overrider
-    - name: Test hubs shared between modules
-      run: |
-        bazel test //...
-      working-directory: examples/shared_hubs/app
+        $skip = @(
+          "examples/override_module_repos/overridee",
+          "examples/shared_hubs/constraints",
+          "examples/shared_hubs/lib"
+        )
+
+        $root = (Get-Location).Path
+        $modules = Get-ChildItem -Path examples -Recurse -Depth 2 -File -Filter MODULE.bazel | Sort-Object FullName
+        foreach ($module in $modules) {
+          $dir = $module.DirectoryName.Substring($root.Length + 1) -replace "\\", "/"
+          if ($dir -match "(^|/)bazel-") { continue }
+          if ($skip -contains $dir) { continue }
+
+          Write-Output "::group::$dir"
+          Push-Location $dir
+          try {
+            bazel ${{ env.BAZEL_STARTUP_FLAGS }} test //...
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            Pop-Location
+            Write-Output "::endgroup::"
+          }
+        }
 
   bazel_lint:
     runs-on: ubuntu-latest
