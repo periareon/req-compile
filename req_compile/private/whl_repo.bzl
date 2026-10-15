@@ -15,7 +15,7 @@ SDIST_ATTRS = {
     ),
     "_compiler": attr.label(
         allow_files = True,
-        default = Label("//private:sdist_compiler.py"),
+        default = Label("//req_compile/private:sdist_compiler.py"),
     ),
 }
 
@@ -114,7 +114,7 @@ if __name__ == "__main__":
 # that pins this exact wheel.
 _ROOT_BUILD_TEMPLATE = """\
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
-load("@rules_python//python:defs.bzl", "py_library")
+load("@rules_venv//python:defs.bzl", "py_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -159,7 +159,7 @@ filegroup(
 # Each hub using the wheel gets a package holding the `py_library` with the
 # dependencies that hub resolved for it.
 _HUB_BUILD_TEMPLATE = """\
-load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+load("@rules_venv//python:defs.bzl", "py_binary", "py_library")
 
 package(default_visibility = ["//visibility:public"])
 

@@ -1,8 +1,8 @@
-load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@rules_cc//cc:defs.bzl", "cc_toolchain")
-load("@rules_python//python:defs.bzl", "py_binary", "py_test")
-load("//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
-load(":cross_platform_test_utils.bzl", "fake_cc_config", "platform_transitioned_output_group")
+load("@rules_req_compile//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
+load("@rules_venv//python:defs.bzl", "py_binary", "py_test")
+load("@rules_venv//python/venv:defs.bzl", "py_venv_zipapp")
+load(":cross_platform_test_utils.bzl", "fake_cc_config", "platform_transitioned_file")
 
 py_reqs_compiler(
     name = "requirements.linux.update",
@@ -108,32 +108,34 @@ py_binary(
     name = "cross_platform",
     srcs = ["cross_platform.py"],
     deps = [
-        "@req_compile_test_cross_platform//black",
+        "@pip_deps//black",
     ],
 )
 
-platform_transitioned_output_group(
+py_venv_zipapp(
+    name = "cross_platform_pyz",
+    binary = ":cross_platform",
+)
+
+platform_transitioned_file(
     name = "cross_platform_linux",
     extra_toolchains = [":fake_cc_toolchain"],
-    output_group = "python_zip_file",
     platform = ":linux",
-    target = ":cross_platform",
+    target = ":cross_platform_pyz",
 )
 
-platform_transitioned_output_group(
+platform_transitioned_file(
     name = "cross_platform_macos",
     extra_toolchains = [":fake_cc_toolchain"],
-    output_group = "python_zip_file",
     platform = ":macos",
-    target = ":cross_platform",
+    target = ":cross_platform_pyz",
 )
 
-platform_transitioned_output_group(
+platform_transitioned_file(
     name = "cross_platform_windows",
     extra_toolchains = [":fake_cc_toolchain"],
-    output_group = "python_zip_file",
     platform = ":windows",
-    target = ":cross_platform",
+    target = ":cross_platform_pyz",
 )
 
 py_test(
@@ -155,12 +157,5 @@ py_test(
         "REQUIREMENTS_MACOS": "$(rlocationpath requirements.macos.txt)",
         "REQUIREMENTS_WINDOWS": "$(rlocationpath requirements.windows.txt)",
     },
-    deps = ["@rules_python//python/runfiles"],
-)
-
-bzl_library(
-    name = "cross_platform_test_utils",
-    srcs = ["cross_platform_test_utils.bzl"],
-    visibility = ["//:__subpackages__"],
-    deps = ["@rules_cc//cc/common"],
+    deps = ["@rules_venv//python/runfiles"],
 )

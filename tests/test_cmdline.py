@@ -131,6 +131,4 @@ def test_stdin_reqs(mock_stdin):
     result = _create_input_reqs("-", extra_sources)
 
     assert not extra_sources
-    assert set(result.reqs) == set(
-        parse_requirements(["pytest", "pytest-mock"])
-    )
+    assert set(result.reqs) == set(parse_requirements(["pytest", "pytest-mock"]))

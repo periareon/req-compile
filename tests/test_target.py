@@ -2,6 +2,7 @@
 
 # pylint: disable=redefined-outer-name
 import argparse
+import platform
 import sys
 
 import pytest
@@ -154,6 +155,25 @@ def test_python_version_only():
     assert target.marker_environment["python_full_version"] == "3.9.2"
     assert target.python_version == (3, 9, 2)
     assert target.interpreter == host.interpreter
+
+
+def test_host_without_processor_architecture(mocker):
+    """Windows names the machine through `PROCESSOR_ARCHITECTURE`, which a Bazel
+    test environment strips, so the architecture comes from the platform tag."""
+    mocker.patch("sys.platform", "win32")
+    mocker.patch("req_compile.target._host_platform_tags", return_value=("win_amd64",))
+    mocker.patch(
+        "platform.uname",
+        return_value=platform.uname_result("Windows", "host", "10", "10.0.22631", ""),
+    )
+
+    host = TargetEnvironment.host()
+
+    assert host.name == "win_amd64"
+    assert host.arch == "AMD64"
+    assert host.marker_environment["platform_machine"] == "AMD64"
+    described = TargetEnvironment.from_spec(host.name, host.python_version_str)
+    assert described.arch == host.arch
 
 
 def test_host():

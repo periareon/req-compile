@@ -1,7 +1,4 @@
 ---
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
-
 name: Build
 
 on:
@@ -11,8 +8,14 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  # Startup option applied to every Bazel invocation. See the file for details.
+  BAZEL_STARTUP_FLAGS: --bazelrc=${{ github.workspace }}/.github/github.bazelrc
 
 jobs:
+  # Bazel pins a single interpreter, so this matrix is the only coverage of
+  # `req-compile` running on the other Python versions it claims to support.
+  # Linting, type checking and the Bazel rules are all handled by `bazel-bzlmod`.
   build:
     strategy:
       fail-fast: false
@@ -34,34 +37,9 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -r 3rdparty/requirements.txt --user
-    - name: Run mypy
-      run: |
-        python -m mypy req_compile
-    - name: Run pylint
-      run: |
-        python -m pylint req_compile tests
     - name: Test with pytest
       run: |
-        python -m pytest -v --ignore=private --ignore=examples
-
-  formatting:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v2
-      with:
-        python-version: "3.11"
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r 3rdparty/requirements.txt --user
-    - name: Run black
-      run: |
-        black --check --diff req_compile
-    - name: Run isort
-      run: |
-        isort --check-only req_compile
+        python -m pytest -v --ignore=examples tests
 
   bazel-bzlmod:
     strategy:
@@ -73,20 +51,29 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Configure Build Event Service
+      # Written the same way from bash and PowerShell.
       run: |
-        echo "common --remote_header=x-buildbuddy-api-key=${{ secrets.BUILDBUDDY_API_KEY }}" > "${CI_BAZELRC_PATH}"
-        echo "common --config=bes" >> "${CI_BAZELRC_PATH}"
-        echo "common --announce_rc" >> "${CI_BAZELRC_PATH}"
+        echo "common --remote_header=x-buildbuddy-api-key=${{ secrets.BUILDBUDDY_API_KEY }}" > "${{ env.CI_BAZELRC_PATH }}"
+        echo "common --config=bes" >> "${{ env.CI_BAZELRC_PATH }}"
       env:
         CI_BAZELRC_PATH: .github/ci.bazelrc
     - name: Run Tests
       run: |
-        bazel test //...
+        bazel ${{ env.BAZEL_STARTUP_FLAGS }} test --config=strict //...
     - name: Cross-compile requirements for every platform
+      if: runner.os != 'Windows'
+      run: |
+        set -euo pipefail
+        for platform in linux_aarch64 linux_x86_64 macos_aarch64 macos_x86_64 windows_x86_64; do
+          bazel ${{ env.BAZEL_STARTUP_FLAGS }} run "//3rdparty:requirements_${platform}_311" -- --upgrade
+        done
+    - name: Cross-compile requirements for every platform
+      if: runner.os == 'Windows'
+      # Bazel is launched from the native shell on Windows, not Git bash.
       shell: pwsh
       run: |
         foreach ($platform in @("linux_aarch64", "linux_x86_64", "macos_aarch64", "macos_x86_64", "windows_x86_64")) {
-          bazel run "//3rdparty:requirements_${platform}_311" "--" "--upgrade"
+          bazel ${{ env.BAZEL_STARTUP_FLAGS }} run "//3rdparty:requirements_${platform}_311" "--" "--upgrade"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         }
     - name: Upload cross-compiled requirements
@@ -128,46 +115,65 @@ jobs:
       matrix:
         platform: ["ubuntu-latest", "macos-14", "windows-latest"]
     runs-on: ${{ matrix.platform }}
-    name: bazel test examples --build ${{ matrix.platform }}
+    name: bazel test examples ${{ matrix.platform }}
     steps:
     - uses: actions/checkout@v2
-    - name: Test user repo examples
+    # Modules that only exist to be depended on by another example are skipped.
+    # `overridee` deliberately ships an incomplete solution that only resolves
+    # once `overrider` replaces its repositories, and the `shared_hubs`
+    # `constraints` and `lib` modules are exercised by `app`. Bazel's
+    # convenience symlinks point back at a module that was already visited.
+    - name: Test example modules
+      if: runner.os != 'Windows'
       run: |
-        bazel test //...
-      working-directory: examples/multiplatform_py_test
-    - name: Test module repo overrides
+        set -euo pipefail
+        for module in examples/*/MODULE.bazel examples/*/*/MODULE.bazel; do
+          dir="$(dirname "${module}")"
+          case "${dir}" in
+            */bazel-*) continue ;;
+            examples/override_module_repos/overridee) continue ;;
+            examples/shared_hubs/constraints | examples/shared_hubs/lib) continue ;;
+          esac
+
+          echo "::group::${dir}"
+          (cd "${dir}" && bazel ${{ env.BAZEL_STARTUP_FLAGS }} test //...)
+          echo "::endgroup::"
+        done
+    - name: Test example modules
+      if: runner.os == 'Windows'
+      # Bazel is launched from the native shell on Windows, not Git bash.
+      shell: pwsh
       run: |
-        bazel test //...
-      working-directory: examples/override_module_repos/overrider
-    - name: Test hubs shared between modules
-      run: |
-        bazel test //...
-      working-directory: examples/shared_hubs/app
+        $skip = @(
+          "examples/override_module_repos/overridee",
+          "examples/shared_hubs/constraints",
+          "examples/shared_hubs/lib"
+        )
+
+        $root = (Get-Location).Path
+        $modules = Get-ChildItem -Path examples -Recurse -Depth 2 -File -Filter MODULE.bazel | Sort-Object FullName
+        foreach ($module in $modules) {
+          $dir = $module.DirectoryName.Substring($root.Length + 1) -replace "\\", "/"
+          if ($dir -match "(^|/)bazel-") { continue }
+          if ($skip -contains $dir) { continue }
+
+          Write-Output "::group::$dir"
+          Push-Location $dir
+          try {
+            bazel ${{ env.BAZEL_STARTUP_FLAGS }} test //...
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            Pop-Location
+            Write-Output "::endgroup::"
+          }
+        }
 
   bazel_lint:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python_version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: "3.11"
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r 3rdparty/requirements.txt --user
-        pip install -e .
-    - name: Run isort
-      run: |
-        isort --check-only private
-    - name: Run black
-      run: |
-        black --check --diff private
-    - name: Run pylint
-      run: |
-        python -m pylint private
     - name: Run buildifier
-      run: bazel run //:buildifier.check
+      run: bazel ${{ env.BAZEL_STARTUP_FLAGS }} run //:buildifier.check
 
   # A single job to mark as required for merging. It runs regardless of the
   # outcome of the others and only succeeds when every one of them did, so a
@@ -177,7 +183,6 @@ jobs:
     if: always()
     needs:
       - build
-      - formatting
       - bazel-bzlmod
       - bazel-cross-platform-consistency
       - bazel_users

@@ -19,7 +19,10 @@ def rlocation(runfiles: Runfiles, rlocationpath: str) -> Path:
     Returns:
         The requested runifle.
     """
-    runfile = runfiles.Rlocation(rlocationpath)
+    # `source_repo` is given explicitly because the default inspects the call stack
+    # and fails when this script and the runfiles library live on different drives,
+    # which is the case under `rules_venv` on the Windows CI runners.
+    runfile = runfiles.Rlocation(rlocationpath, source_repo="")
     if not runfile:
         raise FileNotFoundError(f"Failed to find runfile: {rlocationpath}")
     path = Path(runfile)
@@ -95,7 +98,7 @@ class CrossPlatformZipTest(unittest.TestCase):
     def _black_repos_except(self, platform: str) -> tuple[str, ...]:
         """The black wheel repositories of every platform other than `platform`."""
         return tuple(
-            f"runfiles/.*{repos['black']}/"
+            f".*{repos['black']}/"
             for other, repos in self.REPOS.items()
             if other != platform
         )
@@ -113,13 +116,13 @@ class CrossPlatformZipTest(unittest.TestCase):
         self.python_zip_file_tester(
             rlocationpath=os.environ["PYTHON_ZIP_FILE_LINUX"],
             expected=[
-                f"runfiles/.*{repos['black']}/site-packages/black/__init__.py",
-                f"runfiles/.*{repos['click']}/site-packages/click/__init__.py",
+                f".*{repos['black']}/site-packages/black/__init__.py",
+                f".*{repos['click']}/site-packages/click/__init__.py",
             ],
             illegal_prefixes=self._black_repos_except("linux")
             + (
                 # This is a windows only dependency.
-                "runfiles/.*colorama_",
+                ".*colorama_",
             ),
         )
 
@@ -128,13 +131,13 @@ class CrossPlatformZipTest(unittest.TestCase):
         self.python_zip_file_tester(
             rlocationpath=os.environ["PYTHON_ZIP_FILE_MACOS"],
             expected=[
-                f"runfiles/.*{repos['black']}/site-packages/black/__init__.py",
-                f"runfiles/.*{repos['click']}/site-packages/click/__init__.py",
+                f".*{repos['black']}/site-packages/black/__init__.py",
+                f".*{repos['click']}/site-packages/click/__init__.py",
             ],
             illegal_prefixes=self._black_repos_except("macos")
             + (
                 # This is a windows only dependency.
-                "runfiles/.*colorama_",
+                ".*colorama_",
             ),
         )
 
@@ -143,9 +146,9 @@ class CrossPlatformZipTest(unittest.TestCase):
         self.python_zip_file_tester(
             rlocationpath=os.environ["PYTHON_ZIP_FILE_WINDOWS"],
             expected=[
-                f"runfiles/.*{repos['black']}/site-packages/black/__init__.py",
-                f"runfiles/.*{repos['click']}/site-packages/click/__init__.py",
-                f"runfiles/.*{repos['colorama']}/site-packages/colorama/__init__.py",
+                f".*{repos['black']}/site-packages/black/__init__.py",
+                f".*{repos['click']}/site-packages/click/__init__.py",
+                f".*{repos['colorama']}/site-packages/colorama/__init__.py",
             ],
             illegal_prefixes=self._black_repos_except("windows"),
         )

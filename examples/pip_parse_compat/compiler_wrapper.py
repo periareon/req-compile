@@ -32,7 +32,7 @@ def main() -> None:
         [
             "bazel",
             "run",
-            "//examples/pip_parse_compat:requirements.update",
+            "//:requirements.update",
             "--",
         ]
         + sys.argv[1:],
@@ -41,7 +41,7 @@ def main() -> None:
         env=environ,
     )
 
-    output = workspace_dir / "examples/pip_parse_compat/requirements.txt"
+    output = workspace_dir / "requirements.txt"
     for plat in ("windows", "linux", "macos"):
         shutil.copy(output, output.parent / f"requirements.{plat}.txt")
 

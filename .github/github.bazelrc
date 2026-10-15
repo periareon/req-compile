@@ -1,0 +1,13 @@
+# Bazel settings for every invocation in GitHub Actions.
+#
+# This file is passed explicitly with `--bazelrc` so it applies to the root
+# module and to each example module, which are separate workspaces that do
+# not read the root `.bazelrc`. Settings that need a secret, such as the
+# Build Event Service key, are still written to `.github/ci.bazelrc` at
+# runtime and only imported by the root `.bazelrc`.
+
+# Show which rc files and options are in effect in the logs.
+common --announce_rc
+
+# Print the log of a failing test instead of just its path.
+build --test_output=errors

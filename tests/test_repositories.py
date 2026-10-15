@@ -2,8 +2,6 @@ import random
 import sys
 
 import pytest
-from req_compile.target import TargetEnvironment
-from req_compile.utils import parse_version
 
 from req_compile.repos.repository import (
     Candidate,
@@ -13,6 +11,8 @@ from req_compile.repos.repository import (
     _wheel_filename_to_candidate,
     sort_candidates,
 )
+from req_compile.target import TargetEnvironment
+from req_compile.utils import parse_version
 
 
 @pytest.mark.parametrize(
@@ -70,9 +70,7 @@ def test_sort_non_semver():
     candidates = []
     for ver in candidate_vers:
         candidates.append(
-            Candidate(
-                "pytz", None, parse_version(ver), None, None, "any", None
-            )
+            Candidate("pytz", None, parse_version(ver), None, None, "any", None)
         )
 
     reference = list(candidates)

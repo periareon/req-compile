@@ -1,9 +1,16 @@
 """Starlark unit tests for the planning done by the `requirements` extension."""
 
+# buildifier: disable=bzl-visibility
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load("//private:annotation_utils.bzl", "ROOT_MODULE", "deserialize_package_annotation", "record_annotation")
-load("//private:reqs_repo.bzl", "is_sdist", "merge_wheel")
-load("//private:whl_repo.bzl", "hub_deps_expression")
+
+# buildifier: disable=bzl-visibility
+load("//req_compile/private:annotation_utils.bzl", "ROOT_MODULE", "deserialize_package_annotation", "record_annotation")
+
+# buildifier: disable=bzl-visibility
+load("//req_compile/private:reqs_repo.bzl", "is_sdist", "merge_wheel")
+
+# buildifier: disable=bzl-visibility
+load("//req_compile/private:whl_repo.bzl", "hub_deps_expression")
 
 _NO_ANNOTATIONS = deserialize_package_annotation("{}")
 

@@ -18,7 +18,10 @@ def rlocation(runfiles: Runfiles, rlocationpath: str) -> Path:
     Returns:
         The requested runifle.
     """
-    runfile = runfiles.Rlocation(rlocationpath)
+    # `source_repo` is given explicitly because the default inspects the call stack
+    # and fails when this script and the runfiles library live on different drives,
+    # which is the case under `rules_venv` on the Windows CI runners.
+    runfile = runfiles.Rlocation(rlocationpath, source_repo="")
     if not runfile:
         raise FileNotFoundError(f"Failed to find runfile: {rlocationpath}")
     path = Path(runfile)

@@ -1,6 +1,7 @@
 """A repository rule for the req-compile find_links integration test."""
 
-load("//private:whl_repo.bzl", "load_sdist_data")
+# buildifier: disable=bzl-visibility
+load("@rules_req_compile//req_compile/private:whl_repo.bzl", "load_sdist_data")
 
 def _find_links_test_repository_impl(repository_ctx):
     repository_ctx.file("WORKSPACE.bazel", """workspace(name = "{}")""".format(

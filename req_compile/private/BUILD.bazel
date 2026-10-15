@@ -1,5 +1,5 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_venv//python:defs.bzl", "py_binary", "py_library")
 
 exports_files(
     [
@@ -15,15 +15,21 @@ py_binary(
     visibility = ["//visibility:public"],
 )
 
+py_library(
+    name = "compiler_lib",
+    srcs = ["compiler.py"],
+    deps = [
+        "//req_compile",
+        "@rules_venv//python/runfiles",
+    ],
+)
+
 py_binary(
     name = "compiler_bin",
     srcs = ["compiler.py"],
     main = "compiler.py",
     visibility = ["//visibility:public"],
-    deps = [
-        "//req_compile",
-        "@rules_python//python/runfiles",
-    ],
+    deps = [":compiler_lib"],
 )
 
 py_binary(
@@ -31,8 +37,8 @@ py_binary(
     srcs = ["solution_tester.py"],
     visibility = ["//visibility:public"],
     deps = [
-        ":compiler_bin",
-        "@rules_python//python/runfiles",
+        ":compiler_lib",
+        "@rules_venv//python/runfiles",
     ],
 )
 

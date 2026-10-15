@@ -1,7 +1,10 @@
 """Starlark unit tests for `parse_lockfile`."""
 
+# buildifier: disable=bzl-visibility
 load("@bazel_skylib//lib:unittest.bzl", "asserts", "unittest")
-load("//private:lockfile.bzl", "parse_lockfile")
+
+# buildifier: disable=bzl-visibility
+load("//req_compile/private:lockfile.bzl", "parse_lockfile")
 
 def _parse_lockfile_test_impl(ctx):
     env = unittest.begin(ctx)

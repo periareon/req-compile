@@ -31,7 +31,9 @@ def test_one_source():
     """Verifies one reverse dependency contributes its single version constraint."""
     dists = DistributionCollection()
     dists.add_dist(
-        DistInfo("aaa", "1.2.0", list(req_compile.utils.parse_requirements(["bbb<1.0"]))),
+        DistInfo(
+            "aaa", "1.2.0", list(req_compile.utils.parse_requirements(["bbb<1.0"]))
+        ),
         None,
         Requirement("aaa"),
     )
@@ -43,43 +45,49 @@ def test_two_sources():
     """Verifies constraints from two sources are merged on the shared dependency."""
     dists = DistributionCollection()
     dists.add_dist(
-        DistInfo("aaa", "1.2.0", list(req_compile.utils.parse_requirements(["bbb<1.0"]))),
+        DistInfo(
+            "aaa", "1.2.0", list(req_compile.utils.parse_requirements(["bbb<1.0"]))
+        ),
         None,
         Requirement("aaa"),
     )
     dists.add_dist(
-        DistInfo("ccc", "1.0.0", list(req_compile.utils.parse_requirements(["bbb>0.5"]))),
+        DistInfo(
+            "ccc", "1.0.0", list(req_compile.utils.parse_requirements(["bbb>0.5"]))
+        ),
         None,
         Requirement("ccc"),
     )
-    assert dists["bbb"].build_constraints() == Requirement(
-        "bbb>0.5,<1.0"
-    )
+    assert dists["bbb"].build_constraints() == Requirement("bbb>0.5,<1.0")
 
 
 def test_two_sources_same():
     """Verifies duplicate constraints from multiple sources are de-duplicated."""
     dists = DistributionCollection()
     dists.add_dist(
-        DistInfo("aaa", "1.2.0", list(req_compile.utils.parse_requirements(["bbb<1.0"]))),
+        DistInfo(
+            "aaa", "1.2.0", list(req_compile.utils.parse_requirements(["bbb<1.0"]))
+        ),
         None,
         Requirement("aaa"),
     )
     dists.add_dist(
-        DistInfo("ccc", "1.0.0", list(req_compile.utils.parse_requirements(["bbb<1.0"]))),
+        DistInfo(
+            "ccc", "1.0.0", list(req_compile.utils.parse_requirements(["bbb<1.0"]))
+        ),
         None,
         Requirement("ccc"),
     )
-    assert dists["bbb"].build_constraints() == Requirement(
-        "bbb<1.0"
-    )
+    assert dists["bbb"].build_constraints() == Requirement("bbb<1.0")
 
 
 def test_add_remove_dist():
     """Verifies removing a node also removes its orphaned transitive dependency."""
     dists = DistributionCollection()
     node = dists.add_dist(
-        DistInfo("aaa", "1.2.0", list(req_compile.utils.parse_requirements(["bbb<1.0"]))),
+        DistInfo(
+            "aaa", "1.2.0", list(req_compile.utils.parse_requirements(["bbb<1.0"]))
+        ),
         None,
         Requirement("aaa"),
     )
@@ -133,7 +141,9 @@ def test_metadata_violated() -> None:
 def test_metadata_violated_removes_transitive():
     """Verifies metadata invalidation removes transitive nodes with no remaining parents."""
     dists = DistributionCollection()
-    metadata_a = DistInfo("a", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["b"])))
+    metadata_a = DistInfo(
+        "a", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["b"]))
+    )
 
     dists.add_dist(metadata_a, None, None)
     dists.add_dist(metadata_a, None, Requirement("a>1.0"))
@@ -160,21 +170,22 @@ def test_repo_with_extra():
     """Verifies explanations include extra-triggered and regular dependency reasons."""
     dists = DistributionCollection()
     root = DistInfo(
-        "root", "1.0", list(req_compile.utils.parse_requirements(["a[test]"])), meta=True
+        "root",
+        "1.0",
+        list(req_compile.utils.parse_requirements(["a[test]"])),
+        meta=True,
     )
     metadata_a = DistInfo(
-        "a", "1.0.0", list(req_compile.utils.parse_requirements(['b ; extra=="test"', "c"]))
+        "a",
+        "1.0.0",
+        list(req_compile.utils.parse_requirements(['b ; extra=="test"', "c"])),
     )
     metadata_b = DistInfo("b", "2.0.0", [])
     metadata_c = DistInfo("c", "2.0.0", [])
 
     root = dists.add_dist(root, None, None)
-    root_a = dists.add_dist(
-        metadata_a, None, Requirement("a[test]")
-    )
-    dists.add_dist(
-        metadata_b, root_a, Requirement('b ; extra=="test"')
-    )
+    root_a = dists.add_dist(metadata_a, None, Requirement("a[test]"))
+    dists.add_dist(metadata_b, root_a, Requirement('b ; extra=="test"'))
     dists.add_dist(metadata_c, root_a, Requirement("a"))
 
     results = [
@@ -192,10 +203,15 @@ def test_regular_and_extra_constraints():
     """Verifies regular and extra constraints are both applied to the same dependency."""
     dists = DistributionCollection()
     root = DistInfo(
-        "root", "1.0", list(req_compile.utils.parse_requirements(["a[test]"])), meta=True
+        "root",
+        "1.0",
+        list(req_compile.utils.parse_requirements(["a[test]"])),
+        meta=True,
     )
     metadata_a = DistInfo(
-        "a", "1.0.0", list(req_compile.utils.parse_requirements(['b>3 ; extra=="test"', "b>2"]))
+        "a",
+        "1.0.0",
+        list(req_compile.utils.parse_requirements(['b>3 ; extra=="test"', "b>2"])),
     )
 
     dists.add_dist(root, None, None)
@@ -210,7 +226,9 @@ def test_regular_and_extra_constraints():
 def test_circular_self_dep() -> None:
     """Verifies a self-dependency is treated as a valid solved cycle."""
     dists = DistributionCollection()
-    metadata_a = DistInfo("a", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["a"])))
+    metadata_a = DistInfo(
+        "a", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["a"]))
+    )
 
     dists.add_dist(metadata_a, None, None)
 
@@ -221,7 +239,9 @@ def test_circular_self_dep() -> None:
 def test_circular_self_invalidate() -> None:
     """Verifies a self-cycle is invalidated when a conflicting requirement is added."""
     dists = DistributionCollection()
-    metadata_a = DistInfo("a", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["a"])))
+    metadata_a = DistInfo(
+        "a", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["a"]))
+    )
 
     dists.add_dist(metadata_a, None, None)
     dists.add_dist(metadata_a, None, Requirement("a>1.0"))
@@ -235,11 +255,17 @@ def test_circular_self_invalidate() -> None:
 def test_big_circular_invalidate() -> None:
     """Verifies a two-node cycle invalidates and can be restored after constraints change."""
     dists = DistributionCollection()
-    metadata_a = DistInfo("a", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["b"])))
-    metadata_b = DistInfo("b", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["a"])))
+    metadata_a = DistInfo(
+        "a", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["b"]))
+    )
+    metadata_b = DistInfo(
+        "b", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["a"]))
+    )
 
     meta = dists.add_dist(
-        DistInfo("-", None, list(req_compile.utils.parse_requirements(["a", "b"])), meta=True),
+        DistInfo(
+            "-", None, list(req_compile.utils.parse_requirements(["a", "b"])), meta=True
+        ),
         None,
         None,
     )
@@ -270,7 +296,9 @@ def test_base_plugin_circular_completed() -> None:
         reqs=list(req_compile.utils.parse_requirements(["root-c", "root-a", "root-b"])),
     )
     metadata_root_a = DistInfo(
-        "root-a", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["root", "dep-a"]))
+        "root-a",
+        "1.0.0",
+        reqs=list(req_compile.utils.parse_requirements(["root", "dep-a"])),
     )
     metadata_dep_a = DistInfo("dep-a", "1.0.0", reqs=[])
     metadata_root_b = DistInfo(
@@ -284,7 +312,9 @@ def test_base_plugin_circular_completed() -> None:
     )
     metadata_dep_c = DistInfo("dep-c", "1.0.0", reqs=[])
     metadata_common = DistInfo(
-        "common", "1.0.0", reqs=list(req_compile.utils.parse_requirements(["root", "dep-a"]))
+        "common",
+        "1.0.0",
+        reqs=list(req_compile.utils.parse_requirements(["root", "dep-a"])),
     )
 
     root_node = dists.add_dist(metadata_root, None, Requirement("root"))
@@ -318,6 +348,7 @@ def test_base_plugin_circular_completed() -> None:
 @pytest.fixture
 def result_graph() -> Any:
     """Builds a small helper for constructing dependency graphs incrementally in tests."""
+
     class _ResultGraph:
         results = DistributionCollection()
         previous = None
@@ -349,6 +380,7 @@ def result_graph() -> Any:
             return all(dep.complete for dep in self.results)
 
     return _ResultGraph()
+
 
 # pylint: disable=redefined-outer-name
 def test_simple_cycle(result_graph):
@@ -431,7 +463,9 @@ def test_root_not_cycle(result_graph) -> None:
 
 def test_get_cycle_deep_acyclic_graph_no_recursion_error() -> None:
     """Verifies cycle detection handles deep acyclic chains without recursion issues."""
-    nodes = [DependencyNode(f"n{i}", DistInfo(f"n{i}", "1.0.0", [])) for i in range(2000)]
+    nodes = [
+        DependencyNode(f"n{i}", DistInfo(f"n{i}", "1.0.0", [])) for i in range(2000)
+    ]
     for idx in range(len(nodes) - 1):
         nodes[idx].add_reason(nodes[idx + 1], None)
 

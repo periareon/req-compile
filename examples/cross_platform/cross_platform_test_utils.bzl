@@ -20,27 +20,27 @@ _platform_transition = transition(
     ],
 )
 
-def _platform_transitioned_output_group_impl(ctx):
+def _platform_transitioned_file_impl(ctx):
     target = ctx.attr.target
-    outputs = getattr(target[OutputGroupInfo], ctx.attr.output_group)
-    if not outputs:
-        fail("Could not find output group '{}' in '{}'".format(ctx.attr.output_group, target.label))
+    files = target[DefaultInfo].files.to_list()
+    if len(files) != 1:
+        fail("Expected exactly 1 file in DefaultInfo of '{}', got {}".format(target.label, len(files)))
 
-    zip_file = outputs.to_list()[0]
+    src_file = files[0]
 
-    link = ctx.actions.declare_file("{}.{}".format(ctx.label.name, zip_file.extension).rstrip("."))
+    link = ctx.actions.declare_file("{}.{}".format(ctx.label.name, src_file.extension).rstrip("."))
     ctx.actions.symlink(
         output = link,
-        target_file = zip_file,
+        target_file = src_file,
     )
 
     return [DefaultInfo(
         files = depset([link]),
     )]
 
-platform_transitioned_output_group = rule(
-    doc = "A rule for accessing files in a target's `OutputGroupInfo` through a transition.",
-    implementation = _platform_transitioned_output_group_impl,
+platform_transitioned_file = rule(
+    doc = "A rule for accessing the single file produced by a target through a platform transition.",
+    implementation = _platform_transitioned_file_impl,
     cfg = _platform_transition,
     attrs = {
         "extra_toolchains": attr.label_list(
@@ -48,10 +48,6 @@ platform_transitioned_output_group = rule(
                 "[extra_toolchains](https://bazel.build/reference/command-line-reference#flag--extra_toolchains) to " +
                 "apply in the transition."
             ),
-        ),
-        "output_group": attr.string(
-            doc = "The `OutputGroupInfo` field to access.",
-            mandatory = True,
         ),
         "platform": attr.label(
             doc = "The label to a [Bazel platform](https://bazel.build/extending/platforms)",

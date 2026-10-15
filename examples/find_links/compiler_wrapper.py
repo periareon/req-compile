@@ -36,9 +36,9 @@ def main() -> None:
             "--disable-pip-version-check",
             "--no-deps",
             "--wheel-dir",
-            workspace_dir / "examples/find_links/wheeldir",
+            workspace_dir / "wheeldir",
             "-r",
-            workspace_dir / "examples/find_links/requirements.in",
+            workspace_dir / "requirements.in",
         ],
         cwd=workspace_dir,
         check=True,
@@ -49,7 +49,7 @@ def main() -> None:
         [
             "bazel",
             "run",
-            "//examples/find_links:requirements.update",
+            "//:requirements.update",
             "--",
         ]
         + sys.argv[1:],

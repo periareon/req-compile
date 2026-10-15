@@ -5,7 +5,6 @@ from packaging.version import Version
 from req_compile.versions import _offset_minor_version, is_possible
 
 
-
 @pytest.mark.parametrize(
     "version, offset, result",
     [

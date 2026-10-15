@@ -1,8 +1,8 @@
 load("@bazel_skylib//rules:diff_test.bzl", "diff_test")
-load("@req_compile_test_pip_parse_compat_multi_plat//:requirements.bzl", multi_plat_requirement = "requirement")
-load("@req_compile_test_pip_parse_compat_single_plat//:requirements.bzl", single_plat_requirement = "requirement")
-load("@rules_python//python:defs.bzl", "py_binary", "py_test")
-load("//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
+load("@multi_plat_pip_deps//:requirements.bzl", multi_plat_requirement = "requirement")
+load("@rules_req_compile//:defs.bzl", "py_reqs_compiler", "py_reqs_solution_test")
+load("@rules_venv//python:defs.bzl", "py_binary", "py_test")
+load("@single_plat_pip_deps//:requirements.bzl", single_plat_requirement = "requirement")
 
 # gazelle:ignore
 
@@ -13,7 +13,7 @@ py_binary(
 
 py_reqs_compiler(
     name = "requirements.update",
-    custom_compile_command = "bazel run \"@//examples/pip_parse_compat:compiler_wrapper\"",
+    custom_compile_command = "bazel run \"@//:compiler_wrapper\"",
     requirements_in = "requirements.in",
     requirements_txt = "requirements.txt",
 )

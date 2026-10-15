@@ -50,7 +50,9 @@ def _symlink_py_executable(ctx, target):
         Tuple[File, Runfiles]: The executable output and associated runfiles.
     """
     executable = target[DefaultInfo].files_to_run.executable
-    is_windows = executable.basename.endswith(".exe")
+
+    # `rules_venv` entrypoints are `.bat` scripts on Windows and `.sh` scripts elsewhere.
+    is_windows = executable.basename.endswith(".bat")
     link = ctx.actions.declare_file("{}.{}".format(ctx.label.name, executable.basename))
 
     # Unfortunately on Windows, the use of `ctx.actions.symlink` leads to build failures
@@ -77,32 +79,6 @@ def _symlink_py_executable(ctx, target):
 
     runfiles = ctx.runfiles()
     runfiles = runfiles.merge(target[DefaultInfo].default_runfiles)
-
-    # Windows will require the zipapp provided by py_binary targets
-    if is_windows and hasattr(target[OutputGroupInfo], "python_zip_file"):
-        _, _, zipapp_name = link.path.rpartition("/")
-        zipapp = ctx.actions.declare_file(zipapp_name.replace(".exe", ".zip"), sibling = link)
-
-        # This output group is expected to only contain 1 file
-        python_zip_file = target[OutputGroupInfo].python_zip_file.to_list()[0]
-        if is_windows:
-            args = ctx.actions.args()
-            args.add(python_zip_file)
-            args.add(zipapp)
-            ctx.actions.run(
-                executable = ctx.executable._copier,
-                mnemonic = "CopyFile",
-                arguments = [args],
-                inputs = [python_zip_file],
-                outputs = [zipapp],
-            )
-        else:
-            ctx.actions.symlink(
-                output = zipapp,
-                target_file = python_zip_file,
-                is_executable = True,
-            )
-        runfiles = runfiles.merge(ctx.runfiles(files = [zipapp]))
 
     return link, runfiles
 
@@ -302,12 +278,12 @@ for other platforms should avoid them, which is the default (`allow_sdists = Fal
         "_compiler": attr.label(
             cfg = _compilation_mode_opt_transition,
             executable = True,
-            default = Label("//private:compiler_bin"),
+            default = Label("//req_compile/private:compiler_bin"),
         ),
         "_copier": attr.label(
             cfg = "exec",
             executable = True,
-            default = Label("//private:copier"),
+            default = Label("//req_compile/private:copier"),
         ),
     },
     executable = True,
@@ -455,12 +431,12 @@ py_reqs_solution_test(
         "_copier": attr.label(
             cfg = "exec",
             executable = True,
-            default = Label("//private:copier"),
+            default = Label("//req_compile/private:copier"),
         ),
         "_tester": attr.label(
             cfg = "target",
             executable = True,
-            default = Label("//private:solution_tester"),
+            default = Label("//req_compile/private:solution_tester"),
         ),
     },
     test = True,
