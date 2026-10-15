@@ -42,7 +42,7 @@ jobs:
         python -m pylint req_compile tests
     - name: Test with pytest
       run: |
-        python -m pytest -v --ignore=private
+        python -m pytest -v --ignore=private --ignore=examples
 
   formatting:
     runs-on: ubuntu-latest
@@ -128,21 +128,21 @@ jobs:
       matrix:
         platform: ["ubuntu-latest", "macos-14", "windows-latest"]
     runs-on: ${{ matrix.platform }}
-    name: bazel test multiplatform_py_test --build ${{ matrix.platform }}
+    name: bazel test examples --build ${{ matrix.platform }}
     steps:
     - uses: actions/checkout@v2
     - name: Test user repo examples
       run: |
         bazel test //...
-      working-directory: private/examples/multiplatform_py_test
+      working-directory: examples/multiplatform_py_test
     - name: Test module repo overrides
       run: |
         bazel test //...
-      working-directory: private/tests/override_module_repos/overrider
+      working-directory: examples/override_module_repos/overrider
     - name: Test hubs shared between modules
       run: |
         bazel test //...
-      working-directory: private/tests/shared_hubs/app
+      working-directory: examples/shared_hubs/app
 
   bazel_lint:
     runs-on: ubuntu-latest
@@ -168,3 +168,30 @@ jobs:
         python -m pylint private
     - name: Run buildifier
       run: bazel run //:buildifier.check
+
+  # A single job to mark as required for merging. It runs regardless of the
+  # outcome of the others and only succeeds when every one of them did, so a
+  # job that is added above must also be added to `needs` here.
+  ci-success:
+    name: CI Success
+    if: always()
+    needs:
+      - build
+      - formatting
+      - bazel-bzlmod
+      - bazel-cross-platform-consistency
+      - bazel_users
+      - bazel_lint
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check the result of every job
+      env:
+        RESULTS: ${{ join(needs.*.result, ' ') }}
+      run: |
+        echo "Job results: ${RESULTS}"
+        for result in ${RESULTS}; do
+          if [[ "${result}" != "success" ]]; then
+            echo "::error::A required job did not succeed (${result})."
+            exit 1
+          fi
+        done
