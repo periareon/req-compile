@@ -10,7 +10,7 @@ load("//req_compile/private:annotation_utils.bzl", "ROOT_MODULE", "deserialize_p
 load("//req_compile/private:reqs_repo.bzl", "is_sdist", "merge_wheel")
 
 # buildifier: disable=bzl-visibility
-load("//req_compile/private:whl_repo.bzl", "hub_deps_expression")
+load("//req_compile/private:whl_repo.bzl", "hub_deps", "render_deps")
 
 _NO_ANNOTATIONS = deserialize_package_annotation("{}")
 
@@ -20,10 +20,13 @@ def _deps_single_lock_test_impl(ctx):
         "default_lock": None,
         "locks": {"linux": {"config_setting": None, "deps": ["six", "Click"]}},
     }
+    deps = hub_deps("hub", hub_data, _NO_ANNOTATIONS)
+    asserts.equals(env, {None: ["@hub//click", "@hub//six"]}, deps.branches)
+    asserts.false(env, deps.empty)
     asserts.equals(
         env,
         json.encode_indent(["@hub//click", "@hub//six"], indent = "    "),
-        hub_deps_expression("hub", hub_data, _NO_ANNOTATIONS),
+        render_deps([], deps),
     )
     return unittest.end(env)
 
@@ -38,11 +41,17 @@ def _deps_default_lock_test_impl(ctx):
             "windows": {"config_setting": "@hub//:windows", "deps": ["six", "colorama"]},
         },
     }
-    rendered = hub_deps_expression("hub", hub_data, _NO_ANNOTATIONS)
-    asserts.true(env, '"@hub//:linux": ["@hub//six"],' in rendered, rendered)
-    asserts.true(env, '"@hub//:windows": ["@hub//colorama","@hub//six"],' in rendered, rendered)
+    deps = hub_deps("hub", hub_data, _NO_ANNOTATIONS)
+    asserts.equals(env, {
+        "@hub//:linux": ["@hub//six"],
+        "@hub//:windows": ["@hub//colorama", "@hub//six"],
+    }, deps.branches)
 
     # The fallback lock's dependencies apply when no lock matches.
+    asserts.equals(env, ["@hub//six"], deps.default)
+
+    rendered = render_deps(["@extra//:dep"], deps)
+    asserts.true(env, rendered.startswith('["@extra//:dep"] + select({'), rendered)
     asserts.true(env, '"//conditions:default": ["@hub//six"],' in rendered, rendered)
     return unittest.end(env)
 
@@ -57,10 +66,15 @@ def _deps_no_default_lock_test_impl(ctx):
             "windows": {"config_setting": "@hub//:windows", "deps": ["colorama"]},
         },
     }
-    rendered = hub_deps_expression("hub", hub_data, _NO_ANNOTATIONS)
+    deps = hub_deps("hub", hub_data, _NO_ANNOTATIONS)
 
     # The wheel is not part of the fallback lock, so the hub never falls back to it.
-    asserts.false(env, "//conditions:default" in rendered, rendered)
+    asserts.equals(env, None, deps.default)
+    asserts.false(env, "//conditions:default" in render_deps([], deps), render_deps([], deps))
+
+    # A hub whose locks resolved nothing has no library of its own.
+    hub_data["locks"]["windows"]["deps"] = []
+    asserts.true(env, hub_deps("hub", hub_data, _NO_ANNOTATIONS).empty)
     return unittest.end(env)
 
 deps_no_default_lock_test = unittest.make(_deps_no_default_lock_test_impl)

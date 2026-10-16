@@ -1,4 +1,20 @@
-New in version 1.3.1:
+New in version 1.5.0:
+
+* A wheel repository is a single package. Its ``py_library`` is named after the package
+  (``@wheel_repo//:requests``) instead of ``//:library``, the ``//:pkg`` alias is gone, and the per-hub
+  subpackages (``@wheel_repo//<hub>:...``) are replaced by targets in the root named after the hub:
+  ``//:<hub>.<package>`` and ``//:<hub>.entry_point_<script>``. Hubs resolve to these directly.
+* The target a hub sees for a wheel is a ``py_library`` holding the modules of the wheel together with the
+  dependencies the hub resolved, instead of depending on the dependency-free library of the package. Type
+  checkers analyzing one library at a time, such as the mypy aspect of ``rules_venv``, previously saw every
+  import of a wheel as missing and typed its classes as ``Any``. When the hub resolved no dependencies for the
+  wheel the target is an alias of the package library.
+* ``py_package_annotation_consumer`` reads annotation targets from the target a hub alias resolves to and no
+  longer walks its dependencies.
+* The ``.unavailable`` targets of a hub package are only rendered when the package is missing from some locks
+  of the hub and no fallback lock provides it.
+
+New in version 1.4.0:
 
 * ``py_reqs_compiler`` compiles the solutions of several platforms together: ``requirements_txts`` maps a
   solution file to each platform. The solutions use the same version of every package, a package keeps the
