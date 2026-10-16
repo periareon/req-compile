@@ -599,7 +599,7 @@ def entry_point(pkg, script = None, output_list = False):
         script = pkg
     _, data = _package_data(pkg)
     targets = {{
-        lock_id: Label("@{{}}//{{}}:entry_point_{{}}".format(lock["repo"], _WHEEL_HUB, script))
+        lock_id: Label("@{{}}//:{{}}.entry_point_{{}}".format(lock["repo"], _WHEEL_HUB, script))
         for lock_id, lock in data.items()
     }}
     if output_list:
@@ -684,9 +684,7 @@ filegroup(
 """
 
 _PACKAGE_BUILD_FILE_TEMPLATE = """\
-load("@rules_venv//python:defs.bzl", "py_library")
-
-package(default_visibility = ["//visibility:public"])
+{loads}package(default_visibility = ["//visibility:public"])
 
 alias(
     name = "{pkg}",
@@ -699,7 +697,16 @@ alias(
     actual = {whl},
     tags = ["manual"],
 )
+"""
 
+_UNAVAILABLE_LOAD = """\
+load("@rules_venv//python:defs.bzl", "py_library")
+
+"""
+
+# Rendered when a package is missing from some locks of a hub and the hub has
+# no fallback lock providing it.
+_UNAVAILABLE_TEMPLATE = """\
 # The package is not part of every lock of the hub. Targets depending on it
 # are incompatible with the platforms it is missing from.
 py_library(
@@ -829,10 +836,12 @@ def _py_requirements_repository_impl(repository_ctx):
         else:
             data = packages[pkg]
             heterogeneous = len(data) != len(lock_ids)
+            unavailable = False
             if default_lock and default_lock in data:
-                default_library = "\"@{}//{}:pkg\"".format(data[default_lock]["repo"], wheel_hub)
+                default_library = "\"@{}//:{}.{}\"".format(data[default_lock]["repo"], wheel_hub, pkg)
                 default_whl = "\"@{}//:whl\"".format(data[default_lock]["repo"])
             elif heterogeneous:
+                unavailable = True
                 default_library = "\":{}.unavailable\"".format(pkg)
                 default_whl = "\":whl.unavailable\""
             else:
@@ -840,10 +849,11 @@ def _py_requirements_repository_impl(repository_ctx):
                 default_whl = None
 
             contents = _PACKAGE_BUILD_FILE_TEMPLATE.format(
+                loads = _UNAVAILABLE_LOAD if unavailable else "",
                 pkg = pkg,
                 actual = _render_select(
                     lock_ids,
-                    {lock_id: "\"@{}//{}:pkg\"".format(lock["repo"], wheel_hub) for lock_id, lock in data.items()},
+                    {lock_id: "\"@{}//:{}.{}\"".format(lock["repo"], wheel_hub, pkg) for lock_id, lock in data.items()},
                     default_library,
                 ),
                 whl = _render_select(
@@ -851,8 +861,9 @@ def _py_requirements_repository_impl(repository_ctx):
                     {lock_id: "\"@{}//:whl\"".format(lock["repo"]) for lock_id, lock in data.items()},
                     default_whl,
                 ),
-                incompatible = _INCOMPATIBLE,
             )
+            if unavailable:
+                contents += "\n" + _UNAVAILABLE_TEMPLATE.format(pkg = pkg, incompatible = _INCOMPATIBLE)
         repository_ctx.file(
             "{}/BUILD.bazel".format(pkg),
             contents,

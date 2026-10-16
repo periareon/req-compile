@@ -55,7 +55,8 @@ for every platform can be compiled from a single machine.
 Every wheel is downloaded once and shared by all the hubs of all the modules pinning it, while each hub
 keeps the dependencies it resolved. Packages missing from the lock of a platform make the targets using
 them incompatible with that platform instead of failing the build.
-See the `Bazel rules documentation <docs/docs.md>`_ for details.
+See the `Bazel rules documentation <docs/docs.md>`_ for details and the
+`repository layout <docs/repository_layout.md>`_ for how hubs, wheel repositories and dependencies fit together.
 
 
 Why use it?

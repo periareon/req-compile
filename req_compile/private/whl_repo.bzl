@@ -7,9 +7,9 @@ SDIST_ATTRS = {
     "sdist_deps_repos": attr.label_list(
         doc = "INTERNAL: DO NOT USE. Default dependencies for building source distributions.",
         default = [
-            Label("@req_compile_sdist_compiler__pip//:pkg"),
-            Label("@req_compile_sdist_compiler__setuptools//:pkg"),
-            Label("@req_compile_sdist_compiler__wheel//:pkg"),
+            Label("@req_compile_sdist_compiler__pip//:pip"),
+            Label("@req_compile_sdist_compiler__setuptools//:setuptools"),
+            Label("@req_compile_sdist_compiler__wheel//:wheel"),
         ],
         allow_files = True,
     ),
@@ -114,39 +114,43 @@ if __name__ == "__main__":
 # that pins this exact wheel.
 _ROOT_BUILD_TEMPLATE = """\
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
-load("@rules_venv//python:defs.bzl", "py_library")
+load("@rules_venv//python:defs.bzl", "py_binary", "py_library")
 
 package(default_visibility = ["//visibility:public"])
 
 exports_files({entry_point_scripts})
 
-# The contents of the wheel without its Python dependencies. Dependencies are
-# resolved by each hub using this wheel in a package of this repository named
-# after the hub.
+# The Python modules of the wheel.
+_SRCS = {srcs} + glob(
+    include = ["site-packages/**/*.py"],
+    exclude = {srcs_exclude},
+    # Empty sources are allowed to support wheels that don't have any
+    # pure-Python code, e.g. pymssql, which is written in Cython.
+    allow_empty = True,
+)
+
+# Everything else the wheel installs.
+_DATA = {data} + glob(
+    include = ["site-packages/**/*"],
+    exclude = {data_exclude},
+    allow_empty = True,
+)
+
+# The contents of the wheel, deliberately without the Python packages it
+# depends on. This repository is shared by every hub pinning this exact
+# wheel, and each hub may have resolved those packages differently, so none
+# can be named here. The only dependencies are labels an annotation added,
+# which do not depend on a hub. Each hub gets a target below with the
+# packages it resolved, and that is what the hub's `@<hub>//{name}` alias
+# points at. Depend on the hub.
 py_library(
-    name = "library",
-    srcs = {srcs} + glob(
-        include = ["site-packages/**/*.py"],
-        exclude = {srcs_exclude},
-        # Empty sources are allowed to support wheels that don't have any
-        # pure-Python code, e.g. pymssql, which is written in Cython.
-        allow_empty = True,
-    ),
-    data = {data} + glob(
-        include = ["site-packages/**/*"],
-        exclude = {data_exclude},
-        allow_empty = True,
-    ),
+    name = "{name}",
+    srcs = _SRCS,
+    data = _DATA,
     # This makes this directory a top-level in the python import
     # search path for anything that depends on this.
     imports = ["site-packages"],
     deps = {deps_labels},
-    tags = ["manual"],
-)
-
-alias(
-    name = "pkg",
-    actual = ":library",
     tags = ["manual"],
 )
 
@@ -156,21 +160,29 @@ filegroup(
 )
 """
 
-# Each hub using the wheel gets a package holding the `py_library` with the
-# dependencies that hub resolved for it.
-_HUB_BUILD_TEMPLATE = """\
-load("@rules_venv//python:defs.bzl", "py_binary", "py_library")
-
-package(default_visibility = ["//visibility:public"])
-
+# The library of one hub. It owns the modules rather than depending on the
+# library of the package, so that tools analyzing a library together with its
+# dependencies, such as a type checker, see the modules with the dependencies
+# of this hub instead of with none. It lives in the root package because the
+# modules can only be globbed from there.
+_HUB_LIBRARY_TEMPLATE = """\
+# The wheel with the dependencies the `{hub}` hub resolved for it.
 py_library(
-    name = "{name}",
-    deps = ["//:library"] + {deps},
+    name = "{hub}.{name}",
+    srcs = _SRCS,
+    data = _DATA,
+    imports = ["site-packages"],
+    deps = {deps},
     tags = ["manual"],
 )
+"""
 
+# A hub that resolved no dependencies for the wheel sees the library of the
+# package itself. The two would otherwise be identical.
+_HUB_ALIAS_TEMPLATE = """\
+# The `{hub}` hub resolved no dependencies for the wheel.
 alias(
-    name = "pkg",
+    name = "{hub}.{name}",
     actual = ":{name}",
     tags = ["manual"],
 )
@@ -228,8 +240,8 @@ def _generate_entry_point_rule(*, name, script, pkg):
     Args:
         name (str): The name of the generated py_binary.
         script (str): The label of the entry point's python file.
-        pkg (str): The package owning the entry point. This is expected to
-            match up with the `py_library` defined for each repository.
+        pkg (str): The name of the library the entry point runs against, the
+            target of the hub the entry point belongs to.
 
     Returns:
         str: A `py_binary` instantiation.
@@ -266,8 +278,8 @@ def _parse_entry_points_txt(content):
 
     return console_scripts
 
-def hub_deps_expression(hub, hub_data, annotations):
-    """Render the `deps` of the `py_library` a hub sees for this wheel.
+def hub_deps(hub, hub_data, annotations):
+    """The Python packages a hub resolved for this wheel, as labels into the hub.
 
     Args:
         hub (str): The name of the hub.
@@ -278,7 +290,10 @@ def hub_deps_expression(hub, hub_data, annotations):
         annotations (struct): The deserialized annotations of the package.
 
     Returns:
-        str: Starlark source for the deps, either a list or a `select`.
+        struct: With `branches`, a mapping of the config setting selecting a lock
+            to the sorted dependency labels of that lock, keyed by None when the hub
+            has a single lock; `default`, the labels of the lock the hub falls back
+            to, or None; and `empty`, whether no lock resolved any dependency.
     """
     negative_deps = [
         sanitize_package_name(dep[1:])
@@ -310,23 +325,37 @@ def hub_deps_expression(hub, hub_data, annotations):
         if lock_id == hub_data.get("default_lock"):
             default_labels = labels
 
-    if len(branches) == 1 and None in branches:
-        return json.encode_indent(branches[None], indent = " " * 4)
-
-    if None in branches:
+    if None in branches and len(branches) != 1:
         fail("Hub `{}` mixes locks with and without a config setting.".format(hub))
 
-    lines = ["select({"]
-    for config_setting, labels in branches.items():
-        lines.append("    \"{}\": {},".format(
-            config_setting,
-            json.encode(labels),
-        ))
+    return struct(
+        branches = branches,
+        default = default_labels,
+        empty = not [labels for labels in branches.values() if labels],
+    )
+
+def render_deps(labels, deps):
+    """Render the `deps` attribute of the library a hub sees for this wheel.
+
+    Args:
+        labels (list[str]): Dependencies that do not depend on the hub, the labels
+            an annotation added.
+        deps (struct): The hub's dependencies, see `hub_deps`.
+
+    Returns:
+        str: Starlark source, a list or a list added to a `select`.
+    """
+    if None in deps.branches:
+        return json.encode_indent(labels + deps.branches[None], indent = " " * 4)
+
+    lines = ["{} + select({{".format(json.encode(labels))]
+    for config_setting, branch in deps.branches.items():
+        lines.append("    \"{}\": {},".format(config_setting, json.encode(branch)))
 
     # When the hub falls back to this wheel on a platform none of its locks
     # match, the dependencies of the fallback lock apply as well.
-    if default_labels != None:
-        lines.append("    \"//conditions:default\": {},".format(json.encode(default_labels)))
+    if deps.default != None:
+        lines.append("    \"//conditions:default\": {},".format(json.encode(deps.default)))
     lines.append("})")
     return "\n".join(lines)
 
@@ -482,7 +511,11 @@ def _whl_repository_impl(repository_ctx):
         additive_build_path = repository_ctx.path(Label(annotations.additive_build_file))
         additive_content += repository_ctx.read(additive_build_path)
 
+    hubs = json.decode(repository_ctx.attr.hubs)
+    package_name = sanitize_package_name(repository_ctx.attr.package)
+
     root_content = [_ROOT_BUILD_TEMPLATE.format(
+        name = package_name,
         entry_point_scripts = json.encode(sorted(entry_point_scripts)),
         srcs = srcs,
         srcs_exclude = repr(srcs_exclude),
@@ -492,23 +525,26 @@ def _whl_repository_impl(repository_ctx):
         whl_name = whl_name,
     )] + root_content
 
-    repository_ctx.file("BUILD.bazel", "\n".join(root_content) + additive_content)
-
-    # Create a package for each hub that uses this wheel.
-    hubs = json.decode(repository_ctx.attr.hubs)
-    package_name = sanitize_package_name(repository_ctx.attr.package)
+    # The library of a hub only differs from the library of the package by the
+    # dependencies the hub resolved. Without any, the hub aliases the package.
     for hub, hub_data in hubs.items():
-        hub_content = [_HUB_BUILD_TEMPLATE.format(
-            name = package_name,
-            deps = hub_deps_expression(hub, hub_data, annotations),
-        )]
-        for entry_point in sorted(entry_points):
-            hub_content.append(_generate_entry_point_rule(
-                name = "{}_{}".format(_WHEEL_ENTRY_POINT_PREFIX, entry_point),
-                script = "//:{}_{}.py".format(_WHEEL_ENTRY_POINT_PREFIX, entry_point),
-                pkg = package_name,
+        deps = hub_deps(hub, hub_data, annotations)
+        if deps.empty:
+            root_content.append(_HUB_ALIAS_TEMPLATE.format(hub = hub, name = package_name))
+        else:
+            root_content.append(_HUB_LIBRARY_TEMPLATE.format(
+                hub = hub,
+                name = package_name,
+                deps = render_deps(label_deps, deps),
             ))
-        repository_ctx.file("{}/BUILD.bazel".format(hub), "\n".join(hub_content))
+        for entry_point in sorted(entry_points):
+            root_content.append(_generate_entry_point_rule(
+                name = "{}.{}_{}".format(hub, _WHEEL_ENTRY_POINT_PREFIX, entry_point),
+                script = "{}_{}.py".format(_WHEEL_ENTRY_POINT_PREFIX, entry_point),
+                pkg = "{}.{}".format(hub, package_name),
+            ))
+
+    repository_ctx.file("BUILD.bazel", "\n".join(root_content) + additive_content)
 
     return {
         "annotations": repository_ctx.attr.annotations,
@@ -530,10 +566,11 @@ A repository rule for extracting a python [wheel](https://peps.python.org/pep-04
 
 This repository is expected to be generated by [py_requirements_repository](#py_requirements_repository).
 
-The root package of the repository contains the wheel (`//:whl`) and a `py_library` (`//:library`) holding its
-files but none of its dependencies. Every hub using the wheel gets a package named after it, e.g. `//pip_deps:pkg`,
-whose `py_library` adds the dependencies that hub resolved for the package. This allows a single repository to be
-shared by every hub that pins the same wheel, even when they resolved its dependencies differently.
+The repository contains the wheel (`//:whl`), a `py_library` named after the package (`//:requests`) holding its
+files but none of its dependencies, and a target per hub using the wheel (`//:pip_deps.requests`) holding its files
+with the dependencies that hub resolved for the package, or aliasing the package when the hub resolved none. The
+console scripts of the wheel are a `py_binary` per hub (`//:pip_deps.entry_point_<script>`). This allows a single
+repository to be shared by every hub that pins the same wheel, even when they resolved its dependencies differently.
 """,
     implementation = _whl_repository_impl,
     attrs = {
