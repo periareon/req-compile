@@ -8,7 +8,7 @@
 #   PY_LIB        the matching CPython Lib directory of pure-Python modules
 #   PY_SITE       a directory holding `packaging/` and `overrides/`
 #   BUNDLE_PYTHON optional: a host Python of the embedded minor version, to bundle bytecode
-#   LINK_FLAGS    optional: link-time flags, default `-O2 -Wl,--strip-all`; "" keeps function names
+#   LINK_FLAGS    optional: link-time flags, default `-Wl,--strip-all`; "" keeps function names
 #   WIZER         optional: path to `wizer`, to pre-initialize the interpreter at build time
 # Output: $OUT (default: build/req_compile_solver.wasm next to this script)
 set -euo pipefail
@@ -63,9 +63,12 @@ echo "linking"
 "$CC" "${CFLAGS[@]}" -c "$HERE/wasi_stubs.c" -o "$BUILD/wasi_stubs.o"
 "$CC" "${CFLAGS[@]}" -c "$HERE/shim.c" -o "$BUILD/shim.o"
 (cd "$BUILD" && "$CC" --target=wasm32-wasi -c "$HERE/embed.S" -o "$BUILD/embed.o")
-# `-O2` at link time makes wasm-ld drop the name section as well; a build
-# meant for profiling sets LINK_FLAGS to "" to keep function names.
-LINK_FLAGS="${LINK_FLAGS--O2 -Wl,--strip-all}"
+# No `-O2` at link time: with it, wasm-ld emits a `_PyEval_EvalFrameDefault`
+# that Bazel's runtime cannot compile into one JVM method and interprets instead,
+# which costs the solver an order of magnitude (see README.md, "Where the time
+# goes"). `--strip-all` also drops the name section; a build meant for
+# profiling sets LINK_FLAGS to "" to keep function names.
+LINK_FLAGS="${LINK_FLAGS--Wl,--strip-all}"
 # shellcheck disable=SC2086
 "$CC" --target=wasm32-wasi -mexec-model=reactor $LINK_FLAGS \
     -o "$OUT" \

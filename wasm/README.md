@@ -35,12 +35,22 @@ runs is `perform_compile_group`, the same one the command line uses.
 
 ## Building
 
-Requirements: wasi-sdk 24, a CPython 3.13 `wasm32-wasi` build directory (such as
-the `_build-python-3.13.*-wasi_sdk-24.zip` of
-[brettcannon/cpython-wasi-build](https://github.com/brettcannon/cpython-wasi-build/releases),
-which holds `libpython3.13.a`, `pyconfig.h` and the `Makefile`), the matching
-CPython source tree and `Lib` directory, and a directory with `packaging` and
-`overrides` unpacked. Optionally a host Python 3.13 to bundle bytecode, and
+Requirements: wasi-sdk 24, a CPython 3.13 `wasm32-wasi` build directory with
+`libpython3.13.a`, `pyconfig.h` and the `Makefile`, the matching CPython source
+tree and `Lib` directory, and a directory with `packaging` and `overrides`
+unpacked.
+
+Build CPython with `build_cpython.sh`: it runs CPython's own WASI cross-build
+from a 3.13 source checkout, size-optimized, and rebuilds `ceval.c` with the
+flags that let Bazel's runtime compile the evaluation loop (see "Where the time
+goes"). It takes about two minutes and prints the `PY_BUILD`, `PY_SRC` and
+`PY_LIB` values for `build.sh`. A stock build such as
+[brettcannon/cpython-wasi-build](https://github.com/brettcannon/cpython-wasi-build/releases)
+works too, several times slower in Bazel.
+
+```bash
+WASI_SDK=/opt/wasi-sdk-24.0 CPYTHON_SRC=/path/to/cpython wasm/build_cpython.sh
+``` Optionally a host Python 3.13 to bundle bytecode, and
 [Wizer](https://github.com/bytecodealliance/wizer) to pre-initialize the module:
 with `WIZER` set, the build starts the interpreter and imports the solver once,
 snapshots the memory into the module, and every call then begins with the
@@ -139,6 +149,10 @@ Taken on an Apple M-series laptop against PyPI, October 2026.
 | After the optimization pass: solve of 61 packages for three platforms, all facts present | 88 s (was 273 s) |
 | After the optimization pass: adding `rich` | 7 calls, 33 s elapsed (was 139 s) |
 | After the optimization pass: fresh resolve of both example hubs, no facts | 4 calls, 45 s in the module (was 70 s elapsed) |
+| With the evaluation loop compiled (CPython from `build_cpython.sh`): solve of 61 packages for three platforms | 8.9 s (7.3 s with `-XX:-DontCompileHugeMethods` on the server JVM) |
+| With the evaluation loop compiled: ingest of a 1.8 MB page | 0.3 s |
+| With the evaluation loop compiled: fresh resolve of both example hubs, no facts | 4 calls, 4.5 s in the module, 13 s elapsed |
+| With the evaluation loop compiled: adding `rich` | 7 calls, 3.4 s in the module, 4.6 s elapsed |
 | This repository's requirements for three platforms, host driver, starting from the checked-in pins | 4 rounds, 57 s, and the same 61, 56 and 58 versions as the three checked-in lock files |
 
 ## Where the time goes
@@ -165,7 +179,17 @@ That shaped the optimizations, in order of effect:
   URLs skip `urljoin`. The solver's own results are identical.
 - **One call per round**, with documents ingested inside the solve call.
 
-The remaining cost is the solver proper under an interpreted eval loop. The lever
-that would change it is outside this repository: a CPython whose evaluation loop
-is many small functions (the tail-calling interpreter of 3.14, if wasm tail calls
-are usable) or Chicory splitting large functions.
+A Flight Recorder profile of a full solve under Bazel's Chicory confirmed the
+diagnosis: 92% of samples had the interpreter on the stack and 3% were in
+compiled code. The evaluation loop was 66 KB of wasm in the stock `-O3` build,
+just over what fits in one JVM method. So the last step was to make it fit:
+`build_cpython.sh` builds CPython size-optimized and compiles `ceval.c` with
+`-Oz -fno-inline-functions -mllvm -ir-outliner`, which brings the function to
+52 KB, and `build.sh` no longer passes `-O2` at link time, which on its own
+pushed it back over the limit. Chicory then compiles every function, and the
+full solve drops from 88 s to 9 s.
+
+HotSpot does not JIT-compile JVM methods over 8,000 bytes of bytecode by default,
+so the compiled evaluation loop still runs in the JVM's own interpreter.
+`startup --host_jvm_args=-XX:-DontCompileHugeMethods` in `.bazelrc` lifts that
+and is worth another fifth.

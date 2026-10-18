@@ -481,9 +481,9 @@ minimize, and so is the amount of Python each call executes.
 | --- | --- | --- |
 | `ping` (the floor of a call), Bazel 10 compiled | 10.2 s | 0.0 s |
 | Ingest of a 1.8 MB index page | 16.2 s | about 1 s |
-| Solve of 61 packages for three platforms with every fact present | 273 s | 88 s |
-| Adding `rich` to the example's `requests` hub (7 calls) | 134 s in the module, 139 s elapsed | 32 s in the module, 33 s elapsed |
-| Fresh resolve of both example hubs, no facts (4 calls) | 70 s elapsed | 45 s in the module |
+| Solve of 61 packages for three platforms with every fact present | 273 s | 8.9 s (88 s before the evaluation loop compiled) |
+| Adding `rich` to the example's `requests` hub (7 calls) | 134 s in the module, 139 s elapsed | 3.4 s in the module, 4.6 s elapsed |
+| Fresh resolve of both example hubs, no facts (4 calls) | 70 s elapsed | 4.5 s in the module, 13 s elapsed |
 | Re-evaluation of the example with facts recorded (3 calls) | | 3 s in the module, 11 s elapsed |
 
 - **Wizer pre-initialization.** `wasm/build.sh` with `WIZER` set runs the
@@ -497,7 +497,19 @@ minimize, and so is the amount of Python each call executes.
   checks, uninstallable artifacts filtered once per platform with the pre-release
   policy preserved, and no `urljoin` for absolute URLs. Natively the full solve
   went from 0.34 s to 0.09 s with identical artifacts.
-- The remaining time is the solver under the interpreted evaluation loop.
+- **A compiled evaluation loop.** A Flight Recorder profile of the full solve
+  under Bazel's Chicory showed 92% of samples in the interpreter and 3% in
+  compiled code. `_PyEval_EvalFrameDefault` was 66 KB of wasm in the stock `-O3`
+  build, just over what fits one JVM method. `wasm/build_cpython.sh` builds
+  CPython with `-Os` and `ceval.c` with `-Oz -fno-inline-functions -mllvm
+  -ir-outliner` (52 KB), and `build.sh` no longer passes `-O2` to the linker,
+  which alone pushed the function back over the limit. Chicory then interprets
+  nothing. The tail-calling interpreter of CPython 3.14 was ruled out: it
+  requires `preserve_none`, which clang lacks for wasm, and Chicory 1.7.5
+  compiles tail calls as call-plus-return, which would overflow the stack.
+- HotSpot does not JIT methods over 8,000 bytes of bytecode, so the compiled
+  loop runs in the JVM interpreter; `startup --host_jvm_args=-XX:-DontCompileHugeMethods`
+  buys another fifth (8.9 s to 7.3 s) and is a user-side `.bazelrc` line.
 
 Memory: the module declares 64 MiB and grows; `memory_limit` is set to 1 GiB in the
 prototype and peak use has not been measured yet.
@@ -875,10 +887,12 @@ Levers that remain, in order of expected value:
   (`--experimental_repository_ctx_wasm_compilation`) is in Bazel 10.0.0rc1. The
   extension should check for `load_wasm` and name the flags rather than crash, and
   the documentation should recommend Bazel 10.
-- **The call floor.** Ten seconds per call in Bazel 10 is workable for a lock
-  refresh but not pleasant. Whether Chicory can compile CPython's evaluation loop,
-  or whether the floor can be cut by trimming imports or snapshotting the heap,
-  decides how often users notice.
+- **The call floor** is gone (Wizer) and the evaluation loop compiles (see
+  "Measurements"). What remains open is keeping it that way: the function sits
+  at 52 KB against a limit that is really on the JVM bytecode Chicory emits, so
+  a CPython or Chicory upgrade can push it back over. The build should check with
+  Chicory's compiler in warn mode (as the `Fallback` tool used here did) rather
+  than find out from timings.
 - **Index JSON on non-PyPI indexes.** Artifactory, Nexus and devpi vary in PEP 691
   and PEP 658 support. The HTML parser and the extract-the-wheel fallback cover
   them; whether the fallback is tolerable in practice for large wheels decides how
