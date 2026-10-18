@@ -19,7 +19,6 @@ MAGIC = b"RQB1"
 STDLIB_SKIP = {
     "__phello__",
     "__pycache__",
-    "config-3.13-wasm32-wasi",
     "ctypes",
     "ensurepip",
     "idlelib",
@@ -37,7 +36,11 @@ STDLIB_SKIP = {
 def collect(root, skip):
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = sorted(
-            d for d in dirnames if d not in skip and not d.endswith(".dist-info")
+            d
+            for d in dirnames
+            if d not in skip
+            and not d.endswith(".dist-info")
+            and not d.startswith("config-")
         )
         for filename in sorted(filenames):
             if not filename.endswith(".py"):

@@ -159,15 +159,16 @@ The module must be freestanding `wasm32-unknown-unknown` in effect: `execute_was
 instantiates it with no imports at all, so there is no WASI, no filesystem, no
 clock and no network. The first draft of this design concluded that CPython could
 not meet that and proposed a Rust port of the solver. The prototype shows that it
-can, with surprisingly little: a stock CPython 3.13 `wasm32-wasi` build becomes
-import-free by linking four small pieces into it, and the `req_compile` package runs
-inside unchanged.
+can, with surprisingly little: a CPython `wasm32-wasi` build (3.14 now, 3.13 before
+it) becomes import-free by linking a few small pieces into it, and the `req_compile`
+package runs inside unchanged.
 
 | Piece | Lines | What it does |
 | --- | --- | --- |
 | `wasm/wasi_stubs.c` | ~400 | Defines, inside the module, every WASI function wasi-libc imports. Standard output and error are captured into buffers, the clock is a counter, `random_get` is a fixed-seed generator (so hash seeds and set ordering are reproducible), the filesystem is empty, `proc_exit` traps. |
 | `wasm/shim.c` | ~130 | Exports `allocate` and `solve` with the signatures Bazel expects, embeds the interpreter, exposes the input buffer and the bundle to Python through a builtin `_host` module, and returns Python's output buffer. |
-| `wasm/bootstrap.py` | ~90 | An importer over an in-memory bundle of `.py` or bytecode files. It is installed during CPython's *core* initialization phase (`PyConfig._init_main = 0`, then `_Py_InitializeMain()`), because this build does not freeze `encodings` and the main phase needs to import it. |
+| `wasm/bootstrap.py` | ~80 | An importer over an in-memory bundle of `.py` or bytecode files, installed as the first thing after the interpreter starts. |
+| `wasm/freeze_encodings.py` | ~60 | The WASI build does not freeze `encodings`, which the interpreter imports while starting, before any importer of ours can exist. This emits a `PyImport_FrozenModules` table with the six modules involved; `shim.c` installs it before `Py_InitializeFromConfig`. (3.13 offered a two-phase start-up, `_init_main = 0` then `_Py_InitializeMain()`, that let the importer go in between; 3.14 removed it.) |
 | `wasm/bundle.py`, `wasm/embed.S` | ~120 | Pack the standard library (trimmed), `packaging`, `overrides`, the shims and `req_compile` into a length-prefixed blob linked into the module as data. With a host Python of the same minor version the blob holds marshalled bytecode instead of source. |
 
 Five stand-in modules in `wasm/shims/` satisfy imports that cannot work in the box
@@ -176,12 +177,13 @@ and are never exercised by the solver: `requests` (nothing downloads), `toml` an
 (one thread, used only to scan source trees) and `ctypes` (no dynamic loading;
 `get_glibc_version` then correctly reports "not glibc"). They total forty lines.
 
-`libpython3.13.a`, `pyconfig.h` and the link flags come from an existing CPython WASI
-build (the prototype used the archive of `brettcannon/cpython-wasi-build`); the
-vendored `libmpdec`, `expat` and `_hacl` sources are compiled alongside because the
-archive does not contain them. The whole build is `wasm/build.sh`. The module is
-16 MB, of which 10 MB is the bundle; its only exports are `allocate`, `solve` and
-`_initialize`.
+`libpython3.X.a`, `pyconfig.h` and the link flags come from a CPython WASI build,
+made by `wasm/build_cpython.sh` (the prototype used the archive of
+`brettcannon/cpython-wasi-build`, which still works, slower); the vendored
+`libmpdec`, `expat` and `_hacl` objects are linked alongside because they are not
+in the archive. The whole build is `wasm/build.sh`. The module is 16 MB, of which
+10 MB is the bundle (25 MB with the pre-initialized snapshot); its only exports are
+`allocate`, `solve` and, without the snapshot, `_initialize`.
 
 What this buys over a port is the goal of this design: the solver inside Bazel is
 the solver on the command line, including `perform_compile_group`'s cross-platform
@@ -481,9 +483,9 @@ minimize, and so is the amount of Python each call executes.
 | --- | --- | --- |
 | `ping` (the floor of a call), Bazel 10 compiled | 10.2 s | 0.0 s |
 | Ingest of a 1.8 MB index page | 16.2 s | about 1 s |
-| Solve of 61 packages for three platforms with every fact present | 273 s | 8.9 s (88 s before the evaluation loop compiled; 3.5 to 5.6 s with the JIT flags) |
-| Adding `rich` to the example's `requests` hub (7 calls) | 134 s in the module, 139 s elapsed | 3.4 s in the module, 4.6 s elapsed |
-| Fresh resolve of both example hubs, no facts (4 calls) | 70 s elapsed | 4.5 s in the module, 13 s elapsed |
+| Solve of 61 packages for three platforms with every fact present | 273 s | 2.5 s (88 s before the evaluation loop compiled, 8.9 s before the trampoline interpreter; 1.3 s with the JIT flag) |
+| Adding `rich` to the example's `requests` hub (7 calls) | 134 s in the module, 139 s elapsed | 1.3 s in the module, 2.0 s elapsed |
+| Fresh resolve of both example hubs, no facts (4 calls) | 70 s elapsed | 1.6 s in the module, 15 s elapsed, most of it fetching the wheels |
 | Re-evaluation of the example with facts recorded (3 calls) | | 3 s in the module, 11 s elapsed |
 
 - **Wizer pre-initialization.** `wasm/build.sh` with `WIZER` set runs the
@@ -504,9 +506,7 @@ minimize, and so is the amount of Python each call executes.
   CPython with `-Os` and `ceval.c` with `-Oz -fno-inline-functions -mllvm
   -ir-outliner` (52 KB), and `build.sh` no longer passes `-O2` to the linker,
   which alone pushed the function back over the limit. Chicory then interprets
-  nothing. The tail-calling interpreter of CPython 3.14 was ruled out: it
-  requires `preserve_none`, which clang lacks for wasm, and Chicory 1.7.5
-  compiles tail calls as call-plus-return, which would overflow the stack.
+  nothing. Full solve: 88 s to 8.9 s.
 - **A JIT-compiled evaluation loop.** Chicory's output for it is a 60 KB JVM
   method, which HotSpot runs in its own interpreter: the huge-method limit skips
   it, C1 runs out of virtual registers on it, and C2 runs out of nodes at the
@@ -515,8 +515,25 @@ minimize, and so is the amount of Python each call executes.
   call drops from 8.5 s to 1.6 s once warm (the third call); inside Bazel, where
   each evaluation starts from a cold class and C2 recompiles the method a few
   times before it settles, the same solve measured 5.6 s, 3.5 s and 4.6 s over
-  three calls against 8.9 s without the flags. They are server startup flags, so
-  they belong in the user's `.bazelrc`; the example carries them.
+  three calls against 8.9 s without the flags.
+- **A trampoline interpreter** (CPython 3.14, `TRAMPOLINE=1` in
+  `build_cpython.sh`). Moving from 3.13 to 3.14 changed nothing by itself (the
+  same 8.9 s). 3.14's tail-calling interpreter, one C function per bytecode
+  instruction, cannot be used as is: it requires `preserve_none`, which clang
+  lacks for wasm, and Chicory 1.7.5 compiles tail calls as call-plus-return,
+  which would overflow the stack. `wasm/patches/cpython-3.14-trampoline-interpreter.patch`
+  (170 lines, macros only) keeps the generated per-instruction functions and
+  turns each tail call into a return to a small loop that calls the next
+  handler. The evaluation loop becomes 328 bytes of wasm and the largest of the
+  234 handlers 1.5 KB, so no function is near either limit and HotSpot compiles
+  the hot handlers unaided. The call-and-return per bytecode costs 2x under
+  wasmtime (0.57 s against 0.27 s for the full solve) and wins 3.5x under
+  Chicory: 3.2 s, 2.6 s and 2.5 s over three calls in Bazel with default JVM
+  flags, 2.2 s, 1.4 s and 1.3 s with them. Of the JVM flags only
+  `-XX:-DontCompileHugeMethods` still matters (other CPython functions exceed
+  HotSpot's 8,000-byte limit; 3.1 s to 1.9 s warm in a long-lived JVM); the
+  node-budget flags were for the method that no longer exists, so the example's
+  `.bazelrc` keeps just the one.
 
 Memory: the module declares 64 MiB and grows; `memory_limit` is set to 1 GiB in the
 prototype and peak use has not been measured yet.
@@ -788,7 +805,7 @@ this: the resolve code runs only when some module's `parse` tag sets
 ### Shipping the module
 
 `req_compile_solver.wasm` is built in CI by `wasm/build.sh`, with the wasi-sdk,
-CPython WASI build and host Python 3.13 pinned, and attached to each release.
+CPython WASI build and host Python 3.14 pinned, and attached to each release.
 `rules_req_compile`'s own `MODULE.bazel` declares it as an `http_file` pinned by
 sha256, and the extension loads it with `ctx.path(Label("@req_compile_solver//file"))`.
 For development in this repository a local override points the label at the output
@@ -833,8 +850,10 @@ Levers that remain, in order of expected value:
   projects) cost seconds each in the module. Asking the solver to ingest only what
   it asked for is already the case; HTML pages are smaller than JSON ones but lose
   nothing the solver needs, so preferring them is an option.
-- **A faster runtime.** Chicory's handling of very large functions is the root
-  cause; a Bazel-side improvement there would change the picture outright.
+- **A faster runtime.** With every function compiled, what remains is the
+  JVM's code quality for Chicory's output and the call per bytecode of the
+  trampoline. Real tail calls in Chicory (the wasm `tail-call` proposal) would
+  let the unpatched 3.14 interpreter run and save that call.
 
 ## Alternatives considered
 
@@ -894,12 +913,13 @@ Levers that remain, in order of expected value:
   (`--experimental_repository_ctx_wasm_compilation`) is in Bazel 10.0.0rc1. The
   extension should check for `load_wasm` and name the flags rather than crash, and
   the documentation should recommend Bazel 10.
-- **The call floor** is gone (Wizer) and the evaluation loop compiles (see
-  "Measurements"). What remains open is keeping it that way: the function sits
-  at 52 KB against a limit that is really on the JVM bytecode Chicory emits, so
-  a CPython or Chicory upgrade can push it back over. The build should check with
-  Chicory's compiler in warn mode (as the `Fallback` tool used here did) rather
-  than find out from timings.
+- **The call floor** is gone (Wizer) and no function is near the JVM method
+  limit any more (the trampoline interpreter; see "Measurements"). The patch is
+  170 lines against 3.14's `ceval_macros.h` and `ceval.c` and will need
+  carrying forward to 3.15, where the tail-call interpreter's macros may move.
+  The build should still check with Chicory's compiler in warn mode (as the
+  `Fallback` tool used here did) that nothing is interpreted, rather than find
+  out from timings.
 - **Index JSON on non-PyPI indexes.** Artifactory, Nexus and devpi vary in PEP 691
   and PEP 658 support. The HTML parser and the extract-the-wheel fallback cover
   them; whether the fallback is tolerable in practice for large wheels decides how

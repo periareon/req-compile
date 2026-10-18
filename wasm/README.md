@@ -2,7 +2,7 @@
 
 This directory builds `req_compile_solver.wasm`: the unmodified `req_compile`
 package, its dependencies and the parts of the standard library it needs, running
-on CPython 3.13 inside a WebAssembly module that imports nothing. Bazel can run
+on CPython (3.14; 3.13 works too) inside a WebAssembly module that imports nothing. Bazel can run
 it with `module_ctx.execute_wasm`, which is how the `requirements` module extension
 will resolve requirements without a host interpreter. The design is in
 [docs/design/wasm_mode.md](../docs/design/wasm_mode.md).
@@ -17,8 +17,10 @@ pieces turn a stock CPython WASI build into something that runs in that box.
 | --- | --- |
 | `wasi_stubs.c` | Defines every WASI function wasi-libc imports, inside the module. Standard output and error are captured into buffers, the clock is a counter, randomness is a fixed-seed generator so hashes are reproducible, and the filesystem is empty. |
 | `shim.c` | Exports `allocate` and `solve` with the signatures Bazel expects. `solve` starts the interpreter, runs the bootstrap, hands over the input and returns what Python produced. Every call is a fresh instance, so nothing is torn down. |
-| `bootstrap.py` | Runs during CPython's core initialization phase, when only builtin and frozen modules exist, and installs an importer over the bundle. The main phase then finds `encodings` there, and later everything else. |
-| `bundle.py` | Packs the sources, or bytecode when a host Python 3.13 is available, into the bundle `embed.S` links into the module as data. |
+| `bootstrap.py` | Installs an importer over the bundle as the first thing after the interpreter starts; every later import is served from it. |
+| `bundle.py` | Packs the sources, or bytecode when a host Python of the embedded version is available, into the bundle `embed.S` links into the module as data. |
+| `freeze_encodings.py` | Freezes the `encodings` modules the interpreter imports while starting, before any importer of ours exists, into a `PyImport_FrozenModules` table. |
+| `build_cpython.sh`, `patches/` | Builds CPython for WASI the way the module needs it, optionally with the trampoline interpreter patch (see "Where the time goes"). |
 
 `shims/` holds stand-ins for packages that `req_compile` imports but that cannot
 work in the module: `requests` (nothing downloads), `toml` and `setuptools`
@@ -35,23 +37,28 @@ runs is `perform_compile_group`, the same one the command line uses.
 
 ## Building
 
-Requirements: wasi-sdk 24, a CPython 3.13 `wasm32-wasi` build directory with
-`libpython3.13.a`, `pyconfig.h` and the `Makefile`, the matching CPython source
-tree and `Lib` directory, and a directory with `packaging` and `overrides`
-unpacked.
+Requirements: wasi-sdk 24, a CPython `wasm32-wasi` build directory with
+`libpython3.X.a`, `pyconfig.h` and the `Makefile`, the matching CPython source
+tree and `Lib` directory, a host Python of the same minor version (for the
+bytecode bundle and the frozen `encodings` table), and a directory with
+`packaging` and `overrides` unpacked.
 
 Build CPython with `build_cpython.sh`: it runs CPython's own WASI cross-build
-from a 3.13 source checkout, size-optimized, and rebuilds `ceval.c` with the
-flags that let Bazel's runtime compile the evaluation loop (see "Where the time
-goes"). It takes about two minutes and prints the `PY_BUILD`, `PY_SRC` and
-`PY_LIB` values for `build.sh`. A stock build such as
+from a source checkout, size-optimized, and rebuilds `ceval.c` with the flags
+that let Bazel's runtime compile the evaluation loop (see "Where the time
+goes"). With `TRAMPOLINE=1` and a 3.14 checkout it also applies
+`patches/cpython-3.14-trampoline-interpreter.patch`, which replaces the one big
+evaluation loop by one small function per instruction. It takes about two
+minutes and prints the `PY_BUILD`, `PY_SRC` and `PY_LIB` values for `build.sh`.
+A stock build such as
 [brettcannon/cpython-wasi-build](https://github.com/brettcannon/cpython-wasi-build/releases)
 works too, several times slower in Bazel.
 
 ```bash
-WASI_SDK=/opt/wasi-sdk-24.0 CPYTHON_SRC=/path/to/cpython wasm/build_cpython.sh
-``` Optionally a host Python 3.13 to bundle bytecode, and
-[Wizer](https://github.com/bytecodealliance/wizer) to pre-initialize the module:
+WASI_SDK=/opt/wasi-sdk-24.0 CPYTHON_SRC=/path/to/cpython TRAMPOLINE=1 wasm/build_cpython.sh
+```
+
+Optionally [Wizer](https://github.com/bytecodealliance/wizer) to pre-initialize the module:
 with `WIZER` set, the build starts the interpreter and imports the solver once,
 snapshots the memory into the module, and every call then begins with the
 interpreter already running. That removes the start-up cost of a call entirely
@@ -62,9 +69,9 @@ snapshot's data segments afterwards.
 WASI_SDK=/opt/wasi-sdk-24.0 \
 PY_BUILD=/path/to/cpython-wasi-build \
 PY_SRC=/path/to/cpython \
-PY_LIB=/path/to/python-3.13-wasi/lib/python3.13 \
+PY_LIB=/path/to/cpython/Lib \
 PY_SITE=/path/to/site-packages \
-BUNDLE_PYTHON=python3.13 \
+BUNDLE_PYTHON=python3.14 \
 WIZER=/path/to/wizer \
 wasm/build.sh
 ```
@@ -153,6 +160,11 @@ Taken on an Apple M-series laptop against PyPI, October 2026.
 | With the evaluation loop compiled: ingest of a 1.8 MB page | 0.3 s |
 | With the evaluation loop compiled: fresh resolve of both example hubs, no facts | 4 calls, 4.5 s in the module, 13 s elapsed |
 | With the evaluation loop compiled: adding `rich` | 7 calls, 3.4 s in the module, 4.6 s elapsed |
+| With the trampoline interpreter (CPython 3.14, `TRAMPOLINE=1`): solve of 61 packages for three platforms | 3.2 s, 2.6 s, 2.5 s over three calls; 2.2 s, 1.4 s, 1.3 s with the JIT flags |
+| With the trampoline interpreter: ingest of a 1.8 MB page | 0.1 s |
+| With the trampoline interpreter: fresh resolve of both example hubs, no facts | 4 calls, 1.6 s in the module, 15 s elapsed, most of it fetching the wheels |
+| With the trampoline interpreter: adding `rich` | 7 calls, 1.3 s in the module, 2.0 s elapsed |
+| The same under wasmtime, for scale: solve of 61 packages for three platforms | 0.27 s with the switch interpreter, 0.57 s with the trampoline |
 | This repository's requirements for three platforms, host driver, starting from the checked-in pins | 4 rounds, 57 s, and the same 61, 56 and 58 versions as the three checked-in lock files |
 
 ## Where the time goes
@@ -190,20 +202,43 @@ pushed it back over the limit. Chicory then compiles every function, and the
 full solve drops from 88 s to 9 s.
 
 That is not the end of it, because a second interpreter sits underneath: the
-evaluation loop is now a 60 KB JVM method, and HotSpot runs such a method in its
+evaluation loop is then a 60 KB JVM method, and HotSpot runs such a method in its
 own bytecode interpreter. `-XX:+PrintCompilation` shows why: the huge-method
 limit skips it by default; with that lifted, C1 gives up ("out of virtual
 registers") and C2 gives up on its node budget ("out of nodes"). Raising the
-budget lets C2 compile it. In a long-lived JVM a solve call then takes 1.6 s
-instead of 8.5 s once the JIT has warmed, which takes two or three calls. Inside
-Bazel the gain is smaller because each extension evaluation starts from a cold
-class and C2 recompiles the method a few times before it settles: the same solve
-measured 5.6 s, 3.5 s and 4.6 s over three consecutive calls, against 8.9 s
-without the flags. These are server JVM options, so they go in `.bazelrc` as
-startup flags; `example/.bazelrc` has them:
+budget (`-XX:MaxNodeLimit=2000000 -XX:NodeLimitFudgeFactor=100000`) lets C2
+compile it. In a long-lived JVM a solve call then takes 1.6 s instead of 8.5 s
+once the JIT has warmed, which takes two or three calls. Inside Bazel the gain
+is smaller because each extension evaluation starts from a cold class and C2
+recompiles the method a few times before it settles: the same solve measured
+5.6 s, 3.5 s and 4.6 s over three consecutive calls, against 8.9 s without the
+flags.
+
+The better answer is to not have a 60 KB function at all, and CPython 3.14
+nearly provides it. Its tail-calling interpreter (`--with-tail-call-interp`)
+generates one C function per bytecode instruction, each ending in a tail call to
+the next. As is, it cannot be used here: it needs the `preserve_none` calling
+convention and guaranteed tail calls, which clang does not have for wasm, and
+Chicory compiles a wasm tail call as call-plus-return, which would overflow the
+stack. `patches/cpython-3.14-trampoline-interpreter.patch`, 170 lines of macro
+changes, keeps the generated per-instruction functions and turns each tail call
+into a return to a small loop that calls the next handler: a call-threaded
+interpreter. The evaluation loop is then 328 bytes of wasm and the largest of
+the 234 handlers is 1.5 KB, far from both the JVM method limit and HotSpot's
+huge-method limit, and HotSpot compiles the hot handlers on its own. The price is
+a call and a return per bytecode: under wasmtime the full solve takes 0.57 s
+against 0.27 s with the switch interpreter. Under Chicory it is the other way
+round, 2.5 s against 8.9 s with default JVM flags and 1.3 s against 3.5 to
+4.6 s with them. `build_cpython.sh` with `TRAMPOLINE=1` is therefore the
+documented build; the switch-interpreter path still works for a 3.13 checkout.
+
+One JVM flag still pays with the trampoline. Other CPython functions exceed
+HotSpot's 8,000-byte huge-method limit, and letting the JIT compile them takes a
+warm solve call from 3.1 s to 1.9 s in a long-lived JVM; the node-budget flags
+no longer change anything, since the method they were for is gone. It is a
+server JVM option, so it goes in `.bazelrc` as a startup flag; `example/.bazelrc`
+has it:
 
 ```
 startup --host_jvm_args=-XX:-DontCompileHugeMethods
-startup --host_jvm_args=-XX:MaxNodeLimit=2000000
-startup --host_jvm_args=-XX:NodeLimitFudgeFactor=100000
 ```

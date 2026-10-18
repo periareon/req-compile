@@ -8,6 +8,10 @@
  */
 #include <Python.h>
 #include <stdint.h>
+
+/* The `encodings` modules, frozen by freeze_encodings.py: the interpreter
+ * imports them while initializing, before the bundle importer exists. */
+extern const struct _frozen req_compile_frozen_modules[];
 #include <stdlib.h>
 #include <string.h>
 
@@ -85,6 +89,7 @@ static const char *initialize(void) {
         return NULL;
     }
     PyImport_AppendInittab("_host", PyInit__host);
+    PyImport_FrozenModules = req_compile_frozen_modules;
 
     PyConfig config;
     PyConfig_InitIsolatedConfig(&config);
@@ -99,31 +104,21 @@ static const char *initialize(void) {
     PyConfig_SetString(&config, &config.program_name, L"req-compile");
     PyConfig_SetString(&config, &config.home, L"/req-compile");
 
-    /* Stop after the core phase: the bundle importer must be on sys.meta_path
-     * before the main phase imports `encodings`, which this build does not
-     * freeze. Only builtin and frozen modules are importable until then, and
-     * the bootstrap needs nothing else to install the importer. */
-    config._init_main = 0;
-
     PyStatus status = Py_InitializeFromConfig(&config);
     PyConfig_Clear(&config);
     if (PyStatus_Exception(status)) {
         return status.err_msg ? status.err_msg : "Python failed to initialize";
     }
 
+    /* Install the bundle importer; everything after this imports from it. */
     PyObject *globals = PyDict_New();
     PyDict_SetItemString(globals, "__builtins__", PyEval_GetBuiltins());
     PyObject *result = PyRun_String(bootstrap_src, Py_file_input, globals, globals);
     if (result == NULL) {
-        PyErr_Clear();
-        return "The solver bootstrap failed before the interpreter was fully initialized";
+        PyErr_Print();
+        return "The solver bootstrap failed";
     }
     Py_DECREF(result);
-
-    status = _Py_InitializeMain();
-    if (PyStatus_Exception(status)) {
-        return status.err_msg ? status.err_msg : "Python failed to initialize (main phase)";
-    }
 
     /* `prepare` imports the entry point and returns the callable that runs it,
      * so that a pre-initialized module has the imports done already. */

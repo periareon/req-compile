@@ -78,8 +78,7 @@ class BundleFinder:
         return bytes(self._data[offset : offset + size]).decode("utf-8")
 
 
-# Executed during the core initialization phase, when only builtin and frozen
-# modules import: put the bundle first so the main phase finds `encodings` in it.
+# Put the bundle first; from here on every import is served from it.
 sys.meta_path.insert(0, BundleFinder(_host.bundle()))
 
 
