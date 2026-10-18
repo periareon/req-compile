@@ -46,13 +46,21 @@ if [ -n "${TRAMPOLINE:-}" ]; then
     CONFIGURE_ARGS="${CONFIGURE_ARGS:-} --with-tail-call-interp"
 fi
 
+# CPython's WASI build driver: a package from 3.14 on (its `wasi.py` wrapper
+# only runs under a recent Python), a script before.
+if [ -d Tools/wasm/wasi ]; then
+    WASI_PY=Tools/wasm/wasi
+else
+    WASI_PY=Tools/wasm/wasi.py
+fi
+
 if [ -n "${CLEAN:-}" ]; then
-    python3 Tools/wasm/wasi.py clean
+    python3 "$WASI_PY" clean
 fi
 
 echo "building CPython for WASI (build python, then the wasm32-wasi host)"
 # shellcheck disable=SC2086
-WASI_SDK_PATH="$WASI_SDK" OPT="$OPT_ALL" python3 Tools/wasm/wasi.py build --quiet -- ${CONFIGURE_ARGS:-}
+WASI_SDK_PATH="$WASI_SDK" OPT="$OPT_ALL" python3 "$WASI_PY" build -- ${CONFIGURE_ARGS:-}
 
 HOST="$CPYTHON_SRC/cross-build/wasm32-wasip1"
 PY_VERSION="$(sed -n -E 's/^#define PY_MAJOR_VERSION[[:space:]]+([0-9]+).*/\1/p' Include/patchlevel.h).$(sed -n -E 's/^#define PY_MINOR_VERSION[[:space:]]+([0-9]+).*/\1/p' Include/patchlevel.h)"

@@ -618,6 +618,10 @@ class _FactFiles:
     def _open(self, file: Any, *args: Any, **kwargs: Any) -> Any:
         mode = args[0] if args else kwargs.get("mode", "r")
         path = os.fspath(file) if not isinstance(file, int) else None
+        if isinstance(path, str) and os.sep != "/":
+            # Included files are joined with `os.path.join`, which on a Windows
+            # host (the native tests) puts a backslash under the posix root.
+            path = path.replace(os.sep, "/")
         if isinstance(path, str) and path.startswith(INPUT_ROOT + "/"):
             key = "file:" + path
             fact = self.facts.get(key)
