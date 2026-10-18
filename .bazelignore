@@ -2,3 +2,4 @@ examples
 venv
 venv3
 .ijwb
+wasm/example

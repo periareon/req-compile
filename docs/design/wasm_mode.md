@@ -1,0 +1,850 @@
+# Design: resolving requirements inside Bazel with a WebAssembly solver
+
+Status: implemented, including the facts that make re-resolution lazy. Written against Bazel 9.3 and 10.0.0rc1 and `rules_req_compile` 1.5.0. The
+module is built from [`wasm/`](../../wasm/README.md), the entry point is
+[`req_compile/wasm/entry.py`](../../req_compile/wasm/entry.py), the loop is
+[`req_compile/private/resolve.bzl`](../../req_compile/private/resolve.bzl), and
+`requirements.parse(requirements_in = ...)` in `extensions/python.bzl` uses it.
+
+## Summary
+
+Today a hub is built from lock files that `py_reqs_compiler` writes by running the
+Python solver on a host interpreter. The lock files are checked in and the module
+extension only parses them.
+
+This design adds a second way to define a hub: the `parse` tag names
+`requirements.in` files, target platforms and indexes, and the module extension
+resolves them itself. The solver runs as a WebAssembly module through
+`module_ctx.execute_wasm`, which can only compute. The module is CPython itself
+with the unmodified `req_compile` package inside; no part of the solver is
+rewritten. Every download, file read and
+archive extraction is performed by Starlark, so the extension drives the solver in
+rounds: the solver reports the facts it is missing, Starlark fetches them in
+parallel, and the solver is run again with the larger set of facts until it
+produces a solution or fails. The result is recorded by Bazel in `MODULE.bazel.lock`,
+which becomes the lock: the pinned repositories live in the extension's
+`generatedRepoSpecs`, and the previous solution and a metadata cache live in the
+extension's `facts`, which is what makes re-resolution lazy and mostly offline.
+
+Everything after the solve is unchanged. The solver's output is the same
+`packages` structure that `parse_lockfile` produces today, so `plan_hubs`,
+`create_hub_repos`, `whl_repository` and the hub repository are reused as they are.
+
+## Goals and non-goals
+
+Goals:
+
+- Resolve requirements without a host Python, a toolchain or any process execution
+  at extension time. The only executable code is a `.wasm` file shipped with the rules.
+- One solver, one source. The module runs the `req_compile` package as it is, so a
+  wasm-mode hub and a `py_reqs_compiler` lock built from the same inputs pick the
+  same versions because the same code picked them.
+- Cross-platform by construction. A hub resolves every platform it declares in one
+  evaluation, with one version per package across platforms, as `requirements_txts`
+  does today.
+- `MODULE.bazel.lock` is the only lock. CI verifies it with `--lockfile_mode=error`.
+- Re-resolution is lazy: changing one requirement keeps every other pin, like running
+  `requirements.update` without `--upgrade`.
+- Hubs built from lock files keep working unchanged, in the same extension.
+
+Non-goals:
+
+- Building source distributions at resolve time. Metadata of sdists is used only
+  where the standards make it trustworthy without a build (see "Source distributions").
+- Replacing the Python package. The CLI and `py_reqs_compiler` remain the reference.
+- Supporting Bazel versions without `execute_wasm` (Bazel 9 with the experimental flag).
+
+## What Bazel provides
+
+These are the capabilities the design rests on. They were checked against the Bazel
+9 documentation and the Bazel source on `master` in October 2026.
+
+**`load_wasm` and `execute_wasm`.** Both exist on `repository_ctx` and, because
+`ModuleExtensionContext` extends the same `StarlarkBaseExternalContext`, on
+`module_ctx`. They are gated behind `--experimental_repository_ctx_execute_wasm`.
+
+```python
+module = ctx.load_wasm(path, *, compile = True, allocate_fn = "allocate", watch = "auto")
+result = ctx.execute_wasm(module, "solve", input = text, timeout = 600, memory_limit = 64 * 1024 * 1024)
+result.return_code   # the function's u32 return value, negative if execution failed
+result.output        # the output buffer, as a string
+result.error_message # set when execution failed before the function returned
+```
+
+The exported function must have the signature
+`(input_ptr: *u8, input_len: u32, output_ptr_ptr: **u8, output_len_ptr: *u32) -> u32`,
+and the module must export `allocate(size: u32, align: u32) -> *u8`. Bazel calls
+`_initialize` if exported. `compile = True` (behind
+`--experimental_repository_ctx_wasm_compilation`) compiles the module to JVM bytecode,
+which the Bazel issue tracker measured at roughly 3 to 4 times slower than CPython;
+the interpreter is far slower than that.
+
+Properties that shape the protocol:
+
+- **Every call is a fresh instance.** `StarlarkWasmModule.execute` builds a new
+  `Instance` with fresh linear memory per call. No state survives between calls, so
+  the solver must be a pure function of its input.
+- **No imports, no WASI.** The instance is built without import values. The module
+  cannot open files, read the clock or touch the network, and must be compiled for
+  `wasm32-unknown-unknown` with its own allocator.
+- **Strings are byte-transparent.** `ctx.read` decodes files as ISO-8859-1, the
+  `input` string is passed to the module as its internal bytes, and the output buffer
+  is decoded as ISO-8859-1. A file read with `ctx.read` and passed as `input` arrives
+  in the module byte for byte, including UTF-8 content. The design relies on this for
+  `METADATA` files. Anything that goes through `json.encode` in Starlark must be
+  ASCII, since `json.encode` escapes non-ASCII characters.
+- **Limits are per call.** `timeout` defaults to 600 seconds and `memory_limit` to
+  64 MiB. Both are parameters, so the loop can raise them.
+
+**Downloads.** `ctx.download(url, output, sha256, allow_fail, headers, auth, block = False)`
+returns a token whose `wait()` yields the result, so one round can issue every
+download at once. `headers` allows asking an index for the PEP 691 JSON form.
+`allow_fail = True` turns a 404 into a result rather than a failure, which is how a
+package missing from one index is handled. `ctx.extract(archive, output, type = ...)`
+unpacks wheels and sdists; `ctx.path(dir).readdir()` lists what came out.
+
+**The lockfile.** A non-reproducible extension gets an entry under `moduleExtensions`
+keyed by the extension, with `bzlTransitiveDigest`, `usagesDigest`, `recordedInputs`
+and `generatedRepoSpecs`. Bazel reuses the entry, skipping the extension entirely,
+when the digests match and none of the recorded inputs changed. Files read with
+`ctx.read` on a label are recorded inputs, environment variables read with
+`ctx.getenv` are recorded inputs. On a mismatch the extension is re-evaluated,
+except under `--lockfile_mode=error`, which fails the build instead.
+
+**Facts.** `extension_metadata(facts = {...})` persists a JSON-like dict in the
+lockfile and `module_ctx.facts` returns it on the next evaluation, even when the
+entry is stale or missing. Facts are looked up by key only (no enumeration), they
+are not invalidated by code changes, and `module_extension(facts_version = N)`
+discards them when the schema changes. Facts are what make the lock more than a
+cache of outputs: they carry the previous solution forward.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph inputs["MODULE.bazel"]
+        tag["requirements.parse(<br/>requirements_in, platforms,<br/>python_version, index_url, ...)"]
+    end
+    subgraph ext["requirements module extension"]
+        direction TB
+        loop["solving loop<br/>(Starlark)"]
+        wasm["solver.wasm<br/>ingest() / solve()"]
+        io["ctx.read / ctx.download /<br/>ctx.extract"]
+        loop -- "facts so far" --> wasm
+        wasm -- "requests, or solution" --> loop
+        loop -- "reads, downloads" --> io
+        io -- "text" --> loop
+        plan["plan_hubs / create_hub_repos<br/>(unchanged)"]
+        loop -- "packages per lock" --> plan
+    end
+    subgraph lock["MODULE.bazel.lock"]
+        specs["generatedRepoSpecs<br/>whl_repository × N, hub repo"]
+        facts["facts<br/>solution per hub, metadata cache"]
+        rec["recordedInputs<br/>requirements.in hashes, env"]
+    end
+    tag --> loop
+    plan --> specs
+    loop --> facts
+    io --> rec
+```
+
+Three pieces are new: the solver module, the Starlark loop that hosts it, and the
+lockfile schema. The rest is the existing pipeline fed from a different source.
+
+## The solver module
+
+### CPython itself, not a port
+
+The module must be freestanding `wasm32-unknown-unknown` in effect: `execute_wasm`
+instantiates it with no imports at all, so there is no WASI, no filesystem, no
+clock and no network. The first draft of this design concluded that CPython could
+not meet that and proposed a Rust port of the solver. The prototype shows that it
+can, with surprisingly little: a stock CPython 3.13 `wasm32-wasi` build becomes
+import-free by linking four small pieces into it, and the `req_compile` package runs
+inside unchanged.
+
+| Piece | Lines | What it does |
+| --- | --- | --- |
+| `wasm/wasi_stubs.c` | ~400 | Defines, inside the module, every WASI function wasi-libc imports. Standard output and error are captured into buffers, the clock is a counter, `random_get` is a fixed-seed generator (so hash seeds and set ordering are reproducible), the filesystem is empty, `proc_exit` traps. |
+| `wasm/shim.c` | ~130 | Exports `allocate` and `solve` with the signatures Bazel expects, embeds the interpreter, exposes the input buffer and the bundle to Python through a builtin `_host` module, and returns Python's output buffer. |
+| `wasm/bootstrap.py` | ~90 | An importer over an in-memory bundle of `.py` or bytecode files. It is installed during CPython's *core* initialization phase (`PyConfig._init_main = 0`, then `_Py_InitializeMain()`), because this build does not freeze `encodings` and the main phase needs to import it. |
+| `wasm/bundle.py`, `wasm/embed.S` | ~120 | Pack the standard library (trimmed), `packaging`, `overrides`, the shims and `req_compile` into a length-prefixed blob linked into the module as data. With a host Python of the same minor version the blob holds marshalled bytecode instead of source. |
+
+Five stand-in modules in `wasm/shims/` satisfy imports that cannot work in the box
+and are never exercised by the solver: `requests` (nothing downloads), `toml` and
+`setuptools` (no `pyproject.toml` or `setup.py` is evaluated), `multiprocessing.pool`
+(one thread, used only to scan source trees) and `ctypes` (no dynamic loading;
+`get_glibc_version` then correctly reports "not glibc"). They total forty lines.
+
+`libpython3.13.a`, `pyconfig.h` and the link flags come from an existing CPython WASI
+build (the prototype used the archive of `brettcannon/cpython-wasi-build`); the
+vendored `libmpdec`, `expat` and `_hacl` sources are compiled alongside because the
+archive does not contain them. The whole build is `wasm/build.sh`. The module is
+16 MB, of which 10 MB is the bundle; its only exports are `allocate`, `solve` and
+`_initialize`.
+
+What this buys over a port is the goal of this design: the solver inside Bazel is
+the solver on the command line, including `perform_compile_group`'s cross-platform
+alignment, the walkback heuristics and the explanations on failure. The existing
+test suite covers it, and a behaviour change lands in both places at once.
+
+A Rust port remains the fallback if the per-call cost under Bazel's runtime (see
+"Measurements") proves unacceptable, since a native-style module would start in
+milliseconds. It would duplicate roughly 3,500 lines of solver and metadata code
+and need a conformance suite to keep the two in step.
+
+### The entry point
+
+`req_compile/wasm/entry.py` is the only new solver-side code, about 500 lines.
+It adapts `req_compile` to facts without changing it:
+
+- `FactRepository(Repository)` serves candidates from `index:` facts, building them
+  with `filename_to_candidate` and filtering with `check_python_compatibility`
+  exactly as `PyPIRepository` does, and serves metadata from `meta:` facts through
+  `_parse_flat_metadata`. When a fact is missing it records a request and raises
+  `NeedFacts`, which ends the round.
+- Requirement files are read through `RequirementsFile.from_file`, with `builtins.open`
+  redirected to `file:` facts for the duration of the solve, so `-r` and `-c`
+  includes resolve relative to the including file as they do on the command line.
+- `solve` builds one `TargetEnvironment.from_spec` per platform, one repository per
+  target and index, and calls `perform_compile_group` with the hub's prior pins as
+  soft pins. The solution is rendered from the dependency graph itself (`node.dependencies`,
+  `node.reverse_deps`), not from `# via` comments.
+- `ingest` compacts raw documents: a PEP 691 JSON or PEP 503 HTML index page becomes
+  its list of files with hashes, `Requires-Python`, yanked flags and PEP 658/714
+  core-metadata availability; a `METADATA` or `PKG-INFO` becomes its header,
+  `Dynamic` fields and metadata version.
+
+One exported function, `solve`, dispatches on the `op` of its JSON input: `ping`,
+`ingest` and `solve`. Documents fetched during a round travel in the next `solve`
+call's `documents` field and are ingested before solving, so a round is one call.
+
+### Encoding at the boundary
+
+The prototype passes everything as JSON. Starlark reads files as ISO-8859-1 and
+`json.encode` escapes anything non-ASCII, so a string that carries file bytes arrives
+in Python as one character per byte; `entry._decode` re-encodes it as Latin-1 and
+decodes UTF-8. Everything the module returns is ASCII-only JSON, which Starlark can
+`json.decode` and later `json.encode` again without any re-encoding. A header-plus-raw-payload
+envelope, as the first draft proposed, is still an option if large documents make
+JSON escaping a measurable cost; it has not been needed.
+
+### Compact facts
+
+Facts are keyed strings. The key is also the cache key for the whole system: in the
+loop's dictionary during one evaluation, and in the lockfile's `facts` across
+evaluations.
+
+| Key | Produced by | Contents |
+| --- | --- | --- |
+| `file:<label>` | `ctx.read` | the raw text of a requirements or constraints file (a payload, not JSON) |
+| `dir:<label>` | `readdir` | the file names of a `find_links` directory |
+| `index:<index url>/<normalized name>/` | `ingest(kind="index")` | `[{filename, url, sha256, requires_python, yanked, core_metadata: {sha256} or true or false}]` |
+| `meta:<sha256 of the distribution>` | `ingest(kind="metadata")` | `{name, version, requires_dist: [...], requires_python, provides_extra: [...]}` |
+
+`meta:*` facts are immutable: the distribution with that hash has that metadata
+forever. They are the facts worth carrying across evaluations in the lockfile.
+`index:*` facts are not: a new release changes them, and that is exactly what a
+re-resolution should see.
+
+## The solving loop
+
+### Protocol
+
+`solve` returns one of three results.
+
+```json
+{"status": "need", "requests": [
+  {"id": "file:/inputs/constraints.in", "op": "read", "path": "/inputs/constraints.in"},
+  {"id": "index:https://pypi.org/simple/requests/", "op": "fetch",
+   "url": "https://pypi.org/simple/requests/",
+   "headers": {"Accept": "application/vnd.pypi.simple.v1+json, text/html;q=0.1"},
+   "ingest": "index"},
+  {"id": "meta:70761cfe...", "op": "metadata", "kind": "wheel",
+   "url": "https://files.pythonhosted.org/packages/.../requests-2.32.3-py3-none-any.whl",
+   "sha256": "70761cfe...", "core_metadata": {"sha256": "0e4b7d1a..."},
+   "filename": "requests-2.32.3-py3-none-any.whl"}
+], "facts": {"...": "the compact form of the documents this call ingested"}}
+```
+
+Requirement files are addressed by paths under `/inputs/`; the extension maps them
+to labels (`/inputs/<package>/<file>`) and back. Raw documents go to the next call
+as `documents`, keyed by request id, with the `kind` to ingest them as and the body
+as read by `ctx.read`; the call answers with their compact facts, which Starlark
+merges into its dictionary.
+
+```json
+{"status": "done",
+ "hubs": {"pip_deps": {"locks": {"manylinux_2_28_x86_64": {"packages": {
+   "requests": {"package": "requests", "version": "2.32.3", "sha256": "70761cfe...",
+                "url": "https://files.pythonhosted.org/.../requests-2.32.3-py3-none-any.whl",
+                "deps": ["certifi", "charset_normalizer", "idna", "urllib3"],
+                "via": ["@@//3rdparty:requirements.in"]}}}}}},
+ "consulted": ["70761cfe...", "..."]}
+```
+
+```json
+{"status": "error", "message": "No candidate for urllib3<2 ...", "explanation": ["requests==2.32.3 (via ...)", "..."]}
+```
+
+The `packages` dict of a lock is exactly what `parse_lockfile` returns today
+(`package`, `version`, `sha256`, `url`, `whl`, `deps`, `annotations`), so the loop
+hands it to `plan_hubs` without translation. `whl` is set instead of `url` for
+distributions that came from a `find_links` directory, with the same label
+arithmetic `lockfile.bzl` does now.
+
+The loop, as `req_compile/private/resolve.bzl` implements it (the `ctx.facts` lookup is the part still to come):
+
+```python
+def resolve_hubs(ctx, module, hubs, prior):
+    facts = {}
+    documents = {}
+    for _ in range(ctx.attr.max_rounds):
+        out = _solve(ctx, module, hubs, facts, documents, prior)
+        facts.update(out.get("facts", {}))
+        documents = {}
+        if out["status"] == "done":
+            return out
+        if out["status"] == "error":
+            fail("resolution failed: " + out["message"])
+
+        pending = []
+        for req in out["requests"]:
+            if req["op"] == "read":
+                facts[req["id"]] = {"text": ctx.read(_label_for(req["path"]))}
+            elif req["op"] == "fetch":
+                path = _scratch(req)
+                pending.append((req, path, ctx.download(
+                    url = req["url"], output = path, headers = req.get("headers", {}),
+                    auth = _auth(ctx, req["url"]), allow_fail = True, block = False)))
+            elif req["op"] == "metadata":
+                cached = ctx.facts.get("meta:" + req["sha256"])
+                if cached:
+                    facts[req["id"]] = cached
+                else:
+                    pending.append(_start_metadata_download(ctx, req))
+
+        for req, path, token in pending:
+            result = token.wait()
+            if not result.success:
+                facts[req["id"]] = {"error": "download failed: " + req["url"]}
+            elif req["op"] == "fetch":
+                documents[req["id"]] = {"kind": "index", "url": req["url"], "body": ctx.read(path)}
+            else:
+                documents[req["id"]] = {"kind": "metadata", "url": req["url"], "body": _metadata_text(ctx, req, path)}
+    fail("resolution did not converge in {} rounds".format(ctx.attr.max_rounds))
+```
+
+Every request of a round is issued before any is waited on, so a round costs one
+network round trip plus extraction time. The solver is deterministic, so a round
+that adds no facts is a bug and is reported as one rather than looping.
+
+### Why replay rather than resume
+
+The alternative to re-running the solver from scratch each round is to serialise
+its internal state (the partial graph, the walkback stack) between calls. Replay is
+preferred: the solver stays a pure function of facts, nothing about its internals
+leaks into the protocol, and a round that fails can be reproduced offline from the
+facts dictionary alone. Its cost is CPU per round on compact facts, which `ingest`
+keeps small. A resolve of a few hundred packages re-parses a few hundred kilobytes
+of JSON per round.
+
+The solver itself stops at the first missing fact, since `compile_roots` is not
+written to continue past one. Left alone that would advance one package per round;
+the prototype's first three-platform run needed more than fifty. The round count is
+kept low by *speculation* instead: when a round ends, the entry point also requests
+every fact the next rounds will evidently need, and the solver never changed.
+
+- The index page of every requirement in the input files and constraints, of every
+  prior pin, and of every requirement named by `Requires-Dist` in known metadata
+  whose markers hold for some target.
+- The metadata of the best candidate for each of those requirements per target,
+  chosen with `filter_candidates` and `sort_candidates` against the requirement's
+  own specifier (or the pin), so the version the solver will most likely pick is
+  the one fetched.
+
+With that, a resolve advances a whole level of the graph per two rounds and usually
+less, because speculation reaches ahead of the solver:
+
+| Case | Rounds |
+| --- | --- |
+| `requests` for one platform | 5 (read, page, metadata, pages of four dependencies, their metadata) |
+| This repository's requirements, 61 packages, three platforms, from the checked-in pins | 4 |
+
+Requirements files with `-r` and `-c` includes are read by the solver through its
+normal file reading, redirected to facts, which is why file reads are requests like
+any other.
+
+### Getting metadata
+
+Only the dependency list of a distribution is needed, never the distribution. The
+loop obtains it, in order of preference:
+
+1. **Core metadata served by the index** (PEP 658, PEP 714). The index page says
+   whether `<file url>.metadata` exists (`core-metadata` in JSON, `data-core-metadata`
+   in HTML, with the legacy `dist-info-metadata` names as fallback) and usually gives
+   its sha256. PyPI serves it for virtually every wheel. The download is a few
+   kilobytes and, when the hash is known, is served from Bazel's repository cache on
+   later evaluations.
+2. **The wheel itself.** When the index does not advertise metadata, the loop
+   downloads the wheel with its sha256, extracts it with `ctx.extract(type = "zip")`
+   into a scratch directory, finds the single `*.dist-info` directory with
+   `readdir`, and reads `METADATA`. This is the slow path and is reported with
+   `report_progress`. Range requests to read only the zip directory are not possible,
+   `ctx.download` has no range support.
+3. **Source distributions.** See below.
+
+Whatever the path, the text goes through `ingest(kind = "metadata")` and becomes a
+`meta:<sha256>` fact.
+
+### Source distributions
+
+`execute_wasm` cannot run a build backend, and req-compile's Bazel mode already
+defaults to `allow_sdists = False`. In wasm mode, with `allow_sdists = False` the
+solver considers wheels only. With `allow_sdists = True` an sdist is usable when its
+metadata is trustworthy without a build: PEP 643 guarantees that a field of an
+sdist's `PKG-INFO` with `Metadata-Version` 2.2 or newer that is not listed under
+`Dynamic` is exactly what any wheel built from it will have. The loop obtains
+`PKG-INFO` like `METADATA` (index-served core metadata first, else extract the
+archive with `type = "tar.gz"` or `"zip"` and read `<name>-<version>/PKG-INFO`). If
+`Requires-Dist` or `Requires-Python` is dynamic or the metadata version is older,
+the candidate is rejected with reason `SDIST_METADATA_NOT_STATIC`, which appears in
+the failure explanation so the user can pin a version that ships wheels. Building
+the sdist at fetch time in `whl_repository` is unchanged.
+
+### `find_links` and local wheels
+
+A `find_links` directory is named by a label of a file inside it (its `BUILD.bazel`),
+as the examples do today. The loop lists the directory with `readdir` and
+`ctx.watch_tree` so that adding or replacing a wheel invalidates the lock entry.
+Local wheels have no index page and no advertised hash, so the loop extracts each
+candidate wheel directly for its metadata, and its `meta:` key is derived from the
+label rather than a sha256. The resulting lock entry uses `whl` (a label) instead of
+`url`, as `find_links` entries do today, and `whl_repository` reads the file from the
+tree as it does now.
+
+### Authentication
+
+Private indexes are reached with `auth` built from `~/.netrc` through
+`read_user_netrc` and `use_netrc` of `@bazel_tools//tools/build_defs/repo:utils.bzl`,
+the same mechanism `http_archive` uses. Credentials are passed to `ctx.download` only.
+The lockfile records URLs without credentials in `generatedRepoSpecs`, and
+`whl_repository` resolves the same netrc at fetch time. Environment variables the
+netrc helpers read become recorded inputs, which is acceptable: `NETRC` rarely changes.
+
+### One loop for the whole extension
+
+All wasm-mode hubs of all modules are resolved in a single loop. The solver input
+holds every hub; the facts dictionary is shared, so two hubs needing the same index
+page or distribution fetch it once; and a round's requests are the union over hubs,
+which maximises the parallelism of each round. Within a hub, the platforms are
+compiled together with the group algorithm (`perform_compile_group`), so one version
+of each package serves every platform of the hub, and a package that no version can
+serve on every platform fails with the same explanation `py_reqs_compiler` prints.
+
+## Measurements
+
+All measurements are from the prototype on an Apple M-series laptop, October 2026.
+"ping" is the floor of a call: interpreter start, the bundle importer and the import
+of the solver, without any solving.
+
+| What | Result |
+| --- | --- |
+| `ping`, wasmtime, source bundle | 0.35 s |
+| `ping`, wasmtime, bytecode bundle | 0.05 s |
+| `ping`, Bazel 9.3 (interpreted, the only mode it has) | 60 s |
+| `ping`, Bazel 10.0.0rc1 with `--experimental_repository_ctx_wasm_compilation`, source bundle | 12.6 s |
+| `ping`, Bazel 10.0.0rc1 compiled, bytecode bundle | 10.2 s |
+| `requests`, one platform, Bazel 9.3 interpreted, with a separate ingest call per document | 16 calls, 1006 s in the module, 17 minutes elapsed |
+| `requests`, one platform, Bazel 10.0.0rc1 compiled, bytecode bundle | 6 calls, 97 s in the module, 99 s elapsed |
+| `requests`, two platforms, through the `requirements` extension, Bazel 10.0.0rc1 compiled | 5 calls, 107 s in the module, 117 s including the wheel fetches; a rebuild with the lock entry in place evaluates nothing |
+| Adding `rich` to that file (four new packages, three levels deep) | 7 calls, 134 s; every existing version kept, nothing re-fetched for them |
+| Re-evaluating the extension with the requirements unchanged (code change) | 0 calls, no module load; the hub is rebuilt from facts |
+| `requests`, one platform, host driver under wasmtime | 5 rounds, 4 s |
+| This repository's requirements, three platforms, host driver, from the checked-in pins | 4 rounds, 57 s (network-bound), identical versions to all three checked-in locks |
+
+Two conclusions. First, the approach is correct: the untouched solver produces the
+same answers inside the module as outside, including the cross-platform alignment,
+and lazily reproduces an existing solution from prior pins. Second, Bazel's
+WebAssembly runtime is the cost. Chicory's compiled mode runs this module about two
+hundred times slower than wasmtime; the likely reason is that CPython's evaluation
+loop is a single function far larger than a JVM method may be, so it falls back to
+interpretation whatever the flag. A call therefore costs ten seconds at best in
+Bazel 10 and a minute in Bazel 9. Calls, not bytes, are what the design must
+minimize, which is why ingestion was folded into the solve call and why speculation
+matters. A cold resolve of this repository's requirements would take roughly a
+minute in Bazel 10 and five in Bazel 9.3; a re-resolution with facts, fewer.
+
+Memory: the module declares 64 MiB and grows; `memory_limit` is set to 1 GiB in the
+prototype and peak use has not been measured yet.
+
+## Storing the lock in `MODULE.bazel.lock`
+
+### What lives where
+
+| Information | Where | Written by |
+| --- | --- | --- |
+| Inputs: requirement files, platforms, Python version, indexes, options | `MODULE.bazel` `parse` tag | the user |
+| Hashes of every requirements and constraints file read, environment variables read, repo mapping | `moduleExtensions[...].recordedInputs` | Bazel, from `ctx.read` / `ctx.getenv` |
+| Digest of the extension code and of all tags | `bzlTransitiveDigest`, `usagesDigest` | Bazel |
+| Every pinned distribution: package, version, URLs, sha256, which hubs and locks use it and the dependencies each resolved | `generatedRepoSpecs` (one `whl_repository` per distribution) | Bazel, from the repositories the extension declares |
+| Each hub: its locks, their config settings, package to repository per lock | `generatedRepoSpecs` (one `py_requirements_repository` per hub) | Bazel |
+| The previous solution per hub, with the digest of the inputs it was solved from | `facts["solution:<hub>"]` | the extension |
+| Metadata of every distribution consulted | `facts["meta:<sha256>"]` | the extension |
+| Schema version of the facts | `factsVersions` | Bazel, from `module_extension(facts_version = ...)` |
+
+The `generatedRepoSpecs` entries are the lock in the strict sense: they are what
+Bazel instantiates without running the extension, and they carry URL, hash, version
+and dependency edges, the same information a `requirements.txt` carries today. An
+entry looks like this:
+
+```json
+"requests_2_32_3_70761cfe": {
+  "repoRuleId": "@@rules_req_compile+//req_compile/private:whl_repo.bzl%whl_repository",
+  "attributes": {
+    "package": "requests",
+    "version": "2.32.3",
+    "sha256": "70761cfe03c773ceb22aa2f671b4757976145175cdfca038c02654d061d6dcc6",
+    "urls": ["https://files.pythonhosted.org/packages/f9/9b/.../requests-2.32.3-py3-none-any.whl"],
+    "hubs": "{\"pip_deps\":{\"default_lock\":null,\"locks\":{\"manylinux_2_28_x86_64\":{\"config_setting\":\"@pip_deps//:manylinux_2_28_x86_64\",\"deps\":[\"certifi\",\"charset_normalizer\",\"idna\",\"urllib3\"]}}}}",
+    "annotations": "{}"
+  }
+}
+```
+
+### The `facts` schema
+
+```json
+"facts": {
+  "@@rules_req_compile+//extensions:python.bzl%requirements": {
+    "solution:pip_deps": {
+      "inputs": "9f2c...",
+      "locks": {
+        "manylinux_2_28_x86_64": {
+          "requests": {"version": "2.32.3", "sha256": "70761cfe...", "url": "https://...", "deps": ["certifi", "..."], "via": ["@@//3rdparty:requirements.in"]}
+        }
+      }
+    },
+    "meta:70761cfe...": {"name": "requests", "version": "2.32.3",
+                         "requires_dist": ["charset_normalizer<4,>=2", "idna<4,>=2.5", "urllib3<3,>=1.21.1", "certifi>=2017.4.17", "PySocks!=1.5.7,>=1.5.6; extra == \"socks\"", "..."],
+                         "requires_python": ">=3.8", "provides_extra": ["security", "socks", "use_chardet_on_py3"]}
+  }
+}
+```
+
+Keys are flat and self-describing because `module_ctx.facts` can only be looked up by
+key and because Bazel reserves the right to shallow-merge facts dicts. The extension
+re-emits a `solution:` key per hub it evaluated and a `meta:` key per distribution the
+solver reports in `consulted`. Anything not re-emitted disappears, which is the
+garbage collection: metadata of a distribution no longer reachable from any hub
+leaves the lock on the next evaluation.
+
+`inputs` holds the hub's tag attributes and the text of its requirement files.
+Starlark cannot hash, but it can compare, and the files are small; equality with
+the current inputs is what makes per-hub memoization possible without loading the
+solver. `schema` guards against reading a fact written by another version of this
+code, since facts outlive code changes.
+
+### How an evaluation uses the facts
+
+```mermaid
+flowchart TD
+    start["extension evaluated<br/>(some recorded input or tag changed)"] --> each["for each wasm-mode hub"]
+    each --> digest["read requirement files,<br/>compute inputs digest"]
+    digest --> same{"digest == facts[solution:hub].inputs<br/>and no upgrade requested?"}
+    same -- yes --> reuse["reuse the recorded solution verbatim<br/>no network"]
+    same -- no --> prior["prior pins = recorded versions<br/>(all, or minus the upgraded packages)"]
+    prior --> loop["solving loop<br/>index pages fetched;<br/>meta: facts answer most metadata requests"]
+    loop --> emit["emit solution and consulted metadata as facts"]
+    reuse --> plan["plan_hubs / create_hub_repos"]
+    emit --> plan
+```
+
+Three mechanisms do the work, all in place:
+
+- **Per-hub memoization.** `resolve_hubs` compares the recorded inputs with the
+  current ones before anything else. Equal means the recorded packages go straight
+  to `plan_hubs`: no module load, no network, no solver call.
+- **Prior pins and recorded metadata.** A hub whose inputs changed is solved with
+  the recorded versions as soft pins (`perform_compile_group`'s `pins`), the
+  requirement files pre-seeded as `file:` facts, and every recorded `meta:` fact
+  pre-seeded, so the first call already knows the metadata of everything it keeps.
+- **Synthetic index pages.** `FactRepository.get_candidates` answers from the
+  recorded distribution of a project whenever its version satisfies the requirement
+  asked for, and requests the real page only when it does not. A package the change
+  leaves alone therefore costs neither a page fetch nor a round; one that must move
+  costs exactly what a fresh package costs.
+
+Two consequences matter to users:
+
+- **Changing one hub does not re-resolve the others.** Any change to any recorded
+  input re-runs the whole extension, including file-based hubs in the same
+  extension, but a hub whose own inputs did not change is rebuilt from its recorded
+  solution without a network request. This is why the lock-file-based hubs can stay
+  in the same extension: their cost on re-evaluation is a few file reads.
+- **Re-resolution is lazy.** The recorded versions are passed to the solver as soft
+  pins, the mechanism `perform_compile_group` already has for recycling solutions:
+  a package keeps its version unless the new requirements make it unusable, in which
+  case it is re-resolved and its dependents are aligned. Adding `httpx` to
+  `requirements.in` changes `httpx` and whatever it newly requires, nothing else.
+  Most metadata requests are answered from `meta:` facts, so a typical re-resolution
+  fetches index pages only.
+
+### Upgrading
+
+The extension is a function of its inputs, so there is no "upgrade" input unless
+one is provided. The extension reads one environment variable (`REQ_COMPILE_UPGRADE`,
+implemented in `resolve.bzl`):
+
+```bash
+REQ_COMPILE_UPGRADE=all bazel mod deps
+```
+
+```bash
+REQ_COMPILE_UPGRADE=requests,urllib3 bazel mod deps
+```
+
+`ctx.getenv("REQ_COMPILE_UPGRADE")` makes it a recorded input, so the extension
+re-runs when it is set, dropping the named prior pins (or all of them). The next
+command without the variable sees a changed recorded input and re-runs once more,
+but the inputs digest now matches the fresh solution, so that run reuses it without
+network access and simply records the variable as unset. `bazel mod deps` is used
+because it evaluates every extension unconditionally; any build that needs the hub
+works as well.
+
+### Verifying in CI
+
+`--lockfile_mode=error` fails a build whose extension entry is missing or whose
+recorded inputs changed, with Bazel's own message naming the extension. It never
+performs network access for a non-reproducible extension. That replaces
+`py_reqs_solution_test` for wasm-mode hubs: a developer who edits `requirements.in`
+and does not run a build before committing gets a CI failure pointing at the lock.
+
+### Human-readable export
+
+Diffs of `MODULE.bazel.lock` are hard to review, and pip-based tooling and auditors
+want `requirements.txt`. The hub repository gains a generated file per lock,
+`@pip_deps//:requirements.manylinux_2_28_x86_64.txt`, rendered by the solver's
+`render` entry point in exactly the format `py_reqs_compiler` writes, header
+included. It is derived from the lock, not an input, so it cannot drift. A
+`bazel build @pip_deps//:requirements` followed by a copy into the tree is enough
+for teams that want the text checked in next to the lock; it also makes migration
+back to file-based hubs a one-step affair.
+
+### Size
+
+Each recorded distribution costs roughly 400 bytes in `generatedRepoSpecs` and, if
+the hub's solution and the consulted metadata are recorded, about the same again in
+`facts`. The five locks in this repository total 110 KB of `requirements.txt` today
+for 61 packages per lock; the equivalent lock entry would be on the order of 150 KB,
+most of it in the hub repository's `packages` attribute and the facts. A
+`record_metadata = False` option on the tag drops the `meta:` facts for users who
+prefer a smaller lock over offline re-resolution.
+
+### Prerequisite: a host-independent extension
+
+The lock entry is shared by every machine, so the extension must not depend on the
+host. Today `_interpreter_for_host` picks an interpreter label with `ctx.os` without
+declaring `os_dependent`; this is harmless only because the extension is reproducible
+and therefore has no lock entry. In wasm mode the extension is not reproducible, and
+the recorded repository specs would carry whichever host first evaluated them. The
+fix is to pass every interpreter label to `whl_repository` and select by
+`repository_ctx.os` at fetch time, which is where the sdist is built anyway. This
+change is independent of wasm and should land first.
+
+`reproducible = True` is kept when no hub uses wasm mode, so existing users see no
+change in their lock file until they opt in.
+
+## User-facing API
+
+The `parse` tag gains the attributes below. They are mutually exclusive with
+`requirements_lock` and `requirements_locks`.
+
+```python
+requirements = use_extension("@rules_req_compile//extensions:python.bzl", "requirements")
+requirements.parse(
+    name = "pip_deps",
+    requirements_in = ["//3rdparty:requirements.in"],
+    constraints = ["//3rdparty:constraints.in"],
+    python_version = "3.11.14",
+    platforms = [
+        "manylinux_2_28_x86_64",
+        "manylinux_2_28_aarch64",
+        "macosx_11_0_arm64",
+        "win_amd64",
+    ],
+    index_url = "https://pypi.org/simple",
+    extra_index_urls = [],
+    find_links = [],
+    allow_sdists = False,
+    allow_prerelease = False,
+)
+use_repo(requirements, "pip_deps")
+```
+
+| Attribute | Meaning |
+| --- | --- |
+| `requirements_in` | Requirement files. `-r` and `-c` lines are followed relative to the file's label. |
+| `constraints` | Constraint files, never themselves installed. |
+| `python_version` | Required. There is no toolchain at extension time, so the version must be explicit. One tag per Python version, as with `py_reqs_compiler`. |
+| `platforms` | Wheel platform tags, one lock per tag. Lock ids and config settings are derived exactly as from the header of a lock file today, so `config_settings` keeps working to override them. |
+| `index_url`, `extra_index_urls`, `find_links` | Sources, with the CLI's precedence. |
+| `allow_sdists`, `allow_prerelease`, `only_binary` | The CLI's options. |
+| `solver` | The `req_compile_solver.wasm` module, as a label. Required until a release provides a default. |
+| `max_rounds`, `solver_memory_limit` | Loop knobs with sensible defaults. `record_metadata` will join them with the facts work. |
+
+`package_annotation`, `override_module_repos`, `package_aliases` and
+`legacy_root_pkg_aliases` apply unchanged, since they act after the solve.
+
+Users add to `.bazelrc`:
+
+```
+common --experimental_repository_ctx_execute_wasm
+common --experimental_repository_ctx_wasm_compilation
+```
+
+A ruleset cannot set these for its users. The extension detects the methods with
+`hasattr(ctx, "execute_wasm")` and fails with a message naming the flags when a hub
+sets `requirements_in` without them. Hubs built from lock files never touch any of
+this: the resolve code runs only when some module's `parse` tag sets
+`requirements_in`, and the extension stays `reproducible` (no lock entry) otherwise.
+
+### Shipping the module
+
+`req_compile_solver.wasm` is built in CI by `wasm/build.sh`, with the wasi-sdk,
+CPython WASI build and host Python 3.13 pinned, and attached to each release.
+`rules_req_compile`'s own `MODULE.bazel` declares it as an `http_file` pinned by
+sha256, and the extension loads it with `ctx.path(Label("@req_compile_solver//file"))`.
+For development in this repository a local override points the label at the output
+of `wasm/build.sh`. At 16 MB the module should not be committed; if the `http_file`
+indirection proves awkward for BCR consumers, trimming the bundle (the full standard
+library is included today) is the first lever.
+
+## Failure modes and diagnostics
+
+- **Resolution failure.** The solver's error carries the explanation chain req-compile
+  prints today. The extension `fail`s with it, and names the hub and platform.
+- **Index unreachable or package missing.** A `fetch` failure becomes a fact
+  (`{"error": ...}`); the solver treats a missing page as "no candidates" on that index
+  and tries the next, and reports the error text if no index had the package.
+- **Metadata not static.** Named in the failure explanation per candidate, see
+  "Source distributions".
+- **Round limit.** Reported with the last round's unanswered requests, which pinpoints
+  the loop.
+- **Debugging.** With `--repo_env=REQ_COMPILE_DUMP=<dir>` the loop writes every solve
+  input and output to a directory, so a failing resolution can be replayed against
+  the module outside Bazel, or against the Python solver for a differential check.
+
+## Performance
+
+A round is bounded by the slowest download plus one `execute_wasm` call, and rounds
+are serial. With the measured call costs the budget for a cold resolve of a few
+hundred packages against PyPI in Bazel 10 is one to two minutes over four to six
+rounds; in Bazel 9.3, which only interprets, five times that. The design therefore
+requires the compilation flag in its documentation and treats Bazel 9 as functional
+but slow.
+
+Levers that remain, in order of expected value:
+
+- **Fewer calls.** Speculation already brings most resolves to four or five rounds.
+  Reusing facts across evaluations (below) removes the metadata rounds entirely for
+  packages already seen, leaving index pages.
+- **Cheaper calls.** The 10 s floor is CPython starting and importing about 190
+  modules under a slow runtime. Bytecode saved a fifth; lazy imports in the entry
+  point and a trimmed bundle may save more. A snapshot of the initialized heap
+  (Wizer-style) would remove the floor but needs toolchain work.
+- **Cheaper ingestion.** Large index pages (several megabytes of JSON for popular
+  projects) cost seconds each in the module. Asking the solver to ingest only what
+  it asked for is already the case; HTML pages are smaller than JSON ones but lose
+  nothing the solver needs, so preferring them is an option.
+- **A faster runtime.** Chicory's handling of very large functions is the root
+  cause; a Bazel-side improvement there would change the picture outright.
+
+## Alternatives considered
+
+- **Porting the solver to Rust.** The first draft's recommendation. A native-style
+  module would start in milliseconds instead of seconds, which is its real
+  advantage under Bazel's runtime. It duplicates the solver and the metadata and
+  platform logic and needs a conformance suite to stay in step; the prototype shows
+  the duplication is avoidable, so it is kept as the fallback.
+- **Running the Python solver through `module_ctx.execute` with a hermetic
+  interpreter.** Works today and needs none of this, but it depends on a Python
+  toolchain being fetchable before any Python dependency exists, is host-dependent
+  (the interpreter is per OS, so the lock entry would be per OS), and executes
+  network-fetched code inside extension evaluation. The wasm route is what the
+  Bazel team built `execute_wasm` for.
+- **Resuming the solver across rounds with serialised state.** Rejected in favour of
+  replay, see above. The protocol permits switching later: a resumable solver would
+  simply put its state into a fact.
+- **Writing the solver in Starlark.** rules_python evaluates PEP 508 markers in
+  Starlark, which shows it is possible for small pieces, but a backtracking
+  resolver with version arithmetic is not feasible without recursion or loops.
+- **CPython in wasm, dismissed.** The first draft ruled this out for lack of WASI
+  and the startup cost. The WASI objection was wrong in practice: forty lines of
+  shims and four hundred of stubs suffice. The startup cost is real and is
+  measured above.
+- **A separate module extension for wasm-mode hubs.** Would isolate file-based hubs
+  from re-evaluation, but wheel repositories would no longer be shared across the
+  two kinds of hubs and `override_module_repos` could not span them. Per-hub
+  memoization through facts gets most of the isolation benefit inside one extension.
+- **Reading the previous `MODULE.bazel.lock` as an input** to obtain prior pins.
+  Impossible without a cycle: the file is the extension's output. Facts exist
+  precisely for this.
+
+## Implementation plan
+
+1. **Host-independent extension** (no wasm). Move interpreter selection into
+   `whl_repository`; add `facts_version` to the extension; return `reproducible` only
+   when no wasm hub exists. Small, independently shippable.
+2. **Productize the module.** Done in prototype form in `wasm/`. Remaining: a CI job
+   that builds it from pinned inputs and attaches it to releases, pruning the bundle,
+   and measuring peak memory. `tests/test_wasm_entry.py` already exercises the entry
+   point natively with an in-memory host, which is also how it was debugged.
+3. **The loop and the tag.** Done: `req_compile/private/resolve.bzl` is the round
+   loop of the `requirements` extension, the `parse` tag has the resolve attributes,
+   requirement files are mapped between `/inputs/` paths and labels, netrc
+   authentication is applied to downloads, and the solution enters `plan_hubs` as
+   `lock_spec(platform, packages)`. `wasm/example/` is the example; it cannot run in
+   CI until the module is published, which is why it is outside `examples/`.
+4. **Facts.** Done: prior pins, per-hub memoization, the metadata cache, synthetic
+   pages and `REQ_COMPILE_UPGRADE`. Remaining: the rendered export files, a
+   `record_metadata` switch for users who prefer a smaller lock, and documentation
+   in `docs/docs.md` and `docs/repository_layout.md`.
+
+## Open questions
+
+- **Minimum Bazel version.** `execute_wasm` works in Bazel 9.3 behind
+  `--experimental_repository_ctx_execute_wasm`, interpreted only. Compilation
+  (`--experimental_repository_ctx_wasm_compilation`) is in Bazel 10.0.0rc1. The
+  extension should check for `load_wasm` and name the flags rather than crash, and
+  the documentation should recommend Bazel 10.
+- **The call floor.** Ten seconds per call in Bazel 10 is workable for a lock
+  refresh but not pleasant. Whether Chicory can compile CPython's evaluation loop,
+  or whether the floor can be cut by trimming imports or snapshotting the heap,
+  decides how often users notice.
+- **Index JSON on non-PyPI indexes.** Artifactory, Nexus and devpi vary in PEP 691
+  and PEP 658 support. The HTML parser and the extract-the-wheel fallback cover
+  them; whether the fallback is tolerable in practice for large wheels decides how
+  loudly the docs should recommend enabling served metadata on private indexes.
+- **Served metadata for sdists.** PyPI advertises core metadata for recent sdists
+  but not for all; the PEP 643 rule only applies to metadata 2.2 or newer. The share
+  of sdists that is usable without a build determines how useful `allow_sdists` is
+  in this mode.
+- **Facts merging.** Bazel documents that facts of different evaluations may be
+  shallow-merged. Flat keys make that safe, but the documentation should be
+  re-checked when Bazel 10 finalises `facts_version` semantics.
+- **Facts size policy.** Whether to record `meta:` facts for every consulted
+  distribution or only for those in the solution. The former makes walkbacks on
+  re-resolution offline; the latter keeps the lock smaller.
+
+## References
+
+- Bazel `module_ctx`: https://bazel.build/rules/lib/builtins/module_ctx
+- Bazel `repository_ctx.download`: https://bazel.build/rules/lib/builtins/repository_ctx
+- Bazel `wasm_exec_result`: https://bazel.build/rules/lib/builtins/wasm_exec_result
+- Bazel module extensions, including facts: https://bazel.build/external/extension
+- Bazel lockfile: https://bazel.build/external/lockfile
+- Bazel wasm proposal and approval: https://github.com/bazelbuild/bazel/discussions/23487 and https://github.com/bazelbuild/bazel/issues/25537
+- Bazel wasm performance and compilation: https://github.com/bazelbuild/bazel/issues/26975
+- Bazel sources consulted: `StarlarkBaseExternalContext.java` (`load_wasm`, `execute_wasm`, `read`), `StarlarkWasmModule.java` (instance per call, ISO-8859-1 output), `SingleExtensionEvalFunction.java` (lock entry validation, facts handling)
+- PEP 658, PEP 714 (served core metadata), PEP 691 (JSON simple API), PEP 643 (static sdist metadata), PEP 503 (simple index)

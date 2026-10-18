@@ -1,0 +1,4 @@
+# `execute_wasm` is experimental. Compilation needs Bazel 10; without it the
+# module runs in an interpreter, about five times slower.
+common --experimental_repository_ctx_execute_wasm
+common --experimental_repository_ctx_wasm_compilation

@@ -161,6 +161,18 @@ def parse_lockfile(
         if constraint:
             packages[pkg]["constraint"] = str(constraint)
 
+    return annotate_packages(packages, annotations)
+
+def annotate_packages(packages, annotations):
+    """Attach package annotations to parsed packages.
+
+    Args:
+        packages (dict): Packages keyed by sanitized name, as `parse_lockfile` returns.
+        annotations (dict): Annotation data keyed by package name.
+
+    Returns:
+        dict: `packages`, with the `annotations` of each annotated package set.
+    """
     for package, data in annotations.items():
         package = sanitize_package_name(package)
         if package not in packages:
