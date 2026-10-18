@@ -180,6 +180,7 @@ def _resolve_spec(mod, parse):
         index_urls = [parse.index_url] + list(parse.extra_index_urls),
         allow_sdists = parse.allow_sdists,
         allow_prerelease = parse.allow_prerelease,
+        enforce_hashes = parse.enforce_hashes,
         max_rounds = parse.max_rounds,
         memory_limit = parse.solver_memory_limit,
     )
@@ -556,6 +557,15 @@ depending on it are skipped there rather than failing to build.
         "constraints": attr.label_list(
             doc = "Resolve mode: constraint files, which constrain versions without being installed.",
             default = [],
+        ),
+        "enforce_hashes": attr.bool(
+            doc = (
+                "Resolve mode: whether the `--hash` values of the requirement files, if any, must match the " +
+                "artifacts chosen. With it, a pinned file maintained by Dependabot is also an integrity check; " +
+                "a version bumped without its hashes fails to resolve. Disable it for a hub whose platforms " +
+                "need artifacts the file does not list hashes for."
+            ),
+            default = True,
         ),
         "extra_index_urls": attr.string_list(
             doc = "Resolve mode: additional package indexes, searched after `index_url`.",

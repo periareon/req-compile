@@ -98,6 +98,16 @@ REQ_COMPILE_UPGRADE=all bazel mod deps
 
 or name the packages to upgrade, comma separated.
 
+### Dependabot
+
+`example/requirements.txt` is a fully pinned file with hashes, fed to the
+`pinned_deps` hub as `requirements_in`. Dependabot's `pip` updater can maintain
+such a file; the hub rebuilds URLs and dependency edges from it, and with
+`enforce_hashes` (the default) a version bumped without its hash fails to resolve
+with a message naming the package. `example/.github/` holds a `dependabot.yml` and
+a workflow that refreshes `MODULE.bazel.lock` on Dependabot pull requests, which is
+needed because the requirements file is a recorded input of the lock.
+
 ## Measurements
 
 Taken on an Apple M-series laptop against PyPI, October 2026.

@@ -357,3 +357,78 @@ def test_prior_pin_kept_without_a_fetch() -> None:
     assert (
         result["hubs"]["hub"]["locks"]["win_amd64"]["packages"]["b"]["version"] == "2.0"
     )
+
+
+PINNED = """\
+# A req-compile style lock, as Dependabot maintains it: version and hashes.
+a==1.0 \\
+    --hash=sha256:{a}
+    # via requirements.in
+    # https://files.example/a-1.0-py3-none-any.whl
+b==2.0 \\
+    --hash=sha256:{b}
+    # via a
+"""
+
+
+def test_pinned_hashes_pass_when_they_match() -> None:
+    host = Host({"/inputs/requirements.txt": PINNED.format(a="11" * 32, b="22" * 32)})
+    result = host.run(_hub(requirements=["/inputs/requirements.txt"]))
+    assert result["status"] == "done", result
+    packages = result["hubs"]["hub"]["locks"]["win_amd64"]["packages"]
+    assert packages["a"]["hash_pinned"] and packages["b"]["hash_pinned"]
+    assert packages["a"]["sha256"] == "11" * 32
+
+
+def test_stale_hash_fails_naming_the_package() -> None:
+    # The version of b was bumped, but its hash is the old one.
+    host = Host({"/inputs/requirements.txt": PINNED.format(a="11" * 32, b="99" * 32)})
+    result = host.run(_hub(requirements=["/inputs/requirements.txt"]))
+    assert result["status"] == "error", result
+    assert "`b`" in result["message"]
+    assert "999999999999" in result["message"]
+    assert "b-2.0-py3-none-any.whl" in result["message"]
+
+
+def test_hashes_are_ignored_when_not_enforced() -> None:
+    host = Host({"/inputs/requirements.txt": PINNED.format(a="11" * 32, b="99" * 32)})
+    result = host.run(
+        _hub(requirements=["/inputs/requirements.txt"], enforce_hashes=False)
+    )
+    assert result["status"] == "done", result
+    assert not result["hubs"]["hub"]["locks"]["win_amd64"]["packages"]["b"][
+        "hash_pinned"
+    ]
+
+
+def test_files_without_hashes_are_unaffected() -> None:
+    host = Host({"/inputs/requirements.in": "a\n"})
+    result = host.run(_hub())
+    packages = result["hubs"]["hub"]["locks"]["win_amd64"]["packages"]
+    assert not packages["a"]["hash_pinned"]
+
+
+def test_pinned_hashes_follow_includes() -> None:
+    # pylint: disable=protected-access
+    hashes = entry.pinned_hashes
+    files = {
+        "/inputs/requirements.txt": "-r sub/other.txt\n",
+        "/inputs/sub/other.txt": "c==3.0 --hash=sha256:ab --hash=sha256:cd  # comment\n",
+    }
+    host = Host(files)
+    host.facts = {"file:" + path: {"text": text} for path, text in files.items()}
+    with entry._FactFiles(
+        host.facts, entry.Requests()
+    ):  # pylint: disable=protected-access
+        assert hashes(["/inputs/requirements.txt"]) == {"c": {"ab", "cd"}}
+
+
+def test_bumped_version_with_old_hash_names_the_new_artifact() -> None:
+    # Dependabot bumped b from 1.0 to 2.0 but the hash is still the one of b 1.0,
+    # which the index also has, so plain filtering would just find no candidate.
+    requirements = "b==2.0 --hash=sha256:" + "55" * 32 + "\n"
+    host = Host({"/inputs/requirements.txt": requirements})
+    result = host.run(_hub(requirements=["/inputs/requirements.txt"]))
+    assert result["status"] == "error", result
+    assert "`b`" in result["message"]
+    assert "b-2.0-py3-none-any.whl (222222222222)" in result["message"]

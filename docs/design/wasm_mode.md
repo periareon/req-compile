@@ -620,6 +620,38 @@ performs network access for a non-reproducible extension. That replaces
 `py_reqs_solution_test` for wasm-mode hubs: a developer who edits `requirements.in`
 and does not run a build before committing gets a CI failure pointing at the lock.
 
+### Dependabot-managed requirement files
+
+A fully pinned `requirements.txt`, hashes included, works as `requirements_in`: the
+file reader already skips comments and continuation lines and strips `--hash`
+options, so the compiled lock of this repository fed back as input reproduces its
+61 artifacts exactly. That makes the resolve mode the way to let Dependabot bump
+pins: Dependabot's `pip` updater edits versions and hashes in such a file and
+leaves comments alone, which breaks the lock-file mode (the URL comment under each
+entry goes stale) but is exactly what the resolve mode wants.
+
+Two rules make the file trustworthy. With `enforce_hashes` (the default) the
+artifact chosen for a project must carry one of the hashes the file pins for it;
+a version bumped without its hashes fails with a message naming the package, the
+pinned hashes and what the index offers, so the file's hashes are an integrity
+check rather than decoration. And the file's pins are hard pins, as they are for
+pip: a bump whose own requirements reject another pinned package fails with
+req-compile's explanation instead of moving the other pin.
+
+What the flow needs from the repository: `MODULE.bazel.lock` records the
+requirements file as an input, so after Dependabot edits it the lock is stale and
+`--lockfile_mode=error` fails until it is regenerated. `wasm/example/.github/`
+holds a `dependabot.yml` and a workflow that, on Dependabot pull requests, runs
+`bazel mod deps --lockfile_mode=update` with the wasm flags and commits the lock to
+the PR branch. The division of labour is then: `requirements.txt` is the pin list
+a bot can read and write, `MODULE.bazel.lock` is the lock.
+
+Limits: a file whose hashes come from one platform's artifacts cannot feed a
+multi-platform hub with hashes enforced, because the other platforms' wheels have
+other hashes; either the file lists every artifact's hash (pip-compile's
+`--generate-hashes` style, which Dependabot maintains) or the hub sets
+`enforce_hashes = False`. Platform-specific pins need environment markers.
+
 ### Human-readable export
 
 Diffs of `MODULE.bazel.lock` are hard to review, and pip-based tooling and auditors
@@ -691,6 +723,7 @@ use_repo(requirements, "pip_deps")
 | `index_url`, `extra_index_urls`, `find_links` | Sources, with the CLI's precedence. |
 | `allow_sdists`, `allow_prerelease`, `only_binary` | The CLI's options. |
 | `solver` | The `req_compile_solver.wasm` module, as a label. Required until a release provides a default. |
+| `enforce_hashes` | Whether `--hash` values in the files must match the chosen artifacts. Default true. |
 | `max_rounds`, `solver_memory_limit` | Loop knobs with sensible defaults. `record_metadata` will join them with the facts work. |
 
 `package_annotation`, `override_module_repos`, `package_aliases` and

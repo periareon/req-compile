@@ -60,6 +60,7 @@ def resolve_spec(
         index_urls = ["https://pypi.org/simple"],
         allow_sdists = False,
         allow_prerelease = False,
+        enforce_hashes = True,
         max_rounds = 40,
         memory_limit = 1024 * 1024 * 1024,
         timeout = 3600):
@@ -75,6 +76,7 @@ def resolve_spec(
         index_urls (list[str]): Package indexes, searched in order.
         allow_sdists (bool): Whether source distributions with static metadata may be used.
         allow_prerelease (bool): Whether pre-releases may be selected.
+        enforce_hashes (bool): Whether `--hash` values in the files must match the artifacts.
         max_rounds (int): The most rounds of requests before giving up.
         memory_limit (int): The memory limit of a solver call, in bytes.
         timeout (int): The timeout of a solver call, in seconds.
@@ -92,6 +94,7 @@ def resolve_spec(
         index_urls = list(index_urls),
         allow_sdists = allow_sdists,
         allow_prerelease = allow_prerelease,
+        enforce_hashes = enforce_hashes,
         max_rounds = max_rounds,
         memory_limit = memory_limit,
         timeout = timeout,
@@ -174,6 +177,7 @@ def _lock_packages(packages):
             "core_metadata": data.get("core_metadata", False),
             "deps": sorted([sanitize_package_name(dep) for dep in data["deps"]]),
             "filename": data.get("filename", ""),
+            "hash_pinned": data.get("hash_pinned", False),
             "package": data["package"],
             "sha256": data["sha256"],
             "url": data["url"],
@@ -205,6 +209,7 @@ def _hub_inputs(ctx, spec):
         "attrs": {
             "allow_prerelease": spec.allow_prerelease,
             "allow_sdists": spec.allow_sdists,
+            "enforce_hashes": spec.enforce_hashes,
             "index_urls": spec.index_urls,
             "platforms": spec.platforms,
             "python_version": spec.python_version,
@@ -282,6 +287,7 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
             "allow_prerelease": spec.allow_prerelease,
             "allow_sdists": spec.allow_sdists,
             "constraints": [_input_path(label) for label in spec.constraints],
+            "enforce_hashes": spec.enforce_hashes,
             "indexes": spec.index_urls,
             "platforms": spec.platforms,
             "python_version": spec.python_version,

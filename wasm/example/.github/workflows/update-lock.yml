@@ -1,0 +1,47 @@
+# After Dependabot edits requirements.txt, MODULE.bazel.lock no longer matches
+# its recorded inputs and `--lockfile_mode=error` would fail. This job resolves
+# the hub again with the WebAssembly solver and commits the updated lock to the
+# pull request branch, so the PR is complete and CI can keep `error` mode.
+name: Refresh MODULE.bazel.lock
+
+on:
+  pull_request:
+    paths:
+      - "requirements.txt"
+      - "requirements.in"
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-lock:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          # Dependabot's token cannot trigger further workflows; a PAT or app token can.
+          token: ${{ secrets.LOCK_REFRESH_TOKEN }}
+
+      # The solver module is not in the repository; fetch the release matching the ruleset.
+      - name: Fetch the solver module
+        run: curl -fsSL -o req_compile_solver.wasm "$SOLVER_URL"
+        env:
+          SOLVER_URL: https://github.com/periareon/req-compile/releases/download/X.Y.Z/req_compile_solver.wasm
+
+      - name: Resolve and update the lock
+        env:
+          USE_BAZEL_VERSION: "10.0.0"
+        run: |
+          bazel mod deps --lockfile_mode=update \
+            --experimental_repository_ctx_execute_wasm \
+            --experimental_repository_ctx_wasm_compilation
+
+      - name: Commit the lock
+        run: |
+          git config user.name "dependabot-lock-refresh"
+          git config user.email "dependabot-lock-refresh@users.noreply.github.com"
+          git add MODULE.bazel.lock
+          git diff --cached --quiet || git commit -m "Refresh MODULE.bazel.lock for the dependency update"
+          git push

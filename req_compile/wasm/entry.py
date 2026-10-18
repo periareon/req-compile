@@ -32,7 +32,7 @@ import sys
 import traceback
 import urllib.parse
 from html.parser import HTMLParser
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 import packaging.requirements
 import packaging.version
@@ -70,6 +70,91 @@ LOG = logging.getLogger("req_compile.wasm")
 
 class NeedFacts(Exception):
     """A fact the solver needs is missing; the round is over."""
+
+
+class HashMismatch(Exception):
+    """No artifact of a project matches the hashes its requirement file pins."""
+
+    def __init__(self, name: str, pinned: Set[str], found: Dict[str, str]) -> None:
+        super().__init__(name)
+        self.name = name
+        self.pinned = pinned
+        self.found = found
+
+    def __str__(self) -> str:
+        available = ", ".join(
+            "{} ({})".format(filename, sha256[:12])
+            for filename, sha256 in sorted(self.found.items())
+        )
+        return (
+            "No artifact of `{}` on the index matches the --hash values pinned for it "
+            "({}). The index offers: {}. Update the hashes along with the version, or "
+            "set `enforce_hashes = False`."
+        ).format(
+            self.name,
+            ", ".join(sorted(value[:12] for value in self.pinned)),
+            available or "nothing",
+        )
+
+
+_HASH_OPTION = "--hash=sha256:"
+
+
+def pinned_hashes(paths: Iterable[str]) -> Dict[NormName, Set[str]]:
+    """The `--hash` values the requirement files pin, by project.
+
+    Follows `-r` includes like req-compile does. Files are read through `open()`,
+    so this must run while `_FactFiles` is installed.
+    """
+    result: Dict[NormName, Set[str]] = {}
+    seen: Set[str] = set()
+
+    def visit(path: str) -> None:
+        if path in seen:
+            return
+        seen.add(path)
+        with open(path, "r", encoding="utf-8") as handle:
+            lines = handle.read().splitlines()
+        logical = ""
+        for raw in lines:
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.endswith("\\"):
+                logical += line[:-1] + " "
+                continue
+            text, logical = (logical + line).strip(), ""
+            if text.startswith(("-r ", "--requirement ")):
+                include = text.split(None, 1)[1].strip()
+                visit(os.path.join(os.path.dirname(path), include))
+                continue
+            if text.startswith("-"):
+                continue
+            comment = text.find(" #")
+            if comment != -1:
+                text = text[:comment]
+            parts = text.split()
+            hashes = {
+                part[len(_HASH_OPTION) :]
+                for part in parts
+                if part.startswith(_HASH_OPTION)
+            }
+            if not hashes:
+                continue
+            try:
+                req = utils.parse_requirement(
+                    " ".join(part for part in parts if not part.startswith("--"))
+                )
+            except ValueError:
+                continue
+            if req is not None:
+                result.setdefault(utils.normalize_project_name(req.name), set()).update(
+                    hashes
+                )
+
+    for path in paths:
+        visit(path)
+    return result
 
 
 class Requests:
@@ -223,6 +308,8 @@ class FactRepository(Repository):
         self.requests = requests
         self.allow_sdists = allow_sdists
         self.prior = prior or {}
+        # The `--hash` values pinned per project; set by `solve` once the files are read.
+        self.hashes: Dict[NormName, Set[str]] = {}
         self._entries: Dict[Tuple[str, str], Dict[str, Any]] = {}
 
     def __repr__(self) -> str:
@@ -261,8 +348,12 @@ class FactRepository(Repository):
             self._entries[(page, entry["filename"])] = entry
         return candidate
 
-    def candidates_for(self, name: str) -> List[Candidate]:
-        """The candidates of a project whose page is known."""
+    def candidates_for(
+        self,
+        name: str,
+        req: Optional[packaging.requirements.Requirement] = None,
+    ) -> List[Candidate]:
+        """The candidates of a project whose page is known, those pinned by hash first."""
         page = self.page_url(name)
         fact = self.facts.get("index:" + page)
         if fact is None or "files" not in fact:
@@ -285,7 +376,46 @@ class FactRepository(Repository):
             candidate = self._candidate(page, entry)
             if candidate is not None:
                 candidates.append(candidate)
-        return candidates
+        return self._matching_hashes(name, candidates, req)
+
+    def _matching_hashes(
+        self,
+        name: str,
+        candidates: List[Candidate],
+        req: Optional[packaging.requirements.Requirement],
+    ) -> List[Candidate]:
+        """Keep the artifacts the requirement file pinned by hash, if it pinned any.
+
+        When the pinned hashes match no artifact of the versions the requirement
+        allows, the mismatch is reported for those versions: a pin bumped without
+        its hash is the usual cause, and naming the new version's artifacts is
+        what makes the message actionable.
+        """
+        pinned = self.hashes.get(utils.normalize_project_name(name))
+        if not pinned or not candidates:
+            return candidates
+        matching = [
+            candidate
+            for candidate in candidates
+            if self.entry(candidate)["sha256"] in pinned
+        ]
+        relevant = candidates
+        if req is not None:
+            relevant = [
+                candidate
+                for candidate in candidates
+                if req.specifier.contains(candidate.version, prereleases=True)
+            ] or candidates
+        if any(candidate in matching for candidate in relevant):
+            return matching
+        raise HashMismatch(
+            name,
+            pinned,
+            {
+                candidate.filename or "": self.entry(candidate)["sha256"]
+                for candidate in relevant
+            },
+        )
 
     def _recorded(
         self, req: packaging.requirements.Requirement
@@ -296,6 +426,9 @@ class FactRepository(Repository):
             return None
         candidate = self._candidate(self.page_url(req.name), entry)
         if candidate is None:
+            return None
+        pinned = self.hashes.get(utils.normalize_project_name(req.name))
+        if pinned and entry.get("sha256") not in pinned:
             return None
         # A recorded pre-release was accepted when it was recorded.
         if not filter_candidates(
@@ -309,7 +442,7 @@ class FactRepository(Repository):
     ) -> Optional[List[Candidate]]:
         """The candidates of a requirement, or None after requesting its page."""
         if "index:" + self.page_url(req.name) in self.facts:
-            return self.candidates_for(req.name)
+            return self.candidates_for(req.name, req)
         recorded = self._recorded(req)
         if recorded is not None:
             return recorded
@@ -523,10 +656,12 @@ def _render(solution: DistributionCollection) -> Dict[str, Any]:
             else:
                 via.append(reverse.key)
         core_metadata: Any = False
+        hash_pinned = False
         if isinstance(meta.origin, FactRepository):
             core_metadata = meta.origin.entry(meta.candidate).get(
                 "core_metadata", False
             )
+            hash_pinned = node.key in meta.origin.hashes
         packages[node.key] = {
             "package": meta.name,
             "version": str(meta.version),
@@ -534,6 +669,7 @@ def _render(solution: DistributionCollection) -> Dict[str, Any]:
             "url": url,
             "filename": meta.candidate.filename,
             "core_metadata": core_metadata,
+            "hash_pinned": hash_pinned,
             "deps": sorted(dep.key for dep in node.dependencies),
             "via": sorted(via),
         }
@@ -548,7 +684,10 @@ def _prefetch(hub: _Hub, req: packaging.requirements.Requirement) -> None:
         ):
             continue
         for repo in repos:
-            candidates = repo.candidates_or_request(req)
+            try:
+                candidates = repo.candidates_or_request(req)
+            except HashMismatch:
+                continue
             if candidates is None:
                 continue
             usable = filter_candidates(
@@ -637,6 +776,13 @@ def solve(payload: Dict[str, Any]) -> Dict[str, Any]:
                     RequirementsFile.from_file(path)
                     for path in hub.spec.get("constraints", [])
                 ]
+                if hub.spec.get("enforce_hashes", True):
+                    hashes = pinned_hashes(
+                        hub.spec["requirements"] + list(hub.spec.get("constraints", []))
+                    )
+                    for repos in hub.indexes:
+                        for repo in repos:
+                            repo.hashes = hashes
                 try:
                     solutions = perform_compile_group(
                         input_reqs,
@@ -650,6 +796,7 @@ def solve(payload: Dict[str, Any]) -> Dict[str, Any]:
                     NoCandidateException,
                     NoCommonVersionException,
                     MetadataError,
+                    HashMismatch,
                 ) as ex:
                     return {
                         "status": "error",

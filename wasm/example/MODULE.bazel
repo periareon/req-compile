@@ -2,7 +2,7 @@
 
 Build `req_compile_solver.wasm` with `../build.sh` and copy it next to this file, then:
 
-    bazel build @pip_deps//requests:whl
+    bazel build //...
 
 The hub is resolved by the `requirements` module extension of `rules_req_compile`
 in rounds of downloads, and the result is recorded in `MODULE.bazel.lock`.
@@ -30,4 +30,15 @@ requirements.parse(
 )
 use_repo(requirements, "pip_deps")
 
-# touched
+# A hub fed by a fully pinned, hash-carrying requirements.txt, the file a
+# Dependabot `pip` update keeps current. Hashes are enforced by default, so a
+# version bumped without its hash fails to resolve instead of fetching
+# something the file does not vouch for.
+requirements.parse(
+    name = "pinned_deps",
+    platforms = ["manylinux_2_28_x86_64"],
+    python_version = "3.11",
+    requirements_in = ["//:requirements.txt"],
+    solver = "//:req_compile_solver.wasm",
+)
+use_repo(requirements, "pinned_deps")

@@ -1,0 +1,13 @@
+# Dependabot keeps requirements.txt current. The `pip` ecosystem understands the
+# pinned format, versions and hashes included; the Bazel side rebuilds URLs and
+# dependency edges from it when the hub resolves.
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    # One PR per batch keeps the number of lock refreshes down.
+    groups:
+      python:
+        patterns: ["*"]
