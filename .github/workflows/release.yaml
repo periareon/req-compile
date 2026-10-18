@@ -12,6 +12,9 @@ on:
       - .github/workflows/release.yaml
       - .github/workflows/release_prep.sh
       - .github/workflows/bcr-publish.yaml
+      - .github/release_notes.template
+      # The solver module is a release asset; dry-run its build too.
+      - wasm/**
   push:
     branches:
       - main
@@ -98,6 +101,7 @@ jobs:
       release_files: |
         rules_req_compile-*.tar.gz
         dist/*
+        req_compile_solver.wasm
       prerelease: false
       tag_name: ${{ needs.tag.outputs.tag }}
 

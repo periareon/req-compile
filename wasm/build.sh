@@ -19,7 +19,7 @@ BUILD="${BUILD_DIR:-$HERE/build}"
 OUT="${OUT:-$BUILD/req_compile_solver.wasm}"
 CC="$WASI_SDK/bin/clang"
 AR="$WASI_SDK/bin/llvm-ar"
-mkdir -p "$BUILD/extra"
+mkdir -p "$BUILD/extra" "$(dirname "$OUT")"
 
 # The Python version of the build, e.g. 3.14, from the source tree.
 PY_VERSION="$(sed -n -E 's/^#define PY_MAJOR_VERSION[[:space:]]+([0-9]+).*/\1/p' "$PY_SRC/Include/patchlevel.h").$(sed -n -E 's/^#define PY_MINOR_VERSION[[:space:]]+([0-9]+).*/\1/p' "$PY_SRC/Include/patchlevel.h")"

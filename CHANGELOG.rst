@@ -1,3 +1,20 @@
+New in version 1.6.0:
+
+* The ``requirements`` extension resolves requirement files inside Bazel, without a host Python, when a
+  ``parse`` tag sets ``requirements_in`` together with ``python_version``, ``platforms`` and ``solver``. The
+  solver is the unmodified ``req_compile`` package running as a WebAssembly module under Bazel's experimental
+  ``execute_wasm`` (``--experimental_repository_ctx_execute_wasm``; Bazel 10 compiles it with
+  ``--experimental_repository_ctx_wasm_compilation``). Bazel performs every download, in rounds the solver
+  asks for, and the solution is recorded in ``MODULE.bazel.lock`` as the repositories of the hub and as
+  facts, so an unchanged hub is rebuilt without running the solver and a changed requirements file re-solves
+  only what the change touches. ``REQ_COMPILE_UPGRADE=all`` (or a comma-separated list of packages) starts
+  over from the indexes.
+* Fully pinned requirement files with ``--hash`` lines, as Dependabot's ``pip`` updater maintains them, are
+  accepted as ``requirements_in``; ``enforce_hashes`` (default true) fails a version bumped without its hash.
+  ``wasm/example`` shows the Dependabot configuration and a workflow that refreshes the lock.
+* ``req_compile_solver.wasm`` is built from pinned inputs by ``wasm/build_solver.sh`` and attached to each
+  release; the release notes carry an ``http_file`` pinning it.
+
 New in version 1.5.0:
 
 * A wheel repository is a single package. Its ``py_library`` is named after the package

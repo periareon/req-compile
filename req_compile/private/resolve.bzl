@@ -32,8 +32,6 @@ FACTS_SCHEMA = 1
 
 UPGRADE_ENV = "REQ_COMPILE_UPGRADE"
 
-_ACCEPT_INDEX = "application/vnd.pypi.simple.v1+json, text/html;q=0.1"
-
 _WASM_FLAGS = (
     "Resolving requirements inside Bazel needs `execute_wasm`, which is experimental. Add " +
     "`common --experimental_repository_ctx_execute_wasm` to your `.bazelrc` (Bazel 9.3 or newer), and " +
@@ -268,7 +266,8 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
         specs (list[struct]): The `resolve_spec`s of the hubs.
         inputs (dict): Hub name to `_hub_inputs`.
         recorded (dict): Hub name to the solution a previous evaluation recorded, if any.
-        upgrade (None|str|list): See `_upgrade`.
+        upgrade: What to re-resolve from the indexes: `None`, `"all"` or a list of package names
+            (see `_upgrade`).
 
     Returns:
         tuple: The resolved hubs and the facts the solver consulted.

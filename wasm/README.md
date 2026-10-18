@@ -37,6 +37,29 @@ runs is `perform_compile_group`, the same one the command line uses.
 
 ## Building
 
+One command builds the module from pinned inputs:
+
+```bash
+wasm/build_solver.sh
+```
+
+`build_solver.sh` names every input by version and hash (wasi-sdk 24.0, CPython
+3.14.8, Wizer 11.0.3, the `packaging` and `overrides` wheels), downloads and
+verifies them into `wasm/build/work`, cross-compiles CPython with
+`build_cpython.sh` and links the module with `build.sh`; the result is
+`wasm/build/req_compile_solver.wasm` and its sha256 is printed last. The host
+needs curl, tar, xz, make and a C compiler, plus a `python3` of any version for
+CPython's build driver: the bytecode in the module is produced by the interpreter
+CPython builds for itself. The first run takes a few minutes, most of it the
+CPython build, which later runs reuse. CI runs this script on Linux and macOS
+for every change, and the release workflow runs it to attach the module to each
+release, whose notes carry an `http_file` pinning it.
+
+### By hand
+
+The two steps `build_solver.sh` runs can be run separately, for instance to try
+another CPython or different compiler flags.
+
 Requirements: wasi-sdk 24, a CPython `wasm32-wasi` build directory with
 `libpython3.X.a`, `pyconfig.h` and the `Makefile`, the matching CPython source
 tree and `Lib` directory, a host Python of the same minor version (for the

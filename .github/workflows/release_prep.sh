@@ -13,6 +13,8 @@
 #     rules_req_compile-${TAG}.tar.gz   The Bazel module source archive.
 #     dist/*.whl, dist/*.tar.gz         The Python wheel and sdist that are
 #                                       published to PyPI.
+#     req_compile_solver.wasm           The WebAssembly solver the
+#                                       `requirements` extension runs.
 #
 # Output:
 #   Release notes to stdout. The release_ruleset workflow redirects
@@ -90,9 +92,17 @@ python3 -m venv "${SCRATCH}/venv"
 "${SCRATCH}/venv/bin/python" -m pip install --quiet --upgrade pip build
 "${SCRATCH}/venv/bin/python" -m build --sdist --outdir dist "${WORKSPACE}"
 
-# Render release notes by substituting {version} into the template.
-# release_notes.template lives in `.github/`.
-sed "s#{version}#${TAG}#g" \
+# Build the WebAssembly solver from the inputs pinned in `wasm/build_solver.sh`
+# (wasi-sdk, CPython, Wizer and the solver's Python dependencies, all by
+# hash). It is attached to the release and attested with the other assets,
+# and the release notes carry its hash so users can pin it with `http_file`.
+rm -f req_compile_solver.wasm
+WORK="${SCRATCH}/wasm" OUT="$(pwd)/req_compile_solver.wasm" bash "${WORKSPACE}/wasm/build_solver.sh"
+SOLVER_SHA256="$(python3 -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' req_compile_solver.wasm)"
+
+# Render release notes by substituting {version} and {solver_sha256} into
+# the template. release_notes.template lives in `.github/`.
+sed -e "s#{version}#${TAG}#g" -e "s#{solver_sha256}#${SOLVER_SHA256}#g" \
     "${WORKSPACE}/.github/release_notes.template" > "${SCRATCH}/release_notes.txt"
 
 # Emit the rendered notes on the original stdout (fd 3) — that's the

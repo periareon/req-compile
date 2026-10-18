@@ -804,14 +804,24 @@ this: the resolve code runs only when some module's `parse` tag sets
 
 ### Shipping the module
 
-`req_compile_solver.wasm` is built in CI by `wasm/build.sh`, with the wasi-sdk,
-CPython WASI build and host Python 3.14 pinned, and attached to each release.
-`rules_req_compile`'s own `MODULE.bazel` declares it as an `http_file` pinned by
-sha256, and the extension loads it with `ctx.path(Label("@req_compile_solver//file"))`.
-For development in this repository a local override points the label at the output
-of `wasm/build.sh`. At 16 MB the module should not be committed; if the `http_file`
-indirection proves awkward for BCR consumers, trimming the bundle (the full standard
-library is included today) is the first lever.
+`wasm/build_solver.sh` builds `req_compile_solver.wasm` from inputs it names by
+version and hash: wasi-sdk 24.0, CPython 3.14.8 (from python.org, with the
+trampoline patch), Wizer 11.0.3 and the `packaging` and `overrides` wheels. The
+bytecode in the module comes from the native interpreter CPython builds for its
+own cross-compilation, so the host needs no particular Python. CI runs the script
+on Linux and macOS for every change and exercises the module under wasmtime and
+through the example workspace in Bazel 10; `release_prep.sh` runs it for every
+release, so the module is attached to the release and attested with the other
+assets, and the release notes carry its sha256 in a ready-to-paste `http_file`.
+
+Users pin that `http_file` in their `MODULE.bazel` and pass
+`solver = "@req_compile_solver//file"`; the `solver` attribute stays explicit
+rather than defaulting to a repository declared by `rules_req_compile`, so a
+release never has to rewrite its own `MODULE.bazel` with a hash that only exists
+once the module is built, and no module that does not use resolve mode ever sees
+the 25 MB download. The module is not committed; if the indirection proves
+awkward for BCR consumers, trimming the bundle (the full standard library is
+included today) is the first lever.
 
 ## Failure modes and diagnostics
 

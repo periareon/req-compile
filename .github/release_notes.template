@@ -12,4 +12,17 @@ bazel_dep(name = "rules_req_compile", version = "{version}")
 pip install req-compile=={version}
 ```
 
+### Resolving inside Bazel
+
+`req_compile_solver.wasm`, attached to this release, is `req-compile` as a WebAssembly module. The `requirements` extension runs it to resolve requirement files inside Bazel, without a host Python, when a `parse` tag sets `requirements_in`. Pin it in `MODULE.bazel`:
+```python
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+http_file(
+    name = "req_compile_solver",
+    sha256 = "{solver_sha256}",
+    url = "https://github.com/periareon/req-compile/releases/download/{version}/req_compile_solver.wasm",
+)
+```
+and pass `solver = "@req_compile_solver//file"` to the tag. Bazel needs `--experimental_repository_ctx_execute_wasm` (and, from Bazel 10, `--experimental_repository_ctx_wasm_compilation`); see `wasm/README.md`.
+
 Additional documentation can be found at: https://github.com/periareon/req-compile
