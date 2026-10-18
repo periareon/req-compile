@@ -186,6 +186,52 @@ def test_missing_package_is_an_error() -> None:
     assert "nothing-like-this" in result["message"]
 
 
+def test_failed_download_is_named_for_a_strict_retry() -> None:
+    """A page whose download failed is handed back to fetch strictly, not reported missing."""
+
+    class FlakyHost(Host):
+        def __init__(self, files: Dict[str, str]) -> None:
+            super().__init__(files)
+            self.failed = False
+
+        def _answer(self, request: Dict[str, Any]) -> None:
+            if (
+                request["op"] == "fetch"
+                and request["url"].endswith("/b/")
+                and not self.failed
+            ):
+                self.failed = True
+                self.facts[request["id"]] = {
+                    "error": "download failed: " + request["url"]
+                }
+                return
+            super()._answer(request)
+
+    host = FlakyHost({"/inputs/requirements.in": "a\n"})
+    result = host.run(_hub())
+    assert result["status"] == "error"
+    assert '"b"' in result["message"]
+    assert [request["id"] for request in result["retry"]] == ["index:" + INDEX + "/b/"]
+
+    # The host fetches again, drops the error fact and the solve goes on with the document.
+    for request in result["retry"]:
+        del host.facts[request["id"]]
+        host._answer(request)  # pylint: disable=protected-access
+    result = host.run(_hub())
+    assert result["status"] == "done", result["message"]
+    assert set(result["hubs"]["hub"]["locks"]["win_amd64"]["packages"]) == {"a", "b"}
+
+
+def test_missing_package_names_nothing_to_retry() -> None:
+    """A page the index does not have is not fetched again once it was reported missing."""
+    host = Host({"/inputs/requirements.in": "nothing-like-this\n"})
+    result = host.run(_hub())
+    assert result["status"] == "error"
+    assert [request["id"] for request in result["retry"]] == [
+        "index:" + INDEX + "/nothing-like-this/"
+    ], "a 404 is also a failed download: fetched strictly, Bazel reports it with its URL"
+
+
 def test_ingest_html_index() -> None:
     page = """
     <html><body>

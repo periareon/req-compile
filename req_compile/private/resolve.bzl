@@ -258,6 +258,60 @@ def _recorded_metadata(ctx, locks):
                 facts[key] = _thaw(fact)
     return facts
 
+def _start_download(ctx, netrc, request, scratch, allow_fail, block = False):
+    """Start the download a `fetch` or `metadata` request asks for.
+
+    Args:
+        ctx (module_ctx): The extension context.
+        netrc (dict): The user's netrc, for authentication.
+        request (dict): The solver's request.
+        scratch (int): A number unique to this download, naming its file.
+        allow_fail (bool): Whether a failed download is reported through the
+            token rather than raised.
+        block (bool): Whether to wait for the download here.
+
+    Returns:
+        tuple: The request, the path the download lands at and the download token
+            (or result, when blocking).
+    """
+    if request["op"] == "fetch":
+        path = "req_compile_resolve/{}.page".format(scratch)
+        url = request["url"]
+        sha256 = ""
+        headers = request.get("headers", {})
+    elif request["op"] == "metadata":
+        core = request["core_metadata"]
+        headers = {}
+        if core:
+            path = "req_compile_resolve/{}.metadata".format(scratch)
+            url = request["url"] + ".metadata"
+            sha256 = core["sha256"] if type(core) == "dict" else ""
+        else:
+            path = "req_compile_resolve/{}.whl".format(scratch)
+            url = request["url"]
+            sha256 = request["sha256"]
+    else:
+        fail("The requirements solver made an unknown request: {}".format(json.encode(request)))
+    return request, path, ctx.download(
+        url = url,
+        output = path,
+        sha256 = sha256,
+        headers = headers,
+        auth = use_netrc(netrc, [url], {}),
+        allow_fail = allow_fail,
+        block = block,
+    )
+
+def _document(ctx, request, path):
+    """The document to hand the solver for a download that succeeded."""
+    if request["op"] == "fetch":
+        return {"body": ctx.read(path), "kind": "index", "url": request["url"]}
+    return {
+        "body": _metadata_text(ctx, request, path),
+        "kind": "metadata",
+        "url": request["url"],
+    }
+
 def _resolve_group(ctx, specs, inputs, recorded, upgrade):
     """Resolve the hubs sharing a solver module, in one loop.
 
@@ -326,7 +380,22 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
             solution = out
             break
         if out["status"] == "error":
-            fail("Failed to resolve the requirements of hub `{}`: {}".format(out.get("hub", "?"), out["message"]))
+            # A download that failed reached the solver as a missing project or
+            # distribution, and the solver names the requests behind its error
+            # whose download failed. Fetch those again, strictly: a network
+            # failure then surfaces as Bazel's own download error, which is not
+            # cached as a resolution failure the way a `fail()` is, and a page
+            # that does not exist is reported with its URL. When every fetch
+            # succeeds the solve goes on with the documents.
+            retry = out.get("retry", [])
+            if not retry:
+                fail("Failed to resolve the requirements of hub `{}`: {}".format(out.get("hub", "?"), out["message"]))
+            for request in retry:
+                scratch += 1
+                request, path, _ = _start_download(ctx, netrc, request, scratch, allow_fail = False, block = True)
+                facts.pop(request["id"], None)
+                documents[request["id"]] = _document(ctx, request, path)
+            continue
 
         pending = []
         for request in out["requests"]:
@@ -341,46 +410,13 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
                     continue
 
             scratch += 1
-            if request["op"] == "fetch":
-                path = "req_compile_resolve/{}.page".format(scratch)
-                url = request["url"]
-                sha256 = ""
-                headers = request.get("headers", {})
-            elif request["op"] == "metadata":
-                core = request["core_metadata"]
-                headers = {}
-                if core:
-                    path = "req_compile_resolve/{}.metadata".format(scratch)
-                    url = request["url"] + ".metadata"
-                    sha256 = core["sha256"] if type(core) == "dict" else ""
-                else:
-                    path = "req_compile_resolve/{}.whl".format(scratch)
-                    url = request["url"]
-                    sha256 = request["sha256"]
-            else:
-                fail("The requirements solver made an unknown request: {}".format(json.encode(request)))
-            pending.append((request, path, ctx.download(
-                url = url,
-                output = path,
-                sha256 = sha256,
-                headers = headers,
-                auth = use_netrc(netrc, [url], {}),
-                allow_fail = True,
-                block = False,
-            )))
+            pending.append(_start_download(ctx, netrc, request, scratch, allow_fail = True))
 
         for request, path, token in pending:
-            result = token.wait()
-            if not result.success:
-                facts[request["id"]] = {"error": "download failed: {}".format(request["url"])}
-            elif request["op"] == "fetch":
-                documents[request["id"]] = {"body": ctx.read(path), "kind": "index", "url": request["url"]}
+            if token.wait().success:
+                documents[request["id"]] = _document(ctx, request, path)
             else:
-                documents[request["id"]] = {
-                    "body": _metadata_text(ctx, request, path),
-                    "kind": "metadata",
-                    "url": request["url"],
-                }
+                facts[request["id"]] = {"error": "download failed: {}".format(request["url"])}
 
     if solution == None:
         fail("Resolving {} did not converge in {} rounds. Raise `max_rounds` if the dependency graph is unusually deep.".format(

@@ -827,9 +827,23 @@ included today) is the first lever.
 
 - **Resolution failure.** The solver's error carries the explanation chain req-compile
   prints today. The extension `fail`s with it, and names the hub and platform.
-- **Index unreachable or package missing.** A `fetch` failure becomes a fact
-  (`{"error": ...}`); the solver treats a missing page as "no candidates" on that index
-  and tries the next, and reports the error text if no index had the package.
+- **Index unreachable or package missing.** Downloads are first made with
+  `allow_fail`, and a failure becomes a fact (`{"error": ...}`) the solver treats
+  as "no candidates" on that index, so a package missing from one of several
+  indexes is found on the next. When the solve then fails, the solver names the
+  requests behind the failing project whose download failed (`retry`), and the
+  extension fetches them again without `allow_fail` before giving up: a network
+  failure is then Bazel's own download error, naming the URL and the cause, and a
+  page that does not exist is reported as its 404. If the fetches succeed the
+  solve continues. (Found by the factory workspace: a transient
+  `NoRouteToHostException` on one page was reported as `NoCandidateException`.)
+  What this cannot fix is Bazel caching the failed evaluation: every error of a
+  module extension is persistent to Skyframe (`SingleExtensionEvalFunction`
+  wraps them with `Transience.PERSISTENT`, download errors included, unlike a
+  repository rule's fetch), so the same command replays the error until an input
+  of the extension changes or `bazel shutdown`. A Bazel issue is the way out;
+  until then the error message says what happened and the operator knows what
+  to do.
 - **Metadata not static.** Named in the failure explanation per candidate, see
   "Source distributions".
 - **Round limit.** Reported with the last round's unanswered requests, which pinpoints

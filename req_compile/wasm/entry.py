@@ -367,17 +367,18 @@ class FactRepository(Repository):
             if key.startswith(prefix):
                 yield key[len(prefix) :].rstrip("/")
 
-    def request_page(self, name: str) -> None:
+    def page_request(self, name: str) -> Dict[str, Any]:
         page = self.page_url(name)
-        self.requests.add(
-            {
-                "id": "index:" + page,
-                "op": "fetch",
-                "url": page,
-                "headers": {"Accept": ACCEPT_INDEX},
-                "ingest": "index",
-            }
-        )
+        return {
+            "id": "index:" + page,
+            "op": "fetch",
+            "url": page,
+            "headers": {"Accept": ACCEPT_INDEX},
+            "ingest": "index",
+        }
+
+    def request_page(self, name: str) -> None:
+        self.requests.add(self.page_request(name))
 
     def _candidate(self, page: str, entry: Dict[str, Any]) -> Optional[Candidate]:
         href = entry["url"] + (
@@ -549,25 +550,23 @@ class FactRepository(Repository):
         entry = self.entry(candidate)
         return "meta:" + (entry["sha256"] or entry["url"])
 
+    def metadata_request(self, candidate: Candidate) -> Dict[str, Any]:
+        entry = self.entry(candidate)
+        return {
+            "id": self.metadata_key(candidate),
+            "op": "metadata",
+            "url": entry["url"],
+            "sha256": entry["sha256"],
+            "core_metadata": entry.get("core_metadata", False),
+            "kind": "wheel" if candidate.type == DistributionType.WHEEL else "sdist",
+            "filename": candidate.filename,
+        }
+
     def ensure_metadata(self, candidate: Candidate) -> Optional[Dict[str, Any]]:
         """The metadata fact of a candidate, requesting it when missing."""
-        entry = self.entry(candidate)
-        key = self.metadata_key(candidate)
-        fact = self.facts.get(key)
+        fact = self.facts.get(self.metadata_key(candidate))
         if fact is None:
-            self.requests.add(
-                {
-                    "id": key,
-                    "op": "metadata",
-                    "url": entry["url"],
-                    "sha256": entry["sha256"],
-                    "core_metadata": entry.get("core_metadata", False),
-                    "kind": (
-                        "wheel" if candidate.type == DistributionType.WHEEL else "sdist"
-                    ),
-                    "filename": candidate.filename,
-                }
-            )
+            self.requests.add(self.metadata_request(candidate))
         return fact
 
     def resolve_candidate(
@@ -823,6 +822,41 @@ def _speculate(hubs: List[_Hub], facts: Dict[str, Any]) -> None:
             _prefetch(hub, req)
 
 
+def _failed_requests(hub: "_Hub", ex: Exception) -> List[Dict[str, Any]]:
+    """The requests behind a resolution error whose download failed.
+
+    A failed index page or metadata download reaches the solver as an error fact,
+    which it cannot tell from a project or distribution that does not exist. The
+    host fetches these again, strictly, so that a network failure is reported as
+    one and a page that really is missing is reported with its URL.
+    """
+    if isinstance(ex, NoCandidateException):
+        name, version = ex.req.name, None
+    elif isinstance(ex, NoCommonVersionException):
+        name, version = ex.name, None
+    elif isinstance(ex, MetadataError):
+        name, version = ex.name, ex.version
+    else:
+        return []
+    failed = Requests()
+    for repos in hub.indexes:
+        for repo in repos:
+            page = repo.page_request(name)
+            fact = repo.facts.get(page["id"])
+            if fact is not None and "error" in fact:
+                failed.add(page)
+            if version is None:
+                continue
+            for candidate in repo.candidates_for(name):
+                if candidate.version != version:
+                    continue
+                request = repo.metadata_request(candidate)
+                fact = repo.facts.get(request["id"])
+                if fact is not None and "error" in fact:
+                    failed.add(request)
+    return failed.as_list()
+
+
 def _ingest_documents(payload: Dict[str, Any], facts: Dict[str, Any]) -> Dict[str, Any]:
     """Turn the raw documents fetched since the last call into facts."""
     ingested = {}
@@ -885,6 +919,7 @@ def solve(payload: Dict[str, Any]) -> Dict[str, Any]:
                         "status": "error",
                         "hub": hub.name,
                         "message": str(ex),
+                        "retry": _failed_requests(hub, ex),
                         "facts": ingested,
                     }
                 results[hub.name] = {
