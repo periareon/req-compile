@@ -466,14 +466,38 @@ of the solver, without any solving.
 Two conclusions. First, the approach is correct: the untouched solver produces the
 same answers inside the module as outside, including the cross-platform alignment,
 and lazily reproduces an existing solution from prior pins. Second, Bazel's
-WebAssembly runtime is the cost. Chicory's compiled mode runs this module about two
-hundred times slower than wasmtime; the likely reason is that CPython's evaluation
-loop is a single function far larger than a JVM method may be, so it falls back to
-interpretation whatever the flag. A call therefore costs ten seconds at best in
-Bazel 10 and a minute in Bazel 9. Calls, not bytes, are what the design must
-minimize, which is why ingestion was folded into the solve call and why speculation
-matters. A cold resolve of this repository's requirements would take roughly a
-minute in Bazel 10 and five in Bazel 9.3; a re-resolution with facts, fewer.
+WebAssembly runtime is the cost, and the reason is now known rather than likely:
+Bazel compiles with Chicory's `InterpreterFallback.SILENT`, and running Chicory's
+compiler on the module with warnings on names the functions it interprets:
+`_PyEval_EvalFrameDefault`, CPython's bytecode loop, and
+`_PyUnicode_InitStaticStrings`. Every Python bytecode therefore runs under two
+interpreters while the C helpers run compiled, a ratio of a few hundred to one
+against wasmtime for Python-heavy work. Calls, not bytes, are what the design must
+minimize, and so is the amount of Python each call executes.
+
+### What the optimization pass changed
+
+| What | Before | After |
+| --- | --- | --- |
+| `ping` (the floor of a call), Bazel 10 compiled | 10.2 s | 0.0 s |
+| Ingest of a 1.8 MB index page | 16.2 s | about 1 s |
+| Solve of 61 packages for three platforms with every fact present | 273 s | 88 s |
+| Adding `rich` to the example's `requests` hub (7 calls) | 134 s in the module, 139 s elapsed | 32 s in the module, 33 s elapsed |
+| Fresh resolve of both example hubs, no facts (4 calls) | 70 s elapsed | 45 s in the module |
+| Re-evaluation of the example with facts recorded (3 calls) | | 3 s in the module, 11 s elapsed |
+
+- **Wizer pre-initialization.** `wasm/build.sh` with `WIZER` set runs the
+  interpreter start and the solver's imports at build time and snapshots the
+  memory into the module. `wasm/merge_segments.py` then drops the empty
+  placeholder segments Wizer leaves and merges the rest, from 103,054 segments to
+  15, which keeps the module within runtime limits and instantiation cheap. The
+  module grows from 16 MB to 25 MB.
+- **Less Python per call** in `entry.py`: candidates built once per page and
+  shared across platforms (`PageCache`), memoized `Requires-Python` and wheel-tag
+  checks, uninstallable artifacts filtered once per platform with the pre-release
+  policy preserved, and no `urljoin` for absolute URLs. Natively the full solve
+  went from 0.34 s to 0.09 s with identical artifacts.
+- The remaining time is the solver under the interpreted evaluation loop.
 
 Memory: the module declares 64 MiB and grows; `memory_limit` is set to 1 GiB in the
 prototype and peak use has not been measured yet.

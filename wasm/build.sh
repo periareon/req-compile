@@ -8,6 +8,8 @@
 #   PY_LIB        the matching CPython Lib directory of pure-Python modules
 #   PY_SITE       a directory holding `packaging/` and `overrides/`
 #   BUNDLE_PYTHON optional: a host Python of the embedded minor version, to bundle bytecode
+#   LINK_FLAGS    optional: link-time flags, default `-O2 -Wl,--strip-all`; "" keeps function names
+#   WIZER         optional: path to `wizer`, to pre-initialize the interpreter at build time
 # Output: $OUT (default: build/req_compile_solver.wasm next to this script)
 set -euo pipefail
 
@@ -61,13 +63,28 @@ echo "linking"
 "$CC" "${CFLAGS[@]}" -c "$HERE/wasi_stubs.c" -o "$BUILD/wasi_stubs.o"
 "$CC" "${CFLAGS[@]}" -c "$HERE/shim.c" -o "$BUILD/shim.o"
 (cd "$BUILD" && "$CC" --target=wasm32-wasi -c "$HERE/embed.S" -o "$BUILD/embed.o")
-"$CC" --target=wasm32-wasi -mexec-model=reactor -O2 \
+# `-O2` at link time makes wasm-ld drop the name section as well; a build
+# meant for profiling sets LINK_FLAGS to "" to keep function names.
+LINK_FLAGS="${LINK_FLAGS--O2 -Wl,--strip-all}"
+# shellcheck disable=SC2086
+"$CC" --target=wasm32-wasi -mexec-model=reactor $LINK_FLAGS \
     -o "$OUT" \
     "$BUILD/shim.o" "$BUILD/wasi_stubs.o" "$BUILD/embed.o" \
     "$PY_BUILD/libpython3.13.a" "$BUILD/extra/libextra.a" \
     -ldl -lwasi-emulated-signal -lwasi-emulated-getpid -lwasi-emulated-process-clocks -lm \
-    -Wl,-z,stack-size=1048576 -Wl,--strip-all \
+    -Wl,-z,stack-size=1048576 \
     -Wl,--initial-memory=67108864
+# 4. Optionally pre-initialize: run the interpreter start and the imports now,
+#    snapshot the memory into the module, and every call starts from there.
+if [ -n "${WIZER:-}" ]; then
+    echo "pre-initializing with wizer"
+    "$WIZER" --init-func wizer.initialize --wasm-bulk-memory true -o "$OUT.wizer" "$OUT"
+    # The snapshot is one segment per run of non-zero bytes, far more than
+    # runtimes accept; merge them.
+    python3 "$HERE/merge_segments.py" "$OUT.wizer" "$OUT"
+    rm -f "$OUT.wizer"
+fi
+
 ls -la "$OUT"
 echo "imports:"
 wasm-tools print "$OUT" | grep -E '^\s*\(import' | sed -E 's/ \((func|memory|table|global).*//' | sort | uniq -c || true

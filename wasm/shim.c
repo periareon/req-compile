@@ -23,6 +23,12 @@ static size_t g_output_len;
 static int g_output_set;
 static uint32_t g_code;
 
+/* Set once the interpreter is up and the entry point imported. When the module
+ * was pre-initialized with Wizer this is already 1 when `solve` is first called,
+ * and the call skips straight to running the entry point. */
+static int g_ready;
+static PyObject *g_run;
+
 static PyObject *host_input(PyObject *self, PyObject *args) {
     (void)self;
     (void)args;
@@ -72,24 +78,12 @@ __attribute__((export_name("allocate"))) void *wasm_allocate(uint32_t size, uint
     return malloc(size ? size : 1);
 }
 
-static uint32_t fail(const char *message, uint8_t **out_ptr, uint32_t *out_len) {
-    size_t err_len;
-    const char *err = wasi_stub_captured(2, &err_len);
-    size_t msg_len = strlen(message);
-    char *buf = malloc(msg_len + err_len + 2);
-    memcpy(buf, message, msg_len);
-    buf[msg_len] = '\n';
-    memcpy(buf + msg_len + 1, err, err_len);
-    *out_ptr = (uint8_t *)buf;
-    *out_len = (uint32_t)(msg_len + 1 + err_len);
-    return 2;
-}
-
-__attribute__((export_name("solve"))) uint32_t solve(const uint8_t *input, uint32_t input_len, uint8_t **out_ptr, uint32_t *out_len) {
-    g_input = input;
-    g_input_len = input_len;
-    g_output_set = 0;
-
+/* Start the interpreter and import the entry point. Returns NULL on success,
+ * else a message; details are on the captured stderr. */
+static const char *initialize(void) {
+    if (g_ready) {
+        return NULL;
+    }
     PyImport_AppendInittab("_host", PyInit__host);
 
     PyConfig config;
@@ -114,7 +108,7 @@ __attribute__((export_name("solve"))) uint32_t solve(const uint8_t *input, uint3
     PyStatus status = Py_InitializeFromConfig(&config);
     PyConfig_Clear(&config);
     if (PyStatus_Exception(status)) {
-        return fail(status.err_msg ? status.err_msg : "Python failed to initialize", out_ptr, out_len);
+        return status.err_msg ? status.err_msg : "Python failed to initialize";
     }
 
     PyObject *globals = PyDict_New();
@@ -122,20 +116,65 @@ __attribute__((export_name("solve"))) uint32_t solve(const uint8_t *input, uint3
     PyObject *result = PyRun_String(bootstrap_src, Py_file_input, globals, globals);
     if (result == NULL) {
         PyErr_Clear();
-        return fail("The solver bootstrap failed before the interpreter was fully initialized", out_ptr, out_len);
+        return "The solver bootstrap failed before the interpreter was fully initialized";
     }
     Py_DECREF(result);
 
     status = _Py_InitializeMain();
     if (PyStatus_Exception(status)) {
-        return fail(status.err_msg ? status.err_msg : "Python failed to initialize (main phase)", out_ptr, out_len);
+        return status.err_msg ? status.err_msg : "Python failed to initialize (main phase)";
     }
 
-    PyObject *run = PyDict_GetItemString(globals, "run");
-    result = run ? PyObject_CallNoArgs(run) : NULL;
+    /* `prepare` imports the entry point and returns the callable that runs it,
+     * so that a pre-initialized module has the imports done already. */
+    PyObject *prepare = PyDict_GetItemString(globals, "prepare");
+    g_run = prepare ? PyObject_CallNoArgs(prepare) : NULL;
+    if (g_run == NULL) {
+        PyErr_Print();
+        return "The solver bootstrap failed";
+    }
+    g_ready = 1;
+    return NULL;
+}
+
+/* Wizer calls this once at build time and snapshots the memory afterwards. */
+__attribute__((export_name("wizer.initialize"))) void wizer_initialize(void) {
+    const char *error = initialize();
+    if (error != NULL) {
+        size_t len;
+        const char *err = wasi_stub_captured(2, &len);
+        (void)err;
+        __builtin_trap();
+    }
+}
+
+static uint32_t fail(const char *message, uint8_t **out_ptr, uint32_t *out_len) {
+    size_t err_len;
+    const char *err = wasi_stub_captured(2, &err_len);
+    size_t msg_len = strlen(message);
+    char *buf = malloc(msg_len + err_len + 2);
+    memcpy(buf, message, msg_len);
+    buf[msg_len] = '\n';
+    memcpy(buf + msg_len + 1, err, err_len);
+    *out_ptr = (uint8_t *)buf;
+    *out_len = (uint32_t)(msg_len + 1 + err_len);
+    return 2;
+}
+
+__attribute__((export_name("solve"))) uint32_t solve(const uint8_t *input, uint32_t input_len, uint8_t **out_ptr, uint32_t *out_len) {
+    g_input = input;
+    g_input_len = input_len;
+    g_output_set = 0;
+
+    const char *error = initialize();
+    if (error != NULL) {
+        return fail(error, out_ptr, out_len);
+    }
+
+    PyObject *result = PyObject_CallNoArgs(g_run);
     if (result == NULL) {
         PyErr_Print();
-        return fail("The solver bootstrap failed", out_ptr, out_len);
+        return fail("The solver failed", out_ptr, out_len);
     }
     Py_DECREF(result);
     if (!g_output_set) {

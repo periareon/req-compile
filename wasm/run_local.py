@@ -27,7 +27,8 @@ def execute(
     store.set_limits(memory_size=memory_limit)
     instance = wasmtime.Instance(store, module, [])
     exports = instance.exports(store)
-    exports["_initialize"](store)
+    if "_initialize" in exports:  # absent after Wizer pre-initialization
+        exports["_initialize"](store)
     memory = exports["memory"]
     allocate = exports["allocate"]
 

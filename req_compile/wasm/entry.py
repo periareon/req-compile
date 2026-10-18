@@ -223,7 +223,10 @@ def _file_entry(
     core_metadata: Any,
     sha256: Optional[str] = None,
 ) -> Dict[str, Any]:
-    url = urllib.parse.urljoin(page_url, href)
+    if href.startswith(("https://", "http://")):
+        url = href
+    else:
+        url = urllib.parse.urljoin(page_url, href)
     url, _, fragment = url.partition("#")
     if sha256 is None and fragment.startswith("sha256="):
         sha256 = fragment[len("sha256=") :]
@@ -283,6 +286,36 @@ def ingest_metadata(body: str) -> Dict[str, Any]:
     return {"metadata": header, "dynamic": dynamic, "metadata_version": version}
 
 
+class PageCache:
+    """Candidates built from index pages, shared by the repositories of all targets.
+
+    Building a `Candidate` parses the file name and its version, which does not
+    depend on the target. A hub resolving several platforms would otherwise do
+    it once per platform, and the solver asks for the same page many times.
+    """
+
+    def __init__(self) -> None:
+        self._pages: Dict[str, List[Tuple[Dict[str, Any], Candidate]]] = {}
+
+    def candidates(
+        self, page: str, fact: Dict[str, Any]
+    ) -> List[Tuple[Dict[str, Any], Candidate]]:
+        cached = self._pages.get(page)
+        if cached is None:
+            cached = []
+            for entry in fact.get("files", []):
+                if entry.get("yanked"):
+                    continue
+                href = entry["url"] + (
+                    "#sha256=" + entry["sha256"] if entry.get("sha256") else ""
+                )
+                candidate = filename_to_candidate((page, href), entry["filename"])
+                if candidate is not None:
+                    cached.append((entry, candidate))
+            self._pages[page] = cached
+        return cached
+
+
 class FactRepository(Repository):
     """A package index as seen through the facts Bazel gathered.
 
@@ -301,6 +334,7 @@ class FactRepository(Repository):
         allow_prerelease: bool,
         allow_sdists: bool,
         prior: Optional[Dict[NormName, Dict[str, Any]]] = None,
+        pages: Optional[PageCache] = None,
     ) -> None:
         super().__init__("facts", allow_prerelease=allow_prerelease, target=target)
         self.index_url = index_url.rstrip("/")
@@ -308,6 +342,12 @@ class FactRepository(Repository):
         self.requests = requests
         self.allow_sdists = allow_sdists
         self.prior = prior or {}
+        self.pages = pages or PageCache()
+        # `Requires-Python` expressions and wheel tags repeat across pages; each is
+        # evaluated against the target once.
+        self._python_ok: Dict[str, bool] = {}
+        self._tags_ok: Dict[Tuple[Any, ...], bool] = {}
+        self._candidates: Dict[str, List[Candidate]] = {}
         # The `--hash` values pinned per project; set by `solve` once the files are read.
         self.hashes: Dict[NormName, Set[str]] = {}
         self._entries: Dict[Tuple[str, str], Dict[str, Any]] = {}
@@ -355,28 +395,69 @@ class FactRepository(Repository):
     ) -> List[Candidate]:
         """The candidates of a project whose page is known, those pinned by hash first."""
         page = self.page_url(name)
-        fact = self.facts.get("index:" + page)
-        if fact is None or "files" not in fact:
-            return []
-        candidates = []
-        for entry in fact["files"]:
-            if entry.get("yanked"):
-                continue
-            requires_python = entry.get("requires_python")
-            if requires_python:
-                try:
-                    if not check_python_compatibility(requires_python, self.target):
+        candidates = self._candidates.get(page)
+        if candidates is None:
+            candidates = []
+            # Artifacts that can never install on this target are left out, as the
+            # solver would reject each of them on every request. One is kept when
+            # all the installable ones are pre-releases and it is not, so that the
+            # solver's pre-release policy sees what the full page would show it.
+            spare: Optional[Candidate] = None
+            fact = self.facts.get("index:" + page)
+            if fact is not None and "files" in fact:
+                for entry, candidate in self.pages.candidates(page, fact):
+                    if not self._python_compatible(entry.get("requires_python") or ""):
                         continue
-                except ValueError:
-                    LOG.warning(
-                        "Ignoring the Requires-Python of %s: %s",
-                        entry["url"],
-                        requires_python,
-                    )
-            candidate = self._candidate(page, entry)
-            if candidate is not None:
-                candidates.append(candidate)
+                    self._entries[(page, entry["filename"])] = entry
+                    if self._installable(candidate):
+                        candidates.append(candidate)
+                    elif spare is None and not candidate.version.is_prerelease:
+                        spare = candidate
+            if spare is not None and all(c.version.is_prerelease for c in candidates):
+                candidates.append(spare)
+            self._candidates[page] = candidates
         return self._matching_hashes(name, candidates, req)
+
+    def _installable(self, candidate: Candidate) -> bool:
+        """Whether the wheel tags of a candidate fit the target, as `check_usability` decides."""
+        key = (
+            str(candidate.py_version) if candidate.py_version is not None else None,
+            candidate.abi,
+            tuple(candidate.platforms),
+        )
+        result = self._tags_ok.get(key)
+        if result is None:
+            result = (
+                (
+                    candidate.py_version is None
+                    or candidate.py_version.check_compatibility(self.target)
+                )
+                and (
+                    candidate.abi is None
+                    or self.target.abi_tag_is_compatible(candidate.abi)
+                )
+                and any(
+                    self.target.platform_tag_is_compatible(plat)
+                    for plat in candidate.platforms
+                )
+            )
+            self._tags_ok[key] = result
+        return result
+
+    def _python_compatible(self, requires_python: str) -> bool:
+        if not requires_python:
+            return True
+        result = self._python_ok.get(requires_python)
+        if result is None:
+            try:
+                result = check_python_compatibility(requires_python, self.target)
+            except ValueError:
+                LOG.warning(
+                    "Ignoring an unparsable Requires-Python: %s", requires_python
+                )
+                result = True
+            self._python_ok[requires_python] = result
+        return result
 
     def _matching_hashes(
         self,
@@ -620,6 +701,7 @@ class _Hub:
         self.pins = _prior_pins(prior)
         self.indexes: List[List[FactRepository]] = []
         self.repos: List[Repository] = []
+        pages = PageCache()
         for platform, target in zip(spec["platforms"], self.targets):
             inner = [
                 FactRepository(
@@ -630,6 +712,7 @@ class _Hub:
                     allow_prerelease,
                     self.allow_sdists,
                     prior=prior.get(platform),
+                    pages=pages,
                 )
                 for url in spec["indexes"]
             ]

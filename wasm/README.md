@@ -40,8 +40,13 @@ the `_build-python-3.13.*-wasi_sdk-24.zip` of
 [brettcannon/cpython-wasi-build](https://github.com/brettcannon/cpython-wasi-build/releases),
 which holds `libpython3.13.a`, `pyconfig.h` and the `Makefile`), the matching
 CPython source tree and `Lib` directory, and a directory with `packaging` and
-`overrides` unpacked. Optionally a host Python 3.13 to bundle bytecode, which makes
-every call noticeably cheaper.
+`overrides` unpacked. Optionally a host Python 3.13 to bundle bytecode, and
+[Wizer](https://github.com/bytecodealliance/wizer) to pre-initialize the module:
+with `WIZER` set, the build starts the interpreter and imports the solver once,
+snapshots the memory into the module, and every call then begins with the
+interpreter already running. That removes the start-up cost of a call entirely
+(about ten seconds under Bazel's runtime); `merge_segments.py` tidies the
+snapshot's data segments afterwards.
 
 ```bash
 WASI_SDK=/opt/wasi-sdk-24.0 \
@@ -50,11 +55,13 @@ PY_SRC=/path/to/cpython \
 PY_LIB=/path/to/python-3.13-wasi/lib/python3.13 \
 PY_SITE=/path/to/site-packages \
 BUNDLE_PYTHON=python3.13 \
+WIZER=/path/to/wizer \
 wasm/build.sh
 ```
 
-The result is `wasm/build/req_compile_solver.wasm`, about 16 MB, with no imports and
-the exports `allocate`, `solve` and `_initialize`.
+The result is `wasm/build/req_compile_solver.wasm`, about 16 MB (25 MB with the
+snapshot), with no imports and the exports `allocate` and `solve` (plus
+`_initialize` without Wizer).
 
 ## Running it without Bazel
 
@@ -127,8 +134,38 @@ Taken on an Apple M-series laptop against PyPI, October 2026.
 | `requests` for two platforms through the `requirements` extension (`example/`), Bazel 10 compiled, bytecode bundle | 5 calls, 107 s in the module, 117 s including fetching the wheels |
 | Then adding `rich` (four new packages) to the same file | 7 calls, 134 s; the five existing packages keep their versions, their pages and metadata are not fetched |
 | Then changing extension code without changing the requirements | 0 calls, the hub is rebuilt from the recorded solution in milliseconds |
+| After the optimization pass (snapshot, less Python per call): `ping` | 0.0 s |
+| After the optimization pass: ingest of a 1.8 MB page | 1.1 s (was 16 s) |
+| After the optimization pass: solve of 61 packages for three platforms, all facts present | 88 s (was 273 s) |
+| After the optimization pass: adding `rich` | 7 calls, 33 s elapsed (was 139 s) |
+| After the optimization pass: fresh resolve of both example hubs, no facts | 4 calls, 45 s in the module (was 70 s elapsed) |
 | This repository's requirements for three platforms, host driver, starting from the checked-in pins | 4 rounds, 57 s, and the same 61, 56 and 58 versions as the three checked-in lock files |
 
-`ping` is the floor of a call: interpreter start plus importing the solver. Under
-Bazel's runtime that floor is seconds, not milliseconds, so the number of calls is
-what matters, and the loop makes one call per round.
+## Where the time goes
+
+Bazel runs the module with Chicory. With `--experimental_repository_ctx_wasm_compilation`
+Chicory compiles each wasm function to a JVM method, except functions too large
+for one method, which it interprets silently. Asking Chicory directly (`MachineFactoryCompiler`
+with `InterpreterFallback.WARN`, against Bazel's own jar) names them for this
+module: `_PyEval_EvalFrameDefault`, CPython's bytecode loop, and
+`_PyUnicode_InitStaticStrings`, which only runs at start-up. So every Python
+bytecode the solver executes is interpreted twice over, by CPython and by Chicory,
+while the C helpers (`_json`, `_sre`, the allocator) run compiled. Measured against
+wasmtime the ratio is a few hundred to one for Python-heavy work.
+
+That shaped the optimizations, in order of effect:
+
+- **Pre-initialization with Wizer.** The ten-second floor of every call was
+  CPython starting and importing some 190 modules; the snapshot makes it zero.
+- **Less Python per call.** Candidates are built once per index page and shared by
+  the repositories of all platforms; `Requires-Python` and wheel tags are checked
+  once per distinct value; artifacts that can never install on a platform are
+  left out once rather than rejected on every request (keeping one non-pre-release
+  so the solver's pre-release policy is unchanged); index pages with absolute
+  URLs skip `urljoin`. The solver's own results are identical.
+- **One call per round**, with documents ingested inside the solve call.
+
+The remaining cost is the solver proper under an interpreted eval loop. The lever
+that would change it is outside this repository: a CPython whose evaluation loop
+is many small functions (the tail-calling interpreter of 3.14, if wasm tail calls
+are usable) or Chicory splitting large functions.

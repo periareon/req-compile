@@ -83,9 +83,16 @@ class BundleFinder:
 sys.meta_path.insert(0, BundleFinder(_host.bundle()))
 
 
-def run():
-    """Executed once the interpreter is fully initialized."""
+def prepare():
+    """Import the entry point once the interpreter is fully initialized.
+
+    Returns the function the host calls per request. With Wizer the imports
+    happen at build time and only this function runs when Bazel calls.
+    """
     from req_compile.wasm.entry import main
 
-    output, code = main(bytes(_host.input()))
-    _host.set_output(output, code)
+    def run():
+        output, code = main(bytes(_host.input()))
+        _host.set_output(output, code)
+
+    return run
