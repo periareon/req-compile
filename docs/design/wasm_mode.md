@@ -481,7 +481,7 @@ minimize, and so is the amount of Python each call executes.
 | --- | --- | --- |
 | `ping` (the floor of a call), Bazel 10 compiled | 10.2 s | 0.0 s |
 | Ingest of a 1.8 MB index page | 16.2 s | about 1 s |
-| Solve of 61 packages for three platforms with every fact present | 273 s | 8.9 s (88 s before the evaluation loop compiled) |
+| Solve of 61 packages for three platforms with every fact present | 273 s | 8.9 s (88 s before the evaluation loop compiled; 3.5 to 5.6 s with the JIT flags) |
 | Adding `rich` to the example's `requests` hub (7 calls) | 134 s in the module, 139 s elapsed | 3.4 s in the module, 4.6 s elapsed |
 | Fresh resolve of both example hubs, no facts (4 calls) | 70 s elapsed | 4.5 s in the module, 13 s elapsed |
 | Re-evaluation of the example with facts recorded (3 calls) | | 3 s in the module, 11 s elapsed |
@@ -507,9 +507,16 @@ minimize, and so is the amount of Python each call executes.
   nothing. The tail-calling interpreter of CPython 3.14 was ruled out: it
   requires `preserve_none`, which clang lacks for wasm, and Chicory 1.7.5
   compiles tail calls as call-plus-return, which would overflow the stack.
-- HotSpot does not JIT methods over 8,000 bytes of bytecode, so the compiled
-  loop runs in the JVM interpreter; `startup --host_jvm_args=-XX:-DontCompileHugeMethods`
-  buys another fifth (8.9 s to 7.3 s) and is a user-side `.bazelrc` line.
+- **A JIT-compiled evaluation loop.** Chicory's output for it is a 60 KB JVM
+  method, which HotSpot runs in its own interpreter: the huge-method limit skips
+  it, C1 runs out of virtual registers on it, and C2 runs out of nodes at the
+  default budget. With `-XX:-DontCompileHugeMethods -XX:MaxNodeLimit=2000000
+  -XX:NodeLimitFudgeFactor=100000` C2 compiles it. In a long-lived JVM a solve
+  call drops from 8.5 s to 1.6 s once warm (the third call); inside Bazel, where
+  each evaluation starts from a cold class and C2 recompiles the method a few
+  times before it settles, the same solve measured 5.6 s, 3.5 s and 4.6 s over
+  three calls against 8.9 s without the flags. They are server startup flags, so
+  they belong in the user's `.bazelrc`; the example carries them.
 
 Memory: the module declares 64 MiB and grows; `memory_limit` is set to 1 GiB in the
 prototype and peak use has not been measured yet.

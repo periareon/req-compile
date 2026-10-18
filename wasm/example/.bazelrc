@@ -2,3 +2,11 @@
 # module runs in an interpreter, about five times slower.
 common --experimental_repository_ctx_execute_wasm
 common --experimental_repository_ctx_wasm_compilation
+
+# Let the server JVM JIT-compile the solver's evaluation loop. Bazel's runtime
+# turns it into one 60 KB JVM method, which HotSpot neither compiles by default
+# (huge-method limit) nor fits in C2's default node budget; with these it does,
+# and a solver call is about five times faster once warm.
+startup --host_jvm_args=-XX:-DontCompileHugeMethods
+startup --host_jvm_args=-XX:MaxNodeLimit=2000000
+startup --host_jvm_args=-XX:NodeLimitFudgeFactor=100000

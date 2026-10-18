@@ -149,7 +149,7 @@ Taken on an Apple M-series laptop against PyPI, October 2026.
 | After the optimization pass: solve of 61 packages for three platforms, all facts present | 88 s (was 273 s) |
 | After the optimization pass: adding `rich` | 7 calls, 33 s elapsed (was 139 s) |
 | After the optimization pass: fresh resolve of both example hubs, no facts | 4 calls, 45 s in the module (was 70 s elapsed) |
-| With the evaluation loop compiled (CPython from `build_cpython.sh`): solve of 61 packages for three platforms | 8.9 s (7.3 s with `-XX:-DontCompileHugeMethods` on the server JVM) |
+| With the evaluation loop compiled (CPython from `build_cpython.sh`): solve of 61 packages for three platforms | 8.9 s; 5.6 s, 3.5 s, 4.6 s over three calls with the JIT flags of `example/.bazelrc` |
 | With the evaluation loop compiled: ingest of a 1.8 MB page | 0.3 s |
 | With the evaluation loop compiled: fresh resolve of both example hubs, no facts | 4 calls, 4.5 s in the module, 13 s elapsed |
 | With the evaluation loop compiled: adding `rich` | 7 calls, 3.4 s in the module, 4.6 s elapsed |
@@ -189,7 +189,21 @@ just over what fits in one JVM method. So the last step was to make it fit:
 pushed it back over the limit. Chicory then compiles every function, and the
 full solve drops from 88 s to 9 s.
 
-HotSpot does not JIT-compile JVM methods over 8,000 bytes of bytecode by default,
-so the compiled evaluation loop still runs in the JVM's own interpreter.
-`startup --host_jvm_args=-XX:-DontCompileHugeMethods` in `.bazelrc` lifts that
-and is worth another fifth.
+That is not the end of it, because a second interpreter sits underneath: the
+evaluation loop is now a 60 KB JVM method, and HotSpot runs such a method in its
+own bytecode interpreter. `-XX:+PrintCompilation` shows why: the huge-method
+limit skips it by default; with that lifted, C1 gives up ("out of virtual
+registers") and C2 gives up on its node budget ("out of nodes"). Raising the
+budget lets C2 compile it. In a long-lived JVM a solve call then takes 1.6 s
+instead of 8.5 s once the JIT has warmed, which takes two or three calls. Inside
+Bazel the gain is smaller because each extension evaluation starts from a cold
+class and C2 recompiles the method a few times before it settles: the same solve
+measured 5.6 s, 3.5 s and 4.6 s over three consecutive calls, against 8.9 s
+without the flags. These are server JVM options, so they go in `.bazelrc` as
+startup flags; `example/.bazelrc` has them:
+
+```
+startup --host_jvm_args=-XX:-DontCompileHugeMethods
+startup --host_jvm_args=-XX:MaxNodeLimit=2000000
+startup --host_jvm_args=-XX:NodeLimitFudgeFactor=100000
+```
