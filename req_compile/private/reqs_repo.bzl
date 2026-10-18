@@ -340,7 +340,7 @@ def plan_hubs(ctx, hubs, annotations, hub_annotations = {}):
 
         # Empty lock files are skipped so that a hub can be declared before its
         # locks are compiled for the first time.
-        contents = [(spec, ctx.read(ctx.path(spec.file))) for spec in hub.locks]
+        contents = [(spec, ctx.read(spec.file)) for spec in hub.locks]
         contents = [(spec, content) for spec, content in contents if content.strip()]
 
         effective_annotations = dict(annotations)
