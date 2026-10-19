@@ -620,10 +620,14 @@ workspace measured 905 KB of facts before, 731 KB of it metadata, mostly long
 descriptions stored once per platform.
 
 `inputs` holds the hub's tag attributes (the solver label and which files are
-requirements and which constraints among them) and the text of every file the
-solve read: the files the tag names and the files those include. Starlark cannot
-hash, but it can compare, and the files are small; equality with the current
-inputs is what makes per-hub memoization possible without loading the solver. The
+requirements and which constraints among them) and the meaningful lines of every
+file the solve read, the files the tag names and the files those include, with
+comments, blank lines and trailing whitespace dropped. Starlark cannot hash, but
+it can compare, and so reduced the files are small; equality with the current
+inputs is what makes per-hub memoization possible without loading the solver,
+and an edit to a comment does not re-solve. Bazel's own `recordedInputs` decide
+whether the extension is evaluated at all; the copy in the facts is what tells,
+once it is, which hubs' inputs changed and which can be rebuilt as recorded. The
 included files are known only from the recorded solution, so the comparison reads
 them from there (`ctx.read`, which also makes Bazel watch them) once the files the
 tag names have matched. `schema` guards against reading a fact written by another

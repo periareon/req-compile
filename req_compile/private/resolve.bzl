@@ -328,6 +328,26 @@ def _hub_inputs(ctx, spec):
         },
     }
 
+def _meaningful(text):
+    """A requirement file reduced to the lines that can change its solution.
+
+    Comments, blank lines and trailing whitespace are dropped, so that the
+    recorded inputs are small and an edit to a comment does not re-solve.
+    """
+    lines = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped and not stripped.startswith("#"):
+            lines.append(line.rstrip())
+    return "\n".join(lines)
+
+def _recorded_inputs(inputs):
+    """The inputs as the solution fact records them: files by their meaningful lines."""
+    return {
+        "attrs": inputs["attrs"],
+        "files": {path: _meaningful(text) for path, text in inputs["files"].items()},
+    }
+
 def _unchanged(ctx, spec, previous, current):
     """Whether a recorded solution's inputs are the current ones, included files too.
 
@@ -340,16 +360,19 @@ def _unchanged(ctx, spec, previous, current):
         return False
     files = recorded.get("files", {})
     for path, text in current["files"].items():
-        if files.get(path) != text:
+        if files.get(path) != _meaningful(text):
             return False
     known = {_input_path(label): label for label in spec.requirements_in + spec.constraints}
     for path, text in files.items():
         if path in current["files"]:
             continue
         label = _label_for_path(path, known)
-        if not ctx.path(label).exists or ctx.read(label) != text:
+        if not ctx.path(label).exists:
             return False
-        current["files"][path] = text
+        actual = ctx.read(label)
+        if _meaningful(actual) != text:
+            return False
+        current["files"][path] = actual
     return True
 
 def _thaw(value):
@@ -636,7 +659,7 @@ def resolve_hubs(ctx, specs):
             for name, hub_locks in locks.items():
                 facts["solution:" + name] = dict(
                     _compact_locks(hub_locks, specs[name]),
-                    inputs = inputs[name],
+                    inputs = _recorded_inputs(inputs[name]),
                     schema = FACTS_SCHEMA,
                 )
                 facts.update(_referenced_metadata(hub_locks, texts))
