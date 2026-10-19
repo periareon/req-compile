@@ -24,11 +24,9 @@ jobs:
           # Dependabot's token cannot trigger further workflows; a PAT or app token can.
           token: ${{ secrets.LOCK_REFRESH_TOKEN }}
 
-      # The solver module is not in the repository; fetch the release matching the ruleset.
-      - name: Fetch the solver module
-        run: curl -fsSL -o req_compile_solver.wasm "$SOLVER_URL"
-        env:
-          SOLVER_URL: https://github.com/periareon/req-compile/releases/download/X.Y.Z/req_compile_solver.wasm
+      # A released `rules_req_compile` downloads its own solver module; nothing
+      # to fetch here. (This example tracks the source checkout instead and
+      # names a locally built module with `solver`.)
 
       - name: Resolve and update the lock
         env:

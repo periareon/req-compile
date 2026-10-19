@@ -853,17 +853,18 @@ bytecode in the module comes from the native interpreter CPython builds for its
 own cross-compilation, so the host needs no particular Python. CI runs the script
 on Linux and macOS for every change and exercises the module under wasmtime and
 through the example workspace in Bazel 10; `release_prep.sh` runs it for every
-release, so the module is attached to the release and attested with the other
-assets, and the release notes carry its sha256 in a ready-to-paste `http_file`.
-
-Users pin that `http_file` in their `MODULE.bazel` and pass
-`solver = "@req_compile_solver//file"`; the `solver` attribute stays explicit
-rather than defaulting to a repository declared by `rules_req_compile`, so a
-release never has to rewrite its own `MODULE.bazel` with a hash that only exists
-once the module is built, and no module that does not use resolve mode ever sees
-the 25 MB download. The module is not committed; if the indirection proves
-awkward for BCR consumers, trimming the bundle (the full standard library is
-included today) is the first lever.
+release, attaches the module to the release, attested with the other assets, and
+bakes its sha256 into `req_compile/private/solver.bzl` in the copy of the tree
+that becomes the module archive (the source tree keeps the hash empty). The
+extension of a release therefore knows its own module: the first time a hub
+resolves it downloads it with `ctx.download`, verified by that hash and kept in
+Bazel's repository cache, so users set nothing up and a ruleset upgrade brings
+the matching module. The `solver` attribute names a locally built module instead,
+which a source checkout needs since it has no hash; the extension says so. No
+module that does not use resolve mode ever sees the 25 MB download, since the
+download happens inside the solve. The module is not committed; if the download
+proves awkward for BCR consumers, trimming the bundle (the full standard library
+is included today) is the first lever.
 
 ## Failure modes and diagnostics
 

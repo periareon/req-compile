@@ -21,6 +21,7 @@ WebAssembly support is enabled; see `require_wasm`.
 """
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "read_user_netrc", "use_netrc")
+load(":solver.bzl", "SOLVER_SHA256", "SOLVER_URL")
 load(":utils.bzl", "sanitize_package_name")
 
 # Requirement files are addressed by paths under this root inside the solver.
@@ -53,7 +54,7 @@ def resolve_spec(
         requirements_in,
         python_version,
         platforms,
-        solver,
+        solver = None,
         constraints = [],
         index_urls = ["https://pypi.org/simple"],
         allow_sdists = False,
@@ -69,7 +70,7 @@ def resolve_spec(
         requirements_in (list[Label]): The requirement files.
         python_version (str): The Python version to resolve for, e.g. `3.11` or `3.11.4`.
         platforms (list[str]): Wheel platform tags to resolve for, one lock per tag.
-        solver (Label): The WebAssembly solver module.
+        solver (Label): The WebAssembly solver module; None for the one of this release.
         constraints (list[Label]): Constraint files, never themselves installed.
         index_urls (list[str]): Package indexes, searched in order.
         allow_sdists (bool): Whether source distributions with static metadata may be used.
@@ -146,6 +147,29 @@ def _label_for_path(path, known):
         fail("The solver asked for a file it cannot name: {}".format(path))
     repo = "" if parts[0] == "_main" else parts[0]
     return Label("@@{}//{}:{}".format(repo, "/".join(parts[1:-1]), parts[-1]))
+
+def _solver_module(ctx, spec):
+    """The path of the solver module: the one a tag names, else this release's, downloaded.
+
+    The download goes through Bazel's repository cache, so the module is fetched
+    once per machine per release.
+    """
+    if spec.solver != None:
+        return ctx.path(spec.solver)
+    if not SOLVER_SHA256:
+        fail(
+            "This checkout of rules_req_compile is not a release, so it carries no solver module. " +
+            "Build one with `wasm/build_solver.sh` and name it with `solver` on the `parse` tag, " +
+            "or depend on a released version.",
+        )
+    ctx.download(url = SOLVER_URL, output = "req_compile_solver.wasm", sha256 = SOLVER_SHA256)
+    return ctx.path("req_compile_solver.wasm")
+
+def _solver_id(spec):
+    """What identifies the solver a hub uses, for grouping and for the recorded inputs."""
+    if spec.solver != None:
+        return str(spec.solver)
+    return "release:" + SOLVER_SHA256
 
 def _run(ctx, module, limits, payload):
     result = ctx.execute_wasm(
@@ -327,7 +351,7 @@ def _hub_inputs(ctx, spec):
             "platforms": spec.platforms,
             "python_version": spec.python_version,
             "requirements_in": [_input_path(label) for label in spec.requirements_in],
-            "solver": str(spec.solver),
+            "solver": _solver_id(spec),
         },
         "files": {
             _input_path(label): ctx.read(label)
@@ -508,7 +532,7 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
         tuple: The resolved hubs and the metadata texts their packages refer to, by digest.
     """
     first = specs[0]
-    module = ctx.load_wasm(ctx.path(first.solver))
+    module = ctx.load_wasm(_solver_module(ctx, first))
     netrc = read_user_netrc(ctx)
 
     # The hubs share the calls, so the most generous limits among them apply.
@@ -664,7 +688,7 @@ def resolve_hubs(ctx, specs):
         require_wasm(ctx, to_solve.keys())
         groups = {}
         for spec in to_solve.values():
-            groups.setdefault(str(spec.solver), []).append(spec)
+            groups.setdefault(_solver_id(spec), []).append(spec)
         for group in groups.values():
             locks, texts = _resolve_group(
                 ctx,

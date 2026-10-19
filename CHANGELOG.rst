@@ -13,7 +13,8 @@ New in version 1.6.0:
   accepted as ``requirements_in``; ``enforce_hashes`` (default true) fails a version bumped without its hash.
   ``wasm/example`` shows the Dependabot configuration and a workflow that refreshes the lock.
 * ``req_compile_solver.wasm`` is built from pinned inputs by ``wasm/build_solver.sh`` and attached to each
-  release; the release notes carry an ``http_file`` pinning it.
+  release, whose extension downloads it on first use; ``solver`` on the ``parse`` tag names a locally built
+  module instead.
 
 New in version 1.5.0:
 

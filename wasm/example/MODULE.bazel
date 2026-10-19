@@ -1,6 +1,8 @@
 """An example of resolving requirements inside Bazel with the WebAssembly solver.
 
-Build `req_compile_solver.wasm` with `../build_solver.sh` and copy it next to this file, then:
+This example depends on the source checkout of `rules_req_compile`, which has no
+solver module of its own (a release does, and downloads it). Build one with
+`../build_solver.sh`, copy it next to this file, and name it with `solver`:
 
     bazel build //...
 

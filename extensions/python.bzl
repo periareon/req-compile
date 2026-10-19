@@ -155,7 +155,6 @@ def _resolve_spec(mod, parse):
         for attr, value in (
             ("python_version", parse.python_version),
             ("platforms", parse.platforms),
-            ("solver", parse.solver),
         )
         if not value
     ]
@@ -501,17 +500,11 @@ module, which Bazel executes with its experimental `execute_wasm` support; set
 `--experimental_repository_ctx_wasm_compilation`) in `.bazelrc`. The solution is
 recorded in `MODULE.bazel.lock`, which is then the lock: it is reused until a
 requirement file or the tag changes, and `--lockfile_mode=error` fails the build
-when it is out of date. The module is attached to each release of
-`rules_req_compile`; the release notes carry an `http_file` that pins it.
+when it is out of date. Each release of `rules_req_compile` knows the module built
+with it and downloads it, through Bazel's repository cache, the first time a hub
+resolves; `solver` names a locally built module instead.
 
 ```python
-http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
-http_file(
-    name = "req_compile_solver",
-    sha256 = "...",
-    url = "https://github.com/periareon/req-compile/releases/download/<version>/req_compile_solver.wasm",
-)
-
 requirements.parse(
     name = "pip_deps",
     requirements_in = ["//3rdparty:requirements.in"],
@@ -521,7 +514,6 @@ requirements.parse(
         "macosx_11_0_arm64",
         "win_amd64",
     ],
-    solver = "@req_compile_solver//file",
 )
 ```
 
@@ -652,7 +644,7 @@ a downloaded wheel.""",
         "requirements_in": attr.label_list(
             doc = (
                 "Requirement files to resolve inside Bazel with the WebAssembly solver, instead of " +
-                "`requirements_lock` or `requirements_locks`. Needs `python_version`, `platforms` and `solver`, " +
+                "`requirements_lock` or `requirements_locks`. Needs `python_version` and `platforms`, " +
                 "and Bazel's experimental `execute_wasm` support."
             ),
             default = [],
@@ -671,9 +663,9 @@ a downloaded wheel.""",
         ),
         "solver": attr.label(
             doc = (
-                "Resolve mode: the `req_compile_solver.wasm` module attached to each release of " +
-                "`rules_req_compile` (the release notes carry an `http_file` pinning it), or as built by its " +
-                "`wasm/build_solver.sh`."
+                "Resolve mode: a `req_compile_solver.wasm` module to use instead of the one built with this " +
+                "release of `rules_req_compile`, for instance the output of its `wasm/build_solver.sh`. A source " +
+                "checkout of the rules has no module of its own and needs this."
             ),
             allow_single_file = True,
         ),

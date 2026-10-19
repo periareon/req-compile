@@ -53,7 +53,7 @@ CPython's build driver: the bytecode in the module is produced by the interprete
 CPython builds for itself. The first run takes a few minutes, most of it the
 CPython build, which later runs reuse. CI runs this script on Linux and macOS
 for every change, and the release workflow runs it to attach the module to each
-release, whose notes carry an `http_file` pinning it.
+release, whose `requirements` extension downloads it the first time a hub resolves.
 
 ### By hand
 
