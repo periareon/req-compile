@@ -2,6 +2,11 @@
 name: Release
 on:
   workflow_dispatch:
+    inputs:
+      publish_bcr:
+        description: Also publish the release to the Bazel Central Registry
+        type: boolean
+        default: false
   pull_request:
     branches:
       - main
@@ -140,7 +145,11 @@ jobs:
 
   # Re-publish to the Bazel Central Registry, carrying the
   # build-provenance attestation produced upstream.
+  # Not part of a release triggered by a version bump: the GitHub release and
+  # PyPI come first, and the registry entry follows when asked for, either by
+  # dispatching this workflow with `publish_bcr` or `bcr-publish.yaml` on its own.
   bcr-publish:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_bcr }}
     needs: [tag, release]
     permissions:
       contents: write
