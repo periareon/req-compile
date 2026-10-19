@@ -28,7 +28,7 @@ INPUT_ROOT = "/inputs"
 
 # The layout of the `solution:<hub>` facts. Facts survive changes to this code, so
 # a fact of another schema is ignored rather than misread.
-FACTS_SCHEMA = 2
+FACTS_SCHEMA = 1
 
 UPGRADE_ENV = "REQ_COMPILE_UPGRADE"
 
@@ -185,16 +185,23 @@ def _metadata_text(ctx, request, path):
 # What a package of a solution records beyond the `parse_lockfile` shape. The
 # solver uses them to stand in for the index page of a package a re-resolution
 # keeps: `filename` and `url` make the candidate, `index` and `requires_python`
-# decide whether it may answer, `core_metadata` how its metadata is fetched, and
-# `metadata` names the `md:` fact holding its metadata.
+# decide whether it may answer, `core_metadata` whether the index serves its
+# metadata separately, and `metadata` names the `md:` fact holding its metadata.
+#
+# In the lockfile an artifact is keyed by its sha256 (or its URL when the index
+# gave none), so neither is repeated inside it; `index` is left out when it is
+# the index the solution records as its first (the hub's first index at the time,
+# kept with the solution so that a later change of index cannot misattribute a
+# recorded artifact), and `core_metadata` is reduced to whether a separate
+# metadata file exists, since the `md:` fact makes fetching it again unnecessary.
 _ARTIFACT_DEFAULTS = {
     "core_metadata": False,
-    "index": "",
     "metadata": "",
     "requires_python": "",
-    "sha256": "",
-    "url": "",
 }
+
+def _is_sha256(value):
+    return len(value) == 64 and value.lower().strip("0123456789abcdef") == ""
 
 def _package_entry(data, deps):
     """A package in the shape `parse_lockfile` produces, with the solver's extras."""
@@ -226,10 +233,7 @@ def _lock_packages(packages):
         for data in packages.values()
     }
 
-def _artifact_id(data):
-    return data["sha256"] or data["url"] or "{}=={}".format(data["package"], data["version"])
-
-def _compact_locks(locks):
+def _compact_locks(locks, spec):
     """Locks as the lockfile stores them: each artifact once, and per platform the pick.
 
     Most packages resolve to the same file on every platform; storing the file
@@ -241,24 +245,36 @@ def _compact_locks(locks):
     for platform, packages in locks.items():
         picks[platform] = {}
         for name, data in packages.items():
-            aid = _artifact_id(data)
+            aid = data["sha256"] or data["url"]
             artifact = {"package": data["package"], "version": data["version"]}
+            if data["sha256"] and data["url"]:
+                artifact["url"] = data["url"]
+            if data["index"] and data["index"] != spec.index_urls[0]:
+                artifact["index"] = data["index"]
             for key, default in _ARTIFACT_DEFAULTS.items():
                 if data.get(key, default) != default:
                     artifact[key] = data[key]
+            if artifact.get("core_metadata"):
+                artifact["core_metadata"] = True
             artifacts[aid] = artifact
             picks[platform][name] = {"artifact": aid, "deps": data["deps"]}
-    return {"artifacts": artifacts, "locks": picks}
+    return {"artifacts": artifacts, "index": spec.index_urls[0], "locks": picks}
 
 def _expand_locks(recorded):
     """The per-platform packages of a recorded solution, as `_lock_packages` makes them."""
-    artifacts = recorded["artifacts"]
+    artifacts = {}
+    for aid, stored in recorded["artifacts"].items():
+        artifact = dict(_ARTIFACT_DEFAULTS, index = recorded["index"], **stored)
+        if _is_sha256(aid):
+            artifact["sha256"] = aid
+            artifact.setdefault("url", "")
+        else:
+            artifact["sha256"] = ""
+            artifact["url"] = aid
+        artifacts[aid] = artifact
     return {
         platform: {
-            name: _package_entry(
-                dict(_ARTIFACT_DEFAULTS, **artifacts[pick["artifact"]]),
-                pick["deps"],
-            )
+            name: _package_entry(artifacts[pick["artifact"]], pick["deps"])
             for name, pick in packages.items()
         }
         for platform, packages in recorded["locks"].items()
@@ -607,7 +623,7 @@ def resolve_hubs(ctx, specs):
             resolved.update(locks)
             for name, hub_locks in locks.items():
                 facts["solution:" + name] = dict(
-                    _compact_locks(hub_locks),
+                    _compact_locks(hub_locks, specs[name]),
                     inputs = inputs[name],
                     schema = FACTS_SCHEMA,
                 )
