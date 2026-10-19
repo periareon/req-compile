@@ -35,15 +35,25 @@ OPT_CEVAL="${OPT_CEVAL:--DNDEBUG -Oz -fno-inline-functions -mllvm -ir-outliner}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 cd "$CPYTHON_SRC"
 
+# The tail-call flag goes to the wasm host build only: the native interpreter
+# CPython builds first, to run its own build, is compiled by the host compiler,
+# which generally lacks `preserve_none`.
+HOST_CONFIGURE_ARGS=""
 if [ -n "${TRAMPOLINE:-}" ]; then
     PATCH="$HERE/patches/cpython-3.14-trampoline-interpreter.patch"
-    if git apply --check --reverse "$PATCH" >/dev/null 2>&1; then
+    # `patch` rather than `git apply`: the source tree may sit inside another
+    # repository's checkout, where `git apply` resolves paths against the wrong
+    # root and reports the wrong state.
+    if patch -p1 -N -s --dry-run < "$PATCH" >/dev/null 2>&1; then
+        echo "applying $(basename "$PATCH")"
+        patch -p1 -N -s < "$PATCH"
+    elif patch -p1 -R -s --dry-run < "$PATCH" >/dev/null 2>&1; then
         echo "trampoline patch already applied"
     else
-        echo "applying $(basename "$PATCH")"
-        git apply "$PATCH"
+        echo "error: $(basename "$PATCH") does not apply to $CPYTHON_SRC" >&2
+        exit 1
     fi
-    CONFIGURE_ARGS="${CONFIGURE_ARGS:-} --with-tail-call-interp"
+    HOST_CONFIGURE_ARGS="--with-tail-call-interp"
 fi
 
 # CPython's WASI build driver: a package from 3.14 on (its `wasi.py` wrapper
@@ -58,9 +68,13 @@ if [ -n "${CLEAN:-}" ]; then
     python3 "$WASI_PY" clean
 fi
 
-echo "building CPython for WASI (build python, then the wasm32-wasi host)"
+echo "building CPython's native build interpreter"
+python3 "$WASI_PY" configure-build-python
+python3 "$WASI_PY" make-build-python
+echo "building CPython for wasm32-wasi"
 # shellcheck disable=SC2086
-WASI_SDK_PATH="$WASI_SDK" OPT="$OPT_ALL" python3 "$WASI_PY" build -- ${CONFIGURE_ARGS:-}
+WASI_SDK_PATH="$WASI_SDK" OPT="$OPT_ALL" python3 "$WASI_PY" configure-host -- ${CONFIGURE_ARGS:-} $HOST_CONFIGURE_ARGS
+WASI_SDK_PATH="$WASI_SDK" OPT="$OPT_ALL" python3 "$WASI_PY" make-host
 
 HOST="$CPYTHON_SRC/cross-build/wasm32-wasip1"
 PY_VERSION="$(sed -n -E 's/^#define PY_MAJOR_VERSION[[:space:]]+([0-9]+).*/\1/p' Include/patchlevel.h).$(sed -n -E 's/^#define PY_MINOR_VERSION[[:space:]]+([0-9]+).*/\1/p' Include/patchlevel.h)"
