@@ -54,6 +54,8 @@ trap 'rm -rf "${SCRATCH}"' EXIT
 # `.bcr/source.template.json` — the SLSA attestation subject must
 # equal the published asset name.
 #
+# `wasm/example` is a workspace of its own, for this repository's readers,
+# whose BUILD files would not load inside a consumer's dependency graph.
 # Excludes are anchored to the workspace root (`./`) so that tracked
 # files such as `3rdparty/bazel-requirements.in` are not swept up by
 # the `bazel-*` convenience symlink pattern.
@@ -72,6 +74,8 @@ tar -czf "${SCRATCH}/${ARCHIVE}" \
     --exclude="./*.egg-info" \
     --exclude="./MODULE.bazel.lock" \
     --exclude="./bazel-*" \
+    --exclude="./wasm/example" \
+    --exclude="./wasm/build" \
     -C "${WORKSPACE}" .
 mv "${SCRATCH}/${ARCHIVE}" "${ARCHIVE}"
 
