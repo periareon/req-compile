@@ -7,6 +7,14 @@ from html.parser import HTMLParser
 from typing import Any, Dict, List, Optional, Tuple
 
 
+def _is_sha256(value: Optional[str]) -> bool:
+    return (
+        bool(value)
+        and len(value or "") == 64
+        and all(c in "0123456789abcdefABCDEF" for c in value or "")
+    )
+
+
 class _IndexHTMLParser(HTMLParser):
     """Collect the file entries of a PEP 503 page, PEP 658/714 attributes included."""
 
@@ -57,17 +65,20 @@ def _file_entry(
     else:
         url = urllib.parse.urljoin(page_url, href)
     url, _, fragment = url.partition("#")
-    if sha256 is None and fragment.startswith("sha256="):
-        sha256 = fragment[len("sha256=") :]
+    if sha256 is None:
+        # A pip-style fragment may carry several hashes, `sha256=...&md5=...`.
+        sha256 = urllib.parse.parse_qs(fragment).get("sha256", [None])[0]
     if isinstance(core_metadata, str):
         if core_metadata.startswith("sha256="):
             core_metadata = {"sha256": core_metadata[len("sha256=") :]}
         else:
             core_metadata = core_metadata.lower() == "true"
+    if isinstance(core_metadata, dict) and not _is_sha256(core_metadata.get("sha256")):
+        core_metadata = True
     return {
         "filename": "",
         "url": url,
-        "sha256": sha256 or "",
+        "sha256": sha256 if _is_sha256(sha256) else "",
         "requires_python": requires_python or "",
         "yanked": bool(yanked),
         "core_metadata": core_metadata or False,
@@ -128,24 +139,30 @@ def ingest_metadata(body: str) -> Dict[str, Any]:
     keep = False
     for line in header.splitlines():
         if line[:1] in (" ", "\t"):
-            # A folded continuation of the previous header line.
+            # A folded continuation of the previous header line; unfolded, since
+            # the solver reads one field per line.
             if keep:
-                kept.append(line)
+                kept[-1] += " " + line.strip()
             continue
         keep = line.lower().startswith(METADATA_FIELDS)
         if keep:
-            kept.append(line)
+            kept.append(line.rstrip())
     return metadata_fact("\n".join(kept))
 
 
 def metadata_fact(text: str) -> Dict[str, Any]:
     """The fact of trimmed metadata text, as `ingest_metadata` produces it."""
-    dynamic = []
+    dynamic: List[str] = []
     version = "1.0"
     for line in text.splitlines():
         lower = line.lower()
         if lower.startswith("dynamic:"):
-            dynamic.append(line.partition(":")[2].strip().lower())
+            # A multiple-use field, one name per line or several separated by commas.
+            dynamic.extend(
+                part.strip().lower()
+                for part in line.partition(":")[2].split(",")
+                if part.strip()
+            )
         elif lower.startswith("metadata-version:"):
             version = line.partition(":")[2].strip()
     return {

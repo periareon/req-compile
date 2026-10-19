@@ -72,6 +72,11 @@ def pinned_hashes(paths: Iterable[str]) -> Dict[NormName, Set[str]]:
             line = raw.strip()
             if not line or line.startswith("#"):
                 continue
+            # Comments go first, as in req-compile's own reader, so that a
+            # continuation followed by a comment is still a continuation.
+            comment = line.find(" #")
+            if comment != -1:
+                line = line[:comment].rstrip()
             if line.endswith("\\"):
                 logical += line[:-1] + " "
                 continue
@@ -82,9 +87,6 @@ def pinned_hashes(paths: Iterable[str]) -> Dict[NormName, Set[str]]:
                 continue
             if text.startswith("-"):
                 continue
-            comment = text.find(" #")
-            if comment != -1:
-                text = text[:comment]
             parts = text.split()
             # `--hash=ALG:DIGEST` and `--hash ALG:DIGEST` are both pip syntax.
             hashes: Set[str] = set()
@@ -177,14 +179,15 @@ def file_constraints(
 ) -> List[RequirementsFile]:
     """The `-c` constraint files a requirements file names, checking its other options.
 
-    An index option is accepted when it names an index the hub is configured with,
-    which is what req-compile's own lock files and pip-compile's output carry, and
-    refused otherwise. Every other option is refused rather than dropped: a
-    find-links or binary option that silently did not apply would resolve
+    `--index-url` is accepted when it names the hub's own `index_url`, which is
+    what req-compile's own lock files and pip-compile's output carry, and
+    `--extra-index-url` when it names one of the hub's extra indexes; the file
+    cannot reorder the search. Every other option is refused rather than dropped:
+    a find-links or binary option that silently did not apply would resolve
     differently from what the file says. The equivalent attribute of the `parse`
     tag is where they go.
     """
-    configured = {url.rstrip("/") for url in indexes}
+    configured = [url.rstrip("/") for url in indexes]
     result: List[RequirementsFile] = []
     problems: List[str] = []
     index = 0
@@ -201,10 +204,19 @@ def file_constraints(
                 RequirementsFile.from_file(os.path.join(os.path.dirname(path), value))
             )
         elif option in _INDEX_OPTIONS:
-            if value.rstrip("/") not in configured:
+            allowed = (
+                configured[:1] if option in ("-i", "--index-url") else configured[1:]
+            )
+            if value.rstrip("/") not in allowed:
                 problems.append(
-                    "{} {} names an index the hub is not configured with".format(
-                        option, value
+                    "{} {} does not match the hub's {}".format(
+                        option,
+                        value,
+                        (
+                            "index_url"
+                            if option != "--extra-index-url"
+                            else "extra_index_urls"
+                        ),
                     )
                 )
         elif option.startswith("-"):

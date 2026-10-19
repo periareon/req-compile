@@ -400,16 +400,23 @@ class FactRepository(Repository):
 
     def metadata_request(self, candidate: Candidate) -> Dict[str, Any]:
         entry = self.entry(candidate)
+        core = entry.get("core_metadata", False)
+        # A metadata file the index serves separately is vouched for only by the
+        # hash the same index advertises, never by the wheel. It is used when
+        # it has such a hash and the requirement files pin none: once they do,
+        # the metadata comes from the pinned bytes themselves, so that an index
+        # cannot describe a pinned wheel as something it is not. Without a hash
+        # for the wheel the whole file is fetched too, so that the download's
+        # digest can pin it.
+        use_sidecar = (
+            isinstance(core, dict) and bool(entry["sha256"]) and not self.hashes
+        )
         return {
             "id": self.metadata_key(candidate),
             "op": "metadata",
             "url": entry["url"],
             "sha256": entry["sha256"],
-            # Without a hash from the index the whole file is fetched, so that
-            # the download's digest can pin it.
-            "core_metadata": (
-                entry.get("core_metadata", False) if entry["sha256"] else False
-            ),
+            "core_metadata": core if use_sidecar else False,
             "kind": "wheel" if candidate.type == DistributionType.WHEEL else "sdist",
             "filename": candidate.filename,
         }
@@ -535,6 +542,9 @@ class _Hub:
         ]
         self.allow_sdists = bool(spec.get("allow_sdists", False))
         allow_prerelease = bool(spec.get("allow_prerelease", False))
+        # Whether the pinned hashes have been read; metadata is requested only
+        # after, since they decide how it is fetched.
+        self.hashes_ready = not spec.get("enforce_hashes", True)
         prior = _prior_locks(spec, upgrade)
         self.pins = _prior_pins(prior)
         _link_recorded_metadata(prior, facts)
@@ -642,7 +652,8 @@ def _prefetch(hub: _Hub, req: packaging.requirements.Requirement) -> None:
             for candidate in sort_candidates(usable, target=target):
                 if candidate.type == DistributionType.SDIST and not hub.allow_sdists:
                     continue
-                repo.ensure_metadata(candidate)
+                if hub.hashes_ready:
+                    repo.ensure_metadata(candidate)
                 break
 
 
@@ -774,6 +785,7 @@ def solve(payload: Dict[str, Any]) -> Dict[str, Any]:
                         for repos in hub.indexes:
                             for repo in repos:
                                 repo.hashes = hashes
+                        hub.hashes_ready = True
                     solutions = perform_compile_group(
                         input_reqs,
                         hub.repos,

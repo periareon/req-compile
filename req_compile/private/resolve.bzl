@@ -147,13 +147,13 @@ def _label_for_path(path, known):
     repo = "" if parts[0] == "_main" else parts[0]
     return Label("@@{}//{}:{}".format(repo, "/".join(parts[1:-1]), parts[-1]))
 
-def _run(ctx, module, spec, payload):
+def _run(ctx, module, limits, payload):
     result = ctx.execute_wasm(
         module,
         "solve",
         input = json.encode(payload),
-        timeout = spec.timeout,
-        memory_limit = spec.memory_limit,
+        timeout = limits.timeout,
+        memory_limit = limits.memory_limit,
     )
     if result.return_code != 0:
         fail("The requirements solver failed (code {}): {}\n{}".format(
@@ -169,15 +169,20 @@ def _metadata_text(ctx, request, path):
         return ctx.read(path)
 
     # The whole distribution was downloaded: a wheel carries `.dist-info/METADATA`,
-    # a source distribution its PEP 643 `PKG-INFO` in its top directory.
+    # a source distribution its PEP 643 `PKG-INFO` in its top directory. Entries
+    # are visited in name order, and the directory named after the distribution
+    # first, so that the choice does not depend on how the archive was laid out.
     output = path + ".d"
     ctx.extract(path, output = output)
+    filename = request.get("filename") or ""
+    stem = "-".join(filename.split("-")[:2])
+    entries = sorted(ctx.path(output).readdir(), key = lambda entry: (entry.basename != stem and entry.basename != stem + ".dist-info", entry.basename))
     if request.get("kind") == "sdist":
-        for entry in ctx.path(output).readdir():
+        for entry in entries:
             if entry.is_dir and entry.get_child("PKG-INFO").exists:
                 return ctx.read(entry.get_child("PKG-INFO"))
         fail("No `PKG-INFO` in {}".format(request["url"]))
-    for entry in ctx.path(output).readdir():
+    for entry in entries:
         if entry.basename.endswith(".dist-info"):
             return ctx.read(entry.get_child("METADATA"))
     fail("No `.dist-info/METADATA` in {}".format(request["url"]))
@@ -211,7 +216,9 @@ def _package_entry(data, deps):
         "constraint": None,
         "core_metadata": data.get("core_metadata", False),
         "deps": sorted(deps),
-        "filename": data.get("filename") or url.rpartition("/")[2],
+        # The file name is the last segment of the URL's path; a query string
+        # (a signed URL) is not part of it.
+        "filename": data.get("filename") or url.partition("?")[0].rpartition("/")[2],
         "index": data.get("index", ""),
         "metadata": data.get("metadata", ""),
         "package": data["package"],
@@ -449,7 +456,11 @@ def _start_download(ctx, netrc, request, scratch, allow_fail, block = False):
         headers = {}
         if core:
             path = "req_compile_resolve/{}.metadata".format(scratch)
-            url = request["url"] + ".metadata"
+
+            # PEP 658: the metadata file sits next to the distribution; a query
+            # string (a signed URL) stays after the suffix.
+            base, query_mark, query = request["url"].partition("?")
+            url = base + ".metadata" + query_mark + query
             sha256 = core["sha256"] if type(core) == "dict" else ""
         else:
             # The whole distribution; its extension tells `extract` the format.
@@ -500,6 +511,13 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
     module = ctx.load_wasm(ctx.path(first.solver))
     netrc = read_user_netrc(ctx)
 
+    # The hubs share the calls, so the most generous limits among them apply.
+    limits = struct(
+        max_rounds = max([spec.max_rounds for spec in specs]),
+        memory_limit = max([spec.memory_limit for spec in specs]),
+        timeout = max([spec.timeout for spec in specs]),
+    )
+
     known = {}
     hubs = {}
     facts = {}
@@ -534,13 +552,13 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
     documents = {}
     solution = None
     scratch = 0
-    for round_number in range(1, first.max_rounds + 1):
+    for round_number in range(1, limits.max_rounds + 1):
         ctx.report_progress("Resolving {}: round {} ({} facts)".format(
             ", ".join(sorted(hubs)),
             round_number,
             len(facts),
         ))
-        out = _run(ctx, module, first, {
+        out = _run(ctx, module, limits, {
             "documents": documents,
             "facts": facts,
             "hubs": hubs,
@@ -589,7 +607,7 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
     if solution == None:
         fail("Resolving {} did not converge in {} rounds. Raise `max_rounds` if the dependency graph is unusually deep.".format(
             ", ".join(sorted(hubs)),
-            first.max_rounds,
+            limits.max_rounds,
         ))
 
     resolved = {}

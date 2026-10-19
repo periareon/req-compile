@@ -729,9 +729,12 @@ without its hashes fails with a message naming the package, the pinned hashes an
 what every index offers (a mismatch on one index is an error only if no index
 matches), so the file's hashes are an integrity check rather than decoration.
 Once a file pins hashes, every package must be pinned: a project that reaches the
-solution without a pin, which is what an index serving altered PEP 658 metadata
-with an added dependency would produce, fails naming the project, since
-index-served metadata is verified only against the hash the same index advertises.
+solution without a pin fails naming the project. And with pins in force the
+metadata of a distribution is read from the pinned bytes themselves rather than
+from the metadata file the index serves separately, which only the same index
+vouches for; an index therefore cannot describe a pinned wheel as another version
+or with other dependencies. (Without pins the separately served file is used when
+it carries a hash, as pip does; one advertised without a hash is never fetched.)
 Both `--hash=sha256:...` and `--hash sha256:...` are pins; other algorithms are
 refused rather than ignored. And the file's pins are hard pins, as they are for
 pip: a bump whose own requirements reject another pinned package fails with

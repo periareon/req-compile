@@ -111,7 +111,7 @@ class Host:
             else:
                 self.facts[request["id"]] = {"error": "404"}
         elif request["op"] == "metadata":
-            assert request["core_metadata"], "wheels advertise served metadata"
+            # Served separately or read out of the wheel, the text is the same.
             name = request["filename"].split("-")[0]
             self.documents[request["id"]] = {
                 "kind": "metadata",
@@ -237,8 +237,8 @@ def test_missing_package_names_nothing_to_retry() -> None:
 def test_ingest_html_index() -> None:
     page = """
     <html><body>
-    <a href="../../packages/a-1.0-py3-none-any.whl#sha256=abcd" data-requires-python="&gt;=3.8"
-       data-core-metadata="sha256=ef01">a-1.0-py3-none-any.whl</a><br/>
+    <a href="../../packages/a-1.0-py3-none-any.whl#sha256=abababababababababababababababababababababababababababababababab" data-requires-python="&gt;=3.8"
+       data-core-metadata="sha256=efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef">a-1.0-py3-none-any.whl</a><br/>
     <a href="a-0.9.tar.gz" data-yanked="broken">a-0.9.tar.gz</a>
     </body></html>
     """
@@ -247,10 +247,10 @@ def test_ingest_html_index() -> None:
         {
             "filename": "a-1.0-py3-none-any.whl",
             "url": "https://index.example/packages/a-1.0-py3-none-any.whl",
-            "sha256": "abcd",
+            "sha256": "ab" * 32,
             "requires_python": ">=3.8",
             "yanked": False,
-            "core_metadata": {"sha256": "ef01"},
+            "core_metadata": {"sha256": "ef" * 32},
         },
         {
             "filename": "a-0.9.tar.gz",
@@ -273,7 +273,7 @@ def test_ingest_metadata_keeps_the_fields_the_solver_reads() -> None:
     )
     text = (
         "Metadata-Version: 2.2\nName: x\nVersion: 1.0\n"
-        'Requires-Dist: y; extra == "all" and\n  python_version > "3.8"\n'
+        'Requires-Dist: y; extra == "all" and python_version > "3.8"\n'
         "Dynamic: Requires-Dist"
     )
     assert fact == {
@@ -641,6 +641,16 @@ def test_file_options_are_refused_unless_they_match_the_hub() -> None:
     result = Host({"/inputs/requirements.in": f"--index-url {INDEX}/\na\n"}).run(_hub())
     assert result["status"] == "done", result
 
+    # An index option cannot reorder the search: the primary must be the hub's
+    # `index_url`, an extra one of its `extra_index_urls`.
+    two = _hub(indexes=[INDEX, MIRROR])
+    files = {"/inputs/requirements.in": f"--extra-index-url {MIRROR}\na\n"}
+    assert Host(files).run(two)["status"] == "done"
+    files = {"/inputs/requirements.in": f"--index-url {MIRROR}\na\n"}
+    result = Host(files).run(two)
+    assert result["status"] == "error", result
+    assert "index_url" in result["message"]
+
     result = Host(
         {"/inputs/requirements.in": "--index-url https://other.example/simple\na\n"}
     ).run(_hub())
@@ -770,3 +780,75 @@ def test_hash_mismatch_on_one_index_does_not_end_the_search() -> None:
     )
     assert result["status"] == "error", result
     assert "222222222222" in result["message"] and "666666666666" in result["message"]
+
+
+def test_pinned_files_read_metadata_from_the_wheel_itself() -> None:
+    """With hashes pinned, metadata comes from the pinned bytes, not an index's sidecar."""
+    pinned = RecordingHost(
+        {"/inputs/requirements.txt": PINNED.format(a="11" * 32, b="22" * 32)}
+    )
+    assert (
+        pinned.run(_hub(requirements=["/inputs/requirements.txt"]))["status"] == "done"
+    )
+    metadata = [r for r in pinned.answered if r["op"] == "metadata"]
+    assert metadata and all(r["core_metadata"] is False for r in metadata)
+
+    # Without pins the sidecar, vouched for by its own hash, is used.
+    plain = RecordingHost({"/inputs/requirements.in": "a\n"})
+    assert plain.run(_hub())["status"] == "done"
+    metadata = [r for r in plain.answered if r["op"] == "metadata"]
+    assert metadata and all(
+        r["core_metadata"] == {"sha256": "ab" * 32} for r in metadata
+    )
+
+
+def test_sidecar_without_a_hash_is_never_fetched() -> None:
+    class BareSidecarHost(RecordingHost):
+        def _answer(self, request: Dict[str, Any]) -> None:
+            if request["op"] == "fetch" and request["url"].endswith("/b/"):
+                page = json.loads(_page("b"))
+                page["files"][0]["core-metadata"] = True
+                self.documents[request["id"]] = {
+                    "kind": "index",
+                    "url": request["url"],
+                    "body": json.dumps(page),
+                }
+                return
+            super()._answer(request)
+
+    host = BareSidecarHost({"/inputs/requirements.in": "b\n"})
+    assert host.run(_hub())["status"] == "done"
+    assert [r["core_metadata"] for r in host.answered if r["op"] == "metadata"] == [
+        False
+    ]
+
+
+def test_dynamic_fields_may_share_a_line() -> None:
+    fact = entry.metadata_fact(
+        "Metadata-Version: 2.2\nName: x\nDynamic: Requires-Dist, Provides-Extra"
+    )
+    assert fact["dynamic"] == ["requires-dist", "provides-extra"]
+
+
+def test_index_fragments_with_several_hashes() -> None:
+    page = entry.ingest_index(
+        f"{INDEX}/a/",
+        '<a href="../../p/a-1.0-py3-none-any.whl#sha256='
+        + "11" * 32
+        + "&md5="
+        + "22" * 16
+        + '">'
+        "a-1.0-py3-none-any.whl</a>"
+        '<a href="../../p/a-1.1-py3-none-any.whl#sha256=short">a-1.1-py3-none-any.whl</a>',
+    )
+    assert [f["sha256"] for f in page["files"]] == ["11" * 32, ""]
+    assert page["files"][0]["url"].endswith("/p/a-1.0-py3-none-any.whl")
+
+
+def test_hash_after_a_commented_continuation_is_a_pin() -> None:
+    files = {
+        "/inputs/requirements.txt": "c==3.0 \\  # pinned by the bot\n    --hash=sha256:ab\n"
+    }
+    facts = {"file:" + path: {"text": text} for path, text in files.items()}
+    with wasm_files.FactFiles(facts, wasm_files.Requests()):
+        assert wasm_files.pinned_hashes(["/inputs/requirements.txt"]) == {"c": {"ab"}}

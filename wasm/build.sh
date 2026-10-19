@@ -112,5 +112,15 @@ if [ -n "${WIZER:-}" ]; then
 fi
 
 ls -la "$OUT"
-echo "imports:"
-wasm-tools print "$OUT" | grep -E '^\s*\(import' | sed -E 's/ \((func|memory|table|global).*//' | sort | uniq -c || true
+# The module must import nothing: Bazel instantiates it with no imports at all.
+# `run_local.py` and the example exercise that for real; this is the early check.
+if command -v wasm-tools >/dev/null 2>&1; then
+    if wasm-tools print "$OUT" | grep -qE '^\s*\(import'; then
+        echo "error: the module still imports functions:" >&2
+        wasm-tools print "$OUT" | grep -E '^\s*\(import' | sed -E 's/ \((func|memory|table|global).*//' | sort | uniq -c >&2
+        exit 1
+    fi
+    echo "imports: none"
+else
+    echo "note: wasm-tools not found; the import check is left to the smoke tests"
+fi
