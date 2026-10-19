@@ -1,0 +1,3 @@
+req_compile_solver.wasm
+MODULE.bazel.lock
+bazel-*

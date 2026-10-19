@@ -68,6 +68,24 @@ bzl_library(
 )
 
 bzl_library(
+    name = "resolve",
+    srcs = ["resolve.bzl"],
+    visibility = ["//:__subpackages__"],
+    deps = [
+        ":solver",
+        ":utils",
+        "@bazel_tools//tools/build_defs/repo:utils.bzl",
+    ],
+)
+
+bzl_library(
+    name = "solver",
+    srcs = ["solver.bzl"],
+    visibility = ["//:__subpackages__"],
+    deps = ["//:version"],
+)
+
+bzl_library(
     name = "sdist",
     srcs = ["sdist.bzl"],
     visibility = ["//:__subpackages__"],

@@ -1,6 +1,11 @@
 """Repository rules for loading platform specific python requirements"""
 
-load(":lockfile.bzl", _parse_lock_header = "parse_lock_header", _parse_lockfile = "parse_lockfile")
+load(
+    ":lockfile.bzl",
+    "annotate_packages",
+    _parse_lock_header = "parse_lock_header",
+    _parse_lockfile = "parse_lockfile",
+)
 load(":utils.bzl", "sanitize_package_name", "whl_repo_name")
 load(":whl_repo.bzl", "whl_repository")
 
@@ -85,16 +90,18 @@ def platform_constraint_values(tag):
 _INCOMPATIBLE = _canonical("@platforms//:incompatible")
 
 def lock_spec(
-        file,
+        file = None,
         id = None,
         constraint_values = [],
         flag_values = {},
         config_setting = None,
-        default = False):
-    """Describe a lock file belonging to a hub.
+        default = False,
+        platform = None,
+        packages = None):
+    """Describe a lock belonging to a hub: a lock file, or packages resolved in the extension.
 
     Args:
-        file (Label): The lock file.
+        file (Label): The lock file. Mutually exclusive with `packages`.
         id (str): A name for the lock, unique within its hub. Defaults to the
             platform recorded in the header of the lock file, or failing that to
             the file name.
@@ -105,10 +112,17 @@ def lock_spec(
         config_setting (Label): An existing `config_setting` selecting the lock.
             Mutually exclusive with `constraint_values` and `flag_values`.
         default (bool): Whether this lock is used when no other lock matches.
+        platform (str): The wheel platform tag the lock was resolved for, when the
+            packages were resolved in the extension. Plays the part of the platform
+            recorded in the header of a lock file.
+        packages (dict): Packages resolved in the extension, in the shape
+            `parse_lockfile` returns. Mutually exclusive with `file`.
 
     Returns:
         struct: The lock specification.
     """
+    if (file == None) == (packages == None):
+        fail("A lock is either a `file` or resolved `packages`.")
     return struct(
         file = file,
         id = id,
@@ -116,7 +130,15 @@ def lock_spec(
         flag_values = dict(flag_values),
         config_setting = config_setting,
         default = default,
+        platform = platform,
+        packages = packages,
     )
+
+def _lock_name(spec):
+    """How a lock is referred to in messages."""
+    if spec.file != None:
+        return str(spec.file)
+    return "the packages resolved for {}".format(spec.platform or "an unknown platform")
 
 def hub_spec(
         name,
@@ -165,6 +187,9 @@ def _derive_lock_id(spec, header):
     if platform_constraint_values(header.platform):
         return _sanitize_id(header.platform)
 
+    if spec.file == None:
+        return _sanitize_id(header.platform or "default")
+
     # Fall back to the historical behavior of naming the lock after its file.
     name, _, _ = str(spec.file).rpartition(":")[2].rpartition(".")
     name = name.replace("requirements", "").replace(".", "_").replace("-", "_").strip(" -_.")
@@ -179,7 +204,7 @@ def _lock_config(hub_name, spec, header, multiple):
     """
     if spec.config_setting and (spec.constraint_values or spec.flag_values):
         fail("Lock `{}` of hub `{}` sets `config_setting` together with `constraint_values` or `flag_values`. Use one or the other.".format(
-            spec.file,
+            _lock_name(spec),
             hub_name,
         ))
 
@@ -212,7 +237,7 @@ def _lock_config(hub_name, spec, header, multiple):
         "Lock `{}` of hub `{}` does not say which platform it applies to. Either map it to a config " +
         "setting with `config_settings`, or compile it with the `platform` attribute of `py_reqs_compiler` " +
         "so the platform is recorded in the header of the file. The header says: {}"
-    ).format(spec.file, hub_name, header.platform or "nothing"))
+    ).format(_lock_name(spec), hub_name, header.platform or "nothing"))
 
 def _identity(data):
     """Something identifying the exact distribution a lock entry resolved to."""
@@ -339,9 +364,16 @@ def plan_hubs(ctx, hubs, annotations, hub_annotations = {}):
             fail("Hub `{}` has no lock files. Add `lock` tags for it or set `requirements_lock`.".format(hub_name))
 
         # Empty lock files are skipped so that a hub can be declared before its
-        # locks are compiled for the first time.
-        contents = [(spec, ctx.read(spec.file)) for spec in hub.locks]
-        contents = [(spec, content) for spec, content in contents if content.strip()]
+        # locks are compiled for the first time. Locks resolved in the extension
+        # have no file; their content is `None`.
+        contents = []
+        for spec in hub.locks:
+            if spec.packages != None:
+                contents.append((spec, None))
+                continue
+            content = ctx.read(spec.file)
+            if content.strip():
+                contents.append((spec, content))
 
         effective_annotations = dict(annotations)
         effective_annotations.update(hub_annotations.get(hub_name, {}))
@@ -351,7 +383,10 @@ def plan_hubs(ctx, hubs, annotations, hub_annotations = {}):
         packages = {}
         default_lock = None
         for spec, content in contents:
-            header = parse_lock_header(content)
+            if content == None:
+                header = struct(platform = spec.platform, python = None)
+            else:
+                header = parse_lock_header(content)
             lock_id = _derive_lock_id(spec, header)
             if lock_id in [lock["id"] for lock in locks]:
                 fail("Hub `{}` has more than one lock with the id `{}`. Set a unique `id` on each lock.".format(
@@ -377,19 +412,22 @@ def plan_hubs(ctx, hubs, annotations, hub_annotations = {}):
                         fail((
                             "Locks `{}` and `{}` of hub `{}` are both for {}. Map every lock of the hub to " +
                             "your own config settings with `config_settings` to say when each applies."
-                        ).format(other["file"], spec.file, hub_name, header.platform))
+                        ).format(other["file"], _lock_name(spec), hub_name, header.platform))
             locks.append({
                 "config": config,
                 "default": spec.default,
-                "file": str(spec.file),
+                "file": _lock_name(spec),
                 "id": lock_id,
             })
 
-            lock_packages = parse_lockfile(
-                content = content,
-                annotations = effective_annotations,
-                lockfile = spec.file,
-            )
+            if content == None:
+                lock_packages = annotate_packages(spec.packages, effective_annotations)
+            else:
+                lock_packages = parse_lockfile(
+                    content = content,
+                    annotations = effective_annotations,
+                    lockfile = spec.file,
+                )
 
             config_setting = "@{}//:{}".format(hub.alias_of or hub_name, lock_id) if config else None
 

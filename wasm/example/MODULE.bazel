@@ -1,0 +1,46 @@
+"""An example of resolving requirements inside Bazel with the WebAssembly solver.
+
+This example depends on the source checkout of `rules_req_compile`, which has no
+solver module of its own (a release does, and downloads it). Build one with
+`../build_solver.sh`, copy it next to this file, and name it with `solver`:
+
+    bazel build //...
+
+The hub is resolved by the `requirements` module extension of `rules_req_compile`
+in rounds of downloads, and the result is recorded in `MODULE.bazel.lock`.
+"""
+
+module(name = "req_compile_wasm_example")
+
+bazel_dep(name = "rules_venv", version = "0.34.0")
+bazel_dep(name = "rules_req_compile", version = "0.0.0")
+local_path_override(
+    module_name = "rules_req_compile",
+    path = "../..",
+)
+
+requirements = use_extension("@rules_req_compile//extensions:python.bzl", "requirements")
+requirements.parse(
+    name = "pip_deps",
+    platforms = [
+        "manylinux_2_28_x86_64",
+        "macosx_11_0_arm64",
+    ],
+    python_version = "3.11",
+    requirements_in = ["//:requirements.in"],
+    solver = "//:req_compile_solver.wasm",
+)
+use_repo(requirements, "pip_deps")
+
+# A hub fed by a fully pinned, hash-carrying requirements.txt, the file a
+# Dependabot `pip` update keeps current. Hashes are enforced by default, so a
+# version bumped without its hash fails to resolve instead of fetching
+# something the file does not vouch for.
+requirements.parse(
+    name = "pinned_deps",
+    platforms = ["manylinux_2_28_x86_64"],
+    python_version = "3.11",
+    requirements_in = ["//:requirements.txt"],
+    solver = "//:req_compile_solver.wasm",
+)
+use_repo(requirements, "pinned_deps")

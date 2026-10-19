@@ -1,0 +1,24 @@
+load("@pinned_deps//:defs.bzl", pinned_requirement = "requirement")
+load("@pip_deps//:defs.bzl", "requirement")
+load("@rules_venv//python:defs.bzl", "py_library")
+
+exports_files([
+    "req_compile_solver.wasm",
+    "requirements.in",
+    "requirements.txt",
+])
+
+py_library(
+    name = "uses_requests",
+    deps = [requirement("requests")],
+)
+
+filegroup(
+    name = "wheels",
+    srcs = ["@pip_deps//all_wheels"],
+)
+
+py_library(
+    name = "uses_pinned_requests",
+    deps = [pinned_requirement("requests")],
+)

@@ -13,6 +13,10 @@
 #     rules_req_compile-${TAG}.tar.gz   The Bazel module source archive.
 #     dist/*.whl, dist/*.tar.gz         The Python wheel and sdist that are
 #                                       published to PyPI.
+#     req_compile_solver.wasm           The WebAssembly solver the
+#                                       `requirements` extension of this
+#                                       release downloads; its hash is baked
+#                                       into the archive's solver.bzl.
 #
 # Output:
 #   Release notes to stdout. The release_ruleset workflow redirects
@@ -43,7 +47,31 @@ if [[ "${MODULE_VERSION}" != "${TAG}" ]]; then
 fi
 
 SCRATCH="$(mktemp -d)"
-trap 'rm -rf "${SCRATCH}"' EXIT
+SOLVER_BZL="${WORKSPACE}/req_compile/private/solver.bzl"
+cleanup() {
+    # Put back the source form of solver.bzl; the baked form lives in the archive.
+    if [[ -f "${SCRATCH}/solver.bzl.orig" ]]; then
+        cp "${SCRATCH}/solver.bzl.orig" "${SOLVER_BZL}"
+    fi
+    rm -rf "${SCRATCH}"
+}
+trap cleanup EXIT
+
+# Build the WebAssembly solver from the inputs pinned in `wasm/build_solver.sh`
+# (wasi-sdk, CPython, Wizer and the solver's Python dependencies, all by
+# hash). It is attached to the release and attested with the other assets,
+# and its hash is baked into the module archive so that the `requirements`
+# extension of this release downloads exactly this module.
+rm -f req_compile_solver.wasm
+WORK="${SCRATCH}/wasm" OUT="$(pwd)/req_compile_solver.wasm" bash "${WORKSPACE}/wasm/build_solver.sh"
+SOLVER_SHA256="$(python3 -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' req_compile_solver.wasm)"
+if ! grep -q '^SOLVER_SHA256 = ""$' "${SOLVER_BZL}"; then
+    echo "ERROR: ${SOLVER_BZL} has no empty SOLVER_SHA256 to fill in"
+    exit 1
+fi
+cp "${SOLVER_BZL}" "${SCRATCH}/solver.bzl.orig"
+sed -i.bak "s|^SOLVER_SHA256 = \"\"$|SOLVER_SHA256 = \"${SOLVER_SHA256}\"|" "${SOLVER_BZL}" && rm -f "${SOLVER_BZL}.bak"
+grep -q "^SOLVER_SHA256 = \"${SOLVER_SHA256}\"$" "${SOLVER_BZL}"
 
 # Build the Bazel module source archive. Exclude .git (history isn't
 # needed by consumers), .github (release infrastructure isn't part of
@@ -52,6 +80,8 @@ trap 'rm -rf "${SCRATCH}"' EXIT
 # `.bcr/source.template.json` — the SLSA attestation subject must
 # equal the published asset name.
 #
+# `wasm/example` is a workspace of its own, for this repository's readers,
+# whose BUILD files would not load inside a consumer's dependency graph.
 # Excludes are anchored to the workspace root (`./`) so that tracked
 # files such as `3rdparty/bazel-requirements.in` are not swept up by
 # the `bazel-*` convenience symlink pattern.
@@ -70,6 +100,8 @@ tar -czf "${SCRATCH}/${ARCHIVE}" \
     --exclude="./*.egg-info" \
     --exclude="./MODULE.bazel.lock" \
     --exclude="./bazel-*" \
+    --exclude="./wasm/example" \
+    --exclude="./wasm/build" \
     -C "${WORKSPACE}" .
 mv "${SCRATCH}/${ARCHIVE}" "${ARCHIVE}"
 
@@ -90,9 +122,9 @@ python3 -m venv "${SCRATCH}/venv"
 "${SCRATCH}/venv/bin/python" -m pip install --quiet --upgrade pip build
 "${SCRATCH}/venv/bin/python" -m build --sdist --outdir dist "${WORKSPACE}"
 
-# Render release notes by substituting {version} into the template.
-# release_notes.template lives in `.github/`.
-sed "s#{version}#${TAG}#g" \
+# Render release notes by substituting {version} and {solver_sha256} into
+# the template. release_notes.template lives in `.github/`.
+sed -e "s#{version}#${TAG}#g" -e "s#{solver_sha256}#${SOLVER_SHA256}#g" \
     "${WORKSPACE}/.github/release_notes.template" > "${SCRATCH}/release_notes.txt"
 
 # Emit the rendered notes on the original stdout (fd 3) — that's the

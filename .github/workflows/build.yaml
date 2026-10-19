@@ -162,6 +162,49 @@ jobs:
     - name: Run buildifier
       run: bazel ${{ env.BAZEL_STARTUP_FLAGS }} run //:buildifier.check
 
+  # The WebAssembly solver, built from the inputs pinned in
+  # `wasm/build_solver.sh` (the build the release runs) and exercised both
+  # under wasmtime and the way Bazel runs it, through the example workspace.
+  wasm_solver:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ["ubuntu-latest", "macos-14"]
+    runs-on: ${{ matrix.platform }}
+    name: wasm solver ${{ matrix.platform }}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Cache the toolchain and the CPython cross-build
+      uses: actions/cache@v4
+      with:
+        path: |
+          wasm/build/work
+          !wasm/build/work/downloads
+          !wasm/build/work/module
+        key: wasm-solver-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('wasm/build_solver.sh', 'wasm/build_cpython.sh', 'wasm/patches/*') }}
+    - name: Build the solver module
+      run: wasm/build_solver.sh
+    - name: Run the module under wasmtime
+      run: |
+        python3 -m venv wasm/build/venv
+        wasm/build/venv/bin/python -m pip install --quiet wasmtime certifi
+        echo '{"op": "ping"}' | wasm/build/venv/bin/python wasm/run_local.py wasm/build/req_compile_solver.wasm
+        wasm/build/venv/bin/python wasm/drive_local.py wasm/build/req_compile_solver.wasm wasm/example/requirements.in \
+          --platform manylinux_2_28_x86_64 --platform macosx_11_0_arm64
+    - name: Resolve the example workspace with Bazel
+      env:
+        # `execute_wasm` compiles the module to JVM bytecode from Bazel 10.
+        USE_BAZEL_VERSION: 10.0.0rc1
+      run: |
+        cp wasm/build/req_compile_solver.wasm wasm/example/
+        cd wasm/example && bazel ${{ env.BAZEL_STARTUP_FLAGS }} build //...
+    - name: Upload the module
+      uses: actions/upload-artifact@v4
+      with:
+        name: req_compile_solver-${{ matrix.platform }}
+        path: wasm/build/req_compile_solver.wasm
+        if-no-files-found: error
+
   # A single job to mark as required for merging. It runs regardless of the
   # outcome of the others and only succeeds when every one of them did, so a
   # job that is added above must also be added to `needs` here.
@@ -174,6 +217,7 @@ jobs:
       - bazel-cross-platform-consistency
       - bazel_users
       - bazel_lint
+      - wasm_solver
     runs-on: ubuntu-latest
     steps:
     - name: Check the result of every job

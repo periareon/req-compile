@@ -1,0 +1,10 @@
+# `execute_wasm` is experimental. Compilation needs Bazel 10; without it the
+# module runs in an interpreter, about five times slower.
+common --experimental_repository_ctx_execute_wasm
+common --experimental_repository_ctx_wasm_compilation
+
+# Let the server JVM JIT-compile the solver's larger functions. Bazel's runtime
+# turns each wasm function into one JVM method, and HotSpot leaves methods over
+# its huge-method limit to its interpreter by default; with this flag a solver
+# call is about twice as fast once warm.
+startup --host_jvm_args=-XX:-DontCompileHugeMethods

@@ -17,6 +17,9 @@ load(
     "plan_hubs",
 )
 
+# buildifier: disable=bzl-visibility
+load("//req_compile/private:resolve.bzl", "resolve_hubs", "resolve_spec")
+
 def _interpreter_for_host(ctx, parse):
     """The interpreter of a `parse` tag matching the host, used to build sdists."""
     if ctx.os.name == "mac os x":
@@ -140,6 +143,47 @@ def _hub_locks(mod, parse):
 # The `hubs` value of annotations that apply to every hub.
 ALL_HUBS = "*"
 
+def _resolve_spec(mod, parse):
+    """Build the `resolve_spec` of a `parse` tag that names requirement files."""
+    if parse.requirements_lock or parse.requirements_locks:
+        fail("`requirements_in` is mutually exclusive with `requirements_lock` and `requirements_locks`. Please update hub `{}` of module `{}`.".format(
+            parse.name,
+            mod.name,
+        ))
+    missing = [
+        attr
+        for attr, value in (
+            ("python_version", parse.python_version),
+            ("platforms", parse.platforms),
+        )
+        if not value
+    ]
+    if missing:
+        fail("Hub `{}` of module `{}` uses `requirements_in`, which also needs: {}.".format(
+            parse.name,
+            mod.name,
+            ", ".join(["`{}`".format(attr) for attr in missing]),
+        ))
+    if parse.config_settings:
+        fail("Hub `{}` of module `{}` uses `requirements_in`; its locks are selected by the platforms they are resolved for, so `config_settings` does not apply.".format(
+            parse.name,
+            mod.name,
+        ))
+    return resolve_spec(
+        name = parse.name,
+        requirements_in = parse.requirements_in,
+        constraints = parse.constraints,
+        python_version = parse.python_version,
+        platforms = parse.platforms,
+        solver = parse.solver,
+        index_urls = [parse.index_url] + list(parse.extra_index_urls),
+        allow_sdists = parse.allow_sdists,
+        allow_prerelease = parse.allow_prerelease,
+        enforce_hashes = parse.enforce_hashes,
+        max_rounds = parse.max_rounds,
+        memory_limit = parse.solver_memory_limit,
+    )
+
 def _collect_annotations(ctx, hubs):
     """Gather annotations from every module and resolve the hubs each applies to.
 
@@ -234,6 +278,10 @@ def _requirements_impl(ctx):
     hubs = {}
     override_module_repos = {}
 
+    # Hubs defined by requirement files rather than lock files. They are resolved
+    # by the WebAssembly solver below, only when any module asks for it.
+    to_resolve = {}
+
     for mod in ctx.modules:
         for parse in mod.tags.parse:
             if parse.name in hubs:
@@ -249,11 +297,17 @@ def _requirements_impl(ctx):
                     mod.name,
                 ))
 
+            if parse.requirements_in:
+                to_resolve[parse.name] = _resolve_spec(mod, parse)
+                locks = []
+            else:
+                locks = _hub_locks(mod, parse)
+
             hubs[parse.name] = {
                 "alias_of": None,
                 "interpreter": _interpreter_for_host(ctx, parse),
                 "legacy_root_pkg_aliases": parse.legacy_root_pkg_aliases,
-                "locks": _hub_locks(mod, parse),
+                "locks": locks,
                 "module": mod.name,
                 "package_aliases": parse.package_aliases,
             }
@@ -280,6 +334,16 @@ def _requirements_impl(ctx):
 
     annotations, hub_annotations = _collect_annotations(ctx, hubs)
 
+    facts = {}
+    if to_resolve:
+        resolved = resolve_hubs(ctx, to_resolve)
+        facts = resolved.facts
+        for name, locks in resolved.locks.items():
+            hubs[name]["locks"] = [
+                lock_spec(platform = platform, packages = packages)
+                for platform, packages in locks
+            ]
+
     specs = {
         name: hub_spec(
             name = name,
@@ -295,8 +359,15 @@ def _requirements_impl(ctx):
 
     create_hub_repos(plan_hubs(ctx, specs, annotations, hub_annotations))
 
+    # Hubs parsed from lock files are a pure function of those files, so nothing
+    # needs recording. Hubs resolved here are what the lock file is for: Bazel
+    # records the repositories so the resolution is not repeated until an input
+    # changes.
+    if not to_resolve:
+        return ctx.extension_metadata(reproducible = True)
     return ctx.extension_metadata(
-        reproducible = True,
+        reproducible = False,
+        facts = facts,
     )
 
 _annotation = tag_class(
@@ -422,11 +493,58 @@ needs to see it: the hub aliases each setting and selects on the alias. Once
 `config_settings` is used every lock must appear in it, mixing explicit settings
 with platforms derived from headers is an error.
 
+A hub can also be resolved by Bazel itself, from requirement files, without a
+host Python. The solver is the `req_compile` package running in a WebAssembly
+module, which Bazel executes with its experimental `execute_wasm` support; set
+`--experimental_repository_ctx_execute_wasm` (and, with Bazel 10 or newer,
+`--experimental_repository_ctx_wasm_compilation`) in `.bazelrc`. The solution is
+recorded in `MODULE.bazel.lock`, which is then the lock: it is reused until a
+requirement file or the tag changes, and `--lockfile_mode=error` fails the build
+when it is out of date. Each release of `rules_req_compile` knows the module built
+with it and downloads it, through Bazel's repository cache, the first time a hub
+resolves; `solver` names a locally built module instead.
+
+```python
+requirements.parse(
+    name = "pip_deps",
+    requirements_in = ["//3rdparty:requirements.in"],
+    python_version = "3.11",
+    platforms = [
+        "manylinux_2_28_x86_64",
+        "macosx_11_0_arm64",
+        "win_amd64",
+    ],
+)
+```
+
+Every platform is resolved together, with one version of each package across
+platforms, exactly as `py_reqs_compiler` does with `requirements_txts`. The
+lock of each platform is selected like a lock file whose header names that
+platform. Nothing of this runs unless a hub sets `requirements_in`.
+
+The solution is also remembered in the lock file's facts. When a requirement
+file changes, the next resolution keeps every version the change does not
+disturb, like `py_reqs_compiler` recycling its solution, and fetches only the
+pages and metadata of what is new. To resolve afresh instead, set
+`REQ_COMPILE_UPGRADE=all`, or to a comma separated list of the packages to
+upgrade, and run any build or `bazel mod deps`.
+
 A hub whose locks do not all contain the same packages is supported. A package
 missing from the lock of a platform is incompatible with that platform, so targets
 depending on it are skipped there rather than failing to build.
 """,
     attrs = {
+        "allow_prerelease": attr.bool(
+            doc = "Resolve mode: whether pre-release versions may be selected.",
+            default = False,
+        ),
+        "allow_sdists": attr.bool(
+            doc = (
+                "Resolve mode: whether source distributions may be selected. Only distributions whose " +
+                "dependencies are static metadata (PEP 643) can be used; the solver cannot run a build."
+            ),
+            default = False,
+        ),
         "config_settings": attr.label_keyed_string_dict(
             doc = (
                 "A mapping of `config_setting` labels to the id of the lock in `requirements_locks` they " +
@@ -435,6 +553,28 @@ depending on it are skipped there rather than failing to build.
                 "recorded in their header."
             ),
             default = {},
+        ),
+        "constraints": attr.label_list(
+            doc = "Resolve mode: constraint files, which constrain versions without being installed.",
+            default = [],
+        ),
+        "enforce_hashes": attr.bool(
+            doc = (
+                "Resolve mode: whether the `--hash` values of the requirement files, if any, must match the " +
+                "artifacts chosen. With it, a pinned file maintained by Dependabot is also an integrity check: " +
+                "a version bumped without its hashes fails to resolve, and so does any package the files pin " +
+                "no hash for, as with `pip --require-hashes`. Disable it for a hub whose platforms need " +
+                "artifacts the file does not list hashes for."
+            ),
+            default = True,
+        ),
+        "extra_index_urls": attr.string_list(
+            doc = "Resolve mode: additional package indexes, searched after `index_url`.",
+            default = [],
+        ),
+        "index_url": attr.string(
+            doc = "Resolve mode: the package index to resolve from.",
+            default = "https://pypi.org/simple",
         ),
         "interpreter_linux_aarch64": attr.label(
             doc = "Optional Linux arm64 Python interpreter binary to use for sdists.",
@@ -458,6 +598,13 @@ depending on it are skipped there rather than failing to build.
                 "for code that references packages at the root (e.g., `@repo//:package_name`)."
             ),
             default = False,
+        ),
+        "max_rounds": attr.int(
+            doc = (
+                "Resolve mode: the most rounds of downloads the solver may ask for. Each round is one " +
+                "level of the dependency graph, or less."
+            ),
+            default = 40,
         ),
         "name": attr.string(
             doc = "Name of the hub repository to create. Must be unique across all modules.",
@@ -484,6 +631,24 @@ used. This allows local source code to directly replaced a library which normall
 a downloaded wheel.""",
             default = {},
         ),
+        "platforms": attr.string_list(
+            doc = (
+                "Resolve mode: the wheel platform tags to resolve for, as accepted by `pip --platform`, " +
+                "e.g. `manylinux_2_28_x86_64`, `macosx_11_0_arm64` or `win_amd64`. One lock is produced per tag."
+            ),
+            default = [],
+        ),
+        "python_version": attr.string(
+            doc = "Resolve mode: the Python version to resolve for, e.g. `3.11` or `3.11.4`.",
+        ),
+        "requirements_in": attr.label_list(
+            doc = (
+                "Requirement files to resolve inside Bazel with the WebAssembly solver, instead of " +
+                "`requirements_lock` or `requirements_locks`. Needs `python_version` and `platforms`, " +
+                "and Bazel's experimental `execute_wasm` support."
+            ),
+            default = [],
+        ),
         "requirements_lock": attr.label(
             doc = "A single lockfile for a single platform solution.",
         ),
@@ -495,6 +660,18 @@ a downloaded wheel.""",
                 "value that is a label string is treated as the config setting of the lock, but such labels are " +
                 "resolved relative to `rules_req_compile` and can only name config settings visible to it."
             ),
+        ),
+        "solver": attr.label(
+            doc = (
+                "Resolve mode: a `req_compile_solver.wasm` module to use instead of the one built with this " +
+                "release of `rules_req_compile`, for instance the output of its `wasm/build_solver.sh`. A source " +
+                "checkout of the rules has no module of its own and needs this."
+            ),
+            allow_single_file = True,
+        ),
+        "solver_memory_limit": attr.int(
+            doc = "Resolve mode: the memory limit of one solver call, in bytes.",
+            default = 1024 * 1024 * 1024,
         ),
     },
 )

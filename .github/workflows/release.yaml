@@ -98,6 +98,7 @@ jobs:
       release_files: |
         rules_req_compile-*.tar.gz
         dist/*
+        req_compile_solver.wasm
       prerelease: false
       tag_name: ${{ needs.tag.outputs.tag }}
 
