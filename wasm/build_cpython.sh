@@ -73,7 +73,11 @@ python3 "$WASI_PY" configure-build-python
 python3 "$WASI_PY" make-build-python
 echo "building CPython for wasm32-wasi"
 # shellcheck disable=SC2086
-WASI_SDK_PATH="$WASI_SDK" OPT="$OPT_ALL" python3 "$WASI_PY" configure-host -- ${CONFIGURE_ARGS:-} $HOST_CONFIGURE_ARGS
+# The host runner is what the driver uses to run the cross-compiled interpreter
+# (once, for `--version`, after the build). The module does not need it, and
+# `true` spares the driver its search for wasmtime and its version-specific
+# flags; the module is run for real under wasmtime and Bazel afterwards.
+WASI_SDK_PATH="$WASI_SDK" OPT="$OPT_ALL" python3 "$WASI_PY" configure-host --host-runner true -- ${CONFIGURE_ARGS:-} $HOST_CONFIGURE_ARGS
 WASI_SDK_PATH="$WASI_SDK" OPT="$OPT_ALL" python3 "$WASI_PY" make-host
 
 HOST="$CPYTHON_SRC/cross-build/wasm32-wasip1"

@@ -27,6 +27,11 @@ set -euo pipefail
 CPYTHON_VERSION=3.14.8
 CPYTHON_URL="https://www.python.org/ftp/python/${CPYTHON_VERSION}/Python-${CPYTHON_VERSION}.tar.xz"
 CPYTHON_SHA256=c2215904f02b175596dc49351585104f4bc20341e1c47378b26a2c274360ce73
+# The build date compiled into the interpreter (`sys.version`), pinned to the
+# release tarball's timestamp so that two builds give the same module. Without
+# it CPython's build driver takes the time of the last commit of whatever git
+# repository the source tree happens to sit in.
+export SOURCE_DATE_EPOCH=1790790909
 
 WASI_SDK_VERSION=24.0
 WASI_SDK_URL_BASE="https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${WASI_SDK_VERSION%%.*}"
@@ -126,7 +131,7 @@ fi
 # Rebuild when the build script or the patch changed since the last build.
 PY_BUILD="$CPYTHON_SRC/cross-build/wasm32-wasip1"
 STAMP="$CPYTHON_SRC/.req_compile_build"
-WANT="$(cat "$HERE/build_cpython.sh" "$HERE/patches/"*.patch | sha256 /dev/stdin)"
+WANT="$( (cat "$HERE/build_cpython.sh" "$HERE/patches/"*.patch; echo "$SOURCE_DATE_EPOCH") | sha256 /dev/stdin)"
 if [ ! -f "$PY_BUILD/libpython${CPYTHON_VERSION%.*}.a" ] || [ "$(cat "$STAMP" 2>/dev/null)" != "$WANT" ]; then
     echo "building CPython ${CPYTHON_VERSION} for wasm32-wasi" >&2
     CLEAN=1 TRAMPOLINE=1 WASI_SDK="$WASI_SDK" CPYTHON_SRC="$CPYTHON_SRC" bash "$HERE/build_cpython.sh" >&2
