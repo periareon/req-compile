@@ -135,9 +135,9 @@ unaffected either way.
 The solution lands in `MODULE.bazel.lock` twice: as the repositories Bazel
 instantiates, and as facts (`solution:<hub>` with the inputs it was solved from,
 `meta:<sha256>` for every distribution consulted). An unchanged hub is rebuilt from
-the facts without loading the module. A changed requirements file is re-solved
-from the recorded versions, so only what the change touches is fetched. To start
-over:
+the facts without loading the module. A changed requirements file, included
+files too, is re-solved from the recorded versions, so only what the change
+touches is fetched. To start over:
 
 ```bash
 REQ_COMPILE_UPGRADE=all bazel mod deps
@@ -151,7 +151,9 @@ or name the packages to upgrade, comma separated.
 `pinned_deps` hub as `requirements_in`. Dependabot's `pip` updater can maintain
 such a file; the hub rebuilds URLs and dependency edges from it, and with
 `enforce_hashes` (the default) a version bumped without its hash fails to resolve
-with a message naming the package. `example/.github/` holds a `dependabot.yml` and
+with a message naming the package, and so does a package that reaches the
+solution without any pin, as with `pip --require-hashes`: an index cannot add a
+dependency the file never vouched for. `example/.github/` holds a `dependabot.yml` and
 a workflow that refreshes `MODULE.bazel.lock` on Dependabot pull requests, which is
 needed because the requirements file is a recorded input of the lock.
 

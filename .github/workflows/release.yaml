@@ -12,9 +12,6 @@ on:
       - .github/workflows/release.yaml
       - .github/workflows/release_prep.sh
       - .github/workflows/bcr-publish.yaml
-      - .github/release_notes.template
-      # The solver module is a release asset; dry-run its build too.
-      - wasm/**
   push:
     branches:
       - main

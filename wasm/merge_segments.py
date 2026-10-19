@@ -39,6 +39,59 @@ def leb(value):
             return bytes(out)
 
 
+def read_sleb(data, pos):
+    """A signed LEB128, as `i32.const` takes its operand."""
+    result = 0
+    shift = 0
+    while True:
+        byte = data[pos]
+        pos += 1
+        result |= (byte & 0x7F) << shift
+        shift += 7
+        if not byte & 0x80:
+            if byte & 0x40:
+                result -= 1 << shift
+            return result, pos
+
+
+def sleb(value):
+    out = bytearray()
+    while True:
+        byte = value & 0x7F
+        value >>= 7
+        done = (value == 0 and not byte & 0x40) or (value == -1 and byte & 0x40)
+        out.append(byte if done else byte | 0x80)
+        if done:
+            return bytes(out)
+
+
+def read_offset(data, pos):
+    """The operand of an `i32.const`, as the unsigned address it denotes."""
+    value, pos = read_sleb(data, pos)
+    return value & 0xFFFFFFFF, pos
+
+
+def encode_offset(offset):
+    return sleb(offset - (1 << 32) if offset >= 1 << 31 else offset)
+
+
+def self_test():
+    for value, encoded in [
+        (0, b"\x00"),
+        (63, b"\x3f"),
+        (64, b"\xc0\x00"),
+        (127, b"\xff\x00"),
+        (128, b"\x80\x01"),
+        (8192, b"\x80\xc0\x00"),
+        ((1 << 31) - 1, b"\xff\xff\xff\xff\x07"),
+        (1 << 31, b"\x80\x80\x80\x80\x78"),
+        ((1 << 32) - 1, b"\x7f"),
+    ]:
+        assert encode_offset(value) == encoded, (value, encode_offset(value), encoded)
+        decoded, end = read_offset(encoded, 0)
+        assert (decoded, end) == (value, len(encoded)), (value, decoded)
+
+
 def sections(data):
     if data[:8] != b"\0asm\x01\0\0\0":
         raise SystemExit("not a WebAssembly module")
@@ -63,7 +116,7 @@ def parse_segments(body):
         if flags in (0, 2):
             if body[pos] != 0x41:  # i32.const
                 raise SystemExit("only constant offsets are supported")
-            offset, pos = read_leb(body, pos + 1)
+            offset, pos = read_offset(body, pos + 1)
             if body[pos] != 0x0B:  # end
                 raise SystemExit("unexpected offset expression")
             pos += 1
@@ -95,11 +148,12 @@ def merge(segments, gap):
 def encode_segments(segments):
     out = bytearray(leb(len(segments)))
     for offset, data in segments:
-        out += b"\0\x41" + leb(offset) + b"\x0b" + leb(len(data)) + data
+        out += b"\0\x41" + encode_offset(offset) + b"\x0b" + leb(len(data)) + data
     return bytes(out)
 
 
 def main():
+    self_test()
     parser = argparse.ArgumentParser()
     parser.add_argument("input")
     parser.add_argument("output")

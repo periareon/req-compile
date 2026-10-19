@@ -10,11 +10,13 @@ This is the reference for the Starlark implementation and a way to measure it.
 """
 
 import argparse
+import hashlib
 import io
 import json
 import os
 import ssl
 import sys
+import tarfile
 import time
 import urllib.request
 import zipfile
@@ -51,16 +53,33 @@ def fetch(url, headers=None):
 
 
 def metadata_text(request):
-    """The core metadata of a distribution, as the Starlark side would obtain it."""
+    """The core metadata of a distribution, as the Starlark side would obtain it.
+
+    Returns the metadata, how it was obtained and, when the whole file was
+    fetched, its sha256, which pins a distribution the index gave no hash for.
+    """
     url = request["url"]
     if request["core_metadata"]:
-        return fetch(url + ".metadata"), "served"
+        return fetch(url + ".metadata"), "served", None
     data = fetch(url)
+    sha256 = hashlib.sha256(data).hexdigest()
     if request["kind"] == "wheel":
         with zipfile.ZipFile(io.BytesIO(data)) as archive:
             for name in archive.namelist():
                 if name.endswith(".dist-info/METADATA") and name.count("/") == 1:
-                    return archive.read(name), "wheel"
+                    return archive.read(name), "wheel", sha256
+    elif url.endswith(".zip"):
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            for name in archive.namelist():
+                if name.endswith("/PKG-INFO") and name.count("/") == 1:
+                    return archive.read(name), "sdist", sha256
+    else:
+        with tarfile.open(fileobj=io.BytesIO(data), mode="r:*") as archive:
+            for member in archive.getmembers():
+                if member.name.endswith("/PKG-INFO") and member.name.count("/") == 1:
+                    handle = archive.extractfile(member)
+                    if handle is not None:
+                        return handle.read(), "sdist", sha256
     raise RuntimeError(f"no metadata for {url}")
 
 
@@ -156,12 +175,14 @@ def main():
                     facts[request["id"]] = {"error": str(ex)}
             elif request["op"] == "metadata":
                 try:
-                    body, how = metadata_text(request)
+                    body, how, sha256 = metadata_text(request)
                     documents[request["id"]] = {
                         "kind": "metadata",
                         "url": request["url"],
                         "body": body.decode("latin-1"),
                     }
+                    if sha256:
+                        documents[request["id"]]["sha256"] = sha256
                 except Exception as ex:  # pylint: disable=broad-except
                     facts[request["id"]] = {"error": str(ex)}
             else:

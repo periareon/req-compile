@@ -206,8 +206,14 @@ It adapts `req_compile` to facts without changing it:
   `_parse_flat_metadata`. When a fact is missing it records a request and raises
   `NeedFacts`, which ends the round.
 - Requirement files are read through `RequirementsFile.from_file`, with `builtins.open`
-  redirected to `file:` facts for the duration of the solve, so `-r` and `-c`
-  includes resolve relative to the including file as they do on the command line.
+  redirected to `file:` facts for the duration of the solve, so `-r` includes
+  resolve relative to the including file as they do on the command line, and a
+  `-c FILE` option of a requirements file is read as a constraints file. Every
+  other option in a file (`--index-url`, `--find-links`, `--no-binary`, ...) is
+  refused with a message pointing at the `parse` attribute, since an option that
+  silently did not apply would resolve against the wrong index. The solver
+  reports the files each hub read, includes and all, and the extension records
+  them with the solution (`req_compile/wasm/files.py` holds this).
 - `solve` builds one `TargetEnvironment.from_spec` per platform, one repository per
   target and index, and calls `perform_compile_group` with the hub's prior pins as
   soft pins. The solution is rendered from the dependency graph itself (`node.dependencies`,
@@ -375,7 +381,9 @@ less, because speculation reaches ahead of the solver:
 
 Requirements files with `-r` and `-c` includes are read by the solver through its
 normal file reading, redirected to facts, which is why file reads are requests like
-any other.
+any other. An included file keeps the package of the file including it, whatever
+subdirectory it sits in, since a subdirectory without a `BUILD` file is no package;
+only an include that leaves the package is mapped by its path.
 
 ### Getting metadata
 
@@ -407,8 +415,9 @@ solver considers wheels only. With `allow_sdists = True` an sdist is usable when
 metadata is trustworthy without a build: PEP 643 guarantees that a field of an
 sdist's `PKG-INFO` with `Metadata-Version` 2.2 or newer that is not listed under
 `Dynamic` is exactly what any wheel built from it will have. The loop obtains
-`PKG-INFO` like `METADATA` (index-served core metadata first, else extract the
-archive with `type = "tar.gz"` or `"zip"` and read `<name>-<version>/PKG-INFO`). If
+`PKG-INFO` like `METADATA` (index-served core metadata first, else download the
+archive, which `ctx.extract` unpacks by its extension, and read
+`<name>-<version>/PKG-INFO`). If
 `Requires-Dist` or `Requires-Python` is dynamic or the metadata version is older,
 the candidate is rejected with reason `SDIST_METADATA_NOT_STATIC`, which appears in
 the failure explanation so the user can pin a version that ships wheels. Building
@@ -599,11 +608,16 @@ solver reports in `consulted`. Anything not re-emitted disappears, which is the
 garbage collection: metadata of a distribution no longer reachable from any hub
 leaves the lock on the next evaluation.
 
-`inputs` holds the hub's tag attributes and the text of its requirement files.
-Starlark cannot hash, but it can compare, and the files are small; equality with
-the current inputs is what makes per-hub memoization possible without loading the
-solver. `schema` guards against reading a fact written by another version of this
-code, since facts outlive code changes.
+`inputs` holds the hub's tag attributes (the solver label and which files are
+requirements and which constraints among them) and the text of every file the
+solve read: the files the tag names and the files those include. Starlark cannot
+hash, but it can compare, and the files are small; equality with the current
+inputs is what makes per-hub memoization possible without loading the solver. The
+included files are known only from the recorded solution, so the comparison reads
+them from there (`ctx.read`, which also makes Bazel watch them) once the files the
+tag names have matched. `schema` guards against reading a fact written by another
+version of this code, since facts outlive code changes. Replacing the module file
+behind an unchanged `solver` label does not re-solve; `REQ_COMPILE_UPGRADE` does.
 
 ### How an evaluation uses the facts
 
@@ -629,7 +643,10 @@ Three mechanisms do the work, all in place:
   the recorded versions as soft pins (`perform_compile_group`'s `pins`), the
   requirement files pre-seeded as `file:` facts, and every recorded `meta:` fact
   pre-seeded, so the first call already knows the metadata of everything it keeps.
-- **Synthetic index pages.** `FactRepository.get_candidates` answers from the
+- **Synthetic index pages.** A recorded distribution answers only for the index it
+  was recorded from and only if its `Requires-Python` fits the target, both
+  recorded with it; a changed Python version or a removed index fetches the page.
+  `FactRepository.get_candidates` answers from the
   recorded distribution of a project whenever its version satisfies the requirement
   asked for, and requests the real page only when it does not. A package the change
   leaves alone therefore costs neither a page fetch nor a round; one that must move
@@ -690,11 +707,18 @@ pins: Dependabot's `pip` updater edits versions and hashes in such a file and
 leaves comments alone, which breaks the lock-file mode (the URL comment under each
 entry goes stale) but is exactly what the resolve mode wants.
 
-Two rules make the file trustworthy. With `enforce_hashes` (the default) the
-artifact chosen for a project must carry one of the hashes the file pins for it;
-a version bumped without its hashes fails with a message naming the package, the
-pinned hashes and what the index offers, so the file's hashes are an integrity
-check rather than decoration. And the file's pins are hard pins, as they are for
+Three rules make the file trustworthy, the first two those of `pip
+--require-hashes`. With `enforce_hashes` (the default) the artifact chosen for a
+project must carry one of the hashes the file pins for it; a version bumped
+without its hashes fails with a message naming the package, the pinned hashes and
+what every index offers (a mismatch on one index is an error only if no index
+matches), so the file's hashes are an integrity check rather than decoration.
+Once a file pins hashes, every package must be pinned: a project that reaches the
+solution without a pin, which is what an index serving altered PEP 658 metadata
+with an added dependency would produce, fails naming the project, since
+index-served metadata is verified only against the hash the same index advertises.
+Both `--hash=sha256:...` and `--hash sha256:...` are pins; other algorithms are
+refused rather than ignored. And the file's pins are hard pins, as they are for
 pip: a bump whose own requirements reject another pinned package fails with
 req-compile's explanation instead of moving the other pin.
 

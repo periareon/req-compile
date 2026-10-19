@@ -171,16 +171,19 @@ def annotate_packages(packages, annotations):
         annotations (dict): Annotation data keyed by package name.
 
     Returns:
-        dict: `packages`, with the `annotations` of each annotated package set.
+        dict: A copy of `packages` with the `annotations` of each annotated package
+            set. `packages` is left alone: it may be the recorded solution that
+            the lockfile keeps, which must not carry this evaluation's annotations.
     """
+    result = {name: dict(data) for name, data in packages.items()}
     for package, data in annotations.items():
         package = sanitize_package_name(package)
-        if package not in packages:
+        if package not in result:
             continue
 
-        packages[package].update({"annotations": data})
+        result[package]["annotations"] = data
 
-    return packages
+    return result
 
 def parse_lock_header(content):
     """Parse the header `req-compile` writes to lock files compiled by Bazel.

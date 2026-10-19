@@ -5,13 +5,15 @@ in-memory "host" answers its requests the way the Starlark loop does.
 """
 
 import json
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import pytest
 
 from req_compile.wasm import entry
+from req_compile.wasm import files as wasm_files
 
 INDEX = "https://index.example/simple"
+MIRROR = "https://mirror.example/simple"
 
 WHEELS = {
     "a": ("a-1.0-py3-none-any.whl", "11" * 32, ["b>=1", "c; extra == 'fast'"]),
@@ -276,7 +278,7 @@ def test_latin1_round_trip() -> None:
     # pylint: disable=protected-access
     text = "Name: naïve"
     as_starlark_sees_it = text.encode("utf-8").decode("latin-1")
-    assert entry._decode(as_starlark_sees_it) == text
+    assert wasm_files.decode_text(as_starlark_sees_it) == text
 
 
 @pytest.mark.parametrize("op", ["ping"])
@@ -340,6 +342,7 @@ def test_prior_pin_is_dropped_when_it_conflicts() -> None:
                     "core_metadata": True,
                     "deps": [],
                     "via": [],
+                    "index": INDEX,
                 },
             }
             for platform in ("manylinux_2_28_x86_64", "win_amd64")
@@ -372,6 +375,7 @@ def test_prior_pin_kept_without_a_fetch() -> None:
                     "core_metadata": True,
                     "deps": [],
                     "via": [],
+                    "index": INDEX,
                 },
             }
             for platform in ("manylinux_2_28_x86_64", "win_amd64")
@@ -456,15 +460,15 @@ def test_files_without_hashes_are_unaffected() -> None:
 
 def test_pinned_hashes_follow_includes() -> None:
     # pylint: disable=protected-access
-    hashes = entry.pinned_hashes
+    hashes = wasm_files.pinned_hashes
     files = {
         "/inputs/requirements.txt": "-r sub/other.txt\n",
         "/inputs/sub/other.txt": "c==3.0 --hash=sha256:ab --hash=sha256:cd  # comment\n",
     }
     host = Host(files)
     host.facts = {"file:" + path: {"text": text} for path, text in files.items()}
-    with entry._FactFiles(
-        host.facts, entry.Requests()
+    with wasm_files.FactFiles(
+        host.facts, wasm_files.Requests()
     ):  # pylint: disable=protected-access
         assert hashes(["/inputs/requirements.txt"]) == {"c": {"ab", "cd"}}
 
@@ -478,3 +482,261 @@ def test_bumped_version_with_old_hash_names_the_new_artifact() -> None:
     assert result["status"] == "error", result
     assert "`b`" in result["message"]
     assert "b-2.0-py3-none-any.whl (222222222222)" in result["message"]
+
+
+def _recorded_b(**extra: Any) -> Dict[str, Any]:
+    """A recorded solution holding b 1.0, as Starlark hands it back."""
+    recorded = {
+        "package": "b",
+        "version": "1.0",
+        "sha256": "55" * 32,
+        "url": "https://files.example/b-1.0-py3-none-any.whl",
+        "filename": "b-1.0-py3-none-any.whl",
+        "core_metadata": True,
+        "deps": [],
+        "via": [],
+        "index": INDEX,
+    }
+    recorded.update(extra)
+    return {
+        "locks": {
+            platform: {"b": dict(recorded)}
+            for platform in ("manylinux_2_28_x86_64", "win_amd64")
+        }
+    }
+
+
+def _b_versions(host: RecordingHost, prior: Dict[str, Any]) -> Tuple[str, List[str]]:
+    host.facts["meta:" + "55" * 32] = {
+        "metadata": "Name: b\nVersion: 1.0",
+        "dynamic": [],
+        "metadata_version": "2.1",
+    }
+    result = host.run(_hub(prior=prior))
+    assert result["status"] == "done", result
+    version = result["hubs"]["hub"]["locks"]["win_amd64"]["packages"]["b"]["version"]
+    return version, [r["url"] for r in host.answered if r["op"] == "fetch"]
+
+
+def test_recorded_distribution_is_rechecked_against_requires_python() -> None:
+    """A recorded wheel for another Python is not reused when the target changes."""
+    host = RecordingHost({"/inputs/requirements.in": "b>=1\n"})
+    version, fetched = _b_versions(host, _recorded_b(requires_python=">=3.12"))
+    assert version == "2.0"
+    assert fetched == [f"{INDEX}/b/"]
+
+
+def test_recorded_distribution_from_a_removed_index_is_fetched_again() -> None:
+    host = RecordingHost({"/inputs/requirements.in": "b>=1\n"})
+    version, fetched = _b_versions(
+        host, _recorded_b(index="https://old.example/simple")
+    )
+    assert version == "2.0"
+    assert fetched == [f"{INDEX}/b/"]
+
+
+def test_recorded_distribution_answers_only_for_its_index() -> None:
+    """With several indexes, only the recorded one stands in; nothing is fetched."""
+    host = RecordingHost({"/inputs/requirements.in": "b>=1\n"})
+    host.facts["meta:" + "55" * 32] = {
+        "metadata": "Name: b\nVersion: 1.0",
+        "dynamic": [],
+        "metadata_version": "2.1",
+    }
+    result = host.run(_hub(prior=_recorded_b(), indexes=[MIRROR, INDEX]))
+    assert result["status"] == "done", result
+    packages = result["hubs"]["hub"]["locks"]["win_amd64"]["packages"]
+    assert packages["b"]["version"] == "1.0"
+    assert packages["b"]["index"] == INDEX
+    assert not [request for request in host.answered if request["op"] == "fetch"]
+
+
+def test_unpinned_dependency_fails_when_the_file_pins_hashes() -> None:
+    """An index cannot add a dependency the pinned file never vouched for."""
+
+    class PoisonedHost(Host):
+        def _answer(self, request: Dict[str, Any]) -> None:
+            if request["op"] == "metadata" and request["filename"].startswith("a-"):
+                body = _metadata("a").replace(
+                    "Provides-Extra: fast", "Requires-Dist: c\nProvides-Extra: fast"
+                )
+                self.documents[request["id"]] = {
+                    "kind": "metadata",
+                    "url": request["url"],
+                    "body": body,
+                }
+                return
+            super()._answer(request)
+
+    host = PoisonedHost(
+        {"/inputs/requirements.txt": PINNED.format(a="11" * 32, b="22" * 32)}
+    )
+    result = host.run(_hub(requirements=["/inputs/requirements.txt"]))
+    assert result["status"] == "error", result
+    assert "`c`" in result["message"]
+    assert "every package must be pinned" in result["message"]
+
+
+def test_hash_option_separated_by_a_space_is_a_pin() -> None:
+    requirements = "b==2.0 --hash sha256:{}\n"
+    host = Host({"/inputs/requirements.txt": requirements.format("22" * 32)})
+    result = host.run(_hub(requirements=["/inputs/requirements.txt"]))
+    assert result["status"] == "done", result
+    assert result["hubs"]["hub"]["locks"]["win_amd64"]["packages"]["b"]["hash_pinned"]
+
+    wrong = Host({"/inputs/requirements.txt": requirements.format("99" * 32)})
+    result = wrong.run(_hub(requirements=["/inputs/requirements.txt"]))
+    assert result["status"] == "error", result
+    assert "`b`" in result["message"]
+
+
+def test_pinned_hashes_follow_tab_separated_includes_and_refuse_other_algorithms() -> (
+    None
+):
+    # pylint: disable=protected-access
+    files = {
+        "/inputs/requirements.txt": "-r\tsub/other.txt\n",
+        "/inputs/sub/other.txt": "c==3.0 --hash=sha256:ab\n",
+        "/inputs/md5.txt": "c==3.0 --hash=md5:ab\n",
+    }
+    facts = {"file:" + path: {"text": text} for path, text in files.items()}
+    with wasm_files.FactFiles(facts, wasm_files.Requests()):
+        assert wasm_files.pinned_hashes(["/inputs/requirements.txt"]) == {"c": {"ab"}}
+        with pytest.raises(wasm_files.RequirementsFileError):
+            wasm_files.pinned_hashes(["/inputs/md5.txt"])
+
+
+def test_file_options_are_refused_unless_they_match_the_hub() -> None:
+    # req-compile's own lock files start with the index they were compiled against.
+    result = Host({"/inputs/requirements.in": f"--index-url {INDEX}/\na\n"}).run(_hub())
+    assert result["status"] == "done", result
+
+    result = Host(
+        {"/inputs/requirements.in": "--index-url https://other.example/simple\na\n"}
+    ).run(_hub())
+    assert result["status"] == "error", result
+    assert "--index-url https://other.example/simple" in result["message"]
+    assert "`parse` tag" in result["message"]
+
+    result = Host({"/inputs/requirements.in": "--no-binary :all:\na\n"}).run(_hub())
+    assert result["status"] == "error", result
+    assert "--no-binary" in result["message"]
+
+
+def test_constraint_files_named_in_requirements_apply() -> None:
+    files = {
+        "/inputs/requirements.in": "-c constraints.txt\na\n",
+        "/inputs/constraints.txt": "b<2\n",
+    }
+    result = Host(files).run(_hub())
+    assert result["status"] == "error", result  # the index only has b 2.0
+    assert '"b' in result["message"] or "`b`" in result["message"]
+
+    files["/inputs/constraints.txt"] = "b>=2\n"
+    result = Host(files).run(_hub())
+    assert result["status"] == "done", result
+    # Every file read is reported, so that Bazel watches the included ones too.
+    assert result["hubs"]["hub"]["files"] == [
+        "/inputs/constraints.txt",
+        "/inputs/requirements.in",
+    ]
+
+
+def test_hashless_index_entry_is_pinned_by_its_download() -> None:
+    class HashlessHost(Host):
+        def _answer(self, request: Dict[str, Any]) -> None:
+            if request["op"] == "fetch" and request["url"].endswith("/b/"):
+                page = json.loads(_page("b"))
+                for item in page["files"]:
+                    item.pop("hashes", None)
+                self.documents[request["id"]] = {
+                    "kind": "index",
+                    "url": request["url"],
+                    "body": json.dumps(page),
+                }
+                return
+            if request["op"] == "metadata" and request["filename"].startswith("b-"):
+                assert request["core_metadata"] is False, "the file itself is fetched"
+                self.documents[request["id"]] = {
+                    "kind": "metadata",
+                    "url": request["url"],
+                    "body": _metadata("b"),
+                    "sha256": "66" * 32,
+                }
+                return
+            super()._answer(request)
+
+    result = HashlessHost({"/inputs/requirements.in": "b\n"}).run(_hub())
+    assert result["status"] == "done", result
+    assert result["hubs"]["hub"]["locks"]["win_amd64"]["packages"]["b"]["sha256"] == (
+        "66" * 32
+    )
+
+
+def test_failed_metadata_download_is_named_for_a_strict_retry() -> None:
+    class FlakyMetadataHost(Host):
+        failed = False
+
+        def _answer(self, request: Dict[str, Any]) -> None:
+            if (
+                request["op"] == "metadata"
+                and request["filename"].startswith("b-")
+                and not self.failed
+            ):
+                self.failed = True
+                self.facts[request["id"]] = {
+                    "error": "download failed: " + request["url"]
+                }
+                return
+            super()._answer(request)
+
+    host = FlakyMetadataHost({"/inputs/requirements.in": "b\n"})
+    result = host.run(_hub())
+    assert result["status"] == "error", result
+    assert [request["op"] for request in result["retry"]] == ["metadata"]
+
+    for request in result["retry"]:
+        del host.facts[request["id"]]
+        host._answer(request)  # pylint: disable=protected-access
+    result = host.run(_hub())
+    assert result["status"] == "done", result["message"]
+
+
+def test_hash_mismatch_on_one_index_does_not_end_the_search() -> None:
+    class TwoIndexHost(Host):
+        def _answer(self, request: Dict[str, Any]) -> None:
+            if request["op"] == "fetch" and request["url"].startswith(MIRROR):
+                if request["url"].endswith("/b/"):
+                    page = json.loads(_page("b"))
+                    wheel = page["files"][0]
+                    wheel["hashes"]["sha256"] = "66" * 32
+                    wheel["url"] = "https://mirror.example/files/" + wheel["filename"]
+                    self.documents[request["id"]] = {
+                        "kind": "index",
+                        "url": request["url"],
+                        "body": json.dumps(page),
+                    }
+                else:
+                    self.facts[request["id"]] = {"error": "404"}
+                return
+            super()._answer(request)
+
+    requirements = "b==2.0 --hash=sha256:" + "66" * 32 + "\n"
+    host = TwoIndexHost({"/inputs/requirements.txt": requirements})
+    result = host.run(
+        _hub(requirements=["/inputs/requirements.txt"], indexes=[INDEX, MIRROR])
+    )
+    assert result["status"] == "done", result
+    packages = result["hubs"]["hub"]["locks"]["win_amd64"]["packages"]
+    assert packages["b"]["sha256"] == "66" * 32
+    assert packages["b"]["index"] == MIRROR
+
+    # When no index matches, the mismatch is what gets reported.
+    nowhere = TwoIndexHost(
+        {"/inputs/requirements.txt": "b==2.0 --hash=sha256:" + "77" * 32 + "\n"}
+    )
+    result = nowhere.run(
+        _hub(requirements=["/inputs/requirements.txt"], indexes=[INDEX, MIRROR])
+    )
+    assert result["status"] == "error", result
+    assert "222222222222" in result["message"] and "666666666666" in result["message"]

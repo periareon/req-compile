@@ -569,9 +569,10 @@ depending on it are skipped there rather than failing to build.
         "enforce_hashes": attr.bool(
             doc = (
                 "Resolve mode: whether the `--hash` values of the requirement files, if any, must match the " +
-                "artifacts chosen. With it, a pinned file maintained by Dependabot is also an integrity check; " +
-                "a version bumped without its hashes fails to resolve. Disable it for a hub whose platforms " +
-                "need artifacts the file does not list hashes for."
+                "artifacts chosen. With it, a pinned file maintained by Dependabot is also an integrity check: " +
+                "a version bumped without its hashes fails to resolve, and so does any package the files pin " +
+                "no hash for, as with `pip --require-hashes`. Disable it for a hub whose platforms need " +
+                "artifacts the file does not list hashes for."
             ),
             default = True,
         ),

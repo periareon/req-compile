@@ -157,11 +157,13 @@ fi
 # ---- 3. The Python dependencies --------------------------------------------
 
 PY_SITE="$WORK/site"
-if [ ! -d "$PY_SITE/packaging" ] || [ ! -d "$PY_SITE/overrides" ]; then
+SITE_WANT="$PACKAGING_SHA256 $OVERRIDES_SHA256"
+if [ "$(cat "$PY_SITE/.pins" 2>/dev/null)" != "$SITE_WANT" ]; then
     rm -rf "$PY_SITE" && mkdir -p "$PY_SITE"
     for wheel in "$(fetch "$PACKAGING_URL" "$PACKAGING_SHA256")" "$(fetch "$OVERRIDES_URL" "$OVERRIDES_SHA256")"; do
         python3 -I -m zipfile -e "$wheel" "$PY_SITE"
     done
+    echo "$SITE_WANT" > "$PY_SITE/.pins"
 fi
 
 # ---- 4. The module ---------------------------------------------------------

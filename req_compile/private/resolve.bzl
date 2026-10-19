@@ -126,6 +126,21 @@ def _label_for_path(path, known):
         return known[normalized]
     if not normalized.startswith(INPUT_ROOT + "/"):
         fail("The solver asked for a file outside of its inputs: {}".format(path))
+
+    # A file included by a known one stays in that file's package whatever
+    # subdirectories the include goes through: a subdirectory without a BUILD
+    # file is no package of its own. The longest matching directory wins.
+    best = None
+    for known_path, label in known.items():
+        directory = known_path.rsplit("/", 1)[0] + "/"
+        if normalized.startswith(directory) and (best == None or len(directory) > len(best[0])):
+            best = (directory, label)
+    if best != None:
+        directory, label = best
+        prefix = label.name.rsplit("/", 1)[0] + "/" if "/" in label.name else ""
+        return Label("@@{}//{}:{}".format(label.repo_name, label.package, prefix + normalized[len(directory):]))
+
+    # Otherwise the path is read as `/inputs/<repo>/<package>/<name>`.
     parts = normalized[len(INPUT_ROOT) + 1:].split("/")
     if len(parts) < 2:
         fail("The solver asked for a file it cannot name: {}".format(path))
@@ -153,9 +168,16 @@ def _metadata_text(ctx, request, path):
     if request["core_metadata"]:
         return ctx.read(path)
 
-    # The whole wheel was downloaded. Extract it and read its METADATA.
-    ctx.extract(path, output = path + ".d", type = "zip")
-    for entry in ctx.path(path + ".d").readdir():
+    # The whole distribution was downloaded: a wheel carries `.dist-info/METADATA`,
+    # a source distribution its PEP 643 `PKG-INFO` in its top directory.
+    output = path + ".d"
+    ctx.extract(path, output = output)
+    if request.get("kind") == "sdist":
+        for entry in ctx.path(output).readdir():
+            if entry.is_dir and entry.get_child("PKG-INFO").exists:
+                return ctx.read(entry.get_child("PKG-INFO"))
+        fail("No `PKG-INFO` in {}".format(request["url"]))
+    for entry in ctx.path(output).readdir():
         if entry.basename.endswith(".dist-info"):
             return ctx.read(entry.get_child("METADATA"))
     fail("No `.dist-info/METADATA` in {}".format(request["url"]))
@@ -176,7 +198,9 @@ def _lock_packages(packages):
             "deps": sorted([sanitize_package_name(dep) for dep in data["deps"]]),
             "filename": data.get("filename", ""),
             "hash_pinned": data.get("hash_pinned", False),
+            "index": data.get("index", ""),
             "package": data["package"],
+            "requires_python": data.get("requires_python", ""),
             "sha256": data["sha256"],
             "url": data["url"],
             "version": data["version"],
@@ -207,16 +231,43 @@ def _hub_inputs(ctx, spec):
         "attrs": {
             "allow_prerelease": spec.allow_prerelease,
             "allow_sdists": spec.allow_sdists,
+            "constraints": [_input_path(label) for label in spec.constraints],
             "enforce_hashes": spec.enforce_hashes,
             "index_urls": spec.index_urls,
             "platforms": spec.platforms,
             "python_version": spec.python_version,
+            "requirements_in": [_input_path(label) for label in spec.requirements_in],
+            "solver": str(spec.solver),
         },
         "files": {
             _input_path(label): ctx.read(label)
             for label in spec.requirements_in + spec.constraints
         },
     }
+
+def _unchanged(ctx, spec, previous, current):
+    """Whether a recorded solution's inputs are the current ones, included files too.
+
+    `current` holds the files the tag names; the files those include are known
+    only from the recorded solution, so they are read here, which also makes Bazel
+    watch them. They are added to `current`.
+    """
+    recorded = previous["inputs"]
+    if recorded.get("attrs") != current["attrs"]:
+        return False
+    files = recorded.get("files", {})
+    for path, text in current["files"].items():
+        if files.get(path) != text:
+            return False
+    known = {_input_path(label): label for label in spec.requirements_in + spec.constraints}
+    for path, text in files.items():
+        if path in current["files"]:
+            continue
+        label = _label_for_path(path, known)
+        if not ctx.path(label).exists or ctx.read(label) != text:
+            return False
+        current["files"][path] = text
+    return True
 
 def _thaw(value):
     """A mutable deep copy of a value read from the lockfile's facts, which are frozen."""
@@ -287,7 +338,8 @@ def _start_download(ctx, netrc, request, scratch, allow_fail, block = False):
             url = request["url"] + ".metadata"
             sha256 = core["sha256"] if type(core) == "dict" else ""
         else:
-            path = "req_compile_resolve/{}.whl".format(scratch)
+            # The whole distribution; its extension tells `extract` the format.
+            path = "req_compile_resolve/{}/{}".format(scratch, request.get("filename") or "dist.whl")
             url = request["url"]
             sha256 = request["sha256"]
     else:
@@ -302,15 +354,19 @@ def _start_download(ctx, netrc, request, scratch, allow_fail, block = False):
         block = block,
     )
 
-def _document(ctx, request, path):
+def _document(ctx, request, path, result):
     """The document to hand the solver for a download that succeeded."""
     if request["op"] == "fetch":
         return {"body": ctx.read(path), "kind": "index", "url": request["url"]}
-    return {
+    document = {
         "body": _metadata_text(ctx, request, path),
         "kind": "metadata",
         "url": request["url"],
     }
+    if not request["core_metadata"]:
+        # The whole file was fetched; its digest pins it when the index gave none.
+        document["sha256"] = result.sha256
+    return document
 
 def _resolve_group(ctx, specs, inputs, recorded, upgrade):
     """Resolve the hubs sharing a solver module, in one loop.
@@ -392,9 +448,9 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
                 fail("Failed to resolve the requirements of hub `{}`: {}".format(out.get("hub", "?"), out["message"]))
             for request in retry:
                 scratch += 1
-                request, path, _ = _start_download(ctx, netrc, request, scratch, allow_fail = False, block = True)
+                request, path, result = _start_download(ctx, netrc, request, scratch, allow_fail = False, block = True)
                 facts.pop(request["id"], None)
-                documents[request["id"]] = _document(ctx, request, path)
+                documents[request["id"]] = _document(ctx, request, path, result)
             continue
 
         pending = []
@@ -413,8 +469,9 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
             pending.append(_start_download(ctx, netrc, request, scratch, allow_fail = True))
 
         for request, path, token in pending:
-            if token.wait().success:
-                documents[request["id"]] = _document(ctx, request, path)
+            result = token.wait()
+            if result.success:
+                documents[request["id"]] = _document(ctx, request, path, result)
             else:
                 facts[request["id"]] = {"error": "download failed: {}".format(request["url"])}
 
@@ -431,6 +488,12 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
             platform: _lock_packages(locks[platform]["packages"])
             for platform in spec.platforms
         }
+        # The files the hub's requirement files included, so that a change to
+        # one of them is seen by the next evaluation.
+        for path in solution["hubs"][spec.name].get("files", []):
+            normalized = _normalize(path)
+            if normalized not in inputs[spec.name]["files"]:
+                inputs[spec.name]["files"][normalized] = ctx.read(_label_for_path(path, known))
 
     consulted = {}
     for sha256 in solution.get("consulted", []):
@@ -465,7 +528,7 @@ def resolve_hubs(ctx, specs):
         previous = _recorded_solution(ctx, spec)
         if previous != None:
             recorded[name] = previous
-        if previous != None and upgrade == None and previous["inputs"] == inputs[name]:
+        if previous != None and upgrade == None and _unchanged(ctx, spec, previous, inputs[name]):
             resolved[name] = previous["locks"]
             facts["solution:" + name] = previous
             facts.update(_recorded_metadata(ctx, previous["locks"]))
