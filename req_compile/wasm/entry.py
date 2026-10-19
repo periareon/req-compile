@@ -29,7 +29,7 @@ import logging
 import sys
 import traceback
 import urllib.parse
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 import packaging.requirements
 import packaging.version
@@ -199,12 +199,6 @@ class FactRepository(Repository):
 
     def page_url(self, name: str) -> str:
         return f"{self.index_url}/{normalize(name)}/"
-
-    def known_pages(self) -> Iterable[str]:
-        prefix = "index:" + self.index_url + "/"
-        for key in self.facts:
-            if key.startswith(prefix):
-                yield key[len(prefix) :].rstrip("/")
 
     def page_request(self, name: str) -> Dict[str, Any]:
         page = self.page_url(name)
@@ -502,10 +496,12 @@ def _link_recorded_metadata(
     for packages in prior.values():
         for entry in packages.values():
             digest = entry.get("metadata")
-            key = "meta:" + (entry.get("sha256") or entry.get("url") or "")
-            text = facts.get("md:" + digest) if digest else None
-            if isinstance(text, str) and key not in facts:
-                facts[key] = metadata_fact(decode_text(text))
+            identity = entry.get("sha256") or entry.get("url")
+            if not digest or not identity or "meta:" + identity in facts:
+                continue
+            text = facts.get("md:" + digest)
+            if isinstance(text, str):
+                facts["meta:" + identity] = metadata_fact(decode_text(text))
 
 
 def _prior_pins(
@@ -687,7 +683,7 @@ def _speculate(hubs: List[_Hub], facts: Dict[str, Any]) -> None:
             _prefetch(hub, req)
 
 
-def _failed_requests(hub: "_Hub", ex: Exception) -> List[Dict[str, Any]]:
+def _failed_requests(hub: _Hub, ex: Exception) -> List[Dict[str, Any]]:
     """The requests behind a resolution error whose download failed.
 
     A failed index page or metadata download reaches the solver as an error fact,

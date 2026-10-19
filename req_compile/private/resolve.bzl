@@ -346,22 +346,6 @@ def _recorded_solution(ctx, spec):
         "raw": recorded,
     }
 
-def _recorded_texts(ctx, locks):
-    """The recorded metadata texts the packages of `locks` refer to, by digest.
-
-    `module_ctx.facts` can only be looked up by key, so the digests come from the
-    recorded solutions rather than from enumerating the facts.
-    """
-    texts = {}
-    for packages in locks.values():
-        for data in packages.values():
-            digest = data.get("metadata")
-            if digest and digest not in texts:
-                text = _fact(ctx, "md:" + digest)
-                if type(text) == "string":
-                    texts[digest] = text
-    return texts
-
 def _referenced_metadata(locks, texts):
     """The `md:` facts the packages of `locks` refer to, out of `texts` (digest to text)."""
     facts = {}
@@ -370,6 +354,22 @@ def _referenced_metadata(locks, texts):
             digest = data.get("metadata")
             if digest and digest in texts:
                 facts["md:" + digest] = texts[digest]
+    return facts
+
+def _recorded_metadata(ctx, locks):
+    """The `md:` facts of a recorded solution's packages, from the lockfile.
+
+    `module_ctx.facts` can only be looked up by key, so the digests come from the
+    recorded solution rather than from enumerating the facts.
+    """
+    facts = {}
+    for packages in locks.values():
+        for data in packages.values():
+            digest = data.get("metadata")
+            if digest and "md:" + digest not in facts:
+                text = _fact(ctx, "md:" + digest)
+                if type(text) == "string":
+                    facts["md:" + digest] = text
     return facts
 
 def _start_download(ctx, netrc, request, scratch, allow_fail, block = False):
@@ -478,8 +478,7 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
 
             # The metadata of every recorded distribution, which the solver joins
             # to the distributions of the prior solution.
-            texts = _recorded_texts(ctx, previous["locks"])
-            facts.update(_referenced_metadata(previous["locks"], texts))
+            facts.update(_recorded_metadata(ctx, previous["locks"]))
 
     documents = {}
     solution = None
@@ -588,7 +587,7 @@ def resolve_hubs(ctx, specs):
         if previous != None and upgrade == None and _unchanged(ctx, spec, previous, inputs[name]):
             resolved[name] = previous["locks"]
             facts["solution:" + name] = previous["raw"]
-            facts.update(_referenced_metadata(previous["locks"], _recorded_texts(ctx, previous["locks"])))
+            facts.update(_recorded_metadata(ctx, previous["locks"]))
         else:
             to_solve[name] = spec
 
