@@ -236,9 +236,11 @@ def _lock_packages(packages):
 def _compact_locks(locks, spec):
     """Locks as the lockfile stores them: each artifact once, and per platform the pick.
 
-    Most packages resolve to the same file on every platform; storing the file
-    once and only `package -> artifact` per platform is what keeps the solution
-    fact small. Fields at their default are left out.
+    Most packages resolve to the same file on every platform, with the same
+    dependencies; storing the file once, its dependencies with it, and per
+    platform only `package -> artifact` is what keeps the solution fact small. A
+    platform whose dependencies differ (environment markers) records its own with
+    the pick. Fields at their default are left out.
     """
     artifacts = {}
     picks = {}
@@ -246,18 +248,23 @@ def _compact_locks(locks, spec):
         picks[platform] = {}
         for name, data in packages.items():
             aid = data["sha256"] or data["url"]
-            artifact = {"package": data["package"], "version": data["version"]}
-            if data["sha256"] and data["url"]:
-                artifact["url"] = data["url"]
-            if data["index"] and data["index"] != spec.index_urls[0]:
-                artifact["index"] = data["index"]
-            for key, default in _ARTIFACT_DEFAULTS.items():
-                if data.get(key, default) != default:
-                    artifact[key] = data[key]
-            if artifact.get("core_metadata"):
-                artifact["core_metadata"] = True
-            artifacts[aid] = artifact
-            picks[platform][name] = {"artifact": aid, "deps": data["deps"]}
+            artifact = artifacts.get(aid)
+            if artifact == None:
+                artifact = {"deps": data["deps"], "package": data["package"], "version": data["version"]}
+                if data["sha256"] and data["url"]:
+                    artifact["url"] = data["url"]
+                if data["index"] and data["index"] != spec.index_urls[0]:
+                    artifact["index"] = data["index"]
+                for key, default in _ARTIFACT_DEFAULTS.items():
+                    if data.get(key, default) != default:
+                        artifact[key] = data[key]
+                if artifact.get("core_metadata"):
+                    artifact["core_metadata"] = True
+                artifacts[aid] = artifact
+            if data["deps"] == artifact["deps"]:
+                picks[platform][name] = aid
+            else:
+                picks[platform][name] = {"artifact": aid, "deps": data["deps"]}
     return {"artifacts": artifacts, "index": spec.index_urls[0], "locks": picks}
 
 def _expand_locks(recorded):
@@ -272,13 +279,18 @@ def _expand_locks(recorded):
             artifact["sha256"] = ""
             artifact["url"] = aid
         artifacts[aid] = artifact
-    return {
-        platform: {
-            name: _package_entry(artifacts[pick["artifact"]], pick["deps"])
-            for name, pick in packages.items()
-        }
-        for platform, packages in recorded["locks"].items()
-    }
+    locks = {}
+    for platform, packages in recorded["locks"].items():
+        locks[platform] = {}
+        for name, pick in packages.items():
+            if type(pick) == "string":
+                artifact = artifacts[pick]
+                deps = artifact["deps"]
+            else:
+                artifact = artifacts[pick["artifact"]]
+                deps = pick["deps"]
+            locks[platform][name] = _package_entry(artifact, deps)
+    return locks
 
 def _fact(ctx, key):
     """A fact recorded by a previous evaluation, or None."""

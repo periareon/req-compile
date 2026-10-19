@@ -564,7 +564,7 @@ prototype and peak use has not been measured yet.
 | Digest of the extension code and of all tags | `bzlTransitiveDigest`, `usagesDigest` | Bazel |
 | Every pinned distribution: package, version, URLs, sha256, which hubs and locks use it and the dependencies each resolved | `generatedRepoSpecs` (one `whl_repository` per distribution) | Bazel, from the repositories the extension declares |
 | Each hub: its locks, their config settings, package to repository per lock | `generatedRepoSpecs` (one `py_requirements_repository` per hub) | Bazel |
-| The previous solution per hub: the inputs it was solved from, its first index, each distinct artifact once keyed by its sha256 (package, version, URL, `Requires-Python`, whether the index serves its metadata separately, the digest of its metadata, and its index only when not the first) and per platform the package to artifact pick with its dependencies | `facts["solution:<hub>"]` (`schema` 1) | the extension |
+| The previous solution per hub: the inputs it was solved from, its first index, each distinct artifact once keyed by its sha256 (package, version, URL, dependencies, `Requires-Python`, whether the index serves its metadata separately, the digest of its metadata, and its index only when not the first) and per platform the package to artifact pick, carrying its own dependencies only where markers make them differ | `facts["solution:<hub>"]` (`schema` 1) | the extension |
 | The trimmed metadata of every recorded artifact, once per distinct text | `facts["md:<digest>"]` | the extension |
 | Schema version of the facts | `factsVersions` | Bazel, from `module_extension(facts_version = ...)` |
 
