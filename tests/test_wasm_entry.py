@@ -4,6 +4,7 @@ The entry point is plain Python, so it is exercised here natively: a small
 in-memory "host" answers its requests the way the Starlark loop does.
 """
 
+import hashlib
 import json
 from typing import Any, Dict, List, Tuple
 
@@ -152,7 +153,6 @@ def test_solve_in_rounds() -> None:
     # Read the file, fetch the page, fetch the metadata, then one level of
     # dependencies per two rounds, plus the final call.
     assert host.rounds <= 6
-    assert set(result["consulted"]) == {"11" * 32, "22" * 32}
 
 
 def test_includes_and_extras() -> None:
@@ -263,15 +263,43 @@ def test_ingest_html_index() -> None:
     ]
 
 
-def test_ingest_metadata_keeps_the_header() -> None:
+def test_ingest_metadata_keeps_the_fields_the_solver_reads() -> None:
     fact = entry.ingest_metadata(
-        "Metadata-Version: 2.2\r\nName: x\r\nDynamic: Requires-Dist\r\n\r\nBody text\r\n"
+        "Metadata-Version: 2.2\r\nName: x\r\nVersion: 1.0\r\nSummary: dropped\r\n"
+        "Classifier: Programming Language :: Python\r\n"
+        'Requires-Dist: y; extra == "all" and\r\n  python_version > "3.8"\r\n'
+        "Project-URL: Homepage, https://x.example\r\nDynamic: Requires-Dist\r\n"
+        "\r\nBody text\r\n"
+    )
+    text = (
+        "Metadata-Version: 2.2\nName: x\nVersion: 1.0\n"
+        'Requires-Dist: y; extra == "all" and\n  python_version > "3.8"\n'
+        "Dynamic: Requires-Dist"
     )
     assert fact == {
-        "metadata": "Metadata-Version: 2.2\nName: x\nDynamic: Requires-Dist",
+        "metadata": text,
         "dynamic": ["requires-dist"],
         "metadata_version": "2.2",
+        "digest": hashlib.sha256(text.encode()).hexdigest(),
     }
+    assert entry.metadata_fact(text) == fact
+
+
+def test_metadata_is_recorded_once_per_text() -> None:
+    """The texts a solution refers to are returned by digest, shared across platforms."""
+    result = Host({"/inputs/requirements.in": "a\n"}).run(_hub())
+    assert result["status"] == "done", result
+    locks = result["hubs"]["hub"]["locks"]
+    digests = {
+        package["metadata"]
+        for packages in locks.values()
+        for package in packages["packages"].values()
+    }
+    assert digests == set(result["metadata"]), "one text per distinct metadata"
+    assert len(digests) == 2, "a and b, each once for both platforms"
+    for digest, text in result["metadata"].items():
+        assert hashlib.sha256(text.encode()).hexdigest() == digest
+        assert "long description" not in text
 
 
 def test_latin1_round_trip() -> None:
@@ -314,13 +342,15 @@ def test_prior_solution_needs_no_requests() -> None:
     first = Host({"/inputs/requirements.in": "a\n"})
     solved = first.run(_hub())
 
-    # Starlark seeds the next evaluation with the files it read and the recorded metadata.
+    # Starlark seeds the next evaluation with the files it read and the recorded
+    # metadata texts, keyed by digest; the solver joins them to the distributions.
     again = RecordingHost({"/inputs/requirements.in": "a\n"})
     again.facts = {
-        key: fact
-        for key, fact in first.facts.items()
-        if key.startswith(("file:", "meta:"))
+        key: fact for key, fact in first.facts.items() if key.startswith("file:")
     }
+    again.facts.update(
+        {"md:" + digest: text for digest, text in solved["metadata"].items()}
+    )
     result = again.run(_hub(prior=_prior_from(solved)))
     assert result["status"] == "done", result
     assert again.rounds == 1

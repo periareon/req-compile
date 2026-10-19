@@ -29,7 +29,6 @@ import logging
 import sys
 import traceback
 import urllib.parse
-from html.parser import HTMLParser
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 import packaging.requirements
@@ -66,6 +65,7 @@ from req_compile.wasm.files import (
     file_constraints,
     pinned_hashes,
 )
+from req_compile.wasm.ingest import ingest_index, ingest_metadata, metadata_fact
 
 ACCEPT_INDEX = "application/vnd.pypi.simple.v1+json, text/html;q=0.1"
 
@@ -114,114 +114,6 @@ class UnpinnedPackage(Exception):
             "otherwise an index could add a dependency the files never vouched for. Add "
             "it with its hash, or set `enforce_hashes = False`."
         ).format(self.name)
-
-
-class _IndexHTMLParser(HTMLParser):
-    """Collect the file entries of a PEP 503 page, PEP 658/714 attributes included."""
-
-    def __init__(self, page_url: str) -> None:
-        super().__init__()
-        self.page_url = page_url
-        self.files: List[Dict[str, Any]] = []
-        self._current: Optional[Dict[str, Any]] = None
-
-    def handle_starttag(self, tag: str, attrs: List[Tuple[str, Optional[str]]]) -> None:
-        if tag != "a":
-            return
-        attributes = dict(attrs)
-        href = attributes.get("href")
-        if not href:
-            return
-        self._current = _file_entry(
-            self.page_url,
-            href,
-            requires_python=attributes.get("data-requires-python"),
-            yanked="data-yanked" in attributes,
-            core_metadata=attributes.get(
-                "data-core-metadata", attributes.get("data-dist-info-metadata")
-            ),
-        )
-
-    def handle_data(self, data: str) -> None:
-        if self._current is not None and data.strip():
-            self._current["filename"] = data.strip()
-            self.files.append(self._current)
-            self._current = None
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag == "a":
-            self._current = None
-
-
-def _file_entry(
-    page_url: str,
-    href: str,
-    requires_python: Optional[str],
-    yanked: Any,
-    core_metadata: Any,
-    sha256: Optional[str] = None,
-) -> Dict[str, Any]:
-    if href.startswith(("https://", "http://")):
-        url = href
-    else:
-        url = urllib.parse.urljoin(page_url, href)
-    url, _, fragment = url.partition("#")
-    if sha256 is None and fragment.startswith("sha256="):
-        sha256 = fragment[len("sha256=") :]
-    if isinstance(core_metadata, str):
-        if core_metadata.startswith("sha256="):
-            core_metadata = {"sha256": core_metadata[len("sha256=") :]}
-        else:
-            core_metadata = core_metadata.lower() == "true"
-    return {
-        "filename": "",
-        "url": url,
-        "sha256": sha256 or "",
-        "requires_python": requires_python or "",
-        "yanked": bool(yanked),
-        "core_metadata": core_metadata or False,
-    }
-
-
-def ingest_index(page_url: str, body: str) -> Dict[str, Any]:
-    """Compact an index page into its file entries."""
-    text = body.lstrip()
-    if text.startswith("{"):
-        data = json.loads(text)
-        files = []
-        for item in data.get("files", []):
-            entry = _file_entry(
-                page_url,
-                item.get("url", ""),
-                requires_python=item.get("requires-python"),
-                yanked=item.get("yanked", False),
-                core_metadata=item.get(
-                    "core-metadata", item.get("dist-info-metadata", False)
-                ),
-                sha256=(item.get("hashes") or {}).get("sha256"),
-            )
-            entry["filename"] = item.get("filename", "")
-            files.append(entry)
-        return {"files": files}
-
-    parser = _IndexHTMLParser(page_url)
-    parser.feed(body)
-    return {"files": parser.files}
-
-
-def ingest_metadata(body: str) -> Dict[str, Any]:
-    """Keep the header of a core metadata file; the description is of no use."""
-    normalized = body.replace("\r\n", "\n")
-    header, _, _ = normalized.partition("\n\n")
-    dynamic = []
-    version = "1.0"
-    for line in header.splitlines():
-        lower = line.lower()
-        if lower.startswith("dynamic:"):
-            dynamic.append(line.partition(":")[2].strip().lower())
-        elif lower.startswith("metadata-version:"):
-            version = line.partition(":")[2].strip()
-    return {"metadata": header, "dynamic": dynamic, "metadata_version": version}
 
 
 class PageCache:
@@ -598,6 +490,24 @@ def _prior_locks(
     return result
 
 
+def _link_recorded_metadata(
+    prior: Dict[str, Dict[NormName, Dict[str, Any]]], facts: Dict[str, Any]
+) -> None:
+    """Serve the metadata of recorded distributions from the `md:` facts.
+
+    The lockfile keeps metadata once per distinct text, keyed by its digest, and
+    each recorded distribution names the digest of its own; the solver looks
+    metadata up by distribution, so the two are joined here.
+    """
+    for packages in prior.values():
+        for entry in packages.values():
+            digest = entry.get("metadata")
+            key = "meta:" + (entry.get("sha256") or entry.get("url") or "")
+            text = facts.get("md:" + digest) if digest else None
+            if isinstance(text, str) and key not in facts:
+                facts[key] = metadata_fact(decode_text(text))
+
+
 def _prior_pins(
     locks: Dict[str, Dict[NormName, Dict[str, Any]]],
 ) -> Dict[NormName, packaging.version.Version]:
@@ -631,6 +541,7 @@ class _Hub:
         allow_prerelease = bool(spec.get("allow_prerelease", False))
         prior = _prior_locks(spec, upgrade)
         self.pins = _prior_pins(prior)
+        _link_recorded_metadata(prior, facts)
         self.mismatches: Dict[NormName, HashMismatch] = {}
         self.indexes: List[List[FactRepository]] = []
         self.repos: List[Repository] = []
@@ -657,7 +568,10 @@ class _Hub:
             )
 
 
-def _render(solution: DistributionCollection) -> Dict[str, Any]:
+def _render(
+    solution: DistributionCollection, metadata: Dict[str, str]
+) -> Dict[str, Any]:
+    """The packages of a solution; `metadata` collects the texts they refer to by digest."""
     packages: Dict[str, Any] = {}
     for node in solution:
         meta = node.metadata
@@ -677,17 +591,21 @@ def _render(solution: DistributionCollection) -> Dict[str, Any]:
         hash_pinned = False
         requires_python = ""
         index = ""
+        digest = ""
         if isinstance(meta.origin, FactRepository):
             entry = meta.origin.entry(meta.candidate)
             core_metadata = entry.get("core_metadata", False)
             requires_python = entry.get("requires_python") or ""
             index = meta.origin.index_url
             hash_pinned = node.key in meta.origin.hashes
+            fact = meta.origin.facts.get(meta.origin.metadata_key(meta.candidate)) or {}
             if not sha256:
                 # The index gave no hash, so the file itself was fetched and the
                 # download's digest pins it from here on.
-                fact = meta.origin.facts.get(meta.origin.metadata_key(meta.candidate))
-                sha256 = (fact or {}).get("sha256") or ""
+                sha256 = fact.get("sha256") or ""
+            digest = fact.get("digest") or ""
+            if digest:
+                metadata[digest] = fact["metadata"]
         packages[node.key] = {
             "package": meta.name,
             "version": str(meta.version),
@@ -698,6 +616,7 @@ def _render(solution: DistributionCollection) -> Dict[str, Any]:
             "hash_pinned": hash_pinned,
             "requires_python": requires_python,
             "index": index,
+            "metadata": digest,
             "deps": sorted(dep.key for dep in node.dependencies),
             "via": sorted(via),
         }
@@ -832,6 +751,7 @@ def solve(payload: Dict[str, Any]) -> Dict[str, Any]:
     ]
 
     results: Dict[str, Any] = {}
+    metadata: Dict[str, str] = {}
     with FactFiles(facts, requests) as files:
         try:
             for hub in hubs:
@@ -891,7 +811,7 @@ def solve(payload: Dict[str, Any]) -> Dict[str, Any]:
                     }
                 results[hub.name] = {
                     "locks": {
-                        platform: {"packages": _render(solution)}
+                        platform: {"packages": _render(solution, metadata)}
                         for platform, (solution, _) in zip(
                             hub.spec["platforms"], solutions
                         )
@@ -902,11 +822,11 @@ def solve(payload: Dict[str, Any]) -> Dict[str, Any]:
             _speculate(hubs, facts)
             return {"status": "need", "requests": requests.as_list(), "facts": ingested}
 
-    consulted = sorted(key[len("meta:") :] for key in facts if key.startswith("meta:"))
     return {
         "status": "done",
         "hubs": results,
-        "consulted": consulted,
+        # The metadata texts the solutions refer to, by digest, for the lockfile.
+        "metadata": metadata,
         "facts": ingested,
     }
 

@@ -248,11 +248,17 @@ evaluations.
 | `file:<label>` | `ctx.read` | the raw text of a requirements or constraints file (a payload, not JSON) |
 | `dir:<label>` | `readdir` | the file names of a `find_links` directory |
 | `index:<index url>/<normalized name>/` | `ingest(kind="index")` | `[{filename, url, sha256, requires_python, yanked, core_metadata: {sha256} or true or false}]` |
-| `meta:<sha256 of the distribution>` | `ingest(kind="metadata")` | `{name, version, requires_dist: [...], requires_python, provides_extra: [...]}` |
+| `meta:<sha256 of the distribution>` | `ingest(kind="metadata")` | `{metadata, dynamic, metadata_version, digest}`: the header fields the solver reads (`Metadata-Version`, `Name`, `Version`, `Requires-Dist`, `Requires-Python`, `Provides-Extra`, `Dynamic`), nothing else, and the sha256 of that text |
 
 `meta:*` facts are immutable: the distribution with that hash has that metadata
-forever. They are the facts worth carrying across evaluations in the lockfile.
-`index:*` facts are not: a new release changes them, and that is exactly what a
+forever. They are the facts worth carrying across evaluations, and the lockfile
+carries them by content: `md:<digest of the trimmed text>`, once per distinct
+text, which a package's wheels for several platforms share, and each recorded
+package names the digest of its own. The solver joins the two when it loads a
+prior solution. Trimming means the recorded text can no longer be compared with
+the hash an index advertises for its metadata file; that comparison is made when
+the file is downloaded, and from then on the lock is the record. `index:*` facts
+are not carried: a new release changes them, and that is exactly what a
 re-resolution should see.
 
 ## The solving loop
@@ -558,8 +564,8 @@ prototype and peak use has not been measured yet.
 | Digest of the extension code and of all tags | `bzlTransitiveDigest`, `usagesDigest` | Bazel |
 | Every pinned distribution: package, version, URLs, sha256, which hubs and locks use it and the dependencies each resolved | `generatedRepoSpecs` (one `whl_repository` per distribution) | Bazel, from the repositories the extension declares |
 | Each hub: its locks, their config settings, package to repository per lock | `generatedRepoSpecs` (one `py_requirements_repository` per hub) | Bazel |
-| The previous solution per hub, with the digest of the inputs it was solved from | `facts["solution:<hub>"]` | the extension |
-| Metadata of every distribution consulted | `facts["meta:<sha256>"]` | the extension |
+| The previous solution per hub: the inputs it was solved from, each distinct artifact once (package, version, URL, sha256, index, `Requires-Python`, how its metadata is fetched, the digest of its metadata) and per platform the package to artifact pick with its dependencies | `facts["solution:<hub>"]` (`schema` 2) | the extension |
+| The trimmed metadata of every recorded artifact, once per distinct text | `facts["md:<digest>"]` | the extension |
 | Schema version of the facts | `factsVersions` | Bazel, from `module_extension(facts_version = ...)` |
 
 The `generatedRepoSpecs` entries are the lock in the strict sense: they are what
@@ -603,10 +609,15 @@ entry looks like this:
 
 Keys are flat and self-describing because `module_ctx.facts` can only be looked up by
 key and because Bazel reserves the right to shallow-merge facts dicts. The extension
-re-emits a `solution:` key per hub it evaluated and a `meta:` key per distribution the
-solver reports in `consulted`. Anything not re-emitted disappears, which is the
-garbage collection: metadata of a distribution no longer reachable from any hub
-leaves the lock on the next evaluation.
+re-emits a `solution:` key per hub and an `md:` key per metadata text the hubs'
+packages refer to. Anything not re-emitted disappears, which is the garbage
+collection: metadata of a distribution no longer reachable from any hub leaves
+the lock on the next evaluation. For the example workspace (ten packages, two
+hubs) the facts went from 37 KB to 18 KB: the metadata from 22 KB in 12 entries
+to 4.7 KB in 9, the solutions from 15 KB to 13 KB, most of what remains being
+artifact URLs and digests. The gain is larger where it matters: a 149-package
+workspace measured 905 KB of facts before, 731 KB of it metadata, mostly long
+descriptions stored once per platform.
 
 `inputs` holds the hub's tag attributes (the solver label and which files are
 requirements and which constraints among them) and the text of every file the
@@ -641,7 +652,7 @@ Three mechanisms do the work, all in place:
   to `plan_hubs`: no module load, no network, no solver call.
 - **Prior pins and recorded metadata.** A hub whose inputs changed is solved with
   the recorded versions as soft pins (`perform_compile_group`'s `pins`), the
-  requirement files pre-seeded as `file:` facts, and every recorded `meta:` fact
+  requirement files pre-seeded as `file:` facts, and every recorded `md:` fact
   pre-seeded, so the first call already knows the metadata of everything it keeps.
 - **Synthetic index pages.** A recorded distribution answers only for the index it
   was recorded from and only if its `Requires-Python` fits the target, both
@@ -664,8 +675,8 @@ Two consequences matter to users:
   a package keeps its version unless the new requirements make it unusable, in which
   case it is re-resolved and its dependents are aligned. Adding `httpx` to
   `requirements.in` changes `httpx` and whatever it newly requires, nothing else.
-  Most metadata requests are answered from `meta:` facts, so a typical re-resolution
-  fetches index pages only.
+  Most metadata requests are answered from the recorded `md:` facts, so a typical
+  re-resolution fetches index pages only.
 
 ### Upgrading
 

@@ -10,7 +10,7 @@ extension, so the lock entry Bazel writes is invalidated when they change.
 
 Across evaluations the extension remembers, through Bazel's lockfile `facts`, the
 solution of each hub together with the inputs it was solved from, and the metadata
-of every distribution it consulted. A hub whose inputs did not change is rebuilt
+of every distribution it chose. A hub whose inputs did not change is rebuilt
 from its recorded solution without loading the solver. A hub whose inputs changed
 is re-solved with the recorded versions as soft pins and the recorded metadata on
 hand, so only what the change touches is fetched. `REQ_COMPILE_UPGRADE=all` (or a
@@ -28,7 +28,7 @@ INPUT_ROOT = "/inputs"
 
 # The layout of the `solution:<hub>` facts. Facts survive changes to this code, so
 # a fact of another schema is ignored rather than misread.
-FACTS_SCHEMA = 1
+FACTS_SCHEMA = 2
 
 UPGRADE_ENV = "REQ_COMPILE_UPGRADE"
 
@@ -182,32 +182,87 @@ def _metadata_text(ctx, request, path):
             return ctx.read(entry.get_child("METADATA"))
     fail("No `.dist-info/METADATA` in {}".format(request["url"]))
 
-def _lock_packages(packages):
-    """Convert the solver's packages into the structure `parse_lockfile` produces.
+# What a package of a solution records beyond the `parse_lockfile` shape. The
+# solver uses them to stand in for the index page of a package a re-resolution
+# keeps: `filename` and `url` make the candidate, `index` and `requires_python`
+# decide whether it may answer, `core_metadata` how its metadata is fetched, and
+# `metadata` names the `md:` fact holding its metadata.
+_ARTIFACT_DEFAULTS = {
+    "core_metadata": False,
+    "index": "",
+    "metadata": "",
+    "requires_python": "",
+    "sha256": "",
+    "url": "",
+}
 
-    `filename` and `core_metadata` are kept beyond what a lock file records: a
-    later evaluation hands them back to the solver, which uses them to stand in
-    for the index page of a package it does not need to change.
+def _package_entry(data, deps):
+    """A package in the shape `parse_lockfile` produces, with the solver's extras."""
+    url = data.get("url", "")
+    return {
+        "annotations": {},
+        "constraint": None,
+        "core_metadata": data.get("core_metadata", False),
+        "deps": sorted(deps),
+        "filename": data.get("filename") or url.rpartition("/")[2],
+        "index": data.get("index", ""),
+        "metadata": data.get("metadata", ""),
+        "package": data["package"],
+        "requires_python": data.get("requires_python", ""),
+        "sha256": data.get("sha256", ""),
+        "url": url,
+        "version": data["version"],
+        "via": None,
+        "whl": None,
+    }
+
+def _lock_packages(packages):
+    """Convert the solver's packages into the structure `parse_lockfile` produces."""
+    return {
+        sanitize_package_name(data["package"]): _package_entry(
+            data,
+            [sanitize_package_name(dep) for dep in data["deps"]],
+        )
+        for data in packages.values()
+    }
+
+def _artifact_id(data):
+    return data["sha256"] or data["url"] or "{}=={}".format(data["package"], data["version"])
+
+def _compact_locks(locks):
+    """Locks as the lockfile stores them: each artifact once, and per platform the pick.
+
+    Most packages resolve to the same file on every platform; storing the file
+    once and only `package -> artifact` per platform is what keeps the solution
+    fact small. Fields at their default are left out.
     """
-    result = {}
-    for data in packages.values():
-        result[sanitize_package_name(data["package"])] = {
-            "annotations": {},
-            "constraint": None,
-            "core_metadata": data.get("core_metadata", False),
-            "deps": sorted([sanitize_package_name(dep) for dep in data["deps"]]),
-            "filename": data.get("filename", ""),
-            "hash_pinned": data.get("hash_pinned", False),
-            "index": data.get("index", ""),
-            "package": data["package"],
-            "requires_python": data.get("requires_python", ""),
-            "sha256": data["sha256"],
-            "url": data["url"],
-            "version": data["version"],
-            "via": data.get("via"),
-            "whl": None,
+    artifacts = {}
+    picks = {}
+    for platform, packages in locks.items():
+        picks[platform] = {}
+        for name, data in packages.items():
+            aid = _artifact_id(data)
+            artifact = {"package": data["package"], "version": data["version"]}
+            for key, default in _ARTIFACT_DEFAULTS.items():
+                if data.get(key, default) != default:
+                    artifact[key] = data[key]
+            artifacts[aid] = artifact
+            picks[platform][name] = {"artifact": aid, "deps": data["deps"]}
+    return {"artifacts": artifacts, "locks": picks}
+
+def _expand_locks(recorded):
+    """The per-platform packages of a recorded solution, as `_lock_packages` makes them."""
+    artifacts = recorded["artifacts"]
+    return {
+        platform: {
+            name: _package_entry(
+                dict(_ARTIFACT_DEFAULTS, **artifacts[pick["artifact"]]),
+                pick["deps"],
+            )
+            for name, pick in packages.items()
         }
-    return result
+        for platform, packages in recorded["locks"].items()
+    }
 
 def _fact(ctx, key):
     """A fact recorded by a previous evaluation, or None."""
@@ -273,40 +328,48 @@ def _thaw(value):
     """A mutable deep copy of a value read from the lockfile's facts, which are frozen."""
     return json.decode(json.encode(value))
 
-# Keys of a package whose value may be `None`. The lockfile omits null values,
-# so they are restored when a recorded solution is read back.
-_OPTIONAL_PACKAGE_KEYS = {
-    "annotations": {},
-    "constraint": None,
-    "via": None,
-    "whl": None,
-}
-
 def _recorded_solution(ctx, spec):
-    """The solution a previous evaluation recorded for a hub, if it is usable."""
+    """The solution a previous evaluation recorded for a hub, if it is usable.
+
+    Returns `inputs`, the per-platform `locks` expanded to the working shape, and
+    `raw`, the fact as stored, to store again when the hub is unchanged.
+    """
     recorded = _fact(ctx, "solution:" + spec.name)
     if type(recorded) != "dict" or recorded.get("schema") != FACTS_SCHEMA:
         return None
     if sorted(recorded.get("locks", {}).keys()) != sorted(spec.platforms):
         return None
     recorded = _thaw(recorded)
-    for packages in recorded["locks"].values():
-        for data in packages.values():
-            for key, default in _OPTIONAL_PACKAGE_KEYS.items():
-                data.setdefault(key, _thaw(default))
-    return recorded
+    return {
+        "inputs": recorded["inputs"],
+        "locks": _expand_locks(recorded),
+        "raw": recorded,
+    }
 
-def _recorded_metadata(ctx, locks):
-    """The metadata facts of every distribution of recorded locks."""
+def _recorded_texts(ctx, locks):
+    """The recorded metadata texts the packages of `locks` refer to, by digest.
+
+    `module_ctx.facts` can only be looked up by key, so the digests come from the
+    recorded solutions rather than from enumerating the facts.
+    """
+    texts = {}
+    for packages in locks.values():
+        for data in packages.values():
+            digest = data.get("metadata")
+            if digest and digest not in texts:
+                text = _fact(ctx, "md:" + digest)
+                if type(text) == "string":
+                    texts[digest] = text
+    return texts
+
+def _referenced_metadata(locks, texts):
+    """The `md:` facts the packages of `locks` refer to, out of `texts` (digest to text)."""
     facts = {}
     for packages in locks.values():
         for data in packages.values():
-            if not data.get("sha256"):
-                continue
-            key = "meta:" + data["sha256"]
-            fact = _fact(ctx, key)
-            if fact != None:
-                facts[key] = _thaw(fact)
+            digest = data.get("metadata")
+            if digest and digest in texts:
+                facts["md:" + digest] = texts[digest]
     return facts
 
 def _start_download(ctx, netrc, request, scratch, allow_fail, block = False):
@@ -380,7 +443,7 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
             (see `_upgrade`).
 
     Returns:
-        tuple: The resolved hubs and the facts the solver consulted.
+        tuple: The resolved hubs and the metadata texts their packages refer to, by digest.
     """
     first = specs[0]
     module = ctx.load_wasm(ctx.path(first.solver))
@@ -412,7 +475,11 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
         previous = recorded.get(spec.name)
         if previous and upgrade != "all":
             hubs[spec.name]["prior"] = {"locks": previous["locks"]}
-            facts.update(_recorded_metadata(ctx, previous["locks"]))
+
+            # The metadata of every recorded distribution, which the solver joins
+            # to the distributions of the prior solution.
+            texts = _recorded_texts(ctx, previous["locks"])
+            facts.update(_referenced_metadata(previous["locks"], texts))
 
     documents = {}
     solution = None
@@ -459,12 +526,6 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
                 facts[request["id"]] = {"text": ctx.read(_label_for_path(request["path"], known))}
                 continue
 
-            if request["op"] == "metadata" and request["sha256"]:
-                cached = _fact(ctx, "meta:" + request["sha256"])
-                if cached != None:
-                    facts[request["id"]] = _thaw(cached)
-                    continue
-
             scratch += 1
             pending.append(_start_download(ctx, netrc, request, scratch, allow_fail = True))
 
@@ -488,6 +549,7 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
             platform: _lock_packages(locks[platform]["packages"])
             for platform in spec.platforms
         }
+
         # The files the hub's requirement files included, so that a change to
         # one of them is seen by the next evaluation.
         for path in solution["hubs"][spec.name].get("files", []):
@@ -495,12 +557,7 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
             if normalized not in inputs[spec.name]["files"]:
                 inputs[spec.name]["files"][normalized] = ctx.read(_label_for_path(path, known))
 
-    consulted = {}
-    for sha256 in solution.get("consulted", []):
-        fact = facts.get("meta:" + sha256)
-        if fact != None and "error" not in fact:
-            consulted["meta:" + sha256] = fact
-    return resolved, consulted
+    return resolved, solution.get("metadata", {})
 
 def resolve_hubs(ctx, specs):
     """Resolve hubs defined by requirement files.
@@ -530,8 +587,8 @@ def resolve_hubs(ctx, specs):
             recorded[name] = previous
         if previous != None and upgrade == None and _unchanged(ctx, spec, previous, inputs[name]):
             resolved[name] = previous["locks"]
-            facts["solution:" + name] = previous
-            facts.update(_recorded_metadata(ctx, previous["locks"]))
+            facts["solution:" + name] = previous["raw"]
+            facts.update(_referenced_metadata(previous["locks"], _recorded_texts(ctx, previous["locks"])))
         else:
             to_solve[name] = spec
 
@@ -541,7 +598,7 @@ def resolve_hubs(ctx, specs):
         for spec in to_solve.values():
             groups.setdefault(str(spec.solver), []).append(spec)
         for group in groups.values():
-            locks, consulted = _resolve_group(
+            locks, texts = _resolve_group(
                 ctx,
                 sorted(group, key = lambda spec: spec.name),
                 inputs,
@@ -549,13 +606,13 @@ def resolve_hubs(ctx, specs):
                 upgrade,
             )
             resolved.update(locks)
-            facts.update(consulted)
             for name, hub_locks in locks.items():
-                facts["solution:" + name] = {
-                    "inputs": inputs[name],
-                    "locks": hub_locks,
-                    "schema": FACTS_SCHEMA,
-                }
+                facts["solution:" + name] = dict(
+                    _compact_locks(hub_locks),
+                    inputs = inputs[name],
+                    schema = FACTS_SCHEMA,
+                )
+                facts.update(_referenced_metadata(hub_locks, texts))
 
     return struct(
         facts = facts,
