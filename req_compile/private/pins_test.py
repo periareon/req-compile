@@ -15,9 +15,6 @@ import re
 import sys
 from typing import Dict, List, Set, Tuple
 
-# pylint: disable-next=import-error
-from python.runfiles import Runfiles
-
 _WARNING = """\
 
 ################################################################################
@@ -132,6 +129,10 @@ def compare(resolved: Pins, pinned: Pins) -> List[str]:
 
 def main() -> None:
     """The main entrypoint."""
+    # Imported here so that the comparison can be imported and tested without it.
+    # pylint: disable-next=import-error,import-outside-toplevel
+    from python.runfiles import Runfiles
+
     rendered, checked_in, destination, command = sys.argv[1:5]
     runfiles = Runfiles.Create()
     if not runfiles:

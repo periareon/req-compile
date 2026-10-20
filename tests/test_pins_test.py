@@ -20,16 +20,7 @@ def _pins_test() -> ModuleType:
     spec = importlib.util.spec_from_file_location("pins_test", path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
-    try:
-        spec.loader.exec_module(module)
-    except ImportError as ex:  # no runfiles library natively; only `main` needs it
-        if "runfiles" not in str(ex):
-            raise
-        source = path.read_text(encoding="utf-8").replace(
-            "from python.runfiles import Runfiles", "Runfiles = None"
-        )
-        # pylint: disable-next=exec-used
-        exec(compile(source, str(path), "exec"), module.__dict__)
+    spec.loader.exec_module(module)
     return module
 
 

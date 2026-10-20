@@ -1,7 +1,5 @@
 New in version 1.6.2:
 
-New in version 1.6.2:
-
 * ``@<hub>//:requirements.test`` compares the pinned file by meaning: it passes when the file pins exactly the
   packages and versions the hub resolved and, for each, its hashes include those of the artifacts the hub's
   platforms use. Extra hashes, comments and ordering do not matter, so a file Dependabot regenerates with
