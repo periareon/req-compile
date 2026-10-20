@@ -685,24 +685,33 @@ Two consequences matter to users:
 ### Upgrading
 
 The extension is a function of its inputs, so there is no "upgrade" input unless
-one is provided. The extension reads one environment variable (`REQ_COMPILE_UPGRADE`,
-implemented in `resolve.bzl`):
+one is provided. Every place that tells the user how to move a pin says the same
+three things, in this order:
 
-```bash
-REQ_COMPILE_UPGRADE=all bazel mod deps
-```
+1. A hub with `requirements_txt`:
+   `bazel run @<hub>//:requirements.update -- --upgrade <package>`; several
+   names may follow, and `-U` with no name upgrades every package. The pinned
+   file and the lock are both rewritten.
+2. Should that fail because the hub itself cannot be resolved (a hash in the
+   file no longer matching), the variable goes on the same command:
+   `REQ_COMPILE_UPGRADE=<package>[,<package>] bazel run @<hub>//:requirements.update`
+   (`all` for every package).
+3. A hub with no `requirements_txt` has only the lock to move:
+   `REQ_COMPILE_UPGRADE=<package>[,<package>] bazel mod deps` (or any build
+   that needs the hub).
 
-```bash
-REQ_COMPILE_UPGRADE=requests,urllib3 bazel mod deps
-```
-
+Underneath, the extension reads one environment variable (`REQ_COMPILE_UPGRADE`,
+implemented in `resolve.bzl`), and `--upgrade` sets it for a nested run.
 `ctx.getenv("REQ_COMPILE_UPGRADE")` makes it a recorded input, so the extension
 re-runs when it is set, dropping the named prior pins (or all of them). The next
 command without the variable sees a changed recorded input and re-runs once more,
 but the inputs digest now matches the fresh solution, so that run reuses it without
 network access and simply records the variable as unset. `bazel mod deps` is used
 because it evaluates every extension unconditionally; any build that needs the hub
-works as well.
+works as well. One consequence worth knowing when reading the lock by hand: after
+an upgrade the solution is recorded against the inputs as they were, so a later
+command with byte-identical inputs reuses it rather than applying the file's
+pins again; only a change to an input, or the variable, re-solves.
 
 ### Verifying in CI
 
@@ -785,8 +794,8 @@ released before the binary runs. The inner command is `bazel` from `PATH` (or
 resolution needs belong in `.bazelrc`; and since the outer `bazel run` resolves
 the hub before the script starts, a hash in the file that keeps the hub from
 resolving at all (the one case a soft pin can still block) is lifted from the
-shell, `REQ_COMPILE_UPGRADE=<package> bazel run ...`, which the failure message
-of a pinned hub says. The solver's
+shell, `REQ_COMPILE_UPGRADE=<package>[,<package>] bazel run @<hub>//:requirements.update`
+(`all` for every package), which the failure message of a pinned hub says. The solver's
 `require_pins` flag distinguishes this from a file fed as `requirements_in`,
 where every package must be pinned. The test reads a copy of the workspace file
 the hub repository took at fetch time (`repository_ctx.read` of the label), so
@@ -801,8 +810,9 @@ What the flow needs from the repository: `MODULE.bazel.lock` records both files
 as inputs, so after Dependabot edits `requirements.txt` the lock is stale and
 `--lockfile_mode=error` fails until it is regenerated. `wasm/example/.github/`
 holds a `dependabot.yml` and a workflow that, on Dependabot pull requests, runs
-`requirements.update` and `bazel mod deps --lockfile_mode=update` and commits
-both files to the PR branch. The division of labour is then: `requirements.in`
+`requirements.update`, then `bazel mod deps --lockfile_mode=update` so that the
+lock records the rewritten file (the update itself writes the lock before it
+rewrites the file), and commits both files to the PR branch. The division of labour is then: `requirements.in`
 is what humans edit, `requirements.txt` is the pin list a bot can read and write,
 `MODULE.bazel.lock` is the lock.
 

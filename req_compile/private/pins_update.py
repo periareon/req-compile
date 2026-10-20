@@ -12,7 +12,8 @@ The inner command is `bazel` from PATH, or `$BAZEL`, with no option of the outer
 command line: options the resolution needs belong in `.bazelrc`. And since the
 outer `bazel run` has to resolve the hub before this script starts, a hash in
 the file that keeps the hub from resolving at all is lifted from the shell
-instead: `REQ_COMPILE_UPGRADE=<package> bazel run @<hub>//:requirements.update`.
+instead: `REQ_COMPILE_UPGRADE=<package>[,<package>] bazel run @<hub>//:requirements.update`
+(`all` for every package).
 """
 
 import argparse
@@ -38,8 +39,9 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         nargs="*",
         metavar="PACKAGE",
         help=(
-            "Resolve the named packages again from the index, ignoring their pins "
-            "in the file (every package when no name is given), then write the file."
+            "Move the named packages' pins: resolve them again from the index, "
+            "ignoring their pins in the file (every package when no name is given), "
+            "then write the file and the lock."
         ),
     )
     return parser.parse_args(argv)

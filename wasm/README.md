@@ -136,13 +136,19 @@ instantiates, and as facts (`solution:<hub>` with the inputs it was solved from,
 `meta:<sha256>` for every distribution consulted). An unchanged hub is rebuilt from
 the facts without loading the module. A changed requirements file, included
 files too, is re-solved from the recorded versions, so only what the change
-touches is fetched. To start over:
+touches is fetched. To move a pin on purpose:
 
 ```bash
-REQ_COMPILE_UPGRADE=all bazel mod deps
+bazel run @pip_deps//:requirements.update -- --upgrade <package>
 ```
 
-or name the packages to upgrade, comma separated.
+Several names may follow `--upgrade`; `-U` with no name upgrades every package.
+The pinned file and the lock are both rewritten. Should that fail because the
+hub itself cannot be resolved (a hash in the file no longer matching), set the
+variable on the same command instead: `REQ_COMPILE_UPGRADE=<package>[,<package>]
+bazel run @pip_deps//:requirements.update` (`all` for every package). A hub with
+no `requirements_txt` has only the lock to move: `REQ_COMPILE_UPGRADE=<package>
+bazel mod deps` (or any build that needs the hub).
 
 ### Dependabot
 

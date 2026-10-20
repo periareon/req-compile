@@ -6,6 +6,10 @@ New in version 1.6.3:
   pin by itself; before, the file's pins were hard and the bump failed until ``--upgrade`` lifted them. The
   file's hashes vouch for the pinned version only, so a bump with a wrong hash still fails naming the package,
   while a version the file does not pin needs no hash and gets one when ``requirements.update`` writes it.
+* Every place that tells how to move a pin on purpose says the same thing: ``bazel run
+  @<hub>//:requirements.update -- --upgrade <package>`` (``-U`` with no name for every package); the variable
+  ``REQ_COMPILE_UPGRADE=<package>[,<package>]`` on that command when the hub itself cannot be resolved, or with
+  ``bazel mod deps`` for a hub that has no ``requirements_txt``.
 
 New in version 1.6.2:
 

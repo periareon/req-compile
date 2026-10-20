@@ -6,8 +6,8 @@
 # A version bumped here, with its hashes, is what the hub resolves to next
 # (Dependabot's pip updater does this), and
 #     bazel run @pip_deps//:requirements.update -- --upgrade <package>
-# moves one from the index instead. The hashes are those of the artifacts
-# the hub's platforms use.
+# moves one from the index instead (-U with no name: every package). The
+# hashes are those of the artifacts the hub's platforms use.
 --index-url https://pypi.org/simple
 
 certifi==2026.10.19 \

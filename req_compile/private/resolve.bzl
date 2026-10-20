@@ -13,8 +13,8 @@ solution of each hub together with the inputs it was solved from, and the metada
 of every distribution it chose. A hub whose inputs did not change is rebuilt
 from its recorded solution without loading the solver. A hub whose inputs changed
 is re-solved with the recorded versions as soft pins and the recorded metadata on
-hand, so only what the change touches is fetched. `REQ_COMPILE_UPGRADE=all` (or a
-comma separated list of packages) drops the pins.
+hand, so only what the change touches is fetched. `REQ_COMPILE_UPGRADE=<package>[,<package>]`
+(or `all`) drops the pins; `requirements.update -- --upgrade <package>` sets it for a nested run.
 
 Nothing here runs unless a hub asks for it, and then only when Bazel's
 WebAssembly support is enabled; see `require_wasm`.
@@ -635,8 +635,8 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
                     # script runs.
                     hint = (
                         "\nIf the hashes {} gives for a version are the cause, resolve the package without " +
-                        "them: `REQ_COMPILE_UPGRADE=<package> bazel run @{}//:requirements.update` " +
-                        "(`REQ_COMPILE_UPGRADE=all` lifts every pin)."
+                        "them: `REQ_COMPILE_UPGRADE=<package>[,<package>] bazel run @{}//:requirements.update` " +
+                        "(`all` for every package)."
                     ).format(hubs[hub]["pins"], hub)
                 fail("Failed to resolve the requirements of hub `{}`: {}{}".format(hub, out["message"], hint))
             for request in retry:
