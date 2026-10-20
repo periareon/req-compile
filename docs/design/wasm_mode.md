@@ -777,9 +777,27 @@ file's hashes vouch for the pinned version only (`FactRepository.file_pins`,
 when none of its artifacts match while the requirements still allow the
 version, that is an error, so a Dependabot bump with a wrong hash cannot resolve
 quietly to something else; a version the file does not pin needs no hash, and
-`requirements.update` writes it. A recorded distribution yields to the file
-(`_recorded`): when the file pins another version or another artifact, the page
-is fetched. Packages the file does not list yet resolve freely and then appear
+`requirements.update` writes it. Two refinements keep that promise: a mismatch
+is noted per repository (so a second index may still supply the right artifact),
+and `_check_file_pins` fails the solve afterwards if a noted mismatch was
+resolved around, because another index or an older release offered the package
+and the solver dropped the soft pin for it; and a pin without a local segment
+covers every build of its release (`same_release`: `1.0` covers `1.0+cpu`), its
+hashes saying which build is meant, so the soft pin `==1.0` cannot drift onto a
+local build. A recorded distribution yields to the file (`_recorded`): when the
+file pins another version or another artifact, the page is fetched. Metadata
+provenance follows the same rule: each recorded distribution notes whether its
+metadata came from the index's separately served file (`sidecar` in the lock's
+artifact, set from the document Starlark hands back), and `ensure_metadata`
+re-reads the wheel itself once the file vouches for the artifact, so a lie an
+index told while nothing pinned the package does not survive the pin. (Locks
+written before this field treat their metadata as wheel-derived, which it was
+for every hub that had a pinned file, since such hubs read all metadata from
+wheels then.) In req-compile itself, a soft pin now yields before the solver
+walks back a reverse dependency to keep it (`compile.py`, the
+`PinConflictException` raised ahead of `_get_strictest_reverse_dep`): raising
+`a>=2` when the new `a` needs `b>=2` moves the pinned `b` instead of failing
+with "no candidate for a satisfies !=2.0,>=2". Packages the file does not list yet resolve freely and then appear
 in it, as do the packages `REQ_COMPILE_UPGRADE` names (all of them with `all`),
 whose pin and hashes are left out for that one resolution so that
 `requirements.update` writes their new version; that is for moving a pin the

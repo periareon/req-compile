@@ -220,7 +220,9 @@ def _metadata_text(ctx, request, path):
 # solver uses them to stand in for the index page of a package a re-resolution
 # keeps: `filename` and `url` make the candidate, `index` and `requires_python`
 # decide whether it may answer, `core_metadata` whether the index serves its
-# metadata separately, and `metadata` names the `md:` fact holding its metadata.
+# metadata separately, `metadata` names the `md:` fact holding its metadata, and
+# `sidecar` whether that metadata came from the index's separate file rather
+# than the distribution (the solver reads the latter for a hash-pinned artifact).
 #
 # In the lockfile an artifact is keyed by its sha256 (or its URL when the index
 # gave none), so neither is repeated inside it; `index` is left out when it is
@@ -232,6 +234,7 @@ _ARTIFACT_DEFAULTS = {
     "core_metadata": False,
     "metadata": "",
     "requires_python": "",
+    "sidecar": False,
 }
 
 def _is_sha256(value):
@@ -253,6 +256,7 @@ def _package_entry(data, deps):
         "package": data["package"],
         "requires_python": data.get("requires_python", ""),
         "sha256": data.get("sha256", ""),
+        "sidecar": data.get("sidecar", False),
         "url": url,
         "version": data["version"],
         "via": None,
@@ -520,6 +524,8 @@ def _document(ctx, request, path, result):
     document = {
         "body": _metadata_text(ctx, request, path),
         "kind": "metadata",
+        # Whether this is the index's separately served metadata file.
+        "sidecar": bool(request["core_metadata"]),
         "url": request["url"],
     }
     if not request["core_metadata"]:

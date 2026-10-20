@@ -71,6 +71,7 @@ from req_compile.wasm.prior import (
     link_recorded_metadata,
     prior_locks,
     prior_pins,
+    same_release,
     upgraded,
 )
 
@@ -381,7 +382,10 @@ class FactRepository(Repository):
         if pin is None or not pin[1]:
             return candidates
         version, hashes = pin
-        of_version = [c for c in candidates if c.version == version]
+        # A local build (`1.0+cpu`) is an artifact of the pin `1.0`: the hashes
+        # say which build the file means, so the solver cannot drift onto one
+        # the soft pin `==1.0` would also accept.
+        of_version = [c for c in candidates if same_release(c.version, version)]
         if not of_version:
             return candidates
         matching = [c for c in of_version if self.entry(c)["sha256"] in hashes]
@@ -391,12 +395,14 @@ class FactRepository(Repository):
             found = {self.entry(c)["sha256"]: c.filename or "" for c in of_version}
             self._note_mismatch(key, name, hashes, found)
             return []
-        return [c for c in candidates if c.version != version or c in matching]
+        return [c for c in candidates if c not in of_version or c in matching]
 
     def file_vouches(self, candidate: Candidate) -> bool:
         """Whether the pinned file pins this candidate's version with a hash."""
         pin = self.file_pins.get(utils.normalize_project_name(candidate.name))
-        return pin is not None and bool(pin[1]) and candidate.version == pin[0]
+        return (
+            pin is not None and bool(pin[1]) and same_release(candidate.version, pin[0])
+        )
 
     def _recorded(
         self, req: packaging.requirements.Requirement
@@ -409,12 +415,18 @@ class FactRepository(Repository):
         if self.require_pins and key not in self.hashes:
             raise UnpinnedPackage(req.name)
         pin = self.file_pins.get(key)
-        if pin is not None and (
-            str(pin[0]) != entry.get("version") or entry.get("sha256") not in pin[1]
-        ):
-            # The file pins another version, or another artifact of this one
-            # (a Dependabot bump): the page decides, not the recorded choice.
-            return None
+        if pin is not None:
+            try:
+                recorded_version = packaging.version.Version(entry.get("version") or "")
+            except packaging.version.InvalidVersion:
+                return None
+            if (
+                not same_release(recorded_version, pin[0])
+                or entry.get("sha256") not in pin[1]
+            ):
+                # The file pins another version, or another artifact of this one
+                # (a Dependabot bump): the page decides, not the recorded choice.
+                return None
         index = (entry.get("index") or "").rstrip("/")
         if index != self.index_url:
             # Recorded from another index. Its repository answers while that index
@@ -495,8 +507,13 @@ class FactRepository(Repository):
     def ensure_metadata(self, candidate: Candidate) -> Optional[Dict[str, Any]]:
         """The metadata fact of a candidate, requesting it when missing."""
         fact = self.facts.get(self.metadata_key(candidate))
-        if fact is None:
+        if fact is None or (fact.get("sidecar") and self.file_vouches(candidate)):
+            # No metadata yet, or metadata an index served separately for an
+            # artifact the pinned file now vouches for: the wheel's own is read
+            # instead (`metadata_request` asks for the whole file), so that the
+            # index cannot describe a pinned wheel as something it is not.
             self.requests.add(self.metadata_request(candidate))
+            return None
         return fact
 
     def resolve_candidate(
@@ -603,6 +620,7 @@ def _render(
         requires_python = ""
         index = ""
         digest = ""
+        sidecar = False
         if isinstance(meta.origin, FactRepository):
             entry = meta.origin.entry(meta.candidate)
             core_metadata = entry.get("core_metadata", False)
@@ -619,6 +637,7 @@ def _render(
             digest = fact.get("digest") or ""
             if digest:
                 metadata[digest] = fact["metadata"]
+            sidecar = bool(fact.get("sidecar"))
         packages[node.key] = {
             "package": meta.name,
             "version": str(meta.version),
@@ -630,10 +649,48 @@ def _render(
             "requires_python": requires_python,
             "index": index,
             "metadata": digest,
+            "sidecar": sidecar,
             "deps": sorted(dep.key for dep in node.dependencies),
             "via": sorted(via),
         }
     return packages
+
+
+def _check_file_pins(
+    hub: _Hub,
+    file_pins: Dict[NormName, Tuple[packaging.version.Version, Set[str]]],
+    solutions: Sequence[Tuple[DistributionCollection, Any]],
+) -> None:
+    """Fail when a hash mismatch on a pinned version was resolved around.
+
+    `_file_pinned` reports a mismatch by offering no candidate, which is the
+    error when nothing else is available. When another index or an older
+    release offers the package anyway, the solver drops the soft pin and picks
+    that instead, and a bump with a wrong hash would resolve quietly to another
+    version. So once a mismatch was noted for a pinned version, the solution
+    must use that version with one of the file's hashes, or the mismatch is the
+    error after all.
+    """
+    for key, mismatch in hub.mismatches.items():
+        pin = file_pins.get(key)
+        if pin is None or not pin[1]:
+            continue
+        for solution, _ in solutions:
+            for node in solution:
+                meta = node.metadata
+                if (
+                    node.key != key
+                    or meta is None
+                    or meta.meta
+                    or meta.candidate is None
+                    or meta.version is None
+                ):
+                    continue
+                sha256 = ""
+                if isinstance(meta.origin, FactRepository):
+                    sha256 = meta.origin.entry(meta.candidate).get("sha256") or ""
+                if not same_release(meta.version, pin[0]) or sha256 not in pin[1]:
+                    raise mismatch
 
 
 def _prefetch(hub: _Hub, req: packaging.requirements.Requirement) -> None:
@@ -801,7 +858,11 @@ def solve(payload: Dict[str, Any]) -> Dict[str, Any]:
                     file_pins = {}
                     if pins:
                         pinned = RequirementsFile.from_file(pins)
-                        file_hashes = pinned_hashes([pins])
+                        file_hashes = (
+                            pinned_hashes([pins])
+                            if hub.spec.get("enforce_hashes", True)
+                            else {}
+                        )
                         for req in pinned.reqs:
                             key = utils.normalize_project_name(req.name)
                             version = exact_version(req)
@@ -836,6 +897,7 @@ def solve(payload: Dict[str, Any]) -> Dict[str, Any]:
                         only_binary=set() if hub.allow_sdists else AllOnlyBinarySet(),
                         pins=hub.pins,
                     )
+                    _check_file_pins(hub, file_pins, solutions)
                 except (
                     NoCandidateException,
                     NoCommonVersionException,
@@ -889,6 +951,10 @@ def ingest(payload: Dict[str, Any]) -> Dict[str, Any]:
         fact = ingest_metadata(body)
         if payload.get("sha256"):
             fact["sha256"] = payload["sha256"]
+        # Whether the text came from the index's separately served file rather
+        # than the distribution itself; `ensure_metadata` reads the latter for
+        # artifacts the pinned file vouches for.
+        fact["sidecar"] = bool(payload.get("sidecar"))
         return fact
     raise ValueError("unknown ingest kind {!r}".format(payload["kind"]))
 

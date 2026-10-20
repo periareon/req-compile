@@ -67,7 +67,25 @@ def link_recorded_metadata(
                 continue
             text = facts.get("md:" + digest)
             if isinstance(text, str):
-                facts["meta:" + identity] = metadata_fact(decode_text(text))
+                fact = metadata_fact(decode_text(text))
+                # Where the text came from, so that an artifact the pinned file
+                # now vouches for gets its metadata read from the wheel itself.
+                fact["sidecar"] = bool(entry.get("sidecar"))
+                facts["meta:" + identity] = fact
+
+
+def same_release(
+    version: packaging.version.Version, pin: packaging.version.Version
+) -> bool:
+    """Whether `version` is the release the pin `pin` names.
+
+    A pin without a local segment names every build of that release (`1.0`
+    covers `1.0+cpu`), which the pin's hashes then tell apart; a pin with one
+    names that build alone.
+    """
+    if pin.local:
+        return version == pin
+    return version.public == pin.public
 
 
 def prior_pins(
