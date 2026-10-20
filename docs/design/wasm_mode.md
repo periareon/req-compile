@@ -740,13 +740,29 @@ refused rather than ignored. And the file's pins are hard pins, as they are for
 pip: a bump whose own requirements reject another pinned package fails with
 req-compile's explanation instead of moving the other pin.
 
-What the flow needs from the repository: `MODULE.bazel.lock` records the
-requirements file as an input, so after Dependabot edits it the lock is stale and
+The usual arrangement, though, keeps a loose `requirements.in` for humans and
+lets the hub maintain the pinned file: `requirements_txt` on the tag names it,
+the hub renders it from its solution (`render_pins` in
+`req_compile/private/pins.bzl`: every package at its version, the sha256 of each
+artifact the hub's platforms use, `# via` from the dependency graph, the hub's
+indexes at the top) and exposes `requirements.update`, which writes it into the
+workspace, and `requirements.test`, which fails while the workspace copy differs
+from what the hub resolved, the role `py_reqs_solution_test` plays for compiled
+locks. Fed back to the hub, the file is a set of hard pins with hashes for the
+packages it lists, while packages it does not list yet resolve freely and then
+appear in it; the solver's `require_pins` flag distinguishes this from a file fed
+as `requirements_in`, where every package must be pinned. A dependency an index
+injected would surface as a new line in the file and fail the test until a human
+regenerates and reviews it, which is the pip-compile model.
+
+What the flow needs from the repository: `MODULE.bazel.lock` records both files
+as inputs, so after Dependabot edits `requirements.txt` the lock is stale and
 `--lockfile_mode=error` fails until it is regenerated. `wasm/example/.github/`
 holds a `dependabot.yml` and a workflow that, on Dependabot pull requests, runs
-`bazel mod deps --lockfile_mode=update` with the wasm flags and commits the lock to
-the PR branch. The division of labour is then: `requirements.txt` is the pin list
-a bot can read and write, `MODULE.bazel.lock` is the lock.
+`requirements.update` and `bazel mod deps --lockfile_mode=update` and commits
+both files to the PR branch. The division of labour is then: `requirements.in`
+is what humans edit, `requirements.txt` is the pin list a bot can read and write,
+`MODULE.bazel.lock` is the lock.
 
 Limits: a file whose hashes come from one platform's artifacts cannot feed a
 multi-platform hub with hashes enforced, because the other platforms' wheels have

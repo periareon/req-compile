@@ -8,6 +8,11 @@ solver module of its own (a release does, and downloads it). Build one with
 
 The hub is resolved by the `requirements` module extension of `rules_req_compile`
 in rounds of downloads, and the result is recorded in `MODULE.bazel.lock`.
+`requirements.txt` is the pin list the hub keeps in step with its solution:
+
+    bazel run @pip_deps//:requirements.update
+
+writes it, and `bazel test //:requirements.test` fails while it is out of date.
 """
 
 module(name = "req_compile_wasm_example")
@@ -28,19 +33,12 @@ requirements.parse(
     ],
     python_version = "3.11",
     requirements_in = ["//:requirements.in"],
+    # The pinned file: what `requirements.in` resolved to, with hashes. Every
+    # package it lists is pinned to that version and those hashes, so a version
+    # bumped in it (Dependabot's pip updater does this) is what the hub resolves
+    # to next; a package new to `requirements.in` resolves freely and is then
+    # added to it by `requirements.update`.
+    requirements_txt = "//:requirements.txt",
     solver = "//:req_compile_solver.wasm",
 )
 use_repo(requirements, "pip_deps")
-
-# A hub fed by a fully pinned, hash-carrying requirements.txt, the file a
-# Dependabot `pip` update keeps current. Hashes are enforced by default, so a
-# version bumped without its hash fails to resolve instead of fetching
-# something the file does not vouch for.
-requirements.parse(
-    name = "pinned_deps",
-    platforms = ["manylinux_2_28_x86_64"],
-    python_version = "3.11",
-    requirements_in = ["//:requirements.txt"],
-    solver = "//:req_compile_solver.wasm",
-)
-use_repo(requirements, "pinned_deps")

@@ -169,10 +169,16 @@ def _resolve_spec(mod, parse):
             parse.name,
             mod.name,
         ))
+    if parse.requirements_txt and parse.requirements_txt.repo_name:
+        fail("Hub `{}` of module `{}`: `requirements_txt` must be a file of the root module, since `requirements.update` writes it into the workspace.".format(
+            parse.name,
+            mod.name,
+        ))
     return resolve_spec(
         name = parse.name,
         requirements_in = parse.requirements_in,
         constraints = parse.constraints,
+        pins = parse.requirements_txt,
         python_version = parse.python_version,
         platforms = parse.platforms,
         solver = parse.solver,
@@ -300,6 +306,11 @@ def _requirements_impl(ctx):
             if parse.requirements_in:
                 to_resolve[parse.name] = _resolve_spec(mod, parse)
                 locks = []
+            elif parse.requirements_txt:
+                fail("Hub `{}` of module `{}` sets `requirements_txt`, which goes with `requirements_in`.".format(
+                    parse.name,
+                    mod.name,
+                ))
             else:
                 locks = _hub_locks(mod, parse)
 
@@ -310,6 +321,9 @@ def _requirements_impl(ctx):
                 "locks": locks,
                 "module": mod.name,
                 "package_aliases": parse.package_aliases,
+                "pins": parse.requirements_txt,
+                "pins_index_urls": [parse.index_url] + list(parse.extra_index_urls),
+                "pins_roots": [label.name for label in parse.requirements_in],
             }
 
             if mod.is_root and parse.override_module_repos:
@@ -353,6 +367,9 @@ def _requirements_impl(ctx):
             package_aliases = hub["package_aliases"],
             legacy_root_pkg_aliases = hub["legacy_root_pkg_aliases"],
             alias_of = hub["alias_of"],
+            pins = hub["pins"],
+            pins_index_urls = hub["pins_index_urls"],
+            pins_roots = hub["pins_roots"],
         )
         for name, hub in hubs.items()
     }
@@ -529,6 +546,17 @@ pages and metadata of what is new. To resolve afresh instead, set
 `REQ_COMPILE_UPGRADE=all`, or to a comma separated list of the packages to
 upgrade, and run any build or `bazel mod deps`.
 
+With `requirements_txt` the hub also keeps a pinned requirements file in the
+workspace, in the shape `pip-compile --generate-hashes` writes: every package at
+its resolved version with the hashes of the artifacts the hub's platforms use.
+`bazel run @<hub>//:requirements.update` writes it and `@<hub>//:requirements.test`
+fails while it is out of date, as `py_reqs_solution_test` does for compiled
+locks. Fed back to the hub, the file pins the version and hashes of what it
+lists, so a version Dependabot bumps in it is what the next resolution uses,
+while a package newly added to `requirements_in` resolves freely and then
+appears in it. The file is the pin list a bot can edit; `MODULE.bazel.lock`
+remains the lock.
+
 A hub whose locks do not all contain the same packages is supported. A package
 missing from the lock of a platform is incompatible with that platform, so targets
 depending on it are skipped there rather than failing to build.
@@ -660,6 +688,19 @@ a downloaded wheel.""",
                 "value that is a label string is treated as the config setting of the lock, but such labels are " +
                 "resolved relative to `rules_req_compile` and can only name config settings visible to it."
             ),
+        ),
+        "requirements_txt": attr.label(
+            doc = (
+                "Resolve mode: the hub's pinned requirements file, kept in step with its solution. The hub " +
+                "renders it (one entry per package with its version, the sha256 of every artifact its " +
+                "platforms use, and what requires it) and exposes `@<hub>//:requirements.update`, which " +
+                "writes it into the workspace, and `@<hub>//:requirements.test`, which fails when it is " +
+                "out of date. Fed back here, the file pins the version and hashes of every package it " +
+                "lists, so a version bumped in it, by Dependabot for instance, is what the next " +
+                "resolution uses; packages not yet in it, such as one just added to `requirements_in`, " +
+                "resolve freely and then appear in it. Must be a file of the root module."
+            ),
+            allow_single_file = True,
         ),
         "solver": attr.label(
             doc = (

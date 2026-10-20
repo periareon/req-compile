@@ -42,6 +42,30 @@ py_binary(
     ],
 )
 
+# The scripts behind a hub's `requirements.update` and `requirements.test`
+# targets; the hub repository defines the targets with its own arguments.
+exports_files(
+    [
+        "pins_test.py",
+        "pins_update.py",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "pins_update",
+    srcs = ["pins_update.py"],
+    visibility = ["//visibility:public"],
+    deps = ["@rules_venv//python/runfiles"],
+)
+
+py_binary(
+    name = "pins_test",
+    srcs = ["pins_test.py"],
+    visibility = ["//visibility:public"],
+    deps = ["@rules_venv//python/runfiles"],
+)
+
 bzl_library(
     name = "annotation",
     srcs = ["annotation.bzl"],
@@ -62,6 +86,7 @@ bzl_library(
     visibility = ["//:__subpackages__"],
     deps = [
         ":lockfile",
+        ":pins",
         ":utils",
         ":whl_repo",
     ],
@@ -83,6 +108,12 @@ bzl_library(
     srcs = ["solver.bzl"],
     visibility = ["//:__subpackages__"],
     deps = ["//:version"],
+)
+
+bzl_library(
+    name = "pins",
+    srcs = ["pins.bzl"],
+    visibility = ["//:__subpackages__"],
 )
 
 bzl_library(
