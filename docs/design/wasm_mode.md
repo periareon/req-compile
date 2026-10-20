@@ -738,7 +738,8 @@ it carries a hash, as pip does; one advertised without a hash is never fetched.)
 Both `--hash=sha256:...` and `--hash sha256:...` are pins; other algorithms are
 refused rather than ignored. And the file's pins are hard pins, as they are for
 pip: a bump whose own requirements reject another pinned package fails with
-req-compile's explanation instead of moving the other pin.
+req-compile's explanation instead of moving the other pin. (That is the file as
+`requirements_in`; the hub-maintained file below is softer.)
 
 The usual arrangement, though, keeps a loose `requirements.in` for humans and
 lets the hub maintain the pinned file: `requirements_txt` on the tag names it,
@@ -755,11 +756,25 @@ hash of every file of a release in its own layout, and that passes; so do
 `2.0.0` or `===2.0` for `2.0`, a tab before a comment and a package pinned twice
 at one version, while a package pinned twice at different versions or an `-r`
 include, which the test does not follow, fail naming it. Markers are not
-evaluated (a pin with one is a pin). Fed back to the hub, the file is a set of hard pins with hashes for the
-packages it lists, while packages it does not list yet resolve freely and then
-appear in it, as do the packages `REQ_COMPILE_UPGRADE` names (all of them with
-`all`), whose pins and hashes are left out of the constraints for that one
-resolution so that `requirements.update` writes their new version.
+evaluated (a pin with one is a pin). Fed back to the hub, the file plays the
+part the existing lock plays for pip-compile and for `req-compile --solution`:
+its versions are soft pins (`perform_compile_group`'s `pins`, the same channel
+as the recorded solution's versions, which the file outranks), so a package
+keeps its pinned version while `requirements.in` and the other packages allow
+it, and is resolved again when they do not, with no flag to pass: bumping
+`idna>=3.20` in the `.in` against an `idna==3.19` pin just moves idna. The
+file's hashes vouch for the pinned version only (`FactRepository.file_pins`,
+`_file_pinned`): an artifact of that version with another hash is left out, and
+when none of its artifacts match while the requirements still allow the
+version, that is an error, so a Dependabot bump with a wrong hash cannot resolve
+quietly to something else; a version the file does not pin needs no hash, and
+`requirements.update` writes it. A recorded distribution yields to the file
+(`_recorded`): when the file pins another version or another artifact, the page
+is fetched. Packages the file does not list yet resolve freely and then appear
+in it, as do the packages `REQ_COMPILE_UPGRADE` names (all of them with `all`),
+whose pin and hashes are left out for that one resolution so that
+`requirements.update` writes their new version; that is for moving a pin the
+requirements still allow.
 `requirements.update -- --upgrade [package ...]` (`-U`) is the same thing from
 the command line: the script runs its own target once more, by canonical label
 (the root module may import the hub under another name) and with
@@ -768,9 +783,10 @@ the command line: the script runs its own target once more, by canonical label
 released before the binary runs. The inner command is `bazel` from `PATH` (or
 `$BAZEL`) without the options of the outer command line, so the flags the
 resolution needs belong in `.bazelrc`; and since the outer `bazel run` resolves
-the hub before the script starts, a pin that keeps the hub from resolving at all
-is lifted from the shell, `REQ_COMPILE_UPGRADE=<package> bazel run ...`, which
-the failure message of a pinned hub says. The solver's
+the hub before the script starts, a hash in the file that keeps the hub from
+resolving at all (the one case a soft pin can still block) is lifted from the
+shell, `REQ_COMPILE_UPGRADE=<package> bazel run ...`, which the failure message
+of a pinned hub says. The solver's
 `require_pins` flag distinguishes this from a file fed as `requirements_in`,
 where every package must be pinned. The test reads a copy of the workspace file
 the hub repository took at fetch time (`repository_ctx.read` of the label), so

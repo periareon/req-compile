@@ -155,9 +155,11 @@ writes it and `bazel test //:requirements.test` fails while it is out of date
 `@pip_deps//:requirements.test`, which sits in the hub repository where
 `bazel test //...` would not reach it; the file needs no `exports_files`).
 Dependabot's `pip` updater bumps versions and hashes in it; fed back to the hub,
-the file pins exactly what it lists, so the bump is what the next resolution
-uses, while a package newly added to `requirements.in` resolves freely and then
-appears in the file. `example/.github/` holds a `dependabot.yml` and a workflow
+the file is what an existing lock is to pip-compile: each package keeps its
+pinned version while `requirements.in` allows it, so the bump is what the next
+resolution uses, a bound raised in `requirements.in` moves the pin by itself,
+and a package newly added to `requirements.in` resolves freely and then appears
+in the file. `example/.github/` holds a `dependabot.yml` and a workflow
 that, on Dependabot pull requests, rewrites the file in the hub's format and
 refreshes `MODULE.bazel.lock`, which is needed because both files are recorded
 inputs of the lock.

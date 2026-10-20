@@ -1,3 +1,12 @@
+New in version 1.6.3:
+
+* A hub's ``requirements_txt`` is to the resolution what an existing lock is to pip-compile: each package
+  keeps the version the file pins, with the file's hashes, while ``requirements_in`` and the other packages
+  allow it, and is resolved again when they do not. Raising a bound in ``requirements_in`` therefore moves the
+  pin by itself; before, the file's pins were hard and the bump failed until ``--upgrade`` lifted them. The
+  file's hashes vouch for the pinned version only, so a bump with a wrong hash still fails naming the package,
+  while a version the file does not pin needs no hash and gets one when ``requirements.update`` writes it.
+
 New in version 1.6.2:
 
 * ``@<hub>//:requirements.test`` compares the pinned file by meaning: it passes when the file pins exactly the

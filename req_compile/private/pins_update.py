@@ -10,9 +10,9 @@ names, by running that label once more with `--repo_env=REQ_COMPILE_UPGRADE=...`
 
 The inner command is `bazel` from PATH, or `$BAZEL`, with no option of the outer
 command line: options the resolution needs belong in `.bazelrc`. And since the
-outer `bazel run` has to resolve the hub before this script starts, a pin that
-keeps the hub from resolving at all is lifted from the shell instead:
-`REQ_COMPILE_UPGRADE=<package> bazel run @<hub>//:requirements.update`.
+outer `bazel run` has to resolve the hub before this script starts, a hash in
+the file that keeps the hub from resolving at all is lifted from the shell
+instead: `REQ_COMPILE_UPGRADE=<package> bazel run @<hub>//:requirements.update`.
 """
 
 import argparse

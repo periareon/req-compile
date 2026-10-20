@@ -633,10 +633,13 @@ workspace, in the shape `pip-compile --generate-hashes` writes: every package at
 its resolved version with the hashes of the artifacts the hub's platforms use.
 `bazel run @<hub>//:requirements.update` writes it and `@<hub>//:requirements.test`
 fails while it is out of date, as `py_reqs_solution_test` does for compiled
-locks. Fed back to the hub, the file pins the version and hashes of what it
-lists, so a version Dependabot bumps in it is what the next resolution uses,
-while a package newly added to `requirements_in` resolves freely and then
-appears in it. The file is the pin list a bot can edit; `MODULE.bazel.lock`
+locks. Fed back to the hub, the file is what an existing lock is to pip-compile:
+each package keeps the version it pins, with the file's hashes, while
+`requirements_in` and the other packages allow it, and is resolved again when
+they do not, so a version Dependabot bumps in the file is what the next
+resolution uses and a bound raised in `requirements_in` moves the pin by
+itself; a package newly added to `requirements_in` resolves freely and then
+appears in the file. The file is the pin list a bot can edit; `MODULE.bazel.lock`
 remains the lock.
 """,
     attrs = {
@@ -755,10 +758,12 @@ a downloaded wheel.""",
                 "renders it (one entry per package with its version, the sha256 of every artifact its " +
                 "platforms use, and what requires it) and exposes `@<hub>//:requirements.update`, which " +
                 "writes it into the workspace, and `@<hub>//:requirements.test`, which fails when it is " +
-                "out of date. Fed back here, the file pins the version and hashes of every package it " +
-                "lists, so a version bumped in it, by Dependabot for instance, is what the next " +
-                "resolution uses; packages not yet in it, such as one just added to `requirements_in`, " +
-                "resolve freely and then appear in it. A pin is moved on purpose with " +
+                "out of date. Fed back here, the file is what an existing lock is to pip-compile: each " +
+                "package keeps the version it pins, with the file's hashes, while `requirements_in` and " +
+                "the other packages allow it, and is resolved again when they do not. So a version bumped " +
+                "in it, by Dependabot for instance, is what the next resolution uses, a bound raised in " +
+                "`requirements_in` moves the pin by itself, and packages not yet in it resolve freely and " +
+                "then appear in it. A pin the requirements still allow is moved on purpose with " +
                 "`bazel run @<hub>//:requirements.update -- --upgrade <package>` (every pin with no name; " +
                 "`-U` for short), or by setting `REQ_COMPILE_UPGRADE`. Must be a file of the root module; " +
                 "it needs no `exports_files`. The test lives in the hub repository, outside `//...`, so a " +

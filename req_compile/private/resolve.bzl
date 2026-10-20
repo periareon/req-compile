@@ -628,11 +628,14 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
                 hub = out.get("hub", "?")
                 hint = ""
                 if hubs.get(hub, {}).get("pins"):
-                    # The `--upgrade` flag of `requirements.update` cannot help
-                    # here: `bazel run` resolves the hub before the script runs.
+                    # A pin the requirements no longer allow is dropped by itself;
+                    # what can still stand in the way is a hash the file gives for
+                    # a version. The `--upgrade` flag of `requirements.update`
+                    # cannot help here: `bazel run` resolves the hub before the
+                    # script runs.
                     hint = (
-                        "\nIf a pin in {} is in the way, lift it for one resolution with " +
-                        "`REQ_COMPILE_UPGRADE=<package> bazel run @{}//:requirements.update` " +
+                        "\nIf the hashes {} gives for a version are the cause, resolve the package without " +
+                        "them: `REQ_COMPILE_UPGRADE=<package> bazel run @{}//:requirements.update` " +
                         "(`REQ_COMPILE_UPGRADE=all` lifts every pin)."
                     ).format(hubs[hub]["pins"], hub)
                 fail("Failed to resolve the requirements of hub `{}`: {}{}".format(hub, out["message"], hint))

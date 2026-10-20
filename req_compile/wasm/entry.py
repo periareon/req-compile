@@ -65,7 +65,14 @@ from req_compile.wasm.files import (
     file_constraints,
     pinned_hashes,
 )
-from req_compile.wasm.ingest import ingest_index, ingest_metadata, metadata_fact
+from req_compile.wasm.ingest import ingest_index, ingest_metadata
+from req_compile.wasm.prior import (
+    exact_version,
+    link_recorded_metadata,
+    prior_locks,
+    prior_pins,
+    upgraded,
+)
 
 ACCEPT_INDEX = "application/vnd.pypi.simple.v1+json, text/html;q=0.1"
 
@@ -187,13 +194,16 @@ class FactRepository(Repository):
         self._python_ok: Dict[str, bool] = {}
         self._tags_ok: Dict[Tuple[Any, ...], bool] = {}
         self._candidates: Dict[str, List[Candidate]] = {}
-        # The `--hash` values pinned per project; set by `solve` once the files are read.
+        # The `--hash` values pinned per project by the requirement and constraint
+        # files; set by `solve` once the files are read. They bind every version.
         self.hashes: Dict[NormName, Set[str]] = {}
-        # Whether a project without a pinned hash is an error. True when the
-        # requirement files themselves pin hashes (`pip --require-hashes`); false
-        # when only the hub's pinned requirements file does, which pins what it
-        # lists and leaves new packages to be resolved and then recorded in it.
+        # Whether a project without a pinned hash is an error: true when the
+        # requirement files themselves pin hashes (`pip --require-hashes`).
         self.require_pins = False
+        # The hub's own pinned requirements file, per project: the version it
+        # pins and the hashes it gives for it. The version is a soft pin (see
+        # `_file_pinned`); the hashes bind that version only.
+        self.file_pins: Dict[NormName, Tuple[packaging.version.Version, Set[str]]] = {}
         self._entries: Dict[Tuple[str, str], Dict[str, Any]] = {}
 
     def __repr__(self) -> str:
@@ -311,14 +321,14 @@ class FactRepository(Repository):
         its hash is the usual cause, and naming the new version's artifacts is
         what makes the message actionable.
         """
-        if not self.hashes or not candidates:
+        if not candidates:
             return candidates
         key = utils.normalize_project_name(name)
         pinned = self.hashes.get(key)
         if not pinned:
-            if self.require_pins:
+            if self.hashes and self.require_pins:
                 raise UnpinnedPackage(name)
-            return candidates
+            return self._file_pinned(key, name, candidates, req)
         matching = [
             candidate
             for candidate in candidates
@@ -337,12 +347,56 @@ class FactRepository(Repository):
             self.entry(candidate)["sha256"]: candidate.filename or ""
             for candidate in relevant
         }
+        self._note_mismatch(key, name, pinned, found)
+        return []
+
+    def _note_mismatch(
+        self, key: NormName, name: str, pinned: Set[str], found: Dict[str, str]
+    ) -> None:
         mismatch = self.mismatches.get(key)
         if mismatch is None:
             self.mismatches[key] = HashMismatch(name, pinned, found)
         else:
             mismatch.found.update(found)
-        return []
+
+    def _file_pinned(
+        self,
+        key: NormName,
+        name: str,
+        candidates: List[Candidate],
+        req: Optional[packaging.requirements.Requirement],
+    ) -> List[Candidate]:
+        """Apply the hub's pinned requirements file to a project's candidates.
+
+        The file's version is a soft pin: `solve` hands it to the solver, which
+        prefers it while the requirements allow it and moves on when they do not,
+        as pip-compile does with an existing lock. The file's hashes vouch for
+        that version only: an artifact of the pinned version with another hash is
+        left out, and when none of its artifacts match while the requirement still
+        allows the version, that is an error, so that a pin bumped without its hash
+        cannot resolve quietly to something else. Other versions are not pinned
+        by hash; `requirements.update` writes theirs.
+        """
+        pin = self.file_pins.get(key)
+        if pin is None or not pin[1]:
+            return candidates
+        version, hashes = pin
+        of_version = [c for c in candidates if c.version == version]
+        if not of_version:
+            return candidates
+        matching = [c for c in of_version if self.entry(c)["sha256"] in hashes]
+        if not matching and (
+            req is None or req.specifier.contains(version, prereleases=True)
+        ):
+            found = {self.entry(c)["sha256"]: c.filename or "" for c in of_version}
+            self._note_mismatch(key, name, hashes, found)
+            return []
+        return [c for c in candidates if c.version != version or c in matching]
+
+    def file_vouches(self, candidate: Candidate) -> bool:
+        """Whether the pinned file pins this candidate's version with a hash."""
+        pin = self.file_pins.get(utils.normalize_project_name(candidate.name))
+        return pin is not None and bool(pin[1]) and candidate.version == pin[0]
 
     def _recorded(
         self, req: packaging.requirements.Requirement
@@ -354,6 +408,13 @@ class FactRepository(Repository):
             return None
         if self.require_pins and key not in self.hashes:
             raise UnpinnedPackage(req.name)
+        pin = self.file_pins.get(key)
+        if pin is not None and (
+            str(pin[0]) != entry.get("version") or entry.get("sha256") not in pin[1]
+        ):
+            # The file pins another version, or another artifact of this one
+            # (a Dependabot bump): the page decides, not the recorded choice.
+            return None
         index = (entry.get("index") or "").rstrip("/")
         if index != self.index_url:
             # Recorded from another index. Its repository answers while that index
@@ -416,7 +477,10 @@ class FactRepository(Repository):
         # for the wheel the whole file is fetched too, so that the download's
         # digest can pin it.
         use_sidecar = (
-            isinstance(core, dict) and bool(entry["sha256"]) and not self.hashes
+            isinstance(core, dict)
+            and bool(entry["sha256"])
+            and not self.hashes
+            and not self.file_vouches(candidate)
         )
         return {
             "id": self.metadata_key(candidate),
@@ -466,72 +530,6 @@ class FactRepository(Repository):
         return dist, True
 
 
-def _prior_locks(
-    spec: Dict[str, Any], upgrade: Any
-) -> Dict[str, Dict[NormName, Dict[str, Any]]]:
-    """The recorded distributions per platform, minus the packages being upgraded.
-
-    `prior` is either the recorded solution, `{"locks": {platform: {name: entry}}}`,
-    or, for compatibility, a plain mapping of name to version, which pins but
-    cannot stand in for index pages.
-    """
-    prior = spec.get("prior")
-    if not prior or upgrade == "all":
-        return {}
-    skip = {utils.normalize_project_name(name) for name in (upgrade or [])}
-    if "locks" in prior:
-        locks = prior["locks"]
-    else:
-        locks = {
-            platform: {name: {"version": version} for name, version in prior.items()}
-            for platform in spec["platforms"]
-        }
-    result: Dict[str, Dict[NormName, Dict[str, Any]]] = {}
-    for platform, packages in locks.items():
-        entries: Dict[NormName, Dict[str, Any]] = {}
-        for name, entry in packages.items():
-            key = utils.normalize_project_name(entry.get("package") or name)
-            if key in skip:
-                continue
-            entries[key] = entry
-        result[platform] = entries
-    return result
-
-
-def _link_recorded_metadata(
-    prior: Dict[str, Dict[NormName, Dict[str, Any]]], facts: Dict[str, Any]
-) -> None:
-    """Serve the metadata of recorded distributions from the `md:` facts.
-
-    The lockfile keeps metadata once per distinct text, keyed by its digest, and
-    each recorded distribution names the digest of its own; the solver looks
-    metadata up by distribution, so the two are joined here.
-    """
-    for packages in prior.values():
-        for entry in packages.values():
-            digest = entry.get("metadata")
-            identity = entry.get("sha256") or entry.get("url")
-            if not digest or not identity or "meta:" + identity in facts:
-                continue
-            text = facts.get("md:" + digest)
-            if isinstance(text, str):
-                facts["meta:" + identity] = metadata_fact(decode_text(text))
-
-
-def _prior_pins(
-    locks: Dict[str, Dict[NormName, Dict[str, Any]]],
-) -> Dict[NormName, packaging.version.Version]:
-    """The versions a prior solution chose, as soft pins."""
-    pins: Dict[NormName, packaging.version.Version] = {}
-    for packages in locks.values():
-        for key, entry in packages.items():
-            try:
-                pins.setdefault(key, packaging.version.Version(entry["version"]))
-            except (KeyError, packaging.version.InvalidVersion):
-                continue
-    return pins
-
-
 class _Hub:
     def __init__(
         self,
@@ -552,9 +550,9 @@ class _Hub:
         # Whether the pinned hashes have been read; metadata is requested only
         # after, since they decide how it is fetched.
         self.hashes_ready = not spec.get("enforce_hashes", True)
-        prior = _prior_locks(spec, upgrade)
-        self.pins = _prior_pins(prior)
-        _link_recorded_metadata(prior, facts)
+        prior = prior_locks(spec, upgrade)
+        self.pins = prior_pins(prior)
+        link_recorded_metadata(prior, facts)
         self.mismatches: Dict[NormName, HashMismatch] = {}
         self.indexes: List[List[FactRepository]] = []
         self.repos: List[Repository] = []
@@ -610,7 +608,9 @@ def _render(
             core_metadata = entry.get("core_metadata", False)
             requires_python = entry.get("requires_python") or ""
             index = meta.origin.index_url
-            hash_pinned = node.key in meta.origin.hashes
+            hash_pinned = node.key in meta.origin.hashes or meta.origin.file_vouches(
+                meta.candidate
+            )
             fact = meta.origin.facts.get(meta.origin.metadata_key(meta.candidate)) or {}
             if not sha256:
                 # The index gave no hash, so the file itself was fetched and the
@@ -706,13 +706,6 @@ def _speculate(hubs: List[_Hub], facts: Dict[str, Any]) -> None:
             _prefetch(hub, req)
 
 
-def _upgraded(upgrade: Any) -> Optional[Set[NormName]]:
-    """The projects `REQ_COMPILE_UPGRADE` names, or None for all of them."""
-    if upgrade == "all":
-        return None
-    return {utils.normalize_project_name(name) for name in (upgrade or [])}
-
-
 def _failed_requests(hub: _Hub, ex: Exception) -> List[Dict[str, Any]]:
     """The requests behind a resolution error whose download failed.
 
@@ -796,25 +789,27 @@ def solve(payload: Dict[str, Any]) -> Dict[str, Any]:
                                 path, reqs.parameters or [], hub.spec["indexes"]
                             )
                         )
-                    # The hub's pinned requirements file: hard pins, with hashes,
-                    # for the packages it lists, except the ones being upgraded,
-                    # which resolve from the index again and are then rewritten.
+                    # The hub's pinned requirements file, the lock pip-compile
+                    # would read: the version it pins is preferred while the
+                    # requirements allow it and dropped when they do not, its
+                    # hashes vouch for that version, and packages being upgraded
+                    # are resolved from the index again and then rewritten. Its
+                    # versions outrank the recorded solution's: a bump in the file
+                    # is what the next resolution uses.
                     pins = hub.spec.get("pins")
-                    lifted = _upgraded(upgrade)
+                    lifted = upgraded(upgrade)
+                    file_pins = {}
                     if pins:
                         pinned = RequirementsFile.from_file(pins)
-                        constraints.append(
-                            RequirementsFile(
-                                pinned.name,
-                                [
-                                    req
-                                    for req in pinned.reqs
-                                    if lifted is not None
-                                    and utils.normalize_project_name(req.name)
-                                    not in lifted
-                                ],
-                                parameters=pinned.parameters,
-                            )
+                        file_hashes = pinned_hashes([pins])
+                        for req in pinned.reqs:
+                            key = utils.normalize_project_name(req.name)
+                            version = exact_version(req)
+                            if version is None or lifted is None or key in lifted:
+                                continue
+                            file_pins[key] = (version, set(file_hashes.get(key, ())))
+                        hub.pins.update(
+                            {key: version for key, (version, _) in file_pins.items()}
                         )
                         constraints.extend(
                             file_constraints(
@@ -827,14 +822,11 @@ def solve(payload: Dict[str, Any]) -> Dict[str, Any]:
                             + list(hub.spec.get("constraints", []))
                         )
                         hashes = {name: set(values) for name, values in strict.items()}
-                        if pins:
-                            for name, values in pinned_hashes([pins]).items():
-                                if lifted is not None and name not in lifted:
-                                    hashes.setdefault(name, set()).update(values)
                         for repos in hub.indexes:
                             for repo in repos:
                                 repo.hashes = hashes
                                 repo.require_pins = bool(strict)
+                                repo.file_pins = file_pins
                         hub.hashes_ready = True
                     solutions = perform_compile_group(
                         input_reqs,
