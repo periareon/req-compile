@@ -755,9 +755,9 @@ a downloaded wheel.""",
                 "out of date. Fed back here, the file pins the version and hashes of every package it " +
                 "lists, so a version bumped in it, by Dependabot for instance, is what the next " +
                 "resolution uses; packages not yet in it, such as one just added to `requirements_in`, " +
-                "resolve freely and then appear in it, and so does a package named in `REQ_COMPILE_UPGRADE` " +
-                "(every package with `all`), which is how a pin is moved on purpose. Must be a file of the " +
-                "root module."
+                "resolve freely and then appear in it. A pin is moved on purpose with " +
+                "`bazel run @<hub>//:requirements.update -- --upgrade <package>` (every pin with no name; " +
+                "`-U` for short), or by setting `REQ_COMPILE_UPGRADE`. Must be a file of the root module."
             ),
             allow_single_file = True,
         ),

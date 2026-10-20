@@ -755,7 +755,11 @@ hash of every file of a release in its own layout, and that passes. Fed back to 
 packages it lists, while packages it does not list yet resolve freely and then
 appear in it, as do the packages `REQ_COMPILE_UPGRADE` names (all of them with
 `all`), whose pins and hashes are left out of the constraints for that one
-resolution so that `requirements.update` writes their new version; the solver's
+resolution so that `requirements.update` writes their new version.
+`requirements.update -- --upgrade [package ...]` (`-U`) is the same thing from
+the command line: the script runs its own target once more with the variable
+set, which `bazel run` allows since the command lock is released before the
+binary runs; the solver's
 `require_pins` flag distinguishes this from a file fed as `requirements_in`,
 where every package must be pinned. A dependency an index
 injected would surface as a new line in the file and fail the test until a human

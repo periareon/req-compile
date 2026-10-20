@@ -5,8 +5,8 @@ New in version 1.6.2:
   platforms use. Extra hashes, comments and ordering do not matter, so a file Dependabot regenerates with
   pip-compile passes; a missing or extra package, another version or a missing hash fails naming the package.
 * ``REQ_COMPILE_UPGRADE`` lifts the pins of the named packages (all of them with ``all``) from the hub's
-  ``requirements_txt`` for that resolution, so ``REQ_COMPILE_UPGRADE=<pkg> bazel run @<hub>//:requirements.update``
-  moves a pin on purpose.
+  ``requirements_txt`` for that resolution, and ``bazel run @<hub>//:requirements.update -- --upgrade [pkg ...]``
+  (``-U``) does the same from the command line, so a pin can be moved on purpose.
 * ``@<hub>//:requirements.test`` compares against a copy of the workspace file the hub repository reads itself,
   so the file needs no ``exports_files``.
 * The module archive no longer carries the solver module built during the release, nor a stray diff file.

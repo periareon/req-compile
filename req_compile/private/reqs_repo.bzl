@@ -738,6 +738,7 @@ py_binary(
     args = [
         "$(rlocationpath :requirements.txt)",
         "{path}",
+        "{hub}",
     ],
     data = [":requirements.txt"],
     deps = ["@rules_venv//python/runfiles"],
