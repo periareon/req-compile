@@ -706,6 +706,13 @@ def _speculate(hubs: List[_Hub], facts: Dict[str, Any]) -> None:
             _prefetch(hub, req)
 
 
+def _upgraded(upgrade: Any) -> Optional[Set[NormName]]:
+    """The projects `REQ_COMPILE_UPGRADE` names, or None for all of them."""
+    if upgrade == "all":
+        return None
+    return {utils.normalize_project_name(name) for name in (upgrade or [])}
+
+
 def _failed_requests(hub: _Hub, ex: Exception) -> List[Dict[str, Any]]:
     """The requests behind a resolution error whose download failed.
 
@@ -790,11 +797,25 @@ def solve(payload: Dict[str, Any]) -> Dict[str, Any]:
                             )
                         )
                     # The hub's pinned requirements file: hard pins, with hashes,
-                    # for the packages it lists.
+                    # for the packages it lists, except the ones being upgraded,
+                    # which resolve from the index again and are then rewritten.
                     pins = hub.spec.get("pins")
+                    lifted = _upgraded(upgrade)
                     if pins:
                         pinned = RequirementsFile.from_file(pins)
-                        constraints.append(pinned)
+                        constraints.append(
+                            RequirementsFile(
+                                pinned.name,
+                                [
+                                    req
+                                    for req in pinned.reqs
+                                    if lifted is not None
+                                    and utils.normalize_project_name(req.name)
+                                    not in lifted
+                                ],
+                                parameters=pinned.parameters,
+                            )
+                        )
                         constraints.extend(
                             file_constraints(
                                 pins, pinned.parameters or [], hub.spec["indexes"]
@@ -808,7 +829,8 @@ def solve(payload: Dict[str, Any]) -> Dict[str, Any]:
                         hashes = {name: set(values) for name, values in strict.items()}
                         if pins:
                             for name, values in pinned_hashes([pins]).items():
-                                hashes.setdefault(name, set()).update(values)
+                                if lifted is not None and name not in lifted:
+                                    hashes.setdefault(name, set()).update(values)
                         for repos in hub.indexes:
                             for repo in repos:
                                 repo.hashes = hashes
