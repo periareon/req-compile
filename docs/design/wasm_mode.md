@@ -746,9 +746,12 @@ the hub renders it from its solution (`render_pins` in
 `req_compile/private/pins.bzl`: every package at its version, the sha256 of each
 artifact the hub's platforms use, `# via` from the dependency graph, the hub's
 indexes at the top) and exposes `requirements.update`, which writes it into the
-workspace, and `requirements.test`, which fails while the workspace copy differs
-from what the hub resolved, the role `py_reqs_solution_test` plays for compiled
-locks. Fed back to the hub, the file is a set of hard pins with hashes for the
+workspace, and `requirements.test`, which fails while the workspace copy no
+longer pins what the hub resolved, the role `py_reqs_solution_test` plays for
+compiled locks. The comparison is by meaning: the same packages at the same
+versions, each with at least the hashes of the artifacts the hub uses. Dependabot
+regenerates the file with pip-compile when a `.in` file exists, which writes the
+hash of every file of a release in its own layout, and that passes. Fed back to the hub, the file is a set of hard pins with hashes for the
 packages it lists, while packages it does not list yet resolve freely and then
 appear in it; the solver's `require_pins` flag distinguishes this from a file fed
 as `requirements_in`, where every package must be pinned. A dependency an index

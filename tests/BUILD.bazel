@@ -18,6 +18,8 @@ py_pytest_test_suite(
         # tree, which it locates relative to this directory.
         "//:CHANGELOG.rst",
         "//:README.rst",
+        # `test_pins_test` loads the hub test script from the source tree.
+        "//req_compile/private:pins_test.py",
         "//:requirements.in",
         "//:setup.py",
         "//:version.bzl",

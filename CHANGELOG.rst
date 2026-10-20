@@ -1,3 +1,10 @@
+New in version 1.6.2:
+
+* ``@<hub>//:requirements.test`` compares the pinned file by meaning: it passes when the file pins exactly the
+  packages and versions the hub resolved and, for each, its hashes include those of the artifacts the hub's
+  platforms use. Extra hashes, comments and ordering do not matter, so a file Dependabot regenerates with
+  pip-compile passes; a missing or extra package, another version or a missing hash fails naming the package.
+
 New in version 1.6.1:
 
 * Resolve mode moves to its own tag class, ``requirements.resolve``, with the attributes that only mean
