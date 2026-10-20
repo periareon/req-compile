@@ -102,6 +102,7 @@ tar -czf "${SCRATCH}/${ARCHIVE}" \
     --exclude="./bazel-*" \
     --exclude="./wasm/example" \
     --exclude="./wasm/build" \
+    --exclude="./req_compile_solver.wasm" \
     -C "${WORKSPACE}" .
 mv "${SCRATCH}/${ARCHIVE}" "${ARCHIVE}"
 

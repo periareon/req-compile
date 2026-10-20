@@ -743,18 +743,21 @@ py_binary(
     deps = ["@rules_venv//python/runfiles"],
 )
 
+# `requirements.workspace.txt` is the workspace's copy of the file, read when
+# this repository is created, so that the test needs no visibility into the
+# workspace; the extension re-creates the repository whenever that file changes.
 py_test(
     name = "requirements.test",
     srcs = ["pins_test.py"],
     args = [
         "$(rlocationpath :requirements.txt)",
-        "$(rlocationpath {label})",
+        "$(rlocationpath :requirements.workspace.txt)",
         "{path}",
         "bazel run @{hub}//:requirements.update",
     ],
     data = [
         ":requirements.txt",
-        "{label}",
+        ":requirements.workspace.txt",
     ],
     deps = ["@rules_venv//python/runfiles"],
 )
@@ -1000,11 +1003,14 @@ def _py_requirements_repository_impl(repository_ctx):
     pins = ""
     if repository_ctx.attr.pins_text:
         repository_ctx.file("requirements.txt", repository_ctx.attr.pins_text)
+        repository_ctx.file(
+            "requirements.workspace.txt",
+            repository_ctx.read(Label(repository_ctx.attr.pins_label)),
+        )
         for script in ("pins_update.py", "pins_test.py"):
             repository_ctx.file(script, repository_ctx.read(Label("//req_compile/private:" + script)))
         pins = "\n" + _PINS_BUILD_TEMPLATE.format(
             hub = hub_name,
-            label = repository_ctx.attr.pins_label,
             path = repository_ctx.attr.pins_path,
         )
 
