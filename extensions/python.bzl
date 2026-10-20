@@ -624,19 +624,27 @@ header names that platform. Nothing of this runs unless some module uses this ta
 The solution is also remembered in the lock file's facts. When a requirement
 file changes, the next resolution keeps every version the change does not
 disturb, like `py_reqs_compiler` recycling its solution, and fetches only the
-pages and metadata of what is new. To resolve afresh instead, set
-`REQ_COMPILE_UPGRADE=all`, or to a comma separated list of the packages to
-upgrade, and run any build or `bazel mod deps`.
+pages and metadata of what is new. To move a pin on purpose, with
+`requirements_txt`: `bazel run @<hub>//:requirements.update -- --upgrade <package>`
+(several names may follow; `-U` with no name upgrades every package); should that
+fail because the hub itself cannot be resolved, a hash in the file no longer
+matching, set the variable on the same command instead,
+`REQ_COMPILE_UPGRADE=<package>[,<package>] bazel run @<hub>//:requirements.update`
+(`all` for every package). A hub with no `requirements_txt` has only the lock to
+move: `REQ_COMPILE_UPGRADE=<package>[,<package>] bazel mod deps`.
 
 With `requirements_txt` the hub also keeps a pinned requirements file in the
 workspace, in the shape `pip-compile --generate-hashes` writes: every package at
 its resolved version with the hashes of the artifacts the hub's platforms use.
 `bazel run @<hub>//:requirements.update` writes it and `@<hub>//:requirements.test`
 fails while it is out of date, as `py_reqs_solution_test` does for compiled
-locks. Fed back to the hub, the file pins the version and hashes of what it
-lists, so a version Dependabot bumps in it is what the next resolution uses,
-while a package newly added to `requirements_in` resolves freely and then
-appears in it. The file is the pin list a bot can edit; `MODULE.bazel.lock`
+locks. Fed back to the hub, the file is what an existing lock is to pip-compile:
+each package keeps the version it pins, with the file's hashes, while
+`requirements_in` and the other packages allow it, and is resolved again when
+they do not, so a version Dependabot bumps in the file is what the next
+resolution uses and a bound raised in `requirements_in` moves the pin by
+itself; a package newly added to `requirements_in` resolves freely and then
+appears in the file. The file is the pin list a bot can edit; `MODULE.bazel.lock`
 remains the lock.
 """,
     attrs = {
@@ -755,12 +763,16 @@ a downloaded wheel.""",
                 "renders it (one entry per package with its version, the sha256 of every artifact its " +
                 "platforms use, and what requires it) and exposes `@<hub>//:requirements.update`, which " +
                 "writes it into the workspace, and `@<hub>//:requirements.test`, which fails when it is " +
-                "out of date. Fed back here, the file pins the version and hashes of every package it " +
-                "lists, so a version bumped in it, by Dependabot for instance, is what the next " +
-                "resolution uses; packages not yet in it, such as one just added to `requirements_in`, " +
-                "resolve freely and then appear in it. A pin is moved on purpose with " +
-                "`bazel run @<hub>//:requirements.update -- --upgrade <package>` (every pin with no name; " +
-                "`-U` for short), or by setting `REQ_COMPILE_UPGRADE`. Must be a file of the root module; " +
+                "out of date. Fed back here, the file is what an existing lock is to pip-compile: each " +
+                "package keeps the version it pins, with the file's hashes, while `requirements_in` and " +
+                "the other packages allow it, and is resolved again when they do not. So a version bumped " +
+                "in it, by Dependabot for instance, is what the next resolution uses, a bound raised in " +
+                "`requirements_in` moves the pin by itself, and packages not yet in it resolve freely and " +
+                "then appear in it. A pin the requirements still allow is moved on purpose with " +
+                "`bazel run @<hub>//:requirements.update -- --upgrade <package>` (several names may follow; " +
+                "`-U` with no name upgrades every package); should that fail because the hub itself cannot " +
+                "be resolved, `REQ_COMPILE_UPGRADE=<package>[,<package>] bazel run @<hub>//:requirements.update` " +
+                "(`all` for every package). Must be a file of the root module; " +
                 "it needs no `exports_files`. The test lives in the hub repository, outside `//...`, so a " +
                 "`test_suite` in the workspace that lists it puts it in the default test set."
             ),

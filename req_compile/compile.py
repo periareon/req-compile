@@ -198,6 +198,12 @@ def compile_roots(
 
         if not is_possible(spec_req):
             logger.info("Requirement conflict for %s (%s)", node, spec_req)
+            if soft_pin is not None and is_possible(unpinned_req):
+                # The soft pin alone is in the way: it is a preference, so it
+                # yields before any reverse dependency is walked back to keep
+                # it (a lock's old `b==1.0` must not downgrade the `a` that now
+                # needs `b>=2`).
+                raise _no_candidate(no_candidate=False)
             # Try walking back. Some reverse dependency contributed a requirement
             # expression that lead to this node being unsolveable. Instead of attempting
             # to search the full space, find the one that conflicts with the most

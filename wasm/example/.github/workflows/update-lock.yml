@@ -29,6 +29,9 @@ jobs:
       # to fetch here. (This example tracks the source checkout instead and
       # names a locally built module with `solver`.)
 
+      # The update resolves the hub (writing the lock) and then rewrites the
+      # file, which is a recorded input of the lock; `bazel mod deps` evaluates
+      # the hub once more so the lock records the rewritten file.
       - name: Resolve, rewrite the pins and update the lock
         env:
           USE_BAZEL_VERSION: "10.0.0"

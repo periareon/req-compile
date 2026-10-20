@@ -1,3 +1,26 @@
+New in version 1.6.3:
+
+* A hub's ``requirements_txt`` is to the resolution what an existing lock is to pip-compile: each package
+  keeps the version the file pins, with the file's hashes, while ``requirements_in`` and the other packages
+  allow it, and is resolved again when they do not. Raising a bound in ``requirements_in`` therefore moves the
+  pin by itself; before, the file's pins were hard and the bump failed until ``--upgrade`` lifted them. The
+  file's hashes vouch for the pinned version only, so a bump with a wrong hash still fails naming the package,
+  while a version the file does not pin needs no hash and gets one when ``requirements.update`` writes it.
+  A mismatch on the pinned version stays an error even when another index or an older release would let the
+  solver resolve around it. A pin without a local segment covers every build of its release (``1.0`` covers
+  ``1.0+cpu``) and its hashes say which build is meant. With ``enforce_hashes = False`` the file's hashes are
+  not read at all.
+* A soft pin, the recorded solution's version or the pinned file's, yields before the solver walks back a
+  reverse dependency to keep it: raising ``a>=2`` when the new ``a`` needs ``b>=2`` moves the pinned ``b``
+  instead of failing on ``a``. This also applies to ``py_reqs_compiler`` recycling a solution.
+* The lock records whether a distribution's metadata came from the index's separately served file; once the
+  pinned file vouches for the artifact, its metadata is read from the wheel itself, as it always is for a
+  hash-pinned artifact, so an index cannot describe a newly pinned wheel through a stale sidecar.
+* Every place that tells how to move a pin on purpose says the same thing: ``bazel run
+  @<hub>//:requirements.update -- --upgrade <package>`` (``-U`` with no name for every package); the variable
+  ``REQ_COMPILE_UPGRADE=<package>[,<package>]`` on that command when the hub itself cannot be resolved, or with
+  ``bazel mod deps`` for a hub that has no ``requirements_txt``.
+
 New in version 1.6.2:
 
 * ``@<hub>//:requirements.test`` compares the pinned file by meaning: it passes when the file pins exactly the

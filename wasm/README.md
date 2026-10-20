@@ -136,13 +136,19 @@ instantiates, and as facts (`solution:<hub>` with the inputs it was solved from,
 `meta:<sha256>` for every distribution consulted). An unchanged hub is rebuilt from
 the facts without loading the module. A changed requirements file, included
 files too, is re-solved from the recorded versions, so only what the change
-touches is fetched. To start over:
+touches is fetched. To move a pin on purpose:
 
 ```bash
-REQ_COMPILE_UPGRADE=all bazel mod deps
+bazel run @pip_deps//:requirements.update -- --upgrade <package>
 ```
 
-or name the packages to upgrade, comma separated.
+Several names may follow `--upgrade`; `-U` with no name upgrades every package.
+The pinned file and the lock are both rewritten. Should that fail because the
+hub itself cannot be resolved (a hash in the file no longer matching), set the
+variable on the same command instead: `REQ_COMPILE_UPGRADE=<package>[,<package>]
+bazel run @pip_deps//:requirements.update` (`all` for every package). A hub with
+no `requirements_txt` has only the lock to move: `REQ_COMPILE_UPGRADE=<package>
+bazel mod deps` (or any build that needs the hub).
 
 ### Dependabot
 
@@ -155,9 +161,11 @@ writes it and `bazel test //:requirements.test` fails while it is out of date
 `@pip_deps//:requirements.test`, which sits in the hub repository where
 `bazel test //...` would not reach it; the file needs no `exports_files`).
 Dependabot's `pip` updater bumps versions and hashes in it; fed back to the hub,
-the file pins exactly what it lists, so the bump is what the next resolution
-uses, while a package newly added to `requirements.in` resolves freely and then
-appears in the file. `example/.github/` holds a `dependabot.yml` and a workflow
+the file is what an existing lock is to pip-compile: each package keeps its
+pinned version while `requirements.in` allows it, so the bump is what the next
+resolution uses, a bound raised in `requirements.in` moves the pin by itself,
+and a package newly added to `requirements.in` resolves freely and then appears
+in the file. `example/.github/` holds a `dependabot.yml` and a workflow
 that, on Dependabot pull requests, rewrites the file in the hub's format and
 refreshes `MODULE.bazel.lock`, which is needed because both files are recorded
 inputs of the lock.

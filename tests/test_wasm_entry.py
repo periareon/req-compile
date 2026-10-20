@@ -4,6 +4,8 @@ The entry point is plain Python, so it is exercised here natively: a small
 in-memory "host" answers its requests the way the Starlark loop does.
 """
 
+# pylint: disable=too-many-lines
+
 import hashlib
 import json
 from typing import Any, Dict, List, Tuple
@@ -12,6 +14,7 @@ import pytest
 
 from req_compile.wasm import entry
 from req_compile.wasm import files as wasm_files
+from req_compile.wasm import ingest
 
 INDEX = "https://index.example/simple"
 MIRROR = "https://mirror.example/simple"
@@ -282,7 +285,7 @@ def test_ingest_metadata_keeps_the_fields_the_solver_reads() -> None:
         "metadata_version": "2.2",
         "digest": hashlib.sha256(text.encode()).hexdigest(),
     }
-    assert entry.metadata_fact(text) == fact
+    assert ingest.metadata_fact(text) == fact
 
 
 def test_metadata_is_recorded_once_per_text() -> None:
@@ -824,7 +827,7 @@ def test_sidecar_without_a_hash_is_never_fetched() -> None:
 
 
 def test_dynamic_fields_may_share_a_line() -> None:
-    fact = entry.metadata_fact(
+    fact = ingest.metadata_fact(
         "Metadata-Version: 2.2\nName: x\nDynamic: Requires-Dist, Provides-Extra"
     )
     assert fact["dynamic"] == ["requires-dist", "provides-extra"]
@@ -855,8 +858,9 @@ def test_hash_after_a_commented_continuation_is_a_pin() -> None:
 
 
 def test_pinned_requirements_file_pins_what_it_lists_and_allows_the_rest() -> None:
-    """The hub's requirements.txt is a hard pin, with hashes, for the packages in it;
-    a package it does not list yet, added to requirements.in, resolves freely."""
+    """The hub's requirements.txt pins, with hashes, the packages in it while the
+    requirements allow their versions; a package it does not list yet, added to
+    requirements.in, resolves freely."""
     files = {
         "/inputs/requirements.in": "a\n",
         "/inputs/requirements.txt": "b==2.0 \\\n    --hash=sha256:" + "22" * 32 + "\n",
@@ -910,6 +914,277 @@ class _TwoVersionsOfB(Host):
             }
             return
         super()._answer(request)
+
+
+def test_pinned_file_version_yields_to_the_requirements() -> None:
+    """Like pip-compile with an existing lock: a pin the requirements no longer
+    allow is dropped and the package resolved again, with no `--upgrade` needed;
+    its stale hash then binds nothing."""
+    files = {
+        "/inputs/requirements.in": "b>=2\n",
+        "/inputs/requirements.txt": "b==1.0 --hash=sha256:" + "55" * 32 + "\n",
+    }
+    result = _TwoVersionsOfB(files).run(_hub(pins="/inputs/requirements.txt"))
+    assert result["status"] == "done", result
+    b = result["hubs"]["hub"]["locks"]["win_amd64"]["packages"]["b"]
+    assert b["version"] == "2.0"
+    assert not b["hash_pinned"], "the file vouched for 1.0 only"
+
+    # Even a wrong hash on the dropped pin is moot: the version is out anyway.
+    files["/inputs/requirements.txt"] = "b==1.0 --hash=sha256:" + "99" * 32 + "\n"
+    result = _TwoVersionsOfB(files).run(_hub(pins="/inputs/requirements.txt"))
+    assert result["status"] == "done", result
+    assert (
+        result["hubs"]["hub"]["locks"]["win_amd64"]["packages"]["b"]["version"] == "2.0"
+    )
+
+    # While the requirements allow the pinned version, it is kept and its hash binds.
+    files["/inputs/requirements.in"] = "b\n"
+    result = _TwoVersionsOfB(files).run(_hub(pins="/inputs/requirements.txt"))
+    assert result["status"] == "error", result
+    assert "`b`" in result["message"] and "1.0" in result["message"]
+
+
+def test_pinned_file_bump_outranks_the_recorded_solution() -> None:
+    """Dependabot bumps the file; the lock still records the old version. The
+    file wins and the page is fetched to find the new version."""
+    prior = {
+        "locks": {
+            platform: {
+                "b": {
+                    "package": "b",
+                    "version": "1.0",
+                    "sha256": "55" * 32,
+                    "url": "https://files.example/b-1.0-py3-none-any.whl",
+                    "filename": "b-1.0-py3-none-any.whl",
+                    "core_metadata": True,
+                    "deps": [],
+                    "via": [],
+                    "index": INDEX,
+                },
+            }
+            for platform in ("manylinux_2_28_x86_64", "win_amd64")
+        }
+    }
+    files = {
+        "/inputs/requirements.in": "b\n",
+        "/inputs/requirements.txt": "b==2.0 --hash=sha256:" + "22" * 32 + "\n",
+    }
+    host = _TwoVersionsOfB(files)
+    host.facts["meta:" + "55" * 32] = {
+        "metadata": "Name: b\nVersion: 1.0",
+        "dynamic": [],
+        "metadata_version": "2.1",
+    }
+    result = host.run(_hub(pins="/inputs/requirements.txt", prior=prior))
+    assert result["status"] == "done", result
+    b = result["hubs"]["hub"]["locks"]["win_amd64"]["packages"]["b"]
+    assert b["version"] == "2.0" and b["hash_pinned"]
+
+    # The recorded version stands while the file still pins it, without a fetch.
+    files["/inputs/requirements.txt"] = "b==1.0 --hash=sha256:" + "55" * 32 + "\n"
+    kept = RecordingHost(files)
+    kept.facts["meta:" + "55" * 32] = host.facts["meta:" + "55" * 32]
+    result = kept.run(_hub(pins="/inputs/requirements.txt", prior=prior))
+    assert result["status"] == "done", result
+    assert (
+        result["hubs"]["hub"]["locks"]["win_amd64"]["packages"]["b"]["version"] == "1.0"
+    )
+    assert not [r for r in kept.answered if r["op"] == "fetch"]
+
+
+def test_wrong_hash_cannot_fall_back_to_another_index() -> None:
+    """A mismatch on the pinned version is not worked around by an older release
+    another index happens to offer: the solver would drop the soft pin and pick
+    it, and a bump with a wrong hash would resolve quietly to something else."""
+
+    class SplitIndexHost(_TwoVersionsOfB):
+        def _answer(self, request: Dict[str, Any]) -> None:
+            super()._answer(request)
+            if request["op"] == "fetch" and request["url"] == MIRROR + "/b/":
+                document = self.documents[request["id"]]
+                page = json.loads(document["body"])
+                page["files"] = [
+                    f
+                    for f in page["files"]
+                    if f["filename"] == "b-1.0-py3-none-any.whl"
+                ]
+                document["body"] = json.dumps(page)
+
+    files = {
+        "/inputs/requirements.in": "b\n",
+        "/inputs/requirements.txt": "b==2.0 --hash=sha256:" + "99" * 32 + "\n",
+    }
+    for indexes in ([INDEX], [INDEX, MIRROR]):
+        result = SplitIndexHost(files).run(
+            _hub(pins="/inputs/requirements.txt", indexes=indexes)
+        )
+        assert result["status"] == "error", (indexes, result)
+        assert "b-2.0-py3-none-any.whl" in result["message"]
+
+
+class _SidecarHost(RecordingHost):
+    """An index whose separately served metadata for b lies about a dependency."""
+
+    def _answer(self, request: Dict[str, Any]) -> None:
+        if request["op"] == "metadata" and request["filename"].startswith("b-"):
+            sidecar = bool(request["core_metadata"])
+            body = _metadata("b")
+            if sidecar:
+                body = body.replace(
+                    "Provides-Extra", "Requires-Dist: c\nProvides-Extra"
+                )
+            self.answered.append(request)
+            self.documents[request["id"]] = {
+                "kind": "metadata",
+                "url": request["url"],
+                "body": body,
+                "sidecar": sidecar,
+            }
+            return
+        super()._answer(request)
+
+
+def test_newly_pinned_artifact_rereads_its_metadata_from_the_wheel() -> None:
+    """Metadata an index served separately is recorded as such; once the file
+    vouches for the artifact, the wheel's own metadata replaces it, even when
+    the recorded solution would otherwise answer without a request."""
+    first = _SidecarHost({"/inputs/requirements.in": "b\n"})
+    solved = first.run(_hub())
+    assert solved["status"] == "done", solved
+    packages = solved["hubs"]["hub"]["locks"]["win_amd64"]["packages"]
+    assert packages["b"]["deps"] == [
+        "c"
+    ], "the sidecar's lie is believed while nothing pins b"
+    assert packages["b"]["sidecar"] is True
+
+    files = {
+        "/inputs/requirements.in": "b\n",
+        "/inputs/requirements.txt": "b==2.0 --hash=sha256:" + "22" * 32 + "\n",
+    }
+    again = _SidecarHost(files)
+    again.facts.update(
+        {"md:" + digest: text for digest, text in solved["metadata"].items()}
+    )
+    result = again.run(_hub(pins="/inputs/requirements.txt", prior=_prior_from(solved)))
+    assert result["status"] == "done", result
+    packages = result["hubs"]["hub"]["locks"]["win_amd64"]["packages"]
+    assert packages["b"]["deps"] == [], "the wheel's own metadata is read now"
+    assert packages["b"]["sidecar"] is False and packages["b"]["hash_pinned"]
+    assert "c" not in packages
+    wheel_reads = [
+        r for r in again.answered if r["op"] == "metadata" and not r["core_metadata"]
+    ]
+    assert [r["filename"] for r in wheel_reads] == ["b-2.0-py3-none-any.whl"]
+
+
+class _TwoVersionsOfA(_TwoVersionsOfB):
+    """a 2.0, which needs b>=2, beside a 1.0, which needs b>=1."""
+
+    def _answer(self, request: Dict[str, Any]) -> None:
+        if request["op"] == "fetch" and request["url"].endswith("/a/"):
+            page = json.loads(_page("a"))
+            page["files"].append(
+                {
+                    "filename": "a-2.0-py3-none-any.whl",
+                    "url": "https://files.example/a-2.0-py3-none-any.whl",
+                    "hashes": {"sha256": "77" * 32},
+                    "requires-python": ">=3.8",
+                    "yanked": False,
+                    "core-metadata": {"sha256": "ef" * 32},
+                }
+            )
+            self.documents[request["id"]] = {
+                "kind": "index",
+                "url": request["url"],
+                "body": json.dumps(page),
+            }
+            return
+        if (
+            request["op"] == "metadata"
+            and request["filename"] == "a-2.0-py3-none-any.whl"
+        ):
+            self.documents[request["id"]] = {
+                "kind": "metadata",
+                "url": request["url"],
+                "body": "Metadata-Version: 2.1\nName: a\nVersion: 2.0\nRequires-Dist: b>=2\n",
+            }
+            return
+        super()._answer(request)
+
+
+def test_a_transitive_bound_releases_the_pinned_file_s_pin() -> None:
+    """Raising `a>=2` when the new a needs `b>=2`: b's pin yields, as a preference
+    should, instead of the solver walking a back to keep the old b."""
+    files = {
+        "/inputs/requirements.in": "a>=2\n",
+        "/inputs/requirements.txt": (
+            "a==1.0 --hash=sha256:" + "11" * 32 + "\n"
+            "b==1.0 --hash=sha256:" + "55" * 32 + "\n"
+        ),
+    }
+    result = _TwoVersionsOfA(files).run(_hub(pins="/inputs/requirements.txt"))
+    assert result["status"] == "done", result
+    packages = result["hubs"]["hub"]["locks"]["win_amd64"]["packages"]
+    assert packages["a"]["version"] == "2.0" and packages["b"]["version"] == "2.0"
+
+
+class _LocalBuildOfB(_TwoVersionsOfB):
+    """b 1.0 beside a local build of it, b 1.0+cpu, with its own hash."""
+
+    def _answer(self, request: Dict[str, Any]) -> None:
+        super()._answer(request)
+        if request["op"] == "fetch" and request["url"].endswith("/b/"):
+            document = self.documents[request["id"]]
+            page = json.loads(document["body"])
+            page["files"].append(
+                {
+                    "filename": "b-1.0+cpu-py3-none-any.whl",
+                    "url": "https://files.example/b-1.0+cpu-py3-none-any.whl",
+                    "hashes": {"sha256": "66" * 32},
+                    "requires-python": ">=3.8",
+                    "yanked": False,
+                    "core-metadata": {"sha256": "cd" * 32},
+                }
+            )
+            document["body"] = json.dumps(page)
+        if (
+            request["op"] == "metadata"
+            and request["filename"] == "b-1.0+cpu-py3-none-any.whl"
+        ):
+            self.documents[request["id"]] = {
+                "kind": "metadata",
+                "url": request["url"],
+                "body": "Metadata-Version: 2.1\nName: b\nVersion: 1.0+cpu\n",
+            }
+
+
+def test_a_pin_names_the_build_its_hash_names() -> None:
+    """`b==1.0` with the public wheel's hash picks that wheel, not the local
+    build the specifier `==1.0` would also accept."""
+    files = {
+        "/inputs/requirements.in": "b\n",
+        "/inputs/requirements.txt": "b==1.0 --hash=sha256:" + "55" * 32 + "\n",
+    }
+    result = _LocalBuildOfB(files).run(_hub(pins="/inputs/requirements.txt"))
+    assert result["status"] == "done", result
+    b = result["hubs"]["hub"]["locks"]["win_amd64"]["packages"]["b"]
+    assert b["version"] == "1.0" and b["sha256"] == "55" * 32 and b["hash_pinned"]
+
+
+def test_unenforced_hashes_leave_the_pinned_file_s_hashes_unread() -> None:
+    """With `enforce_hashes = False` the file's versions still steer, but its
+    hashes are not parsed, so an md5 line is not an error."""
+    files = {
+        "/inputs/requirements.in": "b\n",
+        "/inputs/requirements.txt": "b==1.0 --hash=md5:" + "9" * 32 + "\n",
+    }
+    result = _TwoVersionsOfB(files).run(
+        _hub(pins="/inputs/requirements.txt", enforce_hashes=False)
+    )
+    assert result["status"] == "done", result
+    b = result["hubs"]["hub"]["locks"]["win_amd64"]["packages"]["b"]
+    assert b["version"] == "1.0" and not b["hash_pinned"]
 
 
 def test_upgrade_lifts_the_pinned_file_for_the_named_packages() -> None:

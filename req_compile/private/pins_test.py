@@ -29,6 +29,9 @@ _WARNING = """\
 Please run the following command to update it:
 
     {command}
+
+To move a pin on purpose, add `-- --upgrade <package>` to it (`-U` with no name
+upgrades every package).
 """
 
 Pins = Dict[str, Tuple[str, Set[str]]]

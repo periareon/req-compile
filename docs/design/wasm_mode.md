@@ -685,24 +685,33 @@ Two consequences matter to users:
 ### Upgrading
 
 The extension is a function of its inputs, so there is no "upgrade" input unless
-one is provided. The extension reads one environment variable (`REQ_COMPILE_UPGRADE`,
-implemented in `resolve.bzl`):
+one is provided. Every place that tells the user how to move a pin says the same
+three things, in this order:
 
-```bash
-REQ_COMPILE_UPGRADE=all bazel mod deps
-```
+1. A hub with `requirements_txt`:
+   `bazel run @<hub>//:requirements.update -- --upgrade <package>`; several
+   names may follow, and `-U` with no name upgrades every package. The pinned
+   file and the lock are both rewritten.
+2. Should that fail because the hub itself cannot be resolved (a hash in the
+   file no longer matching), the variable goes on the same command:
+   `REQ_COMPILE_UPGRADE=<package>[,<package>] bazel run @<hub>//:requirements.update`
+   (`all` for every package).
+3. A hub with no `requirements_txt` has only the lock to move:
+   `REQ_COMPILE_UPGRADE=<package>[,<package>] bazel mod deps` (or any build
+   that needs the hub).
 
-```bash
-REQ_COMPILE_UPGRADE=requests,urllib3 bazel mod deps
-```
-
+Underneath, the extension reads one environment variable (`REQ_COMPILE_UPGRADE`,
+implemented in `resolve.bzl`), and `--upgrade` sets it for a nested run.
 `ctx.getenv("REQ_COMPILE_UPGRADE")` makes it a recorded input, so the extension
 re-runs when it is set, dropping the named prior pins (or all of them). The next
 command without the variable sees a changed recorded input and re-runs once more,
 but the inputs digest now matches the fresh solution, so that run reuses it without
 network access and simply records the variable as unset. `bazel mod deps` is used
 because it evaluates every extension unconditionally; any build that needs the hub
-works as well.
+works as well. One consequence worth knowing when reading the lock by hand: after
+an upgrade the solution is recorded against the inputs as they were, so a later
+command with byte-identical inputs reuses it rather than applying the file's
+pins again; only a change to an input, or the variable, re-solves.
 
 ### Verifying in CI
 
@@ -738,7 +747,8 @@ it carries a hash, as pip does; one advertised without a hash is never fetched.)
 Both `--hash=sha256:...` and `--hash sha256:...` are pins; other algorithms are
 refused rather than ignored. And the file's pins are hard pins, as they are for
 pip: a bump whose own requirements reject another pinned package fails with
-req-compile's explanation instead of moving the other pin.
+req-compile's explanation instead of moving the other pin. (That is the file as
+`requirements_in`; the hub-maintained file below is softer.)
 
 The usual arrangement, though, keeps a loose `requirements.in` for humans and
 lets the hub maintain the pinned file: `requirements_txt` on the tag names it,
@@ -755,11 +765,43 @@ hash of every file of a release in its own layout, and that passes; so do
 `2.0.0` or `===2.0` for `2.0`, a tab before a comment and a package pinned twice
 at one version, while a package pinned twice at different versions or an `-r`
 include, which the test does not follow, fail naming it. Markers are not
-evaluated (a pin with one is a pin). Fed back to the hub, the file is a set of hard pins with hashes for the
-packages it lists, while packages it does not list yet resolve freely and then
-appear in it, as do the packages `REQ_COMPILE_UPGRADE` names (all of them with
-`all`), whose pins and hashes are left out of the constraints for that one
-resolution so that `requirements.update` writes their new version.
+evaluated (a pin with one is a pin). Fed back to the hub, the file plays the
+part the existing lock plays for pip-compile and for `req-compile --solution`:
+its versions are soft pins (`perform_compile_group`'s `pins`, the same channel
+as the recorded solution's versions, which the file outranks), so a package
+keeps its pinned version while `requirements.in` and the other packages allow
+it, and is resolved again when they do not, with no flag to pass: bumping
+`idna>=3.20` in the `.in` against an `idna==3.19` pin just moves idna. The
+file's hashes vouch for the pinned version only (`FactRepository.file_pins`,
+`_file_pinned`): an artifact of that version with another hash is left out, and
+when none of its artifacts match while the requirements still allow the
+version, that is an error, so a Dependabot bump with a wrong hash cannot resolve
+quietly to something else; a version the file does not pin needs no hash, and
+`requirements.update` writes it. Two refinements keep that promise: a mismatch
+is noted per repository (so a second index may still supply the right artifact),
+and `_check_file_pins` fails the solve afterwards if a noted mismatch was
+resolved around, because another index or an older release offered the package
+and the solver dropped the soft pin for it; and a pin without a local segment
+covers every build of its release (`same_release`: `1.0` covers `1.0+cpu`), its
+hashes saying which build is meant, so the soft pin `==1.0` cannot drift onto a
+local build. A recorded distribution yields to the file (`_recorded`): when the
+file pins another version or another artifact, the page is fetched. Metadata
+provenance follows the same rule: each recorded distribution notes whether its
+metadata came from the index's separately served file (`sidecar` in the lock's
+artifact, set from the document Starlark hands back), and `ensure_metadata`
+re-reads the wheel itself once the file vouches for the artifact, so a lie an
+index told while nothing pinned the package does not survive the pin. (Locks
+written before this field treat their metadata as wheel-derived, which it was
+for every hub that had a pinned file, since such hubs read all metadata from
+wheels then.) In req-compile itself, a soft pin now yields before the solver
+walks back a reverse dependency to keep it (`compile.py`, the
+`PinConflictException` raised ahead of `_get_strictest_reverse_dep`): raising
+`a>=2` when the new `a` needs `b>=2` moves the pinned `b` instead of failing
+with "no candidate for a satisfies !=2.0,>=2". Packages the file does not list yet resolve freely and then appear
+in it, as do the packages `REQ_COMPILE_UPGRADE` names (all of them with `all`),
+whose pin and hashes are left out for that one resolution so that
+`requirements.update` writes their new version; that is for moving a pin the
+requirements still allow.
 `requirements.update -- --upgrade [package ...]` (`-U`) is the same thing from
 the command line: the script runs its own target once more, by canonical label
 (the root module may import the hub under another name) and with
@@ -768,9 +810,10 @@ the command line: the script runs its own target once more, by canonical label
 released before the binary runs. The inner command is `bazel` from `PATH` (or
 `$BAZEL`) without the options of the outer command line, so the flags the
 resolution needs belong in `.bazelrc`; and since the outer `bazel run` resolves
-the hub before the script starts, a pin that keeps the hub from resolving at all
-is lifted from the shell, `REQ_COMPILE_UPGRADE=<package> bazel run ...`, which
-the failure message of a pinned hub says. The solver's
+the hub before the script starts, a hash in the file that keeps the hub from
+resolving at all (the one case a soft pin can still block) is lifted from the
+shell, `REQ_COMPILE_UPGRADE=<package>[,<package>] bazel run @<hub>//:requirements.update`
+(`all` for every package), which the failure message of a pinned hub says. The solver's
 `require_pins` flag distinguishes this from a file fed as `requirements_in`,
 where every package must be pinned. The test reads a copy of the workspace file
 the hub repository took at fetch time (`repository_ctx.read` of the label), so
@@ -785,8 +828,9 @@ What the flow needs from the repository: `MODULE.bazel.lock` records both files
 as inputs, so after Dependabot edits `requirements.txt` the lock is stale and
 `--lockfile_mode=error` fails until it is regenerated. `wasm/example/.github/`
 holds a `dependabot.yml` and a workflow that, on Dependabot pull requests, runs
-`requirements.update` and `bazel mod deps --lockfile_mode=update` and commits
-both files to the PR branch. The division of labour is then: `requirements.in`
+`requirements.update`, then `bazel mod deps --lockfile_mode=update` so that the
+lock records the rewritten file (the update itself writes the lock before it
+rewrites the file), and commits both files to the PR branch. The division of labour is then: `requirements.in`
 is what humans edit, `requirements.txt` is the pin list a bot can read and write,
 `MODULE.bazel.lock` is the lock.
 

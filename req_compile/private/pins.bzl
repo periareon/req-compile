@@ -49,8 +49,8 @@ def render_pins(hub, locks, index_urls, roots, command):
         "# A version bumped here, with its hashes, is what the hub resolves to next",
         "# (Dependabot's pip updater does this), and",
         "#     {} -- --upgrade <package>".format(command),
-        "# moves one from the index instead. The hashes are those of the artifacts",
-        "# the hub's platforms use.",
+        "# moves one from the index instead (-U with no name: every package). The",
+        "# hashes are those of the artifacts the hub's platforms use.",
     ]
     if index_urls:
         lines.append("--index-url {}".format(index_urls[0]))

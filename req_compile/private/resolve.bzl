@@ -13,8 +13,8 @@ solution of each hub together with the inputs it was solved from, and the metada
 of every distribution it chose. A hub whose inputs did not change is rebuilt
 from its recorded solution without loading the solver. A hub whose inputs changed
 is re-solved with the recorded versions as soft pins and the recorded metadata on
-hand, so only what the change touches is fetched. `REQ_COMPILE_UPGRADE=all` (or a
-comma separated list of packages) drops the pins.
+hand, so only what the change touches is fetched. `REQ_COMPILE_UPGRADE=<package>[,<package>]`
+(or `all`) drops the pins; `requirements.update -- --upgrade <package>` sets it for a nested run.
 
 Nothing here runs unless a hub asks for it, and then only when Bazel's
 WebAssembly support is enabled; see `require_wasm`.
@@ -220,7 +220,9 @@ def _metadata_text(ctx, request, path):
 # solver uses them to stand in for the index page of a package a re-resolution
 # keeps: `filename` and `url` make the candidate, `index` and `requires_python`
 # decide whether it may answer, `core_metadata` whether the index serves its
-# metadata separately, and `metadata` names the `md:` fact holding its metadata.
+# metadata separately, `metadata` names the `md:` fact holding its metadata, and
+# `sidecar` whether that metadata came from the index's separate file rather
+# than the distribution (the solver reads the latter for a hash-pinned artifact).
 #
 # In the lockfile an artifact is keyed by its sha256 (or its URL when the index
 # gave none), so neither is repeated inside it; `index` is left out when it is
@@ -232,6 +234,7 @@ _ARTIFACT_DEFAULTS = {
     "core_metadata": False,
     "metadata": "",
     "requires_python": "",
+    "sidecar": False,
 }
 
 def _is_sha256(value):
@@ -253,6 +256,7 @@ def _package_entry(data, deps):
         "package": data["package"],
         "requires_python": data.get("requires_python", ""),
         "sha256": data.get("sha256", ""),
+        "sidecar": data.get("sidecar", False),
         "url": url,
         "version": data["version"],
         "via": None,
@@ -520,6 +524,8 @@ def _document(ctx, request, path, result):
     document = {
         "body": _metadata_text(ctx, request, path),
         "kind": "metadata",
+        # Whether this is the index's separately served metadata file.
+        "sidecar": bool(request["core_metadata"]),
         "url": request["url"],
     }
     if not request["core_metadata"]:
@@ -628,12 +634,15 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
                 hub = out.get("hub", "?")
                 hint = ""
                 if hubs.get(hub, {}).get("pins"):
-                    # The `--upgrade` flag of `requirements.update` cannot help
-                    # here: `bazel run` resolves the hub before the script runs.
+                    # A pin the requirements no longer allow is dropped by itself;
+                    # what can still stand in the way is a hash the file gives for
+                    # a version. The `--upgrade` flag of `requirements.update`
+                    # cannot help here: `bazel run` resolves the hub before the
+                    # script runs.
                     hint = (
-                        "\nIf a pin in {} is in the way, lift it for one resolution with " +
-                        "`REQ_COMPILE_UPGRADE=<package> bazel run @{}//:requirements.update` " +
-                        "(`REQ_COMPILE_UPGRADE=all` lifts every pin)."
+                        "\nIf the hashes {} gives for a version are the cause, resolve the package without " +
+                        "them: `REQ_COMPILE_UPGRADE=<package>[,<package>] bazel run @{}//:requirements.update` " +
+                        "(`all` for every package)."
                     ).format(hubs[hub]["pins"], hub)
                 fail("Failed to resolve the requirements of hub `{}`: {}{}".format(hub, out["message"], hint))
             for request in retry:
