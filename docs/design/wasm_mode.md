@@ -750,8 +750,11 @@ workspace, and `requirements.test`, which fails while the workspace copy differs
 from what the hub resolved, the role `py_reqs_solution_test` plays for compiled
 locks. Fed back to the hub, the file is a set of hard pins with hashes for the
 packages it lists, while packages it does not list yet resolve freely and then
-appear in it; the solver's `require_pins` flag distinguishes this from a file fed
-as `requirements_in`, where every package must be pinned. A dependency an index
+appear in it, as do the packages `REQ_COMPILE_UPGRADE` names (all of them with
+`all`), whose pins and hashes are left out of the constraints for that one
+resolution so that `requirements.update` writes their new version; the solver's
+`require_pins` flag distinguishes this from a file fed as `requirements_in`,
+where every package must be pinned. A dependency an index
 injected would surface as a new line in the file and fail the test until a human
 regenerates and reviews it, which is the pip-compile model.
 

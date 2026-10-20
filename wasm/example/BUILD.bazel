@@ -1,11 +1,7 @@
 load("@pip_deps//:defs.bzl", "requirement")
 load("@rules_venv//python:defs.bzl", "py_library")
 
-exports_files([
-    "req_compile_solver.wasm",
-    "requirements.in",
-    "requirements.txt",
-])
+exports_files(["req_compile_solver.wasm"])
 
 py_library(
     name = "uses_requests",

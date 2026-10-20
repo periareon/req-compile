@@ -875,3 +875,58 @@ def test_pinned_requirements_file_pins_what_it_lists_and_allows_the_rest() -> No
     result = Host(files).run(_hub(pins="/inputs/requirements.txt"))
     assert result["status"] == "error", result
     assert "`b`" in result["message"]
+
+
+class _TwoVersionsOfB(Host):
+    """An index with b 1.0 (sha 55) beside b 2.0, each with its own metadata."""
+
+    def _answer(self, request: Dict[str, Any]) -> None:
+        if request["op"] == "fetch" and request["url"].endswith("/b/"):
+            page = json.loads(_page("b"))
+            page["files"].append(
+                {
+                    "filename": "b-1.0-py3-none-any.whl",
+                    "url": "https://files.example/b-1.0-py3-none-any.whl",
+                    "hashes": {"sha256": "55" * 32},
+                    "requires-python": ">=3.8",
+                    "yanked": False,
+                    "core-metadata": {"sha256": "cd" * 32},
+                }
+            )
+            self.documents[request["id"]] = {
+                "kind": "index",
+                "url": request["url"],
+                "body": json.dumps(page),
+            }
+            return
+        if (
+            request["op"] == "metadata"
+            and request["filename"] == "b-1.0-py3-none-any.whl"
+        ):
+            self.documents[request["id"]] = {
+                "kind": "metadata",
+                "url": request["url"],
+                "body": "Metadata-Version: 2.1\nName: b\nVersion: 1.0\n",
+            }
+            return
+        super()._answer(request)
+
+
+def test_upgrade_lifts_the_pinned_file_for_the_named_packages() -> None:
+    """`REQ_COMPILE_UPGRADE` is how a pin in the hub's file is moved on purpose."""
+    files = {
+        "/inputs/requirements.in": "b\n",
+        "/inputs/requirements.txt": "b==1.0 --hash=sha256:" + "55" * 32 + "\n",
+    }
+
+    def version(**extra: Any) -> str:
+        result = _TwoVersionsOfB(files).run(
+            _hub(pins="/inputs/requirements.txt"), **extra
+        )
+        assert result["status"] == "done", result
+        return result["hubs"]["hub"]["locks"]["win_amd64"]["packages"]["b"]["version"]
+
+    assert version() == "1.0", "the file pins b"
+    assert version(upgrade=["b"]) == "2.0", "naming b lifts its pin and hash"
+    assert version(upgrade="all") == "2.0"
+    assert version(upgrade=["a"]) == "1.0", "another package's upgrade leaves b pinned"
