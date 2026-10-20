@@ -1,6 +1,7 @@
 # Dependabot keeps requirements.txt current. The `pip` ecosystem understands the
-# pinned format, versions and hashes included; the Bazel side rebuilds URLs and
-# dependency edges from it when the hub resolves.
+# pinned format, versions and hashes included; the hub takes a bumped version and
+# its hashes as given when it resolves, and `requirements.update` rewrites the
+# file in its own format afterwards.
 version: 2
 updates:
   - package-ecosystem: "pip"

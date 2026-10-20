@@ -6,6 +6,7 @@ load(
     _parse_lock_header = "parse_lock_header",
     _parse_lockfile = "parse_lockfile",
 )
+load(":pins.bzl", "render_pins")
 load(":utils.bzl", "sanitize_package_name", "whl_repo_name")
 load(":whl_repo.bzl", "whl_repository")
 
@@ -147,7 +148,10 @@ def hub_spec(
         interpreter = None,
         package_aliases = {},
         legacy_root_pkg_aliases = False,
-        alias_of = None):
+        alias_of = None,
+        pins = None,
+        pins_index_urls = [],
+        pins_roots = []):
     """Describe a hub repository to generate.
 
     Args:
@@ -158,6 +162,10 @@ def hub_spec(
         package_aliases (dict[Label, str]): `py_library` targets replacing packages.
         legacy_root_pkg_aliases (bool): Whether to alias packages at the root of the hub.
         alias_of (str): The name of another hub this hub should defer to.
+        pins (Label): The pinned requirements file the hub keeps in step with its
+            solution, for a hub resolved in the extension; None otherwise.
+        pins_index_urls (list[str]): The hub's indexes, written at the top of that file.
+        pins_roots (list[str]): The names of the requirement files the solution came from.
 
     Returns:
         struct: The hub specification.
@@ -170,6 +178,9 @@ def hub_spec(
         package_aliases = dict(package_aliases),
         legacy_root_pkg_aliases = legacy_root_pkg_aliases,
         alias_of = alias_of,
+        pins = pins,
+        pins_index_urls = list(pins_index_urls),
+        pins_roots = list(pins_roots),
     )
 
 def _sanitize_id(text):
@@ -493,6 +504,18 @@ def plan_hubs(ctx, hubs, annotations, hub_annotations = {}):
             default_lock = parent.default_lock
             packages = {pkg: parent.packages.get(pkg, data) for pkg, data in packages.items()}
 
+        # The pinned requirements file of a hub resolved in the extension.
+        pins_text = ""
+        if hub.pins != None:
+            resolved = {spec.platform: spec.packages for spec in hub.locks if spec.packages != None}
+            pins_text = render_pins(
+                hub_name,
+                resolved,
+                hub.pins_index_urls,
+                hub.pins_roots,
+                "bazel run @{}//:requirements.update".format(hub_name),
+            )
+
         planned[hub_name] = struct(
             name = hub_name,
             alias_of = hub.alias_of,
@@ -501,6 +524,8 @@ def plan_hubs(ctx, hubs, annotations, hub_annotations = {}):
             locks = locks,
             package_aliases = hub.package_aliases,
             packages = packages,
+            pins = hub.pins,
+            pins_text = pins_text,
         )
 
     return struct(
@@ -537,6 +562,9 @@ def create_hub_repos(plan):
             locks = json.encode(hub.locks),
             package_aliases = hub.package_aliases,
             packages = json.encode(hub.packages),
+            pins_label = str(hub.pins) if hub.pins != None else "",
+            pins_path = "/".join([part for part in [hub.pins.package, hub.pins.name] if part]) if hub.pins != None else "",
+            pins_text = hub.pins_text,
         )
 
 _DEFS_BZL_TEMPLATE = """\
@@ -694,6 +722,42 @@ package(default_visibility = ["//visibility:public"])
 exports_files(["defs.bzl", "requirements.bzl"])
 {config_settings}
 {legacy_aliases}
+{pins}
+"""
+
+# The pinned requirements the hub resolved, and the targets keeping the
+# workspace's copy in step with them.
+_PINS_BUILD_TEMPLATE = """\
+load("@rules_venv//python:defs.bzl", "py_binary", "py_test")
+
+exports_files(["requirements.txt"])
+
+py_binary(
+    name = "requirements.update",
+    srcs = ["pins_update.py"],
+    args = [
+        "$(rlocationpath :requirements.txt)",
+        "{path}",
+    ],
+    data = [":requirements.txt"],
+    deps = ["@rules_venv//python/runfiles"],
+)
+
+py_test(
+    name = "requirements.test",
+    srcs = ["pins_test.py"],
+    args = [
+        "$(rlocationpath :requirements.txt)",
+        "$(rlocationpath {label})",
+        "{path}",
+        "bazel run @{hub}//:requirements.update",
+    ],
+    data = [
+        ":requirements.txt",
+        "{label}",
+    ],
+    deps = ["@rules_venv//python/runfiles"],
+)
 """
 
 _CONFIG_SETTING_TEMPLATE = """\
@@ -933,9 +997,21 @@ def _py_requirements_repository_impl(repository_ctx):
                 ))
         legacy_aliases = "\n" + "\n".join(legacy_alias_lines)
 
+    pins = ""
+    if repository_ctx.attr.pins_text:
+        repository_ctx.file("requirements.txt", repository_ctx.attr.pins_text)
+        for script in ("pins_update.py", "pins_test.py"):
+            repository_ctx.file(script, repository_ctx.read(Label("//req_compile/private:" + script)))
+        pins = "\n" + _PINS_BUILD_TEMPLATE.format(
+            hub = hub_name,
+            label = repository_ctx.attr.pins_label,
+            path = repository_ctx.attr.pins_path,
+        )
+
     repository_ctx.file("BUILD.bazel", _BUILD_FILE_TEMPLATE.format(
         config_settings = "\n" + "\n".join(config_settings) if config_settings else "",
         legacy_aliases = legacy_aliases,
+        pins = pins,
     ))
 
     repository_ctx.file("defs.bzl", _DEFS_BZL_TEMPLATE.format(
@@ -1052,6 +1128,15 @@ cross-platform behavior.
         "packages": attr.string(
             doc = "A json encoded mapping of package names to the version and `whl_repository` resolved by each lock.",
             mandatory = True,
+        ),
+        "pins_label": attr.string(
+            doc = "The label of the hub's pinned requirements file in the workspace, if it has one.",
+        ),
+        "pins_path": attr.string(
+            doc = "The workspace-relative path of that file.",
+        ),
+        "pins_text": attr.string(
+            doc = "The pinned requirements the hub resolved, as `render_pins` writes them.",
         ),
     },
 )

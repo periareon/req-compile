@@ -56,6 +56,7 @@ def resolve_spec(
         platforms,
         solver = None,
         constraints = [],
+        pins = None,
         index_urls = ["https://pypi.org/simple"],
         allow_sdists = False,
         allow_prerelease = False,
@@ -72,6 +73,9 @@ def resolve_spec(
         platforms (list[str]): Wheel platform tags to resolve for, one lock per tag.
         solver (Label): The WebAssembly solver module; None for the one of this release.
         constraints (list[Label]): Constraint files, never themselves installed.
+        pins (Label): The hub's pinned requirements file, which pins the version and
+            hashes of the packages it lists and which the hub keeps in step with its
+            solution (`requirements.update`); None when the hub has none.
         index_urls (list[str]): Package indexes, searched in order.
         allow_sdists (bool): Whether source distributions with static metadata may be used.
         allow_prerelease (bool): Whether pre-releases may be selected.
@@ -87,6 +91,7 @@ def resolve_spec(
         name = name,
         requirements_in = list(requirements_in),
         constraints = list(constraints),
+        pins = pins,
         python_version = python_version,
         platforms = list(platforms),
         solver = solver,
@@ -159,7 +164,7 @@ def _solver_module(ctx, spec):
     if not SOLVER_SHA256:
         fail(
             "This checkout of rules_req_compile is not a release, so it carries no solver module. " +
-            "Build one with `wasm/build_solver.sh` and name it with `solver` on the `parse` tag, " +
+            "Build one with `wasm/build_solver.sh` and name it with `solver` on the `resolve` tag, " +
             "or depend on a released version.",
         )
     ctx.download(url = SOLVER_URL, output = "req_compile_solver.wasm", sha256 = SOLVER_SHA256)
@@ -348,6 +353,7 @@ def _hub_inputs(ctx, spec):
             "constraints": [_input_path(label) for label in spec.constraints],
             "enforce_hashes": spec.enforce_hashes,
             "index_urls": spec.index_urls,
+            "pins": _input_path(spec.pins) if spec.pins != None else "",
             "platforms": spec.platforms,
             "python_version": spec.python_version,
             "requirements_in": [_input_path(label) for label in spec.requirements_in],
@@ -355,9 +361,13 @@ def _hub_inputs(ctx, spec):
         },
         "files": {
             _input_path(label): ctx.read(label)
-            for label in spec.requirements_in + spec.constraints
+            for label in _input_labels(spec)
         },
     }
+
+def _input_labels(spec):
+    """The files a hub names: requirements, constraints and the pinned file."""
+    return spec.requirements_in + spec.constraints + ([spec.pins] if spec.pins != None else [])
 
 def _meaningful(text):
     """A requirement file reduced to the lines that can change its solution.
@@ -393,7 +403,7 @@ def _unchanged(ctx, spec, previous, current):
     for path, text in current["files"].items():
         if files.get(path) != _meaningful(text):
             return False
-    known = {_input_path(label): label for label in spec.requirements_in + spec.constraints}
+    known = {_input_path(label): label for label in _input_labels(spec)}
     for path, text in files.items():
         if path in current["files"]:
             continue
@@ -546,7 +556,7 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
     hubs = {}
     facts = {}
     for spec in specs:
-        for label in spec.requirements_in + spec.constraints:
+        for label in _input_labels(spec):
             known[_input_path(label)] = label
         hubs[spec.name] = {
             "allow_prerelease": spec.allow_prerelease,
@@ -554,6 +564,7 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
             "constraints": [_input_path(label) for label in spec.constraints],
             "enforce_hashes": spec.enforce_hashes,
             "indexes": spec.index_urls,
+            "pins": _input_path(spec.pins) if spec.pins != None else None,
             "platforms": spec.platforms,
             "python_version": spec.python_version,
             "requirements": [_input_path(label) for label in spec.requirements_in],

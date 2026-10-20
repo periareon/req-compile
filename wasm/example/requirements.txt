@@ -1,16 +1,19 @@
-################################################################################
-## A fully pinned requirements file, as Dependabot maintains it: every entry
-## carries its version and the sha256 of its artifact. The hub `pinned_deps`
-## resolves it inside Bazel, so a Dependabot bump needs no `requirements.update`.
-################################################################################
-
+# Python requirements pinned by the `pip_deps` hub, from requirements.in.
+# Regenerate after changing them with:
+#
+#     bazel run @pip_deps//:requirements.update
+#
+# A version bumped here, with its hashes, is what the hub resolves to next
+# (Dependabot's pip updater does this). The hashes are those of the
+# artifacts the hub's platforms use.
 --index-url https://pypi.org/simple
 
 certifi==2026.10.18 \
     --hash=sha256:73191c47aaa79da394e8fee2dbc2ec827432cab56311122c9e47abf79e390f62
     # via requests
 charset-normalizer==3.5.2 \
-    --hash=sha256:211d5a3eb6af8f513b8d4ca19a8c1b7accab1b5f0d3175f9826b03c1a920dc1f
+    --hash=sha256:211d5a3eb6af8f513b8d4ca19a8c1b7accab1b5f0d3175f9826b03c1a920dc1f \
+    --hash=sha256:3d21b8b13c7592db2ac5e544a6d83187b995257472b0c9e8351b6d507ae37ed6
     # via requests
 idna==3.20 \
     --hash=sha256:ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c

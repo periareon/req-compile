@@ -1,7 +1,7 @@
 New in version 1.6.0:
 
-* The ``requirements`` extension resolves requirement files inside Bazel, without a host Python, when a
-  ``parse`` tag sets ``requirements_in`` together with ``python_version``, ``platforms`` and ``solver``. The
+* The ``requirements`` extension gains a ``resolve`` tag that resolves requirement files inside Bazel,
+  without a host Python, from ``requirements_in``, ``python_version`` and ``platforms``. The
   solver is the unmodified ``req_compile`` package running as a WebAssembly module under Bazel's experimental
   ``execute_wasm`` (``--experimental_repository_ctx_execute_wasm``; Bazel 10 compiles it with
   ``--experimental_repository_ctx_wasm_compilation``). Bazel performs every download, in rounds the solver
@@ -11,9 +11,12 @@ New in version 1.6.0:
   over from the indexes.
 * Fully pinned requirement files with ``--hash`` lines, as Dependabot's ``pip`` updater maintains them, are
   accepted as ``requirements_in``; ``enforce_hashes`` (default true) fails a version bumped without its hash.
+  With ``requirements_txt`` the hub maintains such a file itself: ``@<hub>//:requirements.update`` writes
+  what the hub resolved, with the hashes of the artifacts its platforms use, ``@<hub>//:requirements.test``
+  fails while the file is out of date, and the file pins what it lists when the hub resolves again.
   ``wasm/example`` shows the Dependabot configuration and a workflow that refreshes the lock.
 * ``req_compile_solver.wasm`` is built from pinned inputs by ``wasm/build_solver.sh`` and attached to each
-  release, whose extension downloads it on first use; ``solver`` on the ``parse`` tag names a locally built
+  release, whose extension downloads it on first use; ``solver`` on the ``resolve`` tag names a locally built
   module instead.
 
 New in version 1.5.0:

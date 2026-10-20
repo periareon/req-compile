@@ -1,4 +1,3 @@
-load("@pinned_deps//:defs.bzl", pinned_requirement = "requirement")
 load("@pip_deps//:defs.bzl", "requirement")
 load("@rules_venv//python:defs.bzl", "py_library")
 
@@ -18,7 +17,9 @@ filegroup(
     srcs = ["@pip_deps//all_wheels"],
 )
 
-py_library(
-    name = "uses_pinned_requests",
-    deps = [pinned_requirement("requests")],
+# Fails while requirements.txt no longer matches what the hub resolved from
+# requirements.in; `bazel run @pip_deps//:requirements.update` rewrites it.
+test_suite(
+    name = "requirements.test",
+    tests = ["@pip_deps//:requirements.test"],
 )

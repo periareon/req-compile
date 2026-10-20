@@ -118,8 +118,7 @@ python drive_local.py build/req_compile_solver.wasm requirements.in \
 
 ## Running it in Bazel
 
-The `requirements` module extension drives the module when a `parse` tag sets
-`requirements_in`; the loop is `req_compile/private/resolve.bzl`. `example/` is a
+The `requirements` module extension drives the module for every `resolve` tag; the loop is `req_compile/private/resolve.bzl`. `example/` is a
 workspace using it: copy the built module into it and run
 
 ```bash
@@ -147,15 +146,23 @@ or name the packages to upgrade, comma separated.
 
 ### Dependabot
 
-`example/requirements.txt` is a fully pinned file with hashes, fed to the
-`pinned_deps` hub as `requirements_in`. Dependabot's `pip` updater can maintain
-such a file; the hub rebuilds URLs and dependency edges from it, and with
-`enforce_hashes` (the default) a version bumped without its hash fails to resolve
-with a message naming the package, and so does a package that reaches the
-solution without any pin, as with `pip --require-hashes`: an index cannot add a
-dependency the file never vouched for. `example/.github/` holds a `dependabot.yml` and
-a workflow that refreshes `MODULE.bazel.lock` on Dependabot pull requests, which is
-needed because the requirements file is a recorded input of the lock.
+`example/requirements.txt` is the hub's pinned file, named by `requirements_txt`
+on the tag: what `requirements.in` resolved to, one entry per package with its
+version and the sha256 of every artifact the hub's platforms use, in the shape
+`pip-compile --generate-hashes` writes. `bazel run @pip_deps//:requirements.update`
+writes it and `bazel test //:requirements.test` fails while it is out of date.
+Dependabot's `pip` updater bumps versions and hashes in it; fed back to the hub,
+the file pins exactly what it lists, so the bump is what the next resolution
+uses, while a package newly added to `requirements.in` resolves freely and then
+appears in the file. `example/.github/` holds a `dependabot.yml` and a workflow
+that, on Dependabot pull requests, rewrites the file in the hub's format and
+refreshes `MODULE.bazel.lock`, which is needed because both files are recorded
+inputs of the lock.
+
+A fully pinned file can also be fed as `requirements_in` directly; then
+`enforce_hashes` (the default) applies the rules of `pip --require-hashes`: a
+version bumped without its hash fails to resolve, and so does any package the
+file pins no hash for.
 
 ## Measurements
 

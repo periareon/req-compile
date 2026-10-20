@@ -21,7 +21,7 @@ load(
 load("//req_compile/private:resolve.bzl", "resolve_hubs", "resolve_spec")
 
 def _interpreter_for_host(ctx, parse):
-    """The interpreter of a `parse` tag matching the host, used to build sdists."""
+    """The interpreter of a `parse` or `resolve` tag matching the host, used to build sdists."""
     if ctx.os.name == "mac os x":
         if ctx.os.arch == "amd64":
             return parse.interpreter_macos_x86_64
@@ -143,45 +143,42 @@ def _hub_locks(mod, parse):
 # The `hubs` value of annotations that apply to every hub.
 ALL_HUBS = "*"
 
-def _resolve_spec(mod, parse):
-    """Build the `resolve_spec` of a `parse` tag that names requirement files."""
-    if parse.requirements_lock or parse.requirements_locks:
-        fail("`requirements_in` is mutually exclusive with `requirements_lock` and `requirements_locks`. Please update hub `{}` of module `{}`.".format(
-            parse.name,
-            mod.name,
-        ))
+def _resolve_spec(mod, resolve):
+    """Build the `resolve_spec` of a `resolve` tag."""
     missing = [
         attr
         for attr, value in (
-            ("python_version", parse.python_version),
-            ("platforms", parse.platforms),
+            ("requirements_in", resolve.requirements_in),
+            ("python_version", resolve.python_version),
+            ("platforms", resolve.platforms),
         )
         if not value
     ]
     if missing:
-        fail("Hub `{}` of module `{}` uses `requirements_in`, which also needs: {}.".format(
-            parse.name,
+        fail("Hub `{}` of module `{}` needs: {}.".format(
+            resolve.name,
             mod.name,
             ", ".join(["`{}`".format(attr) for attr in missing]),
         ))
-    if parse.config_settings:
-        fail("Hub `{}` of module `{}` uses `requirements_in`; its locks are selected by the platforms they are resolved for, so `config_settings` does not apply.".format(
-            parse.name,
+    if resolve.requirements_txt and resolve.requirements_txt.repo_name:
+        fail("Hub `{}` of module `{}`: `requirements_txt` must be a file of the root module, since `requirements.update` writes it into the workspace.".format(
+            resolve.name,
             mod.name,
         ))
     return resolve_spec(
-        name = parse.name,
-        requirements_in = parse.requirements_in,
-        constraints = parse.constraints,
-        python_version = parse.python_version,
-        platforms = parse.platforms,
-        solver = parse.solver,
-        index_urls = [parse.index_url] + list(parse.extra_index_urls),
-        allow_sdists = parse.allow_sdists,
-        allow_prerelease = parse.allow_prerelease,
-        enforce_hashes = parse.enforce_hashes,
-        max_rounds = parse.max_rounds,
-        memory_limit = parse.solver_memory_limit,
+        name = resolve.name,
+        requirements_in = resolve.requirements_in,
+        constraints = resolve.constraints,
+        pins = resolve.requirements_txt,
+        python_version = resolve.python_version,
+        platforms = resolve.platforms,
+        solver = resolve.solver,
+        index_urls = [resolve.index_url] + list(resolve.extra_index_urls),
+        allow_sdists = resolve.allow_sdists,
+        allow_prerelease = resolve.allow_prerelease,
+        enforce_hashes = resolve.enforce_hashes,
+        max_rounds = resolve.max_rounds,
+        memory_limit = resolve.solver_memory_limit,
     )
 
 def _collect_annotations(ctx, hubs):
@@ -273,6 +270,48 @@ def _collect_annotations(ctx, hubs):
             per_hub[name] = effective
     return everywhere, per_hub
 
+def _add_hub(ctx, hubs, override_module_repos, mod, tag, locks = [], pins = None):
+    """Register the hub a `parse` or `resolve` tag defines.
+
+    Args:
+        ctx (module_ctx): The extension context.
+        hubs (dict): Hub name to its definition, added to.
+        override_module_repos (dict): Module name to the hubs the root module provides for it, added to.
+        mod (module): The module defining the tag.
+        tag (struct): The tag.
+        locks (list[struct]): The `lock_spec`s of a hub defined from lock files.
+        pins (struct): The `resolve` tag, for a hub that keeps a pinned requirements file.
+    """
+    if tag.name in hubs:
+        fail((
+            "The requirements hub `{}` is defined by both module `{}` and module `{}`. Hub names " +
+            "must be globally unique, rename one of them or use `override_module_repos` to have " +
+            "the root module provide it."
+        ).format(tag.name, hubs[tag.name]["module"], mod.name))
+
+    hubs[tag.name] = {
+        "alias_of": None,
+        "interpreter": _interpreter_for_host(ctx, tag),
+        "legacy_root_pkg_aliases": tag.legacy_root_pkg_aliases,
+        "locks": locks,
+        "module": mod.name,
+        "package_aliases": tag.package_aliases,
+        "pins": pins.requirements_txt if pins != None else None,
+        "pins_index_urls": [pins.index_url] + list(pins.extra_index_urls) if pins != None else [],
+        "pins_roots": [label.name for label in pins.requirements_in] if pins != None else [],
+    }
+
+    if mod.is_root and tag.override_module_repos:
+        for override_mod, override_repos in tag.override_module_repos.items():
+            if override_mod in override_module_repos:
+                fail("Module {} already has overrides from this module.".format(
+                    override_mod,
+                ))
+            override_module_repos[override_mod] = struct(
+                hub_name = tag.name,
+                override_repos = list(override_repos),
+            )
+
 def _requirements_impl(ctx):
     """Process annotations and parse tags."""
     hubs = {}
@@ -284,44 +323,16 @@ def _requirements_impl(ctx):
 
     for mod in ctx.modules:
         for parse in mod.tags.parse:
-            if parse.name in hubs:
-                fail((
-                    "The requirements hub `{}` is defined by both module `{}` and module `{}`. Hub names " +
-                    "must be globally unique, rename one of them or use `override_module_repos` to have " +
-                    "the root module provide it."
-                ).format(parse.name, hubs[parse.name]["module"], mod.name))
-
             if parse.requirements_lock and parse.requirements_locks:
                 fail("`requirements_lock` and `requirements_locks` are mutually exclusive. Please update hub `{}` of module `{}`.".format(
                     parse.name,
                     mod.name,
                 ))
+            _add_hub(ctx, hubs, override_module_repos, mod, parse, locks = _hub_locks(mod, parse))
 
-            if parse.requirements_in:
-                to_resolve[parse.name] = _resolve_spec(mod, parse)
-                locks = []
-            else:
-                locks = _hub_locks(mod, parse)
-
-            hubs[parse.name] = {
-                "alias_of": None,
-                "interpreter": _interpreter_for_host(ctx, parse),
-                "legacy_root_pkg_aliases": parse.legacy_root_pkg_aliases,
-                "locks": locks,
-                "module": mod.name,
-                "package_aliases": parse.package_aliases,
-            }
-
-            if mod.is_root and parse.override_module_repos:
-                for override_mod, override_repos in parse.override_module_repos.items():
-                    if override_mod in override_module_repos:
-                        fail("Module {} already has overrides from this module.".format(
-                            override_mod,
-                        ))
-                    override_module_repos[override_mod] = struct(
-                        hub_name = parse.name,
-                        override_repos = list(override_repos),
-                    )
+        for resolve in mod.tags.resolve:
+            to_resolve[resolve.name] = _resolve_spec(mod, resolve)
+            _add_hub(ctx, hubs, override_module_repos, mod, resolve, pins = resolve)
 
     # Hubs of dependent modules that the root module provides instead.
     for override_mod, override in override_module_repos.items():
@@ -353,6 +364,9 @@ def _requirements_impl(ctx):
             package_aliases = hub["package_aliases"],
             legacy_root_pkg_aliases = hub["legacy_root_pkg_aliases"],
             alias_of = hub["alias_of"],
+            pins = hub["pins"],
+            pins_index_urls = hub["pins_index_urls"],
+            pins_roots = hub["pins_roots"],
         )
         for name, hub in hubs.items()
     }
@@ -415,7 +429,7 @@ for the package.
         ),
         "hubs": attr.string_list(
             doc = (
-                "The hubs the annotation applies to: names of `parse` tags, or `\"*\"` for the hubs of " +
+                "The hubs the annotation applies to: names of `parse` or `resolve` tags, or `\"*\"` for the hubs of " +
                 "every module. Defaults to the hubs defined by the same module, which must then define " +
                 "at least one."
             ),
@@ -493,58 +507,11 @@ needs to see it: the hub aliases each setting and selects on the alias. Once
 `config_settings` is used every lock must appear in it, mixing explicit settings
 with platforms derived from headers is an error.
 
-A hub can also be resolved by Bazel itself, from requirement files, without a
-host Python. The solver is the `req_compile` package running in a WebAssembly
-module, which Bazel executes with its experimental `execute_wasm` support; set
-`--experimental_repository_ctx_execute_wasm` (and, with Bazel 10 or newer,
-`--experimental_repository_ctx_wasm_compilation`) in `.bazelrc`. The solution is
-recorded in `MODULE.bazel.lock`, which is then the lock: it is reused until a
-requirement file or the tag changes, and `--lockfile_mode=error` fails the build
-when it is out of date. Each release of `rules_req_compile` knows the module built
-with it and downloads it, through Bazel's repository cache, the first time a hub
-resolves; `solver` names a locally built module instead.
-
-```python
-requirements.parse(
-    name = "pip_deps",
-    requirements_in = ["//3rdparty:requirements.in"],
-    python_version = "3.11",
-    platforms = [
-        "manylinux_2_28_x86_64",
-        "macosx_11_0_arm64",
-        "win_amd64",
-    ],
-)
-```
-
-Every platform is resolved together, with one version of each package across
-platforms, exactly as `py_reqs_compiler` does with `requirements_txts`. The
-lock of each platform is selected like a lock file whose header names that
-platform. Nothing of this runs unless a hub sets `requirements_in`.
-
-The solution is also remembered in the lock file's facts. When a requirement
-file changes, the next resolution keeps every version the change does not
-disturb, like `py_reqs_compiler` recycling its solution, and fetches only the
-pages and metadata of what is new. To resolve afresh instead, set
-`REQ_COMPILE_UPGRADE=all`, or to a comma separated list of the packages to
-upgrade, and run any build or `bazel mod deps`.
-
 A hub whose locks do not all contain the same packages is supported. A package
 missing from the lock of a platform is incompatible with that platform, so targets
 depending on it are skipped there rather than failing to build.
 """,
     attrs = {
-        "allow_prerelease": attr.bool(
-            doc = "Resolve mode: whether pre-release versions may be selected.",
-            default = False,
-        ),
-        "allow_sdists": attr.bool(
-            doc = (
-                "Resolve mode: whether source distributions may be selected. Only distributions whose " +
-                "dependencies are static metadata (PEP 643) can be used; the solver cannot run a build."
-            ),
-            default = False,
-        ),
         "config_settings": attr.label_keyed_string_dict(
             doc = (
                 "A mapping of `config_setting` labels to the id of the lock in `requirements_locks` they " +
@@ -554,13 +521,143 @@ depending on it are skipped there rather than failing to build.
             ),
             default = {},
         ),
+        "interpreter_linux_aarch64": attr.label(
+            doc = "Optional Linux arm64 Python interpreter binary to use for sdists.",
+        ),
+        "interpreter_linux_x86_64": attr.label(
+            doc = "Optional Linux amd64 Python interpreter binary to use for sdists.",
+        ),
+        "interpreter_macos_aarch64": attr.label(
+            doc = "Optional MacOS ARM Python interpreter binary to use for sdists.",
+        ),
+        "interpreter_macos_x86_64": attr.label(
+            doc = "Optional MacOS x86_64 Python interpreter binary to use for sdists.",
+        ),
+        "interpreter_windows": attr.label(
+            doc = "Optional Windows x64 Python interpreter binary to use for sdists.",
+        ),
+        "legacy_root_pkg_aliases": attr.bool(
+            doc = (
+                "If True, creates aliases in the root BUILD.bazel file pointing to the " +
+                "package targets in their subpackages. This provides backward compatibility " +
+                "for code that references packages at the root (e.g., `@repo//:package_name`)."
+            ),
+            default = False,
+        ),
+        "name": attr.string(
+            doc = "Name of the hub repository to create. Must be unique across all modules.",
+            mandatory = True,
+        ),
+        "override_module_repos": attr.string_list_dict(
+            doc = """\
+Mapping of module name to list of hubs that should be overridden by this hub. The hubs
+must be those that are expected to be created by this module extension for that module.
+
+Every package of the overridden hub becomes an alias of the same package in this hub,
+meaning this hub must provide every package of the overridden hub.
+
+This attribute is intended to have the root module coordinate all Python packages such
+that Python libraries from dependencies can be safely imported into the same interpreter.
+Do not override repos for libraries that will never be mixed. To inject Python dependencies
+for use in most child modules, a custom toolchain type is most appropriate.""",
+            default = {},
+        ),
+        "package_aliases": attr.label_keyed_string_dict(
+            doc = """\
+Map `py_library` targets to replace instances of the paired distribution when
+used. This allows local source code to directly replaced a library which normally comes from
+a downloaded wheel.""",
+            default = {},
+        ),
+        "requirements_lock": attr.label(
+            doc = "A single lockfile for a single platform solution.",
+        ),
+        "requirements_locks": attr.label_keyed_string_dict(
+            doc = (
+                "A mapping of lock files to an id naming each lock within the hub. Ids are matched against " +
+                "`config_settings`; without `config_settings`, locks are selected by the platform recorded in " +
+                "their header. An empty id derives the id from the header or file name. For compatibility, a " +
+                "value that is a label string is treated as the config setting of the lock, but such labels are " +
+                "resolved relative to `rules_req_compile` and can only name config settings visible to it."
+            ),
+        ),
+    },
+)
+
+_resolve = tag_class(
+    doc = """\
+Define a hub repository of Python requirements that Bazel resolves itself.
+
+The hub is resolved from requirement files, without a host Python: the solver is
+the `req_compile` package running in a WebAssembly module, which Bazel executes
+with its experimental `execute_wasm` support; set
+`--experimental_repository_ctx_execute_wasm` (and, with Bazel 10 or newer,
+`--experimental_repository_ctx_wasm_compilation`) in `.bazelrc`. The solution is
+recorded in `MODULE.bazel.lock`, which is then the lock: it is reused until a
+requirement file or the tag changes, and `--lockfile_mode=error` fails the build
+when it is out of date. Each release of `rules_req_compile` knows the module built
+with it and downloads it, through Bazel's repository cache, the first time a hub
+resolves; `solver` names a locally built module instead.
+
+```python
+requirements = use_extension("@rules_req_compile//extensions:python.bzl", "requirements")
+requirements.resolve(
+    name = "pip_deps",
+    requirements_in = ["//3rdparty:requirements.in"],
+    requirements_txt = "//3rdparty:requirements.txt",
+    python_version = "3.11",
+    platforms = [
+        "manylinux_2_28_x86_64",
+        "macosx_11_0_arm64",
+        "win_amd64",
+    ],
+)
+use_repo(requirements, "pip_deps")
+```
+
+The hub is the same kind of repository a `parse` tag defines from lock files, and
+hub names are unique across both. Every platform is resolved together, with one
+version of each package across platforms, exactly as `py_reqs_compiler` does with
+`requirements_txts`. The lock of each platform is selected like a lock file whose
+header names that platform. Nothing of this runs unless some module uses this tag.
+
+The solution is also remembered in the lock file's facts. When a requirement
+file changes, the next resolution keeps every version the change does not
+disturb, like `py_reqs_compiler` recycling its solution, and fetches only the
+pages and metadata of what is new. To resolve afresh instead, set
+`REQ_COMPILE_UPGRADE=all`, or to a comma separated list of the packages to
+upgrade, and run any build or `bazel mod deps`.
+
+With `requirements_txt` the hub also keeps a pinned requirements file in the
+workspace, in the shape `pip-compile --generate-hashes` writes: every package at
+its resolved version with the hashes of the artifacts the hub's platforms use.
+`bazel run @<hub>//:requirements.update` writes it and `@<hub>//:requirements.test`
+fails while it is out of date, as `py_reqs_solution_test` does for compiled
+locks. Fed back to the hub, the file pins the version and hashes of what it
+lists, so a version Dependabot bumps in it is what the next resolution uses,
+while a package newly added to `requirements_in` resolves freely and then
+appears in it. The file is the pin list a bot can edit; `MODULE.bazel.lock`
+remains the lock.
+""",
+    attrs = {
+        "allow_prerelease": attr.bool(
+            doc = "Whether pre-release versions may be selected.",
+            default = False,
+        ),
+        "allow_sdists": attr.bool(
+            doc = (
+                "Whether source distributions may be selected. Only distributions whose " +
+                "dependencies are static metadata (PEP 643) can be used; the solver cannot run a build."
+            ),
+            default = False,
+        ),
         "constraints": attr.label_list(
-            doc = "Resolve mode: constraint files, which constrain versions without being installed.",
+            doc = "Constraint files, which constrain versions without being installed.",
             default = [],
         ),
         "enforce_hashes": attr.bool(
             doc = (
-                "Resolve mode: whether the `--hash` values of the requirement files, if any, must match the " +
+                "Whether the `--hash` values of the requirement files, if any, must match the " +
                 "artifacts chosen. With it, a pinned file maintained by Dependabot is also an integrity check: " +
                 "a version bumped without its hashes fails to resolve, and so does any package the files pin " +
                 "no hash for, as with `pip --require-hashes`. Disable it for a hub whose platforms need " +
@@ -569,11 +666,11 @@ depending on it are skipped there rather than failing to build.
             default = True,
         ),
         "extra_index_urls": attr.string_list(
-            doc = "Resolve mode: additional package indexes, searched after `index_url`.",
+            doc = "Additional package indexes, searched after `index_url`.",
             default = [],
         ),
         "index_url": attr.string(
-            doc = "Resolve mode: the package index to resolve from.",
+            doc = "The package index to resolve from.",
             default = "https://pypi.org/simple",
         ),
         "interpreter_linux_aarch64": attr.label(
@@ -601,7 +698,7 @@ depending on it are skipped there rather than failing to build.
         ),
         "max_rounds": attr.int(
             doc = (
-                "Resolve mode: the most rounds of downloads the solver may ask for. Each round is one " +
+                "The most rounds of downloads the solver may ask for. Each round is one " +
                 "level of the dependency graph, or less."
             ),
             default = 40,
@@ -633,13 +730,13 @@ a downloaded wheel.""",
         ),
         "platforms": attr.string_list(
             doc = (
-                "Resolve mode: the wheel platform tags to resolve for, as accepted by `pip --platform`, " +
+                "The wheel platform tags to resolve for, as accepted by `pip --platform`, " +
                 "e.g. `manylinux_2_28_x86_64`, `macosx_11_0_arm64` or `win_amd64`. One lock is produced per tag."
             ),
             default = [],
         ),
         "python_version": attr.string(
-            doc = "Resolve mode: the Python version to resolve for, e.g. `3.11` or `3.11.4`.",
+            doc = "The Python version to resolve for, e.g. `3.11` or `3.11.4`.",
         ),
         "requirements_in": attr.label_list(
             doc = (
@@ -649,28 +746,29 @@ a downloaded wheel.""",
             ),
             default = [],
         ),
-        "requirements_lock": attr.label(
-            doc = "A single lockfile for a single platform solution.",
-        ),
-        "requirements_locks": attr.label_keyed_string_dict(
+        "requirements_txt": attr.label(
             doc = (
-                "A mapping of lock files to an id naming each lock within the hub. Ids are matched against " +
-                "`config_settings`; without `config_settings`, locks are selected by the platform recorded in " +
-                "their header. An empty id derives the id from the header or file name. For compatibility, a " +
-                "value that is a label string is treated as the config setting of the lock, but such labels are " +
-                "resolved relative to `rules_req_compile` and can only name config settings visible to it."
+                "The hub's pinned requirements file, kept in step with its solution. The hub " +
+                "renders it (one entry per package with its version, the sha256 of every artifact its " +
+                "platforms use, and what requires it) and exposes `@<hub>//:requirements.update`, which " +
+                "writes it into the workspace, and `@<hub>//:requirements.test`, which fails when it is " +
+                "out of date. Fed back here, the file pins the version and hashes of every package it " +
+                "lists, so a version bumped in it, by Dependabot for instance, is what the next " +
+                "resolution uses; packages not yet in it, such as one just added to `requirements_in`, " +
+                "resolve freely and then appear in it. Must be a file of the root module."
             ),
+            allow_single_file = True,
         ),
         "solver": attr.label(
             doc = (
-                "Resolve mode: a `req_compile_solver.wasm` module to use instead of the one built with this " +
+                "A `req_compile_solver.wasm` module to use instead of the one built with this " +
                 "release of `rules_req_compile`, for instance the output of its `wasm/build_solver.sh`. A source " +
                 "checkout of the rules has no module of its own and needs this."
             ),
             allow_single_file = True,
         ),
         "solver_memory_limit": attr.int(
-            doc = "Resolve mode: the memory limit of one solver call, in bytes.",
+            doc = "The memory limit of one solver call, in bytes.",
             default = 1024 * 1024 * 1024,
         ),
     },
@@ -685,5 +783,6 @@ each requirement listed in the file.""",
     tag_classes = {
         "package_annotation": _annotation,
         "parse": _parse,
+        "resolve": _resolve,
     },
 )

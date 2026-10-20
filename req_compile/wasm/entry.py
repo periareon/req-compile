@@ -189,6 +189,11 @@ class FactRepository(Repository):
         self._candidates: Dict[str, List[Candidate]] = {}
         # The `--hash` values pinned per project; set by `solve` once the files are read.
         self.hashes: Dict[NormName, Set[str]] = {}
+        # Whether a project without a pinned hash is an error. True when the
+        # requirement files themselves pin hashes (`pip --require-hashes`); false
+        # when only the hub's pinned requirements file does, which pins what it
+        # lists and leaves new packages to be resolved and then recorded in it.
+        self.require_pins = False
         self._entries: Dict[Tuple[str, str], Dict[str, Any]] = {}
 
     def __repr__(self) -> str:
@@ -311,7 +316,9 @@ class FactRepository(Repository):
         key = utils.normalize_project_name(name)
         pinned = self.hashes.get(key)
         if not pinned:
-            raise UnpinnedPackage(name)
+            if self.require_pins:
+                raise UnpinnedPackage(name)
+            return candidates
         matching = [
             candidate
             for candidate in candidates
@@ -345,7 +352,7 @@ class FactRepository(Repository):
         entry = self.prior.get(key)
         if entry is None or not entry.get("filename") or not entry.get("url"):
             return None
-        if self.hashes and key not in self.hashes:
+        if self.require_pins and key not in self.hashes:
             raise UnpinnedPackage(req.name)
         index = (entry.get("index") or "").rstrip("/")
         if index != self.index_url:
@@ -683,7 +690,12 @@ def _speculate(hubs: List[_Hub], facts: Dict[str, Any]) -> None:
 
     for hub in hubs:
         roots: List[packaging.requirements.Requirement] = []
-        for path in hub.spec["requirements"] + list(hub.spec.get("constraints", [])):
+        pins = hub.spec.get("pins")
+        for path in (
+            hub.spec["requirements"]
+            + list(hub.spec.get("constraints", []))
+            + ([pins] if pins else [])
+        ):
             try:
                 roots.extend(RequirementsFile.from_file(path))
             except NeedFacts:
@@ -777,14 +789,30 @@ def solve(payload: Dict[str, Any]) -> Dict[str, Any]:
                                 path, reqs.parameters or [], hub.spec["indexes"]
                             )
                         )
+                    # The hub's pinned requirements file: hard pins, with hashes,
+                    # for the packages it lists.
+                    pins = hub.spec.get("pins")
+                    if pins:
+                        pinned = RequirementsFile.from_file(pins)
+                        constraints.append(pinned)
+                        constraints.extend(
+                            file_constraints(
+                                pins, pinned.parameters or [], hub.spec["indexes"]
+                            )
+                        )
                     if hub.spec.get("enforce_hashes", True):
-                        hashes = pinned_hashes(
+                        strict = pinned_hashes(
                             hub.spec["requirements"]
                             + list(hub.spec.get("constraints", []))
                         )
+                        hashes = {name: set(values) for name, values in strict.items()}
+                        if pins:
+                            for name, values in pinned_hashes([pins]).items():
+                                hashes.setdefault(name, set()).update(values)
                         for repos in hub.indexes:
                             for repo in repos:
                                 repo.hashes = hashes
+                                repo.require_pins = bool(strict)
                         hub.hashes_ready = True
                     solutions = perform_compile_group(
                         input_reqs,

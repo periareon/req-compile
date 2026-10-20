@@ -656,7 +656,7 @@ def test_file_options_are_refused_unless_they_match_the_hub() -> None:
     ).run(_hub())
     assert result["status"] == "error", result
     assert "--index-url https://other.example/simple" in result["message"]
-    assert "`parse` tag" in result["message"]
+    assert "`resolve` tag" in result["message"]
 
     result = Host({"/inputs/requirements.in": "--no-binary :all:\na\n"}).run(_hub())
     assert result["status"] == "error", result
@@ -852,3 +852,26 @@ def test_hash_after_a_commented_continuation_is_a_pin() -> None:
     facts = {"file:" + path: {"text": text} for path, text in files.items()}
     with wasm_files.FactFiles(facts, wasm_files.Requests()):
         assert wasm_files.pinned_hashes(["/inputs/requirements.txt"]) == {"c": {"ab"}}
+
+
+def test_pinned_requirements_file_pins_what_it_lists_and_allows_the_rest() -> None:
+    """The hub's requirements.txt is a hard pin, with hashes, for the packages in it;
+    a package it does not list yet, added to requirements.in, resolves freely."""
+    files = {
+        "/inputs/requirements.in": "a\n",
+        "/inputs/requirements.txt": "b==2.0 \\\n    --hash=sha256:" + "22" * 32 + "\n",
+    }
+    result = Host(files).run(_hub(pins="/inputs/requirements.txt"))
+    assert result["status"] == "done", result
+    packages = result["hubs"]["hub"]["locks"]["win_amd64"]["packages"]
+    assert packages["b"]["hash_pinned"] and not packages["a"]["hash_pinned"]
+    assert result["hubs"]["hub"]["files"] == [
+        "/inputs/requirements.in",
+        "/inputs/requirements.txt",
+    ]
+
+    # A bumped pin whose hash is wrong fails naming the package.
+    files["/inputs/requirements.txt"] = "b==2.0 --hash=sha256:" + "99" * 32 + "\n"
+    result = Host(files).run(_hub(pins="/inputs/requirements.txt"))
+    assert result["status"] == "error", result
+    assert "`b`" in result["message"]
