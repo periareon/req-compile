@@ -3,13 +3,20 @@ New in version 1.6.2:
 * ``@<hub>//:requirements.test`` compares the pinned file by meaning: it passes when the file pins exactly the
   packages and versions the hub resolved and, for each, its hashes include those of the artifacts the hub's
   platforms use. Extra hashes, comments and ordering do not matter, so a file Dependabot regenerates with
-  pip-compile passes; a missing or extra package, another version or a missing hash fails naming the package.
+  pip-compile passes, as do ``2.0.0`` or ``===2.0`` for ``2.0``; a missing or extra package, another version,
+  a missing hash, a package pinned twice at different versions or an ``-r`` include fails naming it.
 * ``REQ_COMPILE_UPGRADE`` lifts the pins of the named packages (all of them with ``all``) from the hub's
   ``requirements_txt`` for that resolution, and ``bazel run @<hub>//:requirements.update -- --upgrade [pkg ...]``
-  (``-U``) does the same from the command line, so a pin can be moved on purpose.
+  (``-U``) does the same from the command line, so a pin can be moved on purpose; it runs the hub's target by
+  canonical label with ``--repo_env``. A pinned hub that fails to resolve says how to lift a pin.
 * ``@<hub>//:requirements.test`` compares against a copy of the workspace file the hub repository reads itself,
   so the file needs no ``exports_files``.
 * The module archive no longer carries the solver module built during the release, nor a stray diff file.
+* A page or distribution that still cannot be downloaded when the solver's failure is retried is reported with
+  its URL and Bazel's cause, and with the way out: run the command again once the cause is fixed, and
+  ``bazel shutdown`` when the same error comes back although the index is reachable, since Bazel keeps a failed
+  module extension evaluation until one of its inputs changes (the lockfile, rewritten after every command in
+  its default mode, is one).
 
 New in version 1.6.1:
 

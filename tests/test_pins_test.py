@@ -8,20 +8,29 @@ from types import ModuleType
 import pytest
 
 
-@pytest.fixture(name="pins_test")
-def _pins_test() -> ModuleType:
-    """The hub's test script, loaded from this repository's source tree."""
+def _load(name: str) -> ModuleType:
+    """A hub script, loaded from this repository's source tree."""
     path = (
         pathlib.Path(__file__).resolve().parents[1]
         / "req_compile"
         / "private"
-        / "pins_test.py"
+        / (name + ".py")
     )
-    spec = importlib.util.spec_from_file_location("pins_test", path)
+    spec = importlib.util.spec_from_file_location(name, path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+@pytest.fixture(name="pins_test")
+def _pins_test() -> ModuleType:
+    return _load("pins_test")
+
+
+@pytest.fixture(name="pins_update")
+def _pins_update() -> ModuleType:
+    return _load("pins_update")
 
 
 RESOLVED = """\
@@ -75,8 +84,9 @@ H = {
 
 def test_pip_compile_output_with_every_hash_passes(pins_test: ModuleType) -> None:
     resolved = pins_test.parse_pins(RESOLVED.format(**H))
-    assert set(resolved) == {"certifi", "charset-normalizer", "requests"}
-    assert resolved["charset-normalizer"] == ("3.5.2", {H["n1"], H["n2"]})
+    assert resolved.problems == []
+    assert set(resolved.pins) == {"certifi", "charset-normalizer", "requests"}
+    assert resolved.pins["charset-normalizer"] == ("3.5.2", {H["n1"], H["n2"]})
     pinned = pins_test.parse_pins(PIP_COMPILE.format(**H))
     assert pins_test.compare(resolved, pinned) == []
 
@@ -105,3 +115,81 @@ def test_the_rendered_file_passes_against_itself(pins_test: ModuleType) -> None:
     assert (
         pins_test.compare(pins_test.parse_pins(text), pins_test.parse_pins(text)) == []
     )
+
+
+def _against(pins_test: ModuleType, line: str) -> list:
+    """The problems of a file holding `line` against a hub that resolved `b==2.0`."""
+    resolved = pins_test.parse_pins("b==2.0 --hash=sha256:" + "ab" * 32 + "\n")
+    return pins_test.compare(resolved, pins_test.parse_pins(line))
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "b===2.0 --hash=sha256:" + "ab" * 32,
+        "b==2.0.0 --hash=sha256:" + "ab" * 32,
+        "B==v2.0 --hash=sha256:" + "ab" * 32,
+        "b==2.0 --hash=sha256:" + "ab" * 32 + "\t# a comment after a tab",
+        'b==2.0 ; python_version < "4" --hash=sha256:' + "ab" * 32,
+        # Pinned twice at one version: the hashes add up.
+        "b==2.0 --hash=sha256:" + "cd" * 32 + "\nb==2.0.0 --hash=sha256:" + "ab" * 32,
+    ],
+)
+def test_equivalent_spellings_pass(pins_test: ModuleType, line: str) -> None:
+    assert _against(pins_test, line + "\n") == []
+
+
+def test_canonical_version(pins_test: ModuleType) -> None:
+    canonical = pins_test.canonical_version
+    assert canonical("2.0.0") == canonical("v2.0") == canonical("2") == "2"
+    assert canonical("1.0.0rc1") == canonical("1.0RC1") == "1rc1"
+    assert canonical("1.0.post1") == "1.post1"
+    assert canonical("0.0") == "0"
+    assert canonical("2.0.1") != canonical("2.0")
+
+
+def test_conflicting_duplicate_pins_fail(pins_test: ModuleType) -> None:
+    problems = _against(
+        pins_test,
+        "b==2.0 --hash=sha256:"
+        + "ab" * 32
+        + "\nb==1.0 --hash=sha256:"
+        + "cd" * 32
+        + "\n",
+    )
+    assert problems == ["`b` is pinned twice, to 2.0 and to 1.0"]
+
+
+def test_an_include_is_reported_not_followed(pins_test: ModuleType) -> None:
+    problems = _against(pins_test, "-r pins.txt\n")
+    assert problems[0].startswith("`-r pins.txt` is not followed")
+    assert "`b` is missing" in problems[1]
+    assert _against(pins_test, "--requirement=pins.txt\n")[0].startswith(
+        "`--requirement pins.txt` is not followed"
+    )
+
+
+def test_upgrade_runs_the_canonical_target_with_repo_env(
+    pins_update: ModuleType,
+) -> None:
+    target = "@@rules_req_compile++requirements+pip//:requirements.update"
+    assert pins_update.upgrade_command(["idna", " six", "idna"], target) == [
+        "bazel",
+        "run",
+        "--repo_env=REQ_COMPILE_UPGRADE=idna,six",
+        target,
+    ]
+    assert pins_update.upgrade_command([], target, "/opt/bazelisk") == [
+        "/opt/bazelisk",
+        "run",
+        "--repo_env=REQ_COMPILE_UPGRADE=all",
+        target,
+    ]
+    args = pins_update._parse_args(  # pylint: disable=protected-access
+        ["r.txt", "requirements.txt", target, "-U"]
+    )
+    assert args.upgrade == []
+    args = pins_update._parse_args(  # pylint: disable=protected-access
+        ["r.txt", "requirements.txt", target]
+    )
+    assert args.upgrade is None

@@ -751,17 +751,33 @@ longer pins what the hub resolved, the role `py_reqs_solution_test` plays for
 compiled locks. The comparison is by meaning: the same packages at the same
 versions, each with at least the hashes of the artifacts the hub uses. Dependabot
 regenerates the file with pip-compile when a `.in` file exists, which writes the
-hash of every file of a release in its own layout, and that passes. Fed back to the hub, the file is a set of hard pins with hashes for the
+hash of every file of a release in its own layout, and that passes; so do
+`2.0.0` or `===2.0` for `2.0`, a tab before a comment and a package pinned twice
+at one version, while a package pinned twice at different versions or an `-r`
+include, which the test does not follow, fail naming it. Markers are not
+evaluated (a pin with one is a pin). Fed back to the hub, the file is a set of hard pins with hashes for the
 packages it lists, while packages it does not list yet resolve freely and then
 appear in it, as do the packages `REQ_COMPILE_UPGRADE` names (all of them with
 `all`), whose pins and hashes are left out of the constraints for that one
 resolution so that `requirements.update` writes their new version.
 `requirements.update -- --upgrade [package ...]` (`-U`) is the same thing from
-the command line: the script runs its own target once more with the variable
-set, which `bazel run` allows since the command lock is released before the
-binary runs; the solver's
+the command line: the script runs its own target once more, by canonical label
+(the root module may import the hub under another name) and with
+`--repo_env=REQ_COMPILE_UPGRADE=...` (so a `--repo_env` for the variable in
+`.bazelrc` cannot mask it), which `bazel run` allows since the command lock is
+released before the binary runs. The inner command is `bazel` from `PATH` (or
+`$BAZEL`) without the options of the outer command line, so the flags the
+resolution needs belong in `.bazelrc`; and since the outer `bazel run` resolves
+the hub before the script starts, a pin that keeps the hub from resolving at all
+is lifted from the shell, `REQ_COMPILE_UPGRADE=<package> bazel run ...`, which
+the failure message of a pinned hub says. The solver's
 `require_pins` flag distinguishes this from a file fed as `requirements_in`,
-where every package must be pinned. A dependency an index
+where every package must be pinned. The test reads a copy of the workspace file
+the hub repository took at fetch time (`repository_ctx.read` of the label), so
+the file needs no `exports_files`; and since it lives in the hub repository,
+outside `//...`, a `test_suite` in the workspace that lists it (as
+`wasm/example/BUILD.bazel` does) is what puts it in a `bazel test //...` gate.
+A dependency an index
 injected would surface as a new line in the file and fail the test until a human
 regenerates and reviews it, which is the pip-compile model.
 
@@ -901,18 +917,36 @@ is included today) is the first lever.
   as "no candidates" on that index, so a package missing from one of several
   indexes is found on the next. When the solve then fails, the solver names the
   requests behind the failing project whose download failed (`retry`), and the
-  extension fetches them again without `allow_fail` before giving up: a network
-  failure is then Bazel's own download error, naming the URL and the cause, and a
-  page that does not exist is reported as its 404. If the fetches succeed the
-  solve continues. (Found by the factory workspace: a transient
-  `NoRouteToHostException` on one page was reported as `NoCandidateException`.)
-  What this cannot fix is Bazel caching the failed evaluation: every error of a
-  module extension is persistent to Skyframe (`SingleExtensionEvalFunction`
-  wraps them with `Transience.PERSISTENT`, download errors included, unlike a
-  repository rule's fetch), so the same command replays the error until an input
-  of the extension changes or `bazel shutdown`. A Bazel issue is the way out;
-  until then the error message says what happened and the operator knows what
-  to do.
+  extension fetches them again before giving up, and a fetch that still fails
+  is the error: the URL, Bazel's cause (a connection refused, a 404; Bazel 9
+  gives no cause) and what to do: run the command again once the cause is fixed,
+  and `bazel shutdown` if the same error comes back although the index is
+  reachable. If the fetches succeed the solve continues. (Found by the factory
+  workspace: a transient `NoRouteToHostException` on one page was reported as
+  `NoCandidateException`.) The shutdown note is there because Bazel caches a
+  failed extension evaluation, download errors included, checked against Bazel
+  10's source: `ctx.download`'s `wait()` throws a `RepositoryFunctionException`
+  marked `TRANSIENT` for an `IOException`, but Starlark reports a checked
+  exception from a builtin as an `EvalException` (`MethodDescriptor.call`),
+  `RegularRunnableExtension.run` turns every `EvalException` into an
+  `ExternalDepsException`, and `SingleExtensionEvalFunction` wraps that in a
+  `SkyFunctionException` with `Transience.PERSISTENT`, whatever the cause was. A
+  repository rule's `RepositoryFetchFunction` keeps the same `EvalException`
+  `TRANSIENT`, so a failed repository fetch is retried by the next command while
+  a failed extension replays its error until an input of the extension changes
+  or the server restarts. Measured with an index that goes down and comes back
+  (Bazel 10.0.0rc1, `wasm/example` against a local proxy to PyPI): with the
+  lockfile on, the default, the next command after the index returns resolves
+  fine without a shutdown, because Bazel rewrites `MODULE.bazel.lock` at the end
+  of every command and the extension depends on it; with `--lockfile_mode=off`
+  the same error comes back, and `bazel shutdown` clears it. So the shutdown is
+  needed less often than the Skyframe rule suggests, and the message says when.
+  (The same measurement is not possible on Bazel 9.3.0: Bazel drops an
+  `http://` URL that comes without a checksum, "No URLs left after removing
+  plain http URLs due to missing checksum", and Bazel 10 excepts only
+  `localhost` from that (`isLocalhostUrl` in `StarlarkBaseExternalContext`).
+  Index pages never have a checksum, so an index served over plain HTTP does
+  not work in resolve mode on either version; the index has to be `https`.)
 - **Metadata not static.** Named in the failure explanation per candidate, see
   "Source distributions".
 - **Round limit.** Reported with the last round's unanswered requests, which pinpoints

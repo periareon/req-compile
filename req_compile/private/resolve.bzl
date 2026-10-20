@@ -608,17 +608,44 @@ def _resolve_group(ctx, specs, inputs, recorded, upgrade):
         if out["status"] == "error":
             # A download that failed reached the solver as a missing project or
             # distribution, and the solver names the requests behind its error
-            # whose download failed. Fetch those again, strictly: a network
-            # failure then surfaces as Bazel's own download error, which is not
-            # cached as a resolution failure the way a `fail()` is, and a page
-            # that does not exist is reported with its URL. When every fetch
-            # succeeds the solve goes on with the documents.
+            # whose download failed. Fetch those again, one at a time, and when
+            # one still fails report that instead of the solver's explanation:
+            # the URL, Bazel's cause (a connection refused, a 404) and how to
+            # recover. The recovery note matters because every error of a module
+            # extension is persistent to Skyframe (Bazel wraps the evaluation's
+            # `EvalException` in `SingleExtensionEvalFunctionException` with
+            # `Transience.PERSISTENT`, a download error included, where a
+            # repository rule's fetch keeps it transient), so the same command
+            # replays the failure until an input of the extension changes or
+            # the server restarts. In the default lockfile mode Bazel rewrites
+            # `MODULE.bazel.lock` after the failed command and the extension
+            # depends on it, so the next command does evaluate again; with
+            # `--lockfile_mode=off` the error comes back until `bazel shutdown`
+            # (both measured, Bazel 10.0.0rc1). When every fetch succeeds the
+            # solve goes on with the documents.
             retry = out.get("retry", [])
             if not retry:
-                fail("Failed to resolve the requirements of hub `{}`: {}".format(out.get("hub", "?"), out["message"]))
+                hub = out.get("hub", "?")
+                hint = ""
+                if hubs.get(hub, {}).get("pins"):
+                    # The `--upgrade` flag of `requirements.update` cannot help
+                    # here: `bazel run` resolves the hub before the script runs.
+                    hint = (
+                        "\nIf a pin in {} is in the way, lift it for one resolution with " +
+                        "`REQ_COMPILE_UPGRADE=<package> bazel run @{}//:requirements.update` " +
+                        "(`REQ_COMPILE_UPGRADE=all` lifts every pin)."
+                    ).format(hubs[hub]["pins"], hub)
+                fail("Failed to resolve the requirements of hub `{}`: {}{}".format(hub, out["message"], hint))
             for request in retry:
                 scratch += 1
-                request, path, result = _start_download(ctx, netrc, request, scratch, allow_fail = False, block = True)
+                request, path, result = _start_download(ctx, netrc, request, scratch, allow_fail = True, block = True)
+                if not result.success:
+                    # Bazel 10 reports the cause in `error`; Bazel 9 only says it failed.
+                    fail((
+                        "Failed to resolve the requirements of hub `{}`: could not download {}: {}\n" +
+                        "Once the cause is fixed, run the command again; if this error comes back although " +
+                        "the index is reachable, Bazel is replaying the failed evaluation: `bazel shutdown` clears it."
+                    ).format(out.get("hub", "?"), request["url"], getattr(result, "error", "download failed")))
                 facts.pop(request["id"], None)
                 documents[request["id"]] = _document(ctx, request, path, result)
             continue

@@ -2,9 +2,17 @@
 
 Run through `bazel run @<hub>//:requirements.update`. The arguments are the
 runfiles path of the rendered file, the workspace-relative path to write and
-the hub's name; `--upgrade` (`-U`), with or without package names, resolves
-again from the index for those packages, every package without names, by
-running the same target once more with `REQ_COMPILE_UPGRADE` set.
+this target's canonical label; `--upgrade` (`-U`), with or without package
+names, resolves again from the index for those packages, every package without
+names, by running that label once more with `--repo_env=REQ_COMPILE_UPGRADE=...`
+(the canonical label works whatever the hub is called in the root module; the
+`--repo_env` is seen whatever `.bazelrc` sets for the variable).
+
+The inner command is `bazel` from PATH, or `$BAZEL`, with no option of the outer
+command line: options the resolution needs belong in `.bazelrc`. And since the
+outer `bazel run` has to resolve the hub before this script starts, a pin that
+keeps the hub from resolving at all is lifted from the shell instead:
+`REQ_COMPILE_UPGRADE=<package> bazel run @<hub>//:requirements.update`.
 """
 
 import argparse
@@ -13,8 +21,7 @@ import subprocess
 import sys
 from typing import List, Optional
 
-# pylint: disable-next=import-error
-from python.runfiles import Runfiles
+UPGRADE_ENV = "REQ_COMPILE_UPGRADE"
 
 
 def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
@@ -24,7 +31,7 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     )
     parser.add_argument("rendered", help=argparse.SUPPRESS)
     parser.add_argument("destination", help=argparse.SUPPRESS)
-    parser.add_argument("hub", help=argparse.SUPPRESS)
+    parser.add_argument("target", help=argparse.SUPPRESS)
     parser.add_argument(
         "-U",
         "--upgrade",
@@ -38,6 +45,13 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def upgrade_command(names: List[str], target: str, bazel: str = "bazel") -> List[str]:
+    """The command that runs `target` again with the named packages' pins lifted."""
+    wanted = sorted({name.strip() for name in names if name.strip()})
+    value = ",".join(wanted) if wanted else "all"
+    return [bazel, "run", "--repo_env={}={}".format(UPGRADE_ENV, value), target]
+
+
 def _upgrade(args: argparse.Namespace) -> int:
     """Run this target again with `REQ_COMPILE_UPGRADE` set, so the hub re-solves."""
     workspace = os.environ.get("BUILD_WORKSPACE_DIRECTORY")
@@ -45,27 +59,24 @@ def _upgrade(args: argparse.Namespace) -> int:
         raise EnvironmentError(
             "Run this with `bazel run`; it writes into the workspace."
         )
-    names = sorted({name.strip() for name in args.upgrade if name.strip()})
-    env = dict(os.environ)
-    env["REQ_COMPILE_UPGRADE"] = ",".join(names) if names else "all"
-    bazel = os.environ.get("BAZEL", "bazel")
-    command = [bazel, "run", "@{}//:requirements.update".format(args.hub)]
+    command = upgrade_command(
+        args.upgrade, args.target, os.environ.get("BAZEL", "bazel")
+    )
     print(
-        "Resolving {} again: REQ_COMPILE_UPGRADE={} {}".format(
-            ", ".join(names) if names else "every package",
-            env["REQ_COMPILE_UPGRADE"],
+        "Resolving {} again: {}".format(
+            ", ".join(sorted(args.upgrade)) if args.upgrade else "every package",
             " ".join(command),
         ),
         file=sys.stderr,
     )
-    return subprocess.call(command, cwd=workspace, env=env)
+    return subprocess.call(command, cwd=workspace)
 
 
-def main() -> None:
-    """The main entrypoint."""
-    args = _parse_args()
-    if args.upgrade is not None:
-        sys.exit(_upgrade(args))
+def _write(args: argparse.Namespace) -> None:
+    """Write the rendered file into the workspace."""
+    # Imported here so that the command can be imported and tested without it.
+    # pylint: disable-next=import-error,import-outside-toplevel
+    from python.runfiles import Runfiles
 
     runfiles = Runfiles.Create()
     if not runfiles:
@@ -85,6 +96,14 @@ def main() -> None:
     with open(target, "w", encoding="utf-8", newline="\n") as handle:
         handle.write(content)
     print("Wrote {}".format(args.destination))
+
+
+def main() -> None:
+    """The main entrypoint."""
+    args = _parse_args()
+    if args.upgrade is not None:
+        sys.exit(_upgrade(args))
+    _write(args)
 
 
 if __name__ == "__main__":
