@@ -184,7 +184,7 @@ def file_constraints(
     `--extra-index-url` when it names one of the hub's extra indexes; the file
     cannot reorder the search. Every other option is refused rather than dropped:
     a find-links or binary option that silently did not apply would resolve
-    differently from what the file says. The equivalent attribute of the `parse`
+    differently from what the file says. The equivalent attribute of the `resolve`
     tag is where they go.
     """
     configured = [url.rstrip("/") for url in indexes]
@@ -223,7 +223,7 @@ def file_constraints(
             problems.append("{} is not applied by the Bazel solver".format(option))
     if problems:
         raise RequirementsFileError(
-            "{}: {}; set the equivalent attribute on the `parse` tag instead.".format(
+            "{}: {}; set the equivalent attribute on the `resolve` tag instead.".format(
                 path, "; ".join(sorted(set(problems)))
             )
         )

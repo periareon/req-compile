@@ -4,7 +4,7 @@ Status: implemented, including the facts that make re-resolution lazy. Written a
 module is built from [`wasm/`](../../wasm/README.md), the entry point is
 [`req_compile/wasm/entry.py`](../../req_compile/wasm/entry.py), the loop is
 [`req_compile/private/resolve.bzl`](../../req_compile/private/resolve.bzl), and
-`requirements.parse(requirements_in = ...)` in `extensions/python.bzl` uses it.
+`requirements.resolve(...)` in `extensions/python.bzl` uses it.
 
 ## Summary
 
@@ -12,7 +12,7 @@ Today a hub is built from lock files that `py_reqs_compiler` writes by running t
 Python solver on a host interpreter. The lock files are checked in and the module
 extension only parses them.
 
-This design adds a second way to define a hub: the `parse` tag names
+This design adds a second way to define a hub: a `resolve` tag names
 `requirements.in` files, target platforms and indexes, and the module extension
 resolves them itself. The solver runs as a WebAssembly module through
 `module_ctx.execute_wasm`, which can only compute. The module is CPython itself
@@ -123,7 +123,7 @@ cache of outputs: they carry the previous solution forward.
 ```mermaid
 flowchart LR
     subgraph inputs["MODULE.bazel"]
-        tag["requirements.parse(<br/>requirements_in, platforms,<br/>python_version, index_url, ...)"]
+        tag["requirements.resolve(<br/>requirements_in, platforms,<br/>python_version, index_url, ...)"]
     end
     subgraph ext["requirements module extension"]
         direction TB
@@ -210,7 +210,7 @@ It adapts `req_compile` to facts without changing it:
   resolve relative to the including file as they do on the command line, and a
   `-c FILE` option of a requirements file is read as a constraints file. Every
   other option in a file (`--index-url`, `--find-links`, `--no-binary`, ...) is
-  refused with a message pointing at the `parse` attribute, since an option that
+  refused with a message pointing at the `resolve` attribute, since an option that
   silently did not apply would resolve against the wrong index. The solver
   reports the files each hub read, includes and all, and the extension records
   them with the solution (`req_compile/wasm/files.py` holds this).
@@ -559,7 +559,7 @@ prototype and peak use has not been measured yet.
 
 | Information | Where | Written by |
 | --- | --- | --- |
-| Inputs: requirement files, platforms, Python version, indexes, options | `MODULE.bazel` `parse` tag | the user |
+| Inputs: requirement files, platforms, Python version, indexes, options | `MODULE.bazel` `resolve` tag | the user |
 | Hashes of every requirements and constraints file read, environment variables read, repo mapping | `moduleExtensions[...].recordedInputs` | Bazel, from `ctx.read` / `ctx.getenv` |
 | Digest of the extension code and of all tags | `bzlTransitiveDigest`, `usagesDigest` | Bazel |
 | Every pinned distribution: package, version, URLs, sha256, which hubs and locks use it and the dependencies each resolved | `generatedRepoSpecs` (one `whl_repository` per distribution) | Bazel, from the repositories the extension declares |
@@ -807,12 +807,12 @@ change in their lock file until they opt in.
 
 ## User-facing API
 
-The `parse` tag gains the attributes below. They are mutually exclusive with
+The `resolve` tag, a second tag class beside `parse`, has the attributes below, so that lock-file hubs keep their own shape; both define the same kind of hub. They are distinct from
 `requirements_lock` and `requirements_locks`.
 
 ```python
 requirements = use_extension("@rules_req_compile//extensions:python.bzl", "requirements")
-requirements.parse(
+requirements.resolve(
     name = "pip_deps",
     requirements_in = ["//3rdparty:requirements.in"],
     constraints = ["//3rdparty:constraints.in"],
@@ -857,7 +857,7 @@ common --experimental_repository_ctx_wasm_compilation
 A ruleset cannot set these for its users. The extension detects the methods with
 `hasattr(ctx, "execute_wasm")` and fails with a message naming the flags when a hub
 sets `requirements_in` without them. Hubs built from lock files never touch any of
-this: the resolve code runs only when some module's `parse` tag sets
+this: the resolve code runs only when some module's `resolve` tag sets
 `requirements_in`, and the extension stays `reproducible` (no lock entry) otherwise.
 
 ### Shipping the module
@@ -979,7 +979,7 @@ Levers that remain, in order of expected value:
    and measuring peak memory. `tests/test_wasm_entry.py` already exercises the entry
    point natively with an in-memory host, which is also how it was debugged.
 3. **The loop and the tag.** Done: `req_compile/private/resolve.bzl` is the round
-   loop of the `requirements` extension, the `parse` tag has the resolve attributes,
+   loop of the `requirements` extension, the `resolve` tag has the resolve attributes,
    requirement files are mapped between `/inputs/` paths and labels, netrc
    authentication is applied to downloads, and the solution enters `plan_hubs` as
    `lock_spec(platform, packages)`. `wasm/example/` is the example; it cannot run in

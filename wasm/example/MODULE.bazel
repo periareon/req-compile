@@ -25,7 +25,7 @@ local_path_override(
 )
 
 requirements = use_extension("@rules_req_compile//extensions:python.bzl", "requirements")
-requirements.parse(
+requirements.resolve(
     name = "pip_deps",
     platforms = [
         "manylinux_2_28_x86_64",

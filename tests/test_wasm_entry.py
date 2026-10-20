@@ -656,7 +656,7 @@ def test_file_options_are_refused_unless_they_match_the_hub() -> None:
     ).run(_hub())
     assert result["status"] == "error", result
     assert "--index-url https://other.example/simple" in result["message"]
-    assert "`parse` tag" in result["message"]
+    assert "`resolve` tag" in result["message"]
 
     result = Host({"/inputs/requirements.in": "--no-binary :all:\na\n"}).run(_hub())
     assert result["status"] == "error", result

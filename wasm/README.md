@@ -118,8 +118,7 @@ python drive_local.py build/req_compile_solver.wasm requirements.in \
 
 ## Running it in Bazel
 
-The `requirements` module extension drives the module when a `parse` tag sets
-`requirements_in`; the loop is `req_compile/private/resolve.bzl`. `example/` is a
+The `requirements` module extension drives the module for every `resolve` tag; the loop is `req_compile/private/resolve.bzl`. `example/` is a
 workspace using it: copy the built module into it and run
 
 ```bash

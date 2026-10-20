@@ -164,7 +164,7 @@ def _solver_module(ctx, spec):
     if not SOLVER_SHA256:
         fail(
             "This checkout of rules_req_compile is not a release, so it carries no solver module. " +
-            "Build one with `wasm/build_solver.sh` and name it with `solver` on the `parse` tag, " +
+            "Build one with `wasm/build_solver.sh` and name it with `solver` on the `resolve` tag, " +
             "or depend on a released version.",
         )
     ctx.download(url = SOLVER_URL, output = "req_compile_solver.wasm", sha256 = SOLVER_SHA256)
