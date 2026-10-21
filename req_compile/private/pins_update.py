@@ -15,8 +15,47 @@ this script rewrote it; the next Bazel command brings the lock up to date, or
 `bazel mod deps --lockfile_mode=update` does so at once.
 """
 
+import argparse
 import os
 import sys
+from typing import List, NoReturn, Optional
+
+HELP = """\
+Write the pinned requirements the hub resolved into the workspace. A file that
+is already up to date is left untouched.
+
+The command takes no arguments. To move a pin on purpose, set the variable on
+the command itself:
+
+    REQ_COMPILE_UPGRADE=<package>[,<package>] bazel run @<hub>//:requirements.update
+
+`all` upgrades every package. The extension reads the variable and resolves
+those packages again from the index, ignoring their pins in the file; this
+command then writes the result.
+
+MODULE.bazel.lock records the file as it was when the hub resolved, before this
+command rewrote it; the next Bazel command brings the lock up to date, or
+`bazel mod deps --lockfile_mode=update` does so at once.
+"""
+
+
+class _Parser(argparse.ArgumentParser):
+    """An argument parser whose errors show the whole help, since the help is the answer."""
+
+    def error(self, message: str) -> NoReturn:
+        self.print_help(sys.stderr)
+        self.exit(2, "\n{}: error: {}\n".format(self.prog, message))
+
+
+def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
+    """Accept `--help` and nothing else."""
+    parser = _Parser(
+        prog="bazel run @<hub>//:requirements.update --",
+        description=HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        add_help=True,
+    )
+    return parser.parse_args(argv)
 
 
 def main() -> None:
@@ -26,12 +65,7 @@ def main() -> None:
     from python.runfiles import Runfiles
 
     rendered, destination = sys.argv[1:3]
-    if len(sys.argv) > 3:
-        sys.exit(
-            "requirements.update takes no arguments (got {}). To move a pin, set "
-            "REQ_COMPILE_UPGRADE=<package>[,<package>] on the command, `all` for "
-            "every package.".format(" ".join(sys.argv[3:]))
-        )
+    parse_args(sys.argv[3:])
     runfiles = Runfiles.Create()
     if not runfiles:
         raise EnvironmentError("Failed to locate runfiles.")

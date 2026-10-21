@@ -28,6 +28,11 @@ def _pins_test() -> ModuleType:
     return _load("pins_test")
 
 
+@pytest.fixture(name="pins_update")
+def _pins_update() -> ModuleType:
+    return _load("pins_update")
+
+
 RESOLVED = """\
 # Python requirements pinned by the `pip` hub, from requirements.in.
 --index-url https://pypi.org/simple
@@ -161,4 +166,21 @@ def test_an_include_is_reported_not_followed(pins_test: ModuleType) -> None:
     assert "`b` is missing" in problems[1]
     assert _against(pins_test, "--requirement=pins.txt\n")[0].startswith(
         "`--requirement pins.txt` is not followed"
+    )
+
+
+def test_update_help_names_the_variable_and_refuses_arguments(
+    pins_update: ModuleType, capsys: pytest.CaptureFixture
+) -> None:
+    pins_update.parse_args([])
+    with pytest.raises(SystemExit) as shown:
+        pins_update.parse_args(["--help"])
+    assert shown.value.code == 0
+    assert "REQ_COMPILE_UPGRADE=<package>[,<package>]" in capsys.readouterr().out
+    with pytest.raises(SystemExit) as refused:
+        pins_update.parse_args(["--upgrade", "idna"])
+    assert refused.value.code == 2
+    err = capsys.readouterr().err
+    assert (
+        "REQ_COMPILE_UPGRADE" in err and "unrecognized arguments: --upgrade idna" in err
     )

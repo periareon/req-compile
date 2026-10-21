@@ -20,6 +20,7 @@ py_pytest_test_suite(
         "//:README.rst",
         # `test_pins_test` loads the hub test script from the source tree.
         "//req_compile/private:pins_test.py",
+        "//req_compile/private:pins_update.py",
         "//:requirements.in",
         "//:setup.py",
         "//:version.bzl",
