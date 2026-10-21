@@ -20,9 +20,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        # `macos-14`, as the Bazel jobs use: `macos-latest` runners were lost
+        # mid-job (cancelled with no log after 15 to 30 minutes) three times in
+        # two days, the `macos-14` ones never. The timeout makes a lost runner
+        # fail within minutes instead of holding the run.
+        platform: ["ubuntu-latest", "macos-14", "windows-latest"]
         python_version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     runs-on: ${{ matrix.platform }}
+    timeout-minutes: 15
     name: test ${{ matrix.platform }} (py${{ matrix.python_version }})
 
     steps:
