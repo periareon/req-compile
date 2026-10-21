@@ -38,7 +38,9 @@ class VersionTest(unittest.TestCase):
 
         version_bzl = rlocation(runfiles, "rules_req_compile/version.bzl")
         bzl_version = re.findall(
-            r'VERSION = "([\w\d\.]+)"',
+            # A Bazel module version is a SemVer version: `1.6.5-rc1` has a
+            # pre-release segment after `-`, and `+` may introduce build metadata.
+            r'VERSION = "([\w.+-]+)"',
             version_bzl.read_text(encoding="utf-8"),
             re.MULTILINE,
         )
@@ -46,7 +48,7 @@ class VersionTest(unittest.TestCase):
 
         module_bazel = rlocation(runfiles, "rules_req_compile/MODULE.bazel")
         module_version = re.findall(
-            r'module\(\n\s+name = "rules_req_compile",\n\s+version = "([\d\w.]+)",\n\)',
+            r'module\(\n\s+name = "rules_req_compile",\n\s+version = "([\w.+-]+)",\n\)',
             module_bazel.read_text(encoding="utf-8"),
             re.MULTILINE,
         )
