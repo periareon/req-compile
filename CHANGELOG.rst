@@ -7,6 +7,10 @@ New in version 1.6.5:
   ``requirements_txt`` uses it with ``bazel mod deps``. The update leaves a file that is already up to date
   untouched. ``MODULE.bazel.lock`` records the file as it was when the hub resolved, before the update rewrote
   it; the next Bazel command, or ``bazel mod deps --lockfile_mode=update``, brings it up to date.
+* A solution produced under ``REQ_COMPILE_UPGRADE`` is recorded as such and is solved again by the next
+  evaluation without the variable. Before, reverting the pinned file right after an upgrade restored the text
+  the upgrade had been solved from, so the lock kept the upgraded versions and the next ``requirements.update``
+  wrote them back.
 
 New in version 1.6.4:
 

@@ -708,10 +708,15 @@ command without the variable sees a changed recorded input and re-runs once more
 but the inputs digest now matches the fresh solution, so that run reuses it without
 network access and simply records the variable as unset. `bazel mod deps` is used
 because it evaluates every extension unconditionally; any build that needs the hub
-works as well. One consequence worth knowing when reading the lock by hand: after
-an upgrade the solution is recorded against the inputs as they were, so a later
-command with byte-identical inputs reuses it rather than applying the file's
-pins again; only a change to an input, or the variable, re-solves.
+works as well. A solution produced under the variable records that fact in its
+inputs (`upgrade` in `solution:<hub>`), and `_unchanged` never treats such a
+solution as current: the next evaluation without the variable solves again,
+from the recorded versions and the file's pins, and records a solution without
+the mark. That matters when the upgrade is backed out: `git checkout` of the
+pinned file restores the very text the upgrade was solved from, and without the
+mark the lock would keep the upgraded versions and the next
+`requirements.update` would write them back into the file (found by the factory
+workspace on 1.6.4).
 
 ### Verifying in CI
 
