@@ -1,3 +1,14 @@
+New in version 1.6.4:
+
+* A bumped pin in ``requirements_txt`` whose hash does not match no longer resolves quietly to the previous
+  version. The solver cannot tell, while it resolves, a pin a requirement excludes from one it left for lack
+  of a usable, hash-matching artifact, so the finished solution is checked: a pinned version that every
+  requirement on the package and every constraint file still allows must be the one used, with one of its
+  hashes, or the resolution fails naming the package, the platform with the least to offer and the artifacts
+  the index has for that version. This covers a wrong hash (also beside a matching sdist hash, which vouches
+  for nothing when sdists are not allowed), a release without a wheel for one platform, and an older release
+  on another index. A pin a requirement excludes still moves by itself.
+
 New in version 1.6.3:
 
 * A hub's ``requirements_txt`` is to the resolution what an existing lock is to pip-compile: each package

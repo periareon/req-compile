@@ -777,11 +777,22 @@ file's hashes vouch for the pinned version only (`FactRepository.file_pins`,
 when none of its artifacts match while the requirements still allow the
 version, that is an error, so a Dependabot bump with a wrong hash cannot resolve
 quietly to something else; a version the file does not pin needs no hash, and
-`requirements.update` writes it. Two refinements keep that promise: a mismatch
-is noted per repository (so a second index may still supply the right artifact),
-and `_check_file_pins` fails the solve afterwards if a noted mismatch was
-resolved around, because another index or an older release offered the package
-and the solver dropped the soft pin for it; and a pin without a local segment
+`requirements.update` writes it. Two refinements keep that promise. First, the
+solver cannot tell, while it resolves, whether it is leaving a pinned version
+because a requirement excludes it or because nothing usable of it matched the
+hashes (a mismatch is noted per repository so that a second index may still
+supply the right artifact, but a matching sdist the hub may not install, a
+release with no wheel for one platform, or an older release on another index all
+make the soft pin yield as "no candidate"); so `_check_file_pins` judges the
+finished solution instead: a pinned version that every requirement on the
+package in the solution, and every constraint file, still allows must be the one
+used, with one of its hashes, or the solve fails naming the package, the
+platform with the least to offer and the artifacts the index has for that
+version (`PinNotUsed`, or the noted hash mismatch when there is one). Found by
+the factory workspace: a Dependabot bump of certifi whose wheel hash was wrong
+but whose sdist hash was right came back as the previous version, and the stale
+test's advice to run `requirements.update` would then have erased the bump.
+Second, a pin without a local segment
 covers every build of its release (`same_release`: `1.0` covers `1.0+cpu`), its
 hashes saying which build is meant, so the soft pin `==1.0` cannot drift onto a
 local build. A recorded distribution yields to the file (`_recorded`): when the

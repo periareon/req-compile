@@ -1187,6 +1187,104 @@ def test_unenforced_hashes_leave_the_pinned_file_s_hashes_unread() -> None:
     assert b["version"] == "1.0" and not b["hash_pinned"]
 
 
+def _recorded_b_1_0() -> Dict[str, Any]:
+    return {
+        "locks": {
+            platform: {
+                "b": {
+                    "package": "b",
+                    "version": "1.0",
+                    "sha256": "55" * 32,
+                    "url": "https://files.example/b-1.0-py3-none-any.whl",
+                    "filename": "b-1.0-py3-none-any.whl",
+                    "core_metadata": True,
+                    "deps": [],
+                    "via": [],
+                    "index": INDEX,
+                },
+            }
+            for platform in ("manylinux_2_28_x86_64", "win_amd64")
+        }
+    }
+
+
+class _SdistOfB(_TwoVersionsOfB):
+    """b 2.0 as a wheel (sha 22) and as an sdist (sha 88), beside b 1.0."""
+
+    def _answer(self, request: Dict[str, Any]) -> None:
+        super()._answer(request)
+        if request["op"] == "fetch" and request["url"].endswith("/b/"):
+            document = self.documents[request["id"]]
+            page = json.loads(document["body"])
+            page["files"].append(
+                {
+                    "filename": "b-2.0.tar.gz",
+                    "url": "https://files.example/b-2.0.tar.gz",
+                    "hashes": {"sha256": "88" * 32},
+                    "core-metadata": False,
+                }
+            )
+            document["body"] = json.dumps(page)
+
+
+def test_a_bump_whose_wheel_hash_is_wrong_does_not_fall_back_to_the_lock() -> None:
+    """Dependabot bumps b to 2.0 with the sdist's hash right and the wheel's wrong;
+    the lock still records 1.0. The matching sdist vouches for nothing the hub
+    may install, so the bump is an error, not a quiet return to 1.0."""
+    files = {
+        "/inputs/requirements.in": "b\n",
+        "/inputs/requirements.txt": (
+            "b==2.0 --hash=sha256:" + "88" * 32 + " --hash=sha256:" + "99" * 32 + "\n"
+        ),
+    }
+    host = _SdistOfB(files)
+    host.facts["meta:" + "55" * 32] = {
+        "metadata": "Name: b\nVersion: 1.0",
+        "dynamic": [],
+        "metadata_version": "2.1",
+    }
+    result = host.run(_hub(pins="/inputs/requirements.txt", prior=_recorded_b_1_0()))
+    assert result["status"] == "error", result
+    assert "`b`" in result["message"] and "b-2.0-py3-none-any.whl" in result["message"]
+
+
+class _LinuxOnlyB2(_TwoVersionsOfB):
+    """b 2.0 has a wheel for Linux only; b 1.0 is universal."""
+
+    def _answer(self, request: Dict[str, Any]) -> None:
+        super()._answer(request)
+        if request["op"] == "fetch" and request["url"].endswith("/b/"):
+            document = self.documents[request["id"]]
+            page = json.loads(document["body"])
+            for item in page["files"]:
+                if item["filename"] == "b-2.0-py3-none-any.whl":
+                    item["filename"] = "b-2.0-cp311-cp311-manylinux_2_28_x86_64.whl"
+                    item["url"] = "https://files.example/" + item["filename"]
+            document["body"] = json.dumps(page)
+
+
+def test_a_pin_without_a_wheel_for_a_platform_is_an_error_not_a_downgrade() -> None:
+    """A bump to a release one platform cannot install must not resolve the
+    whole hub back to the old version behind the user's back."""
+    files = {
+        "/inputs/requirements.in": "b\n",
+        "/inputs/requirements.txt": "b==2.0 --hash=sha256:" + "22" * 32 + "\n",
+    }
+    result = _LinuxOnlyB2(files).run(_hub(pins="/inputs/requirements.txt"))
+    assert result["status"] == "error", result
+    assert "`b` is pinned to 2.0" in result["message"]
+    assert "win_amd64" in result["message"]
+    assert "nothing of that version" in result["message"]
+
+    # Raising the bound in requirements.in past the pin is a legitimate move.
+    files["/inputs/requirements.in"] = "b<2\n"
+    result = _LinuxOnlyB2(files).run(_hub(pins="/inputs/requirements.txt"))
+    assert result["status"] == "done", result
+    assert (
+        result["hubs"]["hub"]["locks"]["win_amd64"]["packages"]["b"]["version"] == "1.0"
+    )
+
+
 def test_upgrade_lifts_the_pinned_file_for_the_named_packages() -> None:
     """`REQ_COMPILE_UPGRADE` is how a pin in the hub's file is moved on purpose."""
     files = {

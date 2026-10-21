@@ -7,13 +7,14 @@ feed the solver soft pins, versions it prefers while the requirements allow them
 `REQ_COMPILE_UPGRADE` names the packages left out of both.
 """
 
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 import packaging.requirements
 import packaging.version
 
 from req_compile import utils
 from req_compile.utils import NormName
+from req_compile.wasm.errors import PinNotUsed
 from req_compile.wasm.files import decode_text
 from req_compile.wasm.ingest import metadata_fact
 
@@ -124,3 +125,79 @@ def upgraded(upgrade: Any) -> Optional[Set[NormName]]:
     if upgrade == "all":
         return None
     return {utils.normalize_project_name(name) for name in (upgrade or [])}
+
+
+def _allows(
+    req: Optional[packaging.requirements.Requirement],
+    version: packaging.version.Version,
+) -> bool:
+    return req is None or req.specifier.contains(version, prereleases=True)
+
+
+def check_file_pins(
+    hub: Any,
+    file_pins: Dict[NormName, Tuple[packaging.version.Version, Set[str]]],
+    constraints: Sequence[Any],
+    solutions: Sequence[Tuple[Any, Any]],
+) -> None:
+    """Fail when the solution left a pinned version the requirements still allow.
+
+    The file's version is a soft pin, so the solver may move away from it; that
+    is right when `requirements.in`, a constraint or another package's
+    requirement excludes the version, and wrong when the only reason was that
+    no artifact of the version the platform can use carried one of the file's
+    hashes (a bump with a wrong hash, a release without a wheel for a platform,
+    another index offering an older release). The solver cannot tell the two
+    apart while it resolves, so the solution is checked afterwards against the
+    requirements it ended up with: a pinned version every requirement on the
+    package still allows must be the one used, with one of its hashes.
+    """
+    for key, (version, hashes) in file_pins.items():
+        if not hashes:
+            continue
+        if any(
+            utils.normalize_project_name(req.name) == key and not _allows(req, version)
+            for container in constraints
+            for req in getattr(container, "reqs", [])
+        ):
+            continue
+        # Every platform that left the pin; the one with the least to offer for
+        # the pinned version is the one to name, since the platforms agree on a
+        # version and the poorest page decides for all of them.
+        left: List[PinNotUsed] = []
+        for target, repos, (solution, _) in zip(hub.targets, hub.indexes, solutions):
+            for node in solution:
+                meta = node.metadata
+                if (
+                    node.key != key
+                    or meta is None
+                    or meta.meta
+                    or meta.candidate is None
+                    or meta.version is None
+                ):
+                    continue
+                sha256 = ""
+                if hasattr(meta.origin, "entry"):  # a FactRepository
+                    sha256 = meta.origin.entry(meta.candidate).get("sha256") or ""
+                if same_release(meta.version, version) and sha256 in hashes:
+                    continue
+                if any(
+                    not _allows(reverse.dependencies.get(node), version)
+                    for reverse in node.reverse_deps
+                ):
+                    continue
+                mismatch = hub.mismatches.get(key)
+                if mismatch is not None:
+                    raise mismatch
+                offers = [
+                    offer
+                    for repo in repos
+                    for offer in repo.artifacts_of(meta.name, version)
+                ]
+                left.append(
+                    PinNotUsed(
+                        meta.name, version, meta.version, target.name, hashes, offers
+                    )
+                )
+        if left:
+            raise min(left, key=lambda error: error.offers)
