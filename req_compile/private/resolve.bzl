@@ -386,12 +386,22 @@ def _meaningful(text):
             lines.append(line.rstrip())
     return "\n".join(lines)
 
-def _recorded_inputs(inputs):
-    """The inputs as the solution fact records them: files by their meaningful lines."""
-    return {
+def _recorded_inputs(inputs, upgrade):
+    """The inputs as the solution fact records them: files by their meaningful lines.
+
+    A solution produced under `REQ_COMPILE_UPGRADE` records that too, since it is
+    not the solution its files alone would give: the next evaluation without the
+    variable must solve again rather than reuse it (see `_unchanged`).
+    """
+    recorded = {
         "attrs": inputs["attrs"],
         "files": {path: _meaningful(text) for path, text in inputs["files"].items()},
     }
+    if upgrade == "all":
+        recorded["upgrade"] = "all"
+    elif upgrade:
+        recorded["upgrade"] = ",".join(sorted(upgrade))
+    return recorded
 
 def _unchanged(ctx, spec, previous, current):
     """Whether a recorded solution's inputs are the current ones, included files too.
@@ -401,6 +411,12 @@ def _unchanged(ctx, spec, previous, current):
     watch them. They are added to `current`.
     """
     recorded = previous["inputs"]
+    if recorded.get("upgrade"):
+        # Solved with pins lifted. The files may well read as they did then (an
+        # upgrade is often followed by `git checkout` of the pinned file), but
+        # without the variable they ask for the pinned versions back, so the
+        # hub is solved again; that solve records no upgrade and settles.
+        return False
     if recorded.get("attrs") != current["attrs"]:
         return False
     files = recorded.get("files", {})
@@ -746,7 +762,7 @@ def resolve_hubs(ctx, specs):
             for name, hub_locks in locks.items():
                 facts["solution:" + name] = dict(
                     _compact_locks(hub_locks, specs[name]),
-                    inputs = _recorded_inputs(inputs[name]),
+                    inputs = _recorded_inputs(inputs[name], upgrade),
                     schema = FACTS_SCHEMA,
                 )
                 facts.update(_referenced_metadata(hub_locks, texts))
