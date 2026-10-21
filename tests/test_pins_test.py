@@ -3,6 +3,7 @@
 import importlib.util
 import pathlib
 import re
+import sys
 from types import ModuleType
 
 import pytest
@@ -185,6 +186,13 @@ def test_upgrade_runs_the_canonical_target_with_repo_env(
         "--repo_env=REQ_COMPILE_UPGRADE=all",
         target,
     ]
+    assert pins_update.lock_command() == [
+        "bazel",
+        "mod",
+        "deps",
+        "--lockfile_mode=update",
+    ]
+    assert pins_update.lock_command("/opt/bazelisk")[0] == "/opt/bazelisk"
     args = pins_update._parse_args(  # pylint: disable=protected-access
         ["r.txt", "requirements.txt", target, "-U"]
     )
@@ -193,3 +201,60 @@ def test_upgrade_runs_the_canonical_target_with_repo_env(
         ["r.txt", "requirements.txt", target]
     )
     assert args.upgrade is None
+
+
+def test_update_writes_then_records_the_lock(
+    pins_update: ModuleType, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A changed file is written and the lock refreshed; an unchanged one is left
+    alone; an upgrade refreshes the lock after its inner run either way."""
+    # pylint: disable=protected-access
+    rendered = tmp_path / "rendered.txt"
+    rendered.write_text("b==2.0\n", encoding="utf-8")
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    calls: list = []
+    monkeypatch.setenv("BUILD_WORKSPACE_DIRECTORY", str(workspace))
+    monkeypatch.setattr(
+        pins_update.subprocess, "call", lambda cmd, cwd: calls.append((cmd, cwd)) or 0
+    )
+
+    class _Runfiles:
+        @staticmethod
+        def Create() -> "_Runfiles":  # pylint: disable=invalid-name
+            return _Runfiles()
+
+        @staticmethod
+        def Rlocation(path: str) -> str:  # pylint: disable=invalid-name
+            return str(rendered) if path == "r" else ""
+
+    monkeypatch.setitem(
+        sys.modules, "python.runfiles", type("m", (), {"Runfiles": _Runfiles})
+    )
+    args = pins_update._parse_args(
+        ["r", "requirements.txt", "@@hub//:requirements.update"]
+    )
+    assert pins_update._write(args) == 0
+    assert (workspace / "requirements.txt").read_text(encoding="utf-8") == "b==2.0\n"
+    assert calls == [
+        (["bazel", "mod", "deps", "--lockfile_mode=update"], str(workspace))
+    ]
+
+    # The same content again: nothing written, no lock refresh.
+    assert pins_update._write(args) == 0
+    assert len(calls) == 1
+
+    # An upgrade: the inner run, then the lock refresh, whatever the inner run wrote.
+    upgrade = pins_update._parse_args(
+        ["r", "requirements.txt", "@@hub//:requirements.update", "-U", "b"]
+    )
+    assert pins_update._upgrade(upgrade) == 0
+    assert [cmd for cmd, _ in calls[1:]] == [
+        [
+            "bazel",
+            "run",
+            "--repo_env=REQ_COMPILE_UPGRADE=b",
+            "@@hub//:requirements.update",
+        ],
+        ["bazel", "mod", "deps", "--lockfile_mode=update"],
+    ]

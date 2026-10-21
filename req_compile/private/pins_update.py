@@ -8,6 +8,13 @@ names, by running that label once more with `--repo_env=REQ_COMPILE_UPGRADE=...`
 (the canonical label works whatever the hub is called in the root module; the
 `--repo_env` is seen whatever `.bazelrc` sets for the variable).
 
+After writing a file that changed, the script runs `bazel mod deps
+--lockfile_mode=update` the same way, so that `MODULE.bazel.lock` records the
+file as written: the extension recorded the file as it was when it resolved,
+before this script rewrote it, and without that second evaluation the next
+Bazel command would rewrite the lock instead. An upgrade runs it once more
+after the inner run, since that run recorded the variable as an input.
+
 The inner command is `bazel` from PATH, or `$BAZEL`, with no option of the outer
 command line: options the resolution needs belong in `.bazelrc`. And since the
 outer `bazel run` has to resolve the hub before this script starts, a hash in
@@ -47,6 +54,11 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def lock_command(bazel: str = "bazel") -> List[str]:
+    """The command that makes the lock record the file as just written."""
+    return [bazel, "mod", "deps", "--lockfile_mode=update"]
+
+
 def upgrade_command(names: List[str], target: str, bazel: str = "bazel") -> List[str]:
     """The command that runs `target` again with the named packages' pins lifted."""
     wanted = sorted({name.strip() for name in names if name.strip()})
@@ -71,11 +83,22 @@ def _upgrade(args: argparse.Namespace) -> int:
         ),
         file=sys.stderr,
     )
-    return subprocess.call(command, cwd=workspace)
+    code = subprocess.call(command, cwd=workspace)
+    if code:
+        return code
+    # The inner run recorded the upgrade variable as an input of the lock, and
+    # when the file came out unchanged it did not evaluate again without it;
+    # one more evaluation here leaves the lock as a plain command would.
+    lock = lock_command(os.environ.get("BAZEL", "bazel"))
+    print(
+        "Recording the result in MODULE.bazel.lock: {}".format(" ".join(lock)),
+        file=sys.stderr,
+    )
+    return subprocess.call(lock, cwd=workspace)
 
 
-def _write(args: argparse.Namespace) -> None:
-    """Write the rendered file into the workspace."""
+def _write(args: argparse.Namespace) -> int:
+    """Write the rendered file into the workspace, then bring the lock up to it."""
     # Imported here so that the command can be imported and tested without it.
     # pylint: disable-next=import-error,import-outside-toplevel
     from python.runfiles import Runfiles
@@ -94,10 +117,23 @@ def _write(args: argparse.Namespace) -> None:
     target = os.path.join(workspace, args.destination)
     with open(source, "r", encoding="utf-8") as handle:
         content = handle.read()
+    previous = None
+    if os.path.exists(target):
+        with open(target, "r", encoding="utf-8") as handle:
+            previous = handle.read()
+    if previous == content:
+        print("{} is up to date".format(args.destination))
+        return 0
     os.makedirs(os.path.dirname(target) or ".", exist_ok=True)
     with open(target, "w", encoding="utf-8", newline="\n") as handle:
         handle.write(content)
     print("Wrote {}".format(args.destination))
+    command = lock_command(os.environ.get("BAZEL", "bazel"))
+    print(
+        "Recording it in MODULE.bazel.lock: {}".format(" ".join(command)),
+        file=sys.stderr,
+    )
+    return subprocess.call(command, cwd=workspace)
 
 
 def main() -> None:
@@ -105,7 +141,7 @@ def main() -> None:
     args = _parse_args()
     if args.upgrade is not None:
         sys.exit(_upgrade(args))
-    _write(args)
+    sys.exit(_write(args))
 
 
 if __name__ == "__main__":

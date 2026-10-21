@@ -156,7 +156,9 @@ bazel mod deps` (or any build that needs the hub).
 on the tag: what `requirements.in` resolved to, one entry per package with its
 version and the sha256 of every artifact the hub's platforms use, in the shape
 `pip-compile --generate-hashes` writes. `bazel run @pip_deps//:requirements.update`
-writes it and `bazel test //:requirements.test` fails while it is out of date
+writes it, then runs `bazel mod deps --lockfile_mode=update` so that
+`MODULE.bazel.lock` records the file as written, and `bazel test
+//:requirements.test` fails while it is out of date
 (`//:requirements.test` is a `test_suite` in `example/BUILD.bazel` around
 `@pip_deps//:requirements.test`, which sits in the hub repository where
 `bazel test //...` would not reach it; the file needs no `exports_files`).

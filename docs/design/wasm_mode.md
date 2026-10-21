@@ -756,7 +756,10 @@ the hub renders it from its solution (`render_pins` in
 `req_compile/private/pins.bzl`: every package at its version, the sha256 of each
 artifact the hub's platforms use, `# via` from the dependency graph, the hub's
 indexes at the top) and exposes `requirements.update`, which writes it into the
-workspace, and `requirements.test`, which fails while the workspace copy no
+workspace and then runs `bazel mod deps --lockfile_mode=update` (the extension
+recorded the file as it was when it resolved, before the script rewrote it, so
+without that second evaluation the next Bazel command would rewrite the lock;
+found by the factory workspace), and `requirements.test`, which fails while the workspace copy no
 longer pins what the hub resolved, the role `py_reqs_solution_test` plays for
 compiled locks. The comparison is by meaning: the same packages at the same
 versions, each with at least the hashes of the artifacts the hub uses. Dependabot
@@ -839,9 +842,8 @@ What the flow needs from the repository: `MODULE.bazel.lock` records both files
 as inputs, so after Dependabot edits `requirements.txt` the lock is stale and
 `--lockfile_mode=error` fails until it is regenerated. `wasm/example/.github/`
 holds a `dependabot.yml` and a workflow that, on Dependabot pull requests, runs
-`requirements.update`, then `bazel mod deps --lockfile_mode=update` so that the
-lock records the rewritten file (the update itself writes the lock before it
-rewrites the file), and commits both files to the PR branch. The division of labour is then: `requirements.in`
+`requirements.update`, which rewrites the file and records it in the lock, and
+commits both files to the PR branch. The division of labour is then: `requirements.in`
 is what humans edit, `requirements.txt` is the pin list a bot can read and write,
 `MODULE.bazel.lock` is the lock.
 

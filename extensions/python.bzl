@@ -636,7 +636,8 @@ move: `REQ_COMPILE_UPGRADE=<package>[,<package>] bazel mod deps`.
 With `requirements_txt` the hub also keeps a pinned requirements file in the
 workspace, in the shape `pip-compile --generate-hashes` writes: every package at
 its resolved version with the hashes of the artifacts the hub's platforms use.
-`bazel run @<hub>//:requirements.update` writes it and `@<hub>//:requirements.test`
+`bazel run @<hub>//:requirements.update` writes it and records it in
+`MODULE.bazel.lock`, and `@<hub>//:requirements.test`
 fails while it is out of date, as `py_reqs_solution_test` does for compiled
 locks. Fed back to the hub, the file is what an existing lock is to pip-compile:
 each package keeps the version it pins, with the file's hashes, while
@@ -762,7 +763,8 @@ a downloaded wheel.""",
                 "The hub's pinned requirements file, kept in step with its solution. The hub " +
                 "renders it (one entry per package with its version, the sha256 of every artifact its " +
                 "platforms use, and what requires it) and exposes `@<hub>//:requirements.update`, which " +
-                "writes it into the workspace, and `@<hub>//:requirements.test`, which fails when it is " +
+                "writes it into the workspace and records it in the lock, and `@<hub>//:requirements.test`, " +
+                "which fails when it is " +
                 "out of date. Fed back here, the file is what an existing lock is to pip-compile: each " +
                 "package keeps the version it pins, with the file's hashes, while `requirements_in` and " +
                 "the other packages allow it, and is resolved again when they do not. So a version bumped " +

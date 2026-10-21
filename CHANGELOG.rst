@@ -1,3 +1,10 @@
+New in version 1.6.5:
+
+* ``bazel run @<hub>//:requirements.update`` records the file it writes in ``MODULE.bazel.lock``: after writing
+  a file that changed it runs ``bazel mod deps --lockfile_mode=update``, since the extension had recorded the
+  file as it was before the rewrite and the next Bazel command would otherwise rewrite the lock. A file that is
+  already up to date is left alone, lock included.
+
 New in version 1.6.4:
 
 * A bumped pin in ``requirements_txt`` whose hash does not match no longer resolves quietly to the previous
