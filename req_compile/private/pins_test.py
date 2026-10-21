@@ -30,8 +30,8 @@ Please run the following command to update it:
 
     {command}
 
-To move a pin on purpose, add `-- --upgrade <package>` to it (`-U` with no name
-upgrades every package).
+To move a pin on purpose, run it with `REQ_COMPILE_UPGRADE=<package>` set
+(`all` for every package).
 """
 
 Pins = Dict[str, Tuple[str, Set[str]]]

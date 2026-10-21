@@ -169,27 +169,18 @@ def test_an_include_is_reported_not_followed(pins_test: ModuleType) -> None:
     )
 
 
-def test_upgrade_runs_the_canonical_target_with_repo_env(
-    pins_update: ModuleType,
+def test_update_help_names_the_variable_and_refuses_arguments(
+    pins_update: ModuleType, capsys: pytest.CaptureFixture
 ) -> None:
-    target = "@@rules_req_compile++requirements+pip//:requirements.update"
-    assert pins_update.upgrade_command(["idna", " six", "idna"], target) == [
-        "bazel",
-        "run",
-        "--repo_env=REQ_COMPILE_UPGRADE=idna,six",
-        target,
-    ]
-    assert pins_update.upgrade_command([], target, "/opt/bazelisk") == [
-        "/opt/bazelisk",
-        "run",
-        "--repo_env=REQ_COMPILE_UPGRADE=all",
-        target,
-    ]
-    args = pins_update._parse_args(  # pylint: disable=protected-access
-        ["r.txt", "requirements.txt", target, "-U"]
+    pins_update.parse_args([])
+    with pytest.raises(SystemExit) as shown:
+        pins_update.parse_args(["--help"])
+    assert shown.value.code == 0
+    assert "REQ_COMPILE_UPGRADE=<package>[,<package>]" in capsys.readouterr().out
+    with pytest.raises(SystemExit) as refused:
+        pins_update.parse_args(["--upgrade", "idna"])
+    assert refused.value.code == 2
+    err = capsys.readouterr().err
+    assert (
+        "REQ_COMPILE_UPGRADE" in err and "unrecognized arguments: --upgrade idna" in err
     )
-    assert args.upgrade == []
-    args = pins_update._parse_args(  # pylint: disable=protected-access
-        ["r.txt", "requirements.txt", target]
-    )
-    assert args.upgrade is None

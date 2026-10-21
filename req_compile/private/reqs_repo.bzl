@@ -738,7 +738,6 @@ py_binary(
     args = [
         "$(rlocationpath :requirements.txt)",
         "{path}",
-        "{target}",
     ],
     data = [":requirements.txt"],
     deps = ["@rules_venv//python/runfiles"],
@@ -1013,9 +1012,6 @@ def _py_requirements_repository_impl(repository_ctx):
         pins = "\n" + _PINS_BUILD_TEMPLATE.format(
             hub = hub_name,
             path = repository_ctx.attr.pins_path,
-            # The canonical label: `--upgrade` runs it from the workspace, where
-            # the hub may go by another name (`use_repo(ext, deps = "pip")`).
-            target = "@@{}//:requirements.update".format(repository_ctx.name),
         )
 
     repository_ctx.file("BUILD.bazel", _BUILD_FILE_TEMPLATE.format(

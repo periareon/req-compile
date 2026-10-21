@@ -15,9 +15,9 @@ in rounds of downloads, and the result is recorded in `MODULE.bazel.lock`.
 writes it, and `bazel test //:requirements.test` fails while it is out of date.
 To move a pin on purpose:
 
-    bazel run @pip_deps//:requirements.update -- --upgrade <package>
+    REQ_COMPILE_UPGRADE=<package> bazel run @pip_deps//:requirements.update
 
-(`-U` with no name upgrades every package).
+(`all` for every package).
 """
 
 module(name = "req_compile_wasm_example")

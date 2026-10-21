@@ -20,9 +20,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        # `macos-15` rather than `macos-latest`, which is the newest image
+        # (macOS 26) and lost runners mid-job three times in two days, cancelled
+        # with no log after 15 to 30 minutes; and rather than `macos-14`, which
+        # retires on 2 November 2026 with brownouts before. The timeout makes a
+        # lost runner fail within minutes instead of holding the run.
+        platform: ["ubuntu-latest", "macos-15", "windows-latest"]
         python_version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     runs-on: ${{ matrix.platform }}
+    timeout-minutes: 15
     name: test ${{ matrix.platform }} (py${{ matrix.python_version }})
 
     steps:
@@ -45,7 +51,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ["ubuntu-latest", "macos-14", "windows-latest"]
+        platform: ["ubuntu-latest", "macos-15", "windows-latest"]
     runs-on: ${{ matrix.platform }}
     name: bazel test --build ${{ matrix.platform }} (bzlmod)
     steps:
@@ -100,7 +106,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ["ubuntu-latest", "macos-14", "windows-latest"]
+        platform: ["ubuntu-latest", "macos-15", "windows-latest"]
     runs-on: ${{ matrix.platform }}
     name: bazel test examples ${{ matrix.platform }}
     steps:
@@ -169,7 +175,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ["ubuntu-latest", "macos-14"]
+        platform: ["ubuntu-latest", "macos-15"]
     runs-on: ${{ matrix.platform }}
     name: wasm solver ${{ matrix.platform }}
     steps:

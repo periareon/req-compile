@@ -1,3 +1,13 @@
+New in version 1.6.5:
+
+* ``requirements.update`` no longer takes ``--upgrade`` / ``-U``: that flag worked by running Bazel again from
+  inside the update binary, and req-compile's tools do not invoke Bazel. A pin is moved on purpose with the
+  variable on the command itself, ``REQ_COMPILE_UPGRADE=<package>[,<package>] bazel run
+  @<hub>//:requirements.update`` (``all`` for every package), which the extension reads; a hub without
+  ``requirements_txt`` uses it with ``bazel mod deps``. The update leaves a file that is already up to date
+  untouched. ``MODULE.bazel.lock`` records the file as it was when the hub resolved, before the update rewrote
+  it; the next Bazel command, or ``bazel mod deps --lockfile_mode=update``, brings it up to date.
+
 New in version 1.6.4:
 
 * A bumped pin in ``requirements_txt`` whose hash does not match no longer resolves quietly to the previous
