@@ -147,7 +147,7 @@ class SourceRepository(Repository):
 
     def _add_distribution(self, source_dir: str, result: RequirementContainer) -> None:
         if result.version is None:
-            self.logger.debug("Source dir %s did not provide a version")
+            self.logger.debug("Source dir %s did not provide a version", source_dir)
             result.version = parse_version("0")
         candidate = req_compile.repos.repository.Candidate(
             result.name,

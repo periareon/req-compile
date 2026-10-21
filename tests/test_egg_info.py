@@ -57,16 +57,12 @@ def test_parse_requires_txt_simple(tmp_path):
 
 def test_parse_requires_txt_extra_section(tmp_path):
     requires = tmp_path / "requires.txt"
-    requires.write_text(
-        textwrap.dedent(
-            """\
+    requires.write_text(textwrap.dedent("""\
         requests>=2.0
         [security]
         pyOpenSSL>=0.14
         cryptography>=1.3.4
-    """
-        )
-    )
+    """))
     reqs = _parse_requires_txt(str(requires))
     assert len(reqs) == 3
     assert reqs[0].name == "requests"
@@ -79,14 +75,10 @@ def test_parse_requires_txt_extra_section(tmp_path):
 
 def test_parse_requires_txt_extra_with_marker(tmp_path):
     requires = tmp_path / "requires.txt"
-    requires.write_text(
-        textwrap.dedent(
-            """\
+    requires.write_text(textwrap.dedent("""\
         [security:python_version<"3.0"]
         pyOpenSSL>=0.14
-    """
-        )
-    )
+    """))
     reqs = _parse_requires_txt(str(requires))
     assert len(reqs) == 1
     assert reqs[0].name == "pyOpenSSL"
@@ -97,14 +89,10 @@ def test_parse_requires_txt_extra_with_marker(tmp_path):
 
 def test_parse_requires_txt_marker_only_section(tmp_path):
     requires = tmp_path / "requires.txt"
-    requires.write_text(
-        textwrap.dedent(
-            """\
+    requires.write_text(textwrap.dedent("""\
         [:python_version<"3.0"]
         futures>=2.0
-    """
-        )
-    )
+    """))
     reqs = _parse_requires_txt(str(requires))
     assert len(reqs) == 1
     assert reqs[0].name == "futures"
@@ -128,15 +116,11 @@ def test_parse_requires_txt_invalid_lines(tmp_path):
 def test_egg_info_from_dir(tmp_path):
     egg_dir = tmp_path / "mypackage.egg-info"
     egg_dir.mkdir()
-    (egg_dir / "PKG-INFO").write_text(
-        textwrap.dedent(
-            """\
+    (egg_dir / "PKG-INFO").write_text(textwrap.dedent("""\
         Metadata-Version: 1.0
         Name: mypackage
         Version: 1.2.3
-    """
-        )
-    )
+    """))
     (egg_dir / "requires.txt").write_text("requests>=2.0\nflask>=1.0\n")
 
     info = EggInfoDistInfo(str(egg_dir))
@@ -158,15 +142,11 @@ def test_egg_info_missing_pkg_info(tmp_path):
 def test_egg_info_missing_requires_txt(tmp_path):
     egg_dir = tmp_path / "mypackage.egg-info"
     egg_dir.mkdir()
-    (egg_dir / "PKG-INFO").write_text(
-        textwrap.dedent(
-            """\
+    (egg_dir / "PKG-INFO").write_text(textwrap.dedent("""\
         Metadata-Version: 1.0
         Name: mypackage
         Version: 0.1.0
-    """
-        )
-    )
+    """))
 
     info = EggInfoDistInfo(str(egg_dir))
     assert info.name == "mypackage"

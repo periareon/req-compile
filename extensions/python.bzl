@@ -778,7 +778,7 @@ a downloaded wheel.""",
         "solver": attr.label(
             doc = (
                 "A `req_compile_solver.wasm` module to use instead of the one built with this " +
-                "release of `rules_req_compile`, for instance the output of its `wasm/build_solver.sh`. A source " +
+                "release of `rules_req_compile`, for instance the output of `bazel build //wasm:req_compile_solver` in a checkout. A source " +
                 "checkout of the rules has no module of its own and needs this."
             ),
             allow_single_file = True,

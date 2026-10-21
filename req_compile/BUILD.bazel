@@ -1,4 +1,5 @@
 load("@bazel_skylib//rules:run_binary.bzl", "run_binary")
+load("@rules_venv//python:defs.bzl", "py_library")
 load("@rules_venv//python/venv:defs.bzl", "py_venv_binary")
 load("@rules_venv//python/wheel:defs.bzl", "py_wheel_library")
 load("//:version.bzl", "VERSION")
@@ -76,4 +77,20 @@ py_venv_binary(
     main = "__main__.py",
     visibility = ["//visibility:public"],
     deps = [":req_compile"],
+)
+
+# The solver as `//wasm:req_compile_solver` embeds it: the same sources, with
+# only the dependencies that work inside the WebAssembly module. `requests`,
+# `setuptools`, `toml`, `appdirs` and `wheel` are left out; `//wasm:shims`
+# stands in for what the solver imports of them. The linters cover these
+# sources through `:req_compile`, whose dependencies are complete.
+py_library(
+    name = "wasm_solver",
+    srcs = glob(["**/*.py"]),
+    tags = ["no_lint"],
+    visibility = ["//wasm:__pkg__"],
+    deps = [
+        "@req_compile_deps//overrides",
+        "@req_compile_deps//packaging",
+    ],
 )

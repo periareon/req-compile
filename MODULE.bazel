@@ -9,28 +9,25 @@ bazel_dep(name = "bazel_skylib", version = "1.8.2")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "rules_cc", version = "0.2.9")
 bazel_dep(name = "rules_python", version = "1.7.0")
-bazel_dep(name = "rules_venv", version = "0.34.0")
+bazel_dep(name = "rules_venv", version = "0.35.0")
 
 bazel_dep(name = "buildozer", version = "8.2.1", dev_dependency = True)
 bazel_dep(name = "buildifier_prebuilt", version = "8.2.1.2", dev_dependency = True)
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python", dev_dependency = True)
+
+# The one Python this repository builds and tests with. It is also the CPython
+# of `//wasm:req_compile_solver`: `py_wasm_module` embeds the CPython of its
+# `python_version` and builds with the Python toolchain of that version.
+# req-compile itself is tested on every version it supports by CI's pytest
+# matrix, outside Bazel.
 python.toolchain(
     configure_coverage_tool = True,
     # Working around a rules_python issue with docker
     # https://github.com/bazelbuild/rules_python/pull/713
     ignore_root_user_error = True,
     is_default = True,
-    python_version = "3.11",
-)
-use_repo(
-    python,
-    "python_3_11_aarch64-apple-darwin",
-    "python_3_11_aarch64-unknown-linux-gnu",
-    "python_3_11_x86_64-apple-darwin",
-    "python_3_11_x86_64-pc-windows-msvc",
-    "python_3_11_x86_64-unknown-linux-gnu",
-    python311 = "python_3_11",
+    python_version = "3.14",
 )
 
 requirements = use_extension("//extensions:python.bzl", "requirements")

@@ -57,13 +57,17 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Build the WebAssembly solver from the inputs pinned in `wasm/build_solver.sh`
-# (wasi-sdk, CPython, Wizer and the solver's Python dependencies, all by
-# hash). It is attached to the release and attested with the other assets,
-# and its hash is baked into the module archive so that the `requirements`
-# extension of this release downloads exactly this module.
+# Build the WebAssembly solver: CPython and the solver's sources, built by
+# rules_venv's `py_wasm_module` from inputs pinned by their hashes (the
+# CPython for wasm32-wasi, wasi-sdk and Wizer of rules_venv's toolchain, the
+# dependencies of this repository's lock files). It is attached to the release
+# and attested with the other assets, and its hash is baked into the module
+# archive so that the `requirements` extension of this release downloads
+# exactly this module.
 rm -f req_compile_solver.wasm
-WORK="${SCRATCH}/wasm" OUT="$(pwd)/req_compile_solver.wasm" bash "${WORKSPACE}/wasm/build_solver.sh"
+(cd "${WORKSPACE}" && bazel build //wasm:req_compile_solver)
+cp "${WORKSPACE}/$(cd "${WORKSPACE}" && bazel cquery --output=files //wasm:req_compile_solver)" req_compile_solver.wasm
+chmod 0644 req_compile_solver.wasm
 SOLVER_SHA256="$(python3 -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest())' req_compile_solver.wasm)"
 if ! grep -q '^SOLVER_SHA256 = ""$' "${SOLVER_BZL}"; then
     echo "ERROR: ${SOLVER_BZL} has no empty SOLVER_SHA256 to fill in"
@@ -101,7 +105,6 @@ tar -czf "${SCRATCH}/${ARCHIVE}" \
     --exclude="./MODULE.bazel.lock" \
     --exclude="./bazel-*" \
     --exclude="./wasm/example" \
-    --exclude="./wasm/build" \
     --exclude="./req_compile_solver.wasm" \
     -C "${WORKSPACE}" .
 mv "${SCRATCH}/${ARCHIVE}" "${ARCHIVE}"
