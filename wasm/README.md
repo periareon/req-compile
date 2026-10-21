@@ -139,16 +139,16 @@ files too, is re-solved from the recorded versions, so only what the change
 touches is fetched. To move a pin on purpose:
 
 ```bash
-bazel run @pip_deps//:requirements.update -- --upgrade <package>
+REQ_COMPILE_UPGRADE=<package> bazel run @pip_deps//:requirements.update
 ```
 
-Several names may follow `--upgrade`; `-U` with no name upgrades every package.
-The pinned file and the lock are both rewritten. Should that fail because the
-hub itself cannot be resolved (a hash in the file no longer matching), set the
-variable on the same command instead: `REQ_COMPILE_UPGRADE=<package>[,<package>]
-bazel run @pip_deps//:requirements.update` (`all` for every package). A hub with
-no `requirements_txt` has only the lock to move: `REQ_COMPILE_UPGRADE=<package>
-bazel mod deps` (or any build that needs the hub).
+Several names may follow, comma separated; `all` upgrades every package. The
+extension reads the variable and resolves those packages again from the index,
+ignoring their pins in the file, and the update writes the result. A hub with no
+`requirements_txt` has only the lock to move: `REQ_COMPILE_UPGRADE=<package>
+bazel mod deps` (or any build that needs the hub). The lock records the file as
+it was when the hub resolved, before the update rewrote it; the next Bazel
+command brings it up to date, or `bazel mod deps --lockfile_mode=update` at once.
 
 ### Dependabot
 

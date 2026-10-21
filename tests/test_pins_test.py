@@ -28,11 +28,6 @@ def _pins_test() -> ModuleType:
     return _load("pins_test")
 
 
-@pytest.fixture(name="pins_update")
-def _pins_update() -> ModuleType:
-    return _load("pins_update")
-
-
 RESOLVED = """\
 # Python requirements pinned by the `pip` hub, from requirements.in.
 --index-url https://pypi.org/simple
@@ -167,29 +162,3 @@ def test_an_include_is_reported_not_followed(pins_test: ModuleType) -> None:
     assert _against(pins_test, "--requirement=pins.txt\n")[0].startswith(
         "`--requirement pins.txt` is not followed"
     )
-
-
-def test_upgrade_runs_the_canonical_target_with_repo_env(
-    pins_update: ModuleType,
-) -> None:
-    target = "@@rules_req_compile++requirements+pip//:requirements.update"
-    assert pins_update.upgrade_command(["idna", " six", "idna"], target) == [
-        "bazel",
-        "run",
-        "--repo_env=REQ_COMPILE_UPGRADE=idna,six",
-        target,
-    ]
-    assert pins_update.upgrade_command([], target, "/opt/bazelisk") == [
-        "/opt/bazelisk",
-        "run",
-        "--repo_env=REQ_COMPILE_UPGRADE=all",
-        target,
-    ]
-    args = pins_update._parse_args(  # pylint: disable=protected-access
-        ["r.txt", "requirements.txt", target, "-U"]
-    )
-    assert args.upgrade == []
-    args = pins_update._parse_args(  # pylint: disable=protected-access
-        ["r.txt", "requirements.txt", target]
-    )
-    assert args.upgrade is None

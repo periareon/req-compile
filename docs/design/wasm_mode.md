@@ -686,22 +686,22 @@ Two consequences matter to users:
 
 The extension is a function of its inputs, so there is no "upgrade" input unless
 one is provided. Every place that tells the user how to move a pin says the same
-three things, in this order:
+two things, in this order:
 
 1. A hub with `requirements_txt`:
-   `bazel run @<hub>//:requirements.update -- --upgrade <package>`; several
-   names may follow, and `-U` with no name upgrades every package. The pinned
-   file and the lock are both rewritten.
-2. Should that fail because the hub itself cannot be resolved (a hash in the
-   file no longer matching), the variable goes on the same command:
    `REQ_COMPILE_UPGRADE=<package>[,<package>] bazel run @<hub>//:requirements.update`
-   (`all` for every package).
-3. A hub with no `requirements_txt` has only the lock to move:
+   (`all` for every package). The extension resolves those packages again from
+   the index, ignoring their pins in the file, and the update writes the result.
+2. A hub with no `requirements_txt` has only the lock to move:
    `REQ_COMPILE_UPGRADE=<package>[,<package>] bazel mod deps` (or any build
    that needs the hub).
 
-Underneath, the extension reads one environment variable (`REQ_COMPILE_UPGRADE`,
-implemented in `resolve.bzl`), and `--upgrade` sets it for a nested run.
+There is no flag on `requirements.update` for this, deliberately: a flag on a
+`bazel run` binary can only change how the extension resolves by running Bazel
+again from inside the binary, and req-compile's tools do not invoke Bazel
+(1.6.2 to 1.6.4 had such a `--upgrade` flag; it was removed in 1.6.5). The
+extension reads one environment variable (`REQ_COMPILE_UPGRADE`, implemented in
+`resolve.bzl`).
 `ctx.getenv("REQ_COMPILE_UPGRADE")` makes it a recorded input, so the extension
 re-runs when it is set, dropping the named prior pins (or all of them). The next
 command without the variable sees a changed recorded input and re-runs once more,
@@ -812,19 +812,13 @@ with "no candidate for a satisfies !=2.0,>=2". Packages the file does not list y
 in it, as do the packages `REQ_COMPILE_UPGRADE` names (all of them with `all`),
 whose pin and hashes are left out for that one resolution so that
 `requirements.update` writes their new version; that is for moving a pin the
-requirements still allow.
-`requirements.update -- --upgrade [package ...]` (`-U`) is the same thing from
-the command line: the script runs its own target once more, by canonical label
-(the root module may import the hub under another name) and with
-`--repo_env=REQ_COMPILE_UPGRADE=...` (so a `--repo_env` for the variable in
-`.bazelrc` cannot mask it), which `bazel run` allows since the command lock is
-released before the binary runs. The inner command is `bazel` from `PATH` (or
-`$BAZEL`) without the options of the outer command line, so the flags the
-resolution needs belong in `.bazelrc`; and since the outer `bazel run` resolves
-the hub before the script starts, a hash in the file that keeps the hub from
-resolving at all (the one case a soft pin can still block) is lifted from the
-shell, `REQ_COMPILE_UPGRADE=<package>[,<package>] bazel run @<hub>//:requirements.update`
-(`all` for every package), which the failure message of a pinned hub says. The solver's
+requirements still allow, and the one way to lift a hash in the file that keeps
+the hub from resolving at all (the one case a soft pin can still block), which
+the failure message of a pinned hub says. The update script itself only writes
+the rendered file, and leaves it alone when it is already up to date; the lock
+records the file as it was when the hub resolved, and the next Bazel command
+(or `bazel mod deps --lockfile_mode=update`) brings it up to date, as with
+rules_python's update target. The solver's
 `require_pins` flag distinguishes this from a file fed as `requirements_in`,
 where every package must be pinned. The test reads a copy of the workspace file
 the hub repository took at fetch time (`repository_ctx.read` of the label), so

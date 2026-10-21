@@ -625,13 +625,12 @@ The solution is also remembered in the lock file's facts. When a requirement
 file changes, the next resolution keeps every version the change does not
 disturb, like `py_reqs_compiler` recycling its solution, and fetches only the
 pages and metadata of what is new. To move a pin on purpose, with
-`requirements_txt`: `bazel run @<hub>//:requirements.update -- --upgrade <package>`
-(several names may follow; `-U` with no name upgrades every package); should that
-fail because the hub itself cannot be resolved, a hash in the file no longer
-matching, set the variable on the same command instead,
+`requirements_txt`:
 `REQ_COMPILE_UPGRADE=<package>[,<package>] bazel run @<hub>//:requirements.update`
-(`all` for every package). A hub with no `requirements_txt` has only the lock to
-move: `REQ_COMPILE_UPGRADE=<package>[,<package>] bazel mod deps`.
+(`all` for every package); the extension resolves those packages again from the
+index, ignoring their pins in the file, and the update writes the result. A hub
+with no `requirements_txt` has only the lock to move:
+`REQ_COMPILE_UPGRADE=<package>[,<package>] bazel mod deps`.
 
 With `requirements_txt` the hub also keeps a pinned requirements file in the
 workspace, in the shape `pip-compile --generate-hashes` writes: every package at
@@ -769,9 +768,7 @@ a downloaded wheel.""",
                 "in it, by Dependabot for instance, is what the next resolution uses, a bound raised in " +
                 "`requirements_in` moves the pin by itself, and packages not yet in it resolve freely and " +
                 "then appear in it. A pin the requirements still allow is moved on purpose with " +
-                "`bazel run @<hub>//:requirements.update -- --upgrade <package>` (several names may follow; " +
-                "`-U` with no name upgrades every package); should that fail because the hub itself cannot " +
-                "be resolved, `REQ_COMPILE_UPGRADE=<package>[,<package>] bazel run @<hub>//:requirements.update` " +
+                "`REQ_COMPILE_UPGRADE=<package>[,<package>] bazel run @<hub>//:requirements.update` " +
                 "(`all` for every package). Must be a file of the root module; " +
                 "it needs no `exports_files`. The test lives in the hub repository, outside `//...`, so a " +
                 "`test_suite` in the workspace that lists it puts it in the default test set."
