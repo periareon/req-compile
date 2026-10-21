@@ -6,8 +6,11 @@ New in version 1.6.3:
   pin by itself; before, the file's pins were hard and the bump failed until ``--upgrade`` lifted them. The
   file's hashes vouch for the pinned version only, so a bump with a wrong hash still fails naming the package,
   while a version the file does not pin needs no hash and gets one when ``requirements.update`` writes it.
-  A mismatch on the pinned version stays an error even when another index or an older release would let the
-  solver resolve around it. A pin without a local segment covers every build of its release (``1.0`` covers
+  A pinned version the requirements still allow must be the one used: when the solver left it because no
+  artifact of it the platform can install carried one of the file's hashes (a bump with a wrong hash, a release
+  without a wheel for a platform, another index offering an older release), that is an error naming the
+  package, the platform and what the index offers, not a quiet return to the previous version. A pin without a
+  local segment covers every build of its release (``1.0`` covers
   ``1.0+cpu``) and its hashes say which build is meant. With ``enforce_hashes = False`` the file's hashes are
   not read at all.
 * A soft pin, the recorded solution's version or the pinned file's, yields before the solver walks back a

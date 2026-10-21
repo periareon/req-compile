@@ -56,6 +56,7 @@ from req_compile.repos.repository import (
 )
 from req_compile.target import TargetEnvironment
 from req_compile.utils import NormName
+from req_compile.wasm.errors import HashMismatch, PinNotUsed, UnpinnedPackage
 from req_compile.wasm.files import (
     FactFiles,
     NeedFacts,
@@ -67,6 +68,7 @@ from req_compile.wasm.files import (
 )
 from req_compile.wasm.ingest import ingest_index, ingest_metadata
 from req_compile.wasm.prior import (
+    check_file_pins,
     exact_version,
     link_recorded_metadata,
     prior_locks,
@@ -78,50 +80,6 @@ from req_compile.wasm.prior import (
 ACCEPT_INDEX = "application/vnd.pypi.simple.v1+json, text/html;q=0.1"
 
 LOG = logging.getLogger("req_compile.wasm")
-
-
-class HashMismatch(Exception):
-    """No artifact of a project matches the hashes its requirement file pins."""
-
-    def __init__(self, name: str, pinned: Set[str], found: Dict[str, str]) -> None:
-        """`found` maps the sha256 of each artifact the indexes offer to its file name."""
-        super().__init__(name)
-        self.name = name
-        self.pinned = pinned
-        self.found = found
-
-    def __str__(self) -> str:
-        available = ", ".join(
-            "{} ({})".format(filename, sha256[:12])
-            for sha256, filename in sorted(
-                self.found.items(), key=lambda item: (item[1], item[0])
-            )
-        )
-        return (
-            "No artifact of `{}` on the index matches the --hash values pinned for it "
-            "({}). The index offers: {}. Update the hashes along with the version, or "
-            "set `enforce_hashes = False`."
-        ).format(
-            self.name,
-            ", ".join(sorted(value[:12] for value in self.pinned)),
-            available or "nothing",
-        )
-
-
-class UnpinnedPackage(Exception):
-    """A requirement file pins hashes, but none for this project."""
-
-    def __init__(self, name: str) -> None:
-        super().__init__(name)
-        self.name = name
-
-    def __str__(self) -> str:
-        return (
-            "`{}` is needed, but the requirement files pin no --hash for it. When a file "
-            "pins hashes every package must be pinned, as with `pip --require-hashes`; "
-            "otherwise an index could add a dependency the files never vouched for. Add "
-            "it with its hash, or set `enforce_hashes = False`."
-        ).format(self.name)
 
 
 class PageCache:
@@ -386,16 +344,34 @@ class FactRepository(Repository):
         # say which build the file means, so the solver cannot drift onto one
         # the soft pin `==1.0` would also accept.
         of_version = [c for c in candidates if same_release(c.version, version)]
-        if not of_version:
+        # Only artifacts the solve may install count: a matching hash on an sdist
+        # the hub does not allow vouches for nothing the solver can pick.
+        usable = [
+            c
+            for c in of_version
+            if self.allow_sdists or c.type == DistributionType.WHEEL
+        ]
+        if not usable:
+            # Nothing of the pinned version for this target; the pin yields here
+            # and `_check_file_pins` decides whether that was legitimate.
             return candidates
-        matching = [c for c in of_version if self.entry(c)["sha256"] in hashes]
+        matching = [c for c in usable if self.entry(c)["sha256"] in hashes]
         if not matching and (
             req is None or req.specifier.contains(version, prereleases=True)
         ):
-            found = {self.entry(c)["sha256"]: c.filename or "" for c in of_version}
+            found = {self.entry(c)["sha256"]: c.filename or "" for c in usable}
             self._note_mismatch(key, name, hashes, found)
             return []
         return [c for c in candidates if c not in of_version or c in matching]
+
+    def artifacts_of(self, name: str, version: packaging.version.Version) -> List[str]:
+        """The artifacts of a release this repository has seen, named with their hash."""
+        page = self.page_url(name)
+        return [
+            "{} ({})".format(c.filename or "", (self.entry(c)["sha256"] or "")[:12])
+            for c in self._candidates.get(page) or []
+            if same_release(c.version, version)
+        ]
 
     def file_vouches(self, candidate: Candidate) -> bool:
         """Whether the pinned file pins this candidate's version with a hash."""
@@ -656,43 +632,6 @@ def _render(
     return packages
 
 
-def _check_file_pins(
-    hub: _Hub,
-    file_pins: Dict[NormName, Tuple[packaging.version.Version, Set[str]]],
-    solutions: Sequence[Tuple[DistributionCollection, Any]],
-) -> None:
-    """Fail when a hash mismatch on a pinned version was resolved around.
-
-    `_file_pinned` reports a mismatch by offering no candidate, which is the
-    error when nothing else is available. When another index or an older
-    release offers the package anyway, the solver drops the soft pin and picks
-    that instead, and a bump with a wrong hash would resolve quietly to another
-    version. So once a mismatch was noted for a pinned version, the solution
-    must use that version with one of the file's hashes, or the mismatch is the
-    error after all.
-    """
-    for key, mismatch in hub.mismatches.items():
-        pin = file_pins.get(key)
-        if pin is None or not pin[1]:
-            continue
-        for solution, _ in solutions:
-            for node in solution:
-                meta = node.metadata
-                if (
-                    node.key != key
-                    or meta is None
-                    or meta.meta
-                    or meta.candidate is None
-                    or meta.version is None
-                ):
-                    continue
-                sha256 = ""
-                if isinstance(meta.origin, FactRepository):
-                    sha256 = meta.origin.entry(meta.candidate).get("sha256") or ""
-                if not same_release(meta.version, pin[0]) or sha256 not in pin[1]:
-                    raise mismatch
-
-
 def _prefetch(hub: _Hub, req: packaging.requirements.Requirement) -> None:
     """Request the page of a requirement and the metadata of its best candidate per target."""
     for target, repos in zip(hub.targets, hub.indexes):
@@ -897,12 +836,13 @@ def solve(payload: Dict[str, Any]) -> Dict[str, Any]:
                         only_binary=set() if hub.allow_sdists else AllOnlyBinarySet(),
                         pins=hub.pins,
                     )
-                    _check_file_pins(hub, file_pins, solutions)
+                    check_file_pins(hub, file_pins, constraints, solutions)
                 except (
                     NoCandidateException,
                     NoCommonVersionException,
                     MetadataError,
                     HashMismatch,
+                    PinNotUsed,
                     UnpinnedPackage,
                     RequirementsFileError,
                 ) as ex:
