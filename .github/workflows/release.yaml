@@ -104,7 +104,8 @@ jobs:
         rules_req_compile-*.tar.gz
         dist/*
         req_compile_solver.wasm
-      prerelease: false
+      # A tag with a `-` segment (`1.6.5-rc1`) is a pre-release, as in SemVer.
+      prerelease: ${{ contains(needs.tag.outputs.tag, '-') }}
       tag_name: ${{ needs.tag.outputs.tag }}
 
   # Upload the wheel and sdist built (and attested) by the `release`
