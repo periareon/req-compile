@@ -1,9 +1,8 @@
 New in version 1.6.5:
 
-* A release is published to PyPI only when the Python distributions changed since the newest release there:
-  the Release workflow compares their inputs (the ``req_compile`` package, the packaging files, README and
-  LICENSE) with that release's tag and skips the upload when nothing differs. The GitHub release still carries
-  the wheel and sdist.
+* A release is published to PyPI only when its wheel differs from the newest release there. The wheel is
+  reproducible, so the Release workflow compares the files of the two (less the metadata that carries the
+  version) and skips the upload when they are the same. The GitHub release still carries the wheel and sdist.
 * ``req_compile_solver.wasm`` is built by rules_venv's ``py_wasm_module``: ``bazel build
   //wasm:req_compile_solver`` in a checkout, which replaces the build scripts under ``wasm/``. The module
   embeds the CPython 3.14 of rules_venv 0.36.0's toolchain, the ``trampoline`` build of
