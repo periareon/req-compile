@@ -7,5 +7,5 @@ always described explicitly, so the host's own platform is never used.
 
 
 class CDLL:
-    def __init__(self, name=None, *args, **kwargs):
+    def __init__(self, *_args, **_kwargs):
         raise TypeError("dynamic loading is not available in the WebAssembly solver")

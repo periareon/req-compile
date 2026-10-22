@@ -25,7 +25,7 @@ except ImportError:
         spec.loader.exec_module(mod)
         return mod
 
-    imp.load_source = _load_source  # type: ignore[assignment]
+    imp.load_source = _load_source  # type: ignore[assignment,attr-defined]
     sys.modules["imp"] = imp
 
 import io

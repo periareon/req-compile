@@ -163,27 +163,34 @@ can, with surprisingly little: a CPython `wasm32-wasi` build (3.14 now, 3.13 bef
 it) becomes import-free by linking a few small pieces into it, and the `req_compile`
 package runs inside unchanged.
 
+Those pieces were written for this module and now live in rules_venv as its
+`py_wasm_module` rule (`python/wasm/private/` there), which `//wasm:req_compile_solver`
+uses:
+
 | Piece | Lines | What it does |
 | --- | --- | --- |
-| `wasm/wasi_stubs.c` | ~400 | Defines, inside the module, every WASI function wasi-libc imports. Standard output and error are captured into buffers, the clock is a counter, `random_get` is a fixed-seed generator (so hash seeds and set ordering are reproducible), the filesystem is empty, `proc_exit` traps. |
-| `wasm/shim.c` | ~130 | Exports `allocate` and `solve` with the signatures Bazel expects, embeds the interpreter, exposes the input buffer and the bundle to Python through a builtin `_host` module, and returns Python's output buffer. |
-| `wasm/bootstrap.py` | ~80 | An importer over an in-memory bundle of `.py` or bytecode files, installed as the first thing after the interpreter starts. |
-| `wasm/freeze_encodings.py` | ~60 | The WASI build does not freeze `encodings`, which the interpreter imports while starting, before any importer of ours can exist. This emits a `PyImport_FrozenModules` table with the six modules involved; `shim.c` installs it before `Py_InitializeFromConfig`. (3.13 offered a two-phase start-up, `_init_main = 0` then `_Py_InitializeMain()`, that let the importer go in between; 3.14 removed it.) |
-| `wasm/bundle.py`, `wasm/embed.S` | ~120 | Pack the standard library (trimmed), `packaging`, `overrides`, the shims and `req_compile` into a length-prefixed blob linked into the module as data. With a host Python of the same minor version the blob holds marshalled bytecode instead of source. |
+| `wasi_stubs.c` | ~400 | Defines, inside the module, every WASI function wasi-libc imports. Standard output and error are captured into buffers, the clock is a counter, `random_get` is a fixed-seed generator (so hash seeds and set ordering are reproducible), the filesystem is empty, `proc_exit` traps. |
+| `shim.c` | ~130 | Exports `allocate` and one function per export (`solve` here) with the signatures Bazel expects, embeds the interpreter, exposes the bundle to Python through a builtin `_host` module, calls the function of that name in the entry module with the input as `bytes`, and returns what it produced. |
+| `bootstrap.py` | ~80 | An importer over an in-memory bundle of `.py` or bytecode files, installed as the first thing after the interpreter starts. |
+| `freeze_encodings.py` | ~60 | The WASI build does not freeze `encodings`, which the interpreter imports while starting, before any importer of ours can exist. This emits a `PyImport_FrozenModules` table with the six modules involved; `shim.c` installs it before `Py_InitializeFromConfig`. (3.13 offered a two-phase start-up, `_init_main = 0` then `_Py_InitializeMain()`, that let the importer go in between; 3.14 removed it.) |
+| `bundle.py` | ~120 | Packs the standard library (trimmed) and the sources of the module's `deps` into a length-prefixed blob linked into the module as data, as bytecode marshalled by the Python toolchain of the same minor version. |
 
-Five stand-in modules in `wasm/shims/` satisfy imports that cannot work in the box
-and are never exercised by the solver: `requests` (nothing downloads), `toml` and
+This repository supplies the entry module, `req_compile/wasm/exports.py`, whose
+`solve` takes the input of a call as `bytes` and returns the output and the
+return code; `//req_compile:wasm_solver`, the solver's sources with only the
+dependencies that work in the module (`packaging`, `overrides`); and five
+stand-in modules in `wasm/shims/` for imports that cannot work in the box and
+are never exercised by the solver: `requests` (nothing downloads), `toml` and
 `setuptools` (no `pyproject.toml` or `setup.py` is evaluated), `multiprocessing.pool`
 (one thread, used only to scan source trees) and `ctypes` (no dynamic loading;
 `get_glibc_version` then correctly reports "not glibc"). They total forty lines.
 
-`libpython3.X.a`, `pyconfig.h` and the link flags come from a CPython WASI build,
-made by `wasm/build_cpython.sh` (the prototype used the archive of
-`brettcannon/cpython-wasi-build`, which still works, slower); the vendored
-`libmpdec`, `expat` and `_hacl` objects are linked alongside because they are not
-in the archive. The whole build is `wasm/build.sh`. The module is 16 MB, of which
-10 MB is the bundle (25 MB with the pre-initialized snapshot); its only exports are
-`allocate`, `solve` and, without the snapshot, `_initialize`.
+`libpython3.X.a`, `pyconfig.h` and the link flags come from the CPython WASI build
+of the `py_wasm_toolchain` in use: rules_venv's, made of the archive of
+`brettcannon/cpython-wasi-build` (the prototype built its own CPython, which is
+faster under Bazel; see "Where the time goes" in `wasm/README.md`). The module
+is 28 MB with the pre-initialized snapshot, of which 12 MB is the bundle; its
+only exports are `memory`, `allocate` and `solve`.
 
 What this buys over a port is the goal of this design: the solver inside Bazel is
 the solver on the command line, including `perform_compile_group`'s cross-platform
@@ -503,9 +510,9 @@ minimize, and so is the amount of Python each call executes.
 | Fresh resolve of both example hubs, no facts (4 calls) | 70 s elapsed | 1.6 s in the module, 15 s elapsed, most of it fetching the wheels |
 | Re-evaluation of the example with facts recorded (3 calls) | | 3 s in the module, 11 s elapsed |
 
-- **Wizer pre-initialization.** `wasm/build.sh` with `WIZER` set runs the
+- **Wizer pre-initialization.** `py_wasm_module` (its `preinitialize`) runs the
   interpreter start and the solver's imports at build time and snapshots the
-  memory into the module. `wasm/merge_segments.py` then drops the empty
+  memory into the module. Its `merge_segments.py` then drops the empty
   placeholder segments Wizer leaves and merges the rest, from 103,054 segments to
   15, which keeps the module within runtime limits and instantiation cheap. The
   module grows from 16 MB to 25 MB.
@@ -517,11 +524,14 @@ minimize, and so is the amount of Python each call executes.
 - **A compiled evaluation loop.** A Flight Recorder profile of the full solve
   under Bazel's Chicory showed 92% of samples in the interpreter and 3% in
   compiled code. `_PyEval_EvalFrameDefault` was 66 KB of wasm in the stock `-O3`
-  build, just over what fits one JVM method. `wasm/build_cpython.sh` builds
-  CPython with `-Os` and `ceval.c` with `-Oz -fno-inline-functions -mllvm
-  -ir-outliner` (52 KB), and `build.sh` no longer passes `-O2` to the linker,
-  which alone pushed the function back over the limit. Chicory then interprets
-  nothing. Full solve: 88 s to 8.9 s.
+  build, just over what fits one JVM method. CPython built with `-Os` and
+  `ceval.c` with `-Oz -fno-inline-functions -mllvm -ir-outliner` (52 KB), and no
+  `-O2` at link time, which alone pushed the function back over the limit, had
+  Chicory interpret nothing. Full solve: 88 s to 8.9 s. (This repository built
+  that CPython from source at the time; the builds now come from
+  periareon/cpython-wasi-build as the `small-eval` and `trampoline` variants,
+  and rules_venv 0.36.0's toolchain embeds the trampoline for 3.14 by default,
+  so the module built with it has nothing Chicory interprets.)
 - **A JIT-compiled evaluation loop.** Chicory's output for it is a 60 KB JVM
   method, which HotSpot runs in its own interpreter: the huge-method limit skips
   it, C1 runs out of virtual registers on it, and C2 runs out of nodes at the
@@ -531,13 +541,14 @@ minimize, and so is the amount of Python each call executes.
   each evaluation starts from a cold class and C2 recompiles the method a few
   times before it settles, the same solve measured 5.6 s, 3.5 s and 4.6 s over
   three calls against 8.9 s without the flags.
-- **A trampoline interpreter** (CPython 3.14, `TRAMPOLINE=1` in
-  `build_cpython.sh`). Moving from 3.13 to 3.14 changed nothing by itself (the
+- **A trampoline interpreter** (CPython 3.14, patched). Moving from 3.13 to
+  3.14 changed nothing by itself (the
   same 8.9 s). 3.14's tail-calling interpreter, one C function per bytecode
   instruction, cannot be used as is: it requires `preserve_none`, which clang
   lacks for wasm, and Chicory 1.7.5 compiles tail calls as call-plus-return,
-  which would overflow the stack. `wasm/patches/cpython-3.14-trampoline-interpreter.patch`
-  (170 lines, macros only) keeps the generated per-instruction functions and
+  which would overflow the stack. A patch (170 lines, macros only;
+  `cpython-3.14-trampoline-interpreter.patch` in this repository's history under
+  `wasm/patches/`) keeps the generated per-instruction functions and
   turns each tail call into a return to a small loop that calls the next
   handler. The evaluation loop becomes 328 bytes of wasm and the largest of the
   234 handlers 1.5 KB, so no function is near either limit and HotSpot compiles
@@ -942,14 +953,14 @@ this: the resolve code runs only when some module's `resolve` tag sets
 
 ### Shipping the module
 
-`wasm/build_solver.sh` builds `req_compile_solver.wasm` from inputs it names by
-version and hash: wasi-sdk 24.0, CPython 3.14.8 (from python.org, with the
-trampoline patch), Wizer 11.0.3 and the `packaging` and `overrides` wheels. The
-bytecode in the module comes from the native interpreter CPython builds for its
-own cross-compilation, so the host needs no particular Python. CI runs the script
-on Linux and macOS for every change and exercises the module under wasmtime and
-through the example workspace in Bazel 10; `release_prep.sh` runs it for every
-release, attaches the module to the release, attested with the other assets, and
+`bazel build //wasm:req_compile_solver` builds `req_compile_solver.wasm` with
+rules_venv's `py_wasm_module` from inputs pinned by hash: the CPython 3.14
+`wasm32-wasi` build, wasi-sdk and Wizer of rules_venv's toolchain, and the
+`packaging` and `overrides` of this repository's lock files. The bytecode in the
+module comes from the hermetic Python 3.14 toolchain. CI builds it on Linux and
+macOS for every change and exercises the module under wasmtime and through the
+example workspace in Bazel 10; `release_prep.sh` builds it for every release,
+attaches the module to the release, attested with the other assets, and
 bakes its sha256 into `req_compile/private/solver.bzl` in the copy of the tree
 that becomes the module archive (the source tree keeps the hash empty). The
 extension of a release therefore knows its own module: the first time a hub

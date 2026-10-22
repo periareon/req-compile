@@ -3,4 +3,3 @@ venv
 venv3
 .ijwb
 wasm/example
-wasm/build

@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Tuple
 
 import pytest
 
-from req_compile.wasm import entry
+from req_compile.wasm import entry, exports
 from req_compile.wasm import files as wasm_files
 from req_compile.wasm import ingest
 
@@ -317,6 +317,15 @@ def test_ping(op: str) -> None:
     output, code = entry.main(json.dumps({"op": op, "echo": 1}).encode("utf-8"))
     assert code == 0
     assert json.loads(output)["echo"] == 1
+
+
+def test_export_is_main() -> None:
+    """`solve`, the module's one export, is `main` under the name Bazel calls."""
+    payload = json.dumps({"op": "ping", "echo": 2}).encode("utf-8")
+    assert exports.solve(payload) == entry.main(payload)
+    output, code = exports.solve(b"not json")
+    assert code == 1
+    assert json.loads(output)["status"] == "error"
 
 
 def _prior_from(result: Dict[str, Any]) -> Dict[str, Any]:
