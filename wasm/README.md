@@ -55,8 +55,8 @@ in its `trampoline` variant, rules_venv's default for 3.14 (see "Where the time
 goes" for why), the wasi-sdk release that built it and Wizer, each pinned by
 hash in rules_venv. Its bytecode comes from the hermetic Python 3.14 toolchain
 of this repository, which is the same minor version. rules_venv has toolchains
-for Linux and macOS,
-on x86_64 and arm64; the target is `manual`, so `//...` leaves it alone. The
+for Linux and macOS, on x86_64 and arm64, and none for Windows, where the
+target is incompatible and `//...` skips it; elsewhere `//...` builds it. The
 same inputs give the same module. CI builds it on Linux and macOS for every
 change, and the release workflow builds it to attach the module to each release,
 whose `requirements` extension downloads it the first time a hub resolves.

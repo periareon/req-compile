@@ -7,13 +7,15 @@ threads nor the `multiprocessing` package.
 
 
 class ThreadPool:
-    def __init__(self, processes=None, *args, **kwargs):
+    def __init__(self, *_args, **_kwargs):
         pass
 
     def map(self, func, iterable, chunksize=None):
+        del chunksize
         return [func(item) for item in iterable]
 
     def imap(self, func, iterable, chunksize=1):
+        del chunksize
         return (func(item) for item in iterable)
 
     imap_unordered = imap
