@@ -16,6 +16,7 @@ on:
       - version.bzl
       - .github/workflows/release.yaml
       - .github/workflows/release_prep.sh
+      - .github/workflows/pypi_check.sh
       - .github/workflows/bcr-publish.yaml
   push:
     branches:
@@ -48,6 +49,25 @@ jobs:
           else
             echo "Tag '${version}' will be created"
           fi
+
+  # Decide whether PyPI gets this release. A release that changes nothing
+  # the Python distributions are built from (a version bump for the Bazel
+  # side, release notes) is not published there: `pypi_check.sh` compares
+  # the inputs of the distributions with the newest release on PyPI. Runs on
+  # pull requests too, so a change to the check is tried before it lands.
+  pypi-check:
+    if: ${{ github.repository_owner == 'periareon' }}
+    runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.check.outputs.publish }}
+      reason: ${{ steps.check.outputs.reason }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Compare the Python distributions with PyPI
+        id: check
+        run: .github/workflows/pypi_check.sh "${{ github.sha }}"
 
   # Create and push the version tag at the resolved commit before the
   # release_ruleset workflow runs — that workflow checks out the
@@ -109,11 +129,13 @@ jobs:
       tag_name: ${{ needs.tag.outputs.tag }}
 
   # Upload the wheel and sdist built (and attested) by the `release`
-  # job to PyPI. The `release_files` artifact is produced by the
-  # reusable workflow in this same run, so the bytes published to PyPI
-  # are exactly the ones attached to the GitHub release.
+  # job to PyPI, when `pypi-check` found Python changes. The `release_files`
+  # artifact is produced by the reusable workflow in this same run, so the
+  # bytes published to PyPI are exactly the ones attached to the GitHub
+  # release.
   pypi-publish:
-    needs: [tag, release]
+    if: ${{ needs.pypi-check.outputs.publish == 'true' }}
+    needs: [tag, release, pypi-check]
     runs-on: ubuntu-latest
     permissions:
       contents: read
