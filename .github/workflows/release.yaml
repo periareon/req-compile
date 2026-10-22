@@ -16,6 +16,7 @@ on:
       - version.bzl
       - .github/workflows/release.yaml
       - .github/workflows/release_prep.sh
+      - .github/workflows/pypi_check.py
       - .github/workflows/bcr-publish.yaml
   push:
     branches:
@@ -109,15 +110,19 @@ jobs:
       tag_name: ${{ needs.tag.outputs.tag }}
 
   # Upload the wheel and sdist built (and attested) by the `release`
-  # job to PyPI. The `release_files` artifact is produced by the
-  # reusable workflow in this same run, so the bytes published to PyPI
-  # are exactly the ones attached to the GitHub release.
+  # job to PyPI, unless the wheel has the same files as the newest release
+  # there: the wheel is reproducible, so a release without Python changes
+  # (a version bump for the Bazel side, release notes) publishes nothing new
+  # and is skipped. The `release_files` artifact is produced by the reusable
+  # workflow in this same run, so the bytes published to PyPI are exactly
+  # the ones attached to the GitHub release.
   pypi-publish:
     needs: [tag, release]
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
+      - uses: actions/checkout@v4
       - name: Download release files
         uses: actions/download-artifact@v4
         with:
@@ -131,7 +136,11 @@ jobs:
             exit 1
           fi
           ls -l release_files/dist
+      - name: Compare the wheel with the newest release on PyPI
+        id: check
+        run: python3 .github/workflows/pypi_check.py release_files/dist/*.whl
       - name: Publish distribution to PyPI
+        if: steps.check.outputs.publish == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: release_files/dist
