@@ -2,8 +2,11 @@ New in version 1.6.5:
 
 * ``req_compile_solver.wasm`` is built by rules_venv's ``py_wasm_module``: ``bazel build
   //wasm:req_compile_solver`` in a checkout, which replaces the build scripts under ``wasm/``. The module
-  embeds the CPython 3.14 of rules_venv's toolchain, and this repository builds and tests with Python 3.14
-  under Bazel; req-compile itself keeps supporting 3.9 and newer.
+  embeds the ``trampoline`` CPython 3.14 of `periareon/cpython-wasi-build
+  <https://github.com/periareon/cpython-wasi-build>`_, where the build scripts and the interpreter patch
+  moved, through a ``py_wasm_toolchain`` in ``//wasm/toolchain``; the stock CPython of rules_venv's own
+  toolchain solves the same hub in 88 s instead of 2.5 s under Bazel's runtime. This repository builds and
+  tests with Python 3.14 under Bazel; req-compile itself keeps supporting 3.9 and newer.
 * ``requirements.update`` no longer takes ``--upgrade`` / ``-U``: that flag worked by running Bazel again from
   inside the update binary, and req-compile's tools do not invoke Bazel. A pin is moved on purpose with the
   variable on the command itself, ``REQ_COMPILE_UPGRADE=<package>[,<package>] bazel run

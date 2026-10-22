@@ -1,0 +1,49 @@
+# The `py_wasm_toolchain`s `//wasm:req_compile_solver` is built with: the
+# trampoline CPython from periareon/cpython-wasi-build (see MODULE.bazel for
+# why) with the wasi-sdk release that built it and Wizer, both rules_venv's own
+# archives. One per host rules_venv has a wasi-sdk for; registered from
+# MODULE.bazel as a dev dependency, ahead of rules_venv's defaults.
+
+load("@rules_venv//python/wasm:defs.bzl", "py_wasm_toolchain")
+
+_HOSTS = {
+    "linux_aarch64": [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+    "linux_x86_64": [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    "macos_aarch64": [
+        "@platforms//os:macos",
+        "@platforms//cpu:aarch64",
+    ],
+    "macos_x86_64": [
+        "@platforms//os:macos",
+        "@platforms//cpu:x86_64",
+    ],
+}
+
+[
+    [
+        py_wasm_toolchain(
+            name = "trampoline_3_14_{}".format(host),
+            clang = "@rules_venv_py_wasm_wasi_sdk_24_{}//:clang".format(host),
+            compiler_files = "@rules_venv_py_wasm_wasi_sdk_24_{}//:all_files".format(host),
+            cpython_libs = "@cpython_wasi_trampoline_3_14//:libs",
+            pyconfig = "@cpython_wasi_trampoline_3_14//:pyconfig.h",
+            python_version = "3.14",
+            stdlib = "@cpython_wasi_trampoline_3_14_stdlib//:stdlib",
+            wizer = "@rules_venv_py_wasm_wizer_{}//:wizer".format(host),
+        ),
+        toolchain(
+            name = "trampoline_3_14_{}_toolchain".format(host),
+            exec_compatible_with = constraints,
+            target_settings = ["@rules_python//python/config_settings:is_python_3.14"],
+            toolchain = ":trampoline_3_14_{}".format(host),
+            toolchain_type = "@rules_venv//python/wasm:toolchain_type",
+        ),
+    ]
+    for host, constraints in _HOSTS.items()
+]

@@ -30,6 +30,67 @@ python.toolchain(
     python_version = "3.14",
 )
 
+# The CPython inside `//wasm:req_compile_solver`. rules_venv's own toolchain
+# embeds the stock build of cpython-wasi-build, whose evaluation loop is larger
+# than a JVM method may be, so Bazel's runtime interprets it and a solve takes
+# tens of seconds; the trampoline build from periareon/cpython-wasi-build keeps
+# every function small and a solve takes a couple of seconds (wasm/README.md).
+# `//wasm/toolchain` assembles a `py_wasm_toolchain` from it and rules_venv's
+# own wasi-sdk and Wizer, registered below ahead of rules_venv's. All of it is
+# a dev dependency: only this repository builds the module (a release attaches
+# it), and the directives stay valid for consumers on Bazel 7.
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "cpython_wasi_trampoline_3_14",
+    build_file_content = """\
+package(default_visibility = ["//visibility:public"])
+
+exports_files(["pyconfig.h"])
+
+filegroup(
+    name = "libs",
+    srcs = ["libpython3.14.a"] + glob(["Modules/**/*.a"]),
+)
+""",
+    dev_dependency = True,
+    sha256 = "89e2c252df9919a3d5ec483278c8f2d8e42c9ad79cfcf190a32052b9078cb3f8",
+    url = "https://github.com/periareon/cpython-wasi-build/releases/download/v3.14.9/_build-python-3.14.9-wasi_sdk-24-trampoline.zip",
+)
+
+http_archive(
+    name = "cpython_wasi_trampoline_3_14_stdlib",
+    build_file_content = """\
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "stdlib",
+    srcs = glob(["lib/python3.14/**/*.py"]),
+)
+""",
+    dev_dependency = True,
+    sha256 = "d31f7a5abe9f8939180fcd55aa497826e153f48b7f472758daf03591a215687e",
+    url = "https://github.com/periareon/cpython-wasi-build/releases/download/v3.14.9/python-3.14.9-wasi_sdk-24-trampoline.zip",
+)
+
+py_wasm = use_extension("@rules_venv//python/wasm:extensions.bzl", "py_wasm", dev_dependency = True)
+use_repo(
+    py_wasm,
+    "rules_venv_py_wasm_wasi_sdk_24_linux_aarch64",
+    "rules_venv_py_wasm_wasi_sdk_24_linux_x86_64",
+    "rules_venv_py_wasm_wasi_sdk_24_macos_aarch64",
+    "rules_venv_py_wasm_wasi_sdk_24_macos_x86_64",
+    "rules_venv_py_wasm_wizer_linux_aarch64",
+    "rules_venv_py_wasm_wizer_linux_x86_64",
+    "rules_venv_py_wasm_wizer_macos_aarch64",
+    "rules_venv_py_wasm_wizer_macos_x86_64",
+)
+
+register_toolchains(
+    "//wasm/toolchain:all",
+    dev_dependency = True,
+)
+
 requirements = use_extension("//extensions:python.bzl", "requirements")
 requirements.parse(
     name = "req_compile_deps",

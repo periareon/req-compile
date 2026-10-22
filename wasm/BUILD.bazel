@@ -19,13 +19,15 @@ py_library(
 
 # `req_compile_solver.wasm`: CPython 3.14, the solver and the parts of the
 # standard library it needs, as one WebAssembly module that imports nothing,
-# built by rules_venv's `py_wasm_module` with the toolchain rules_venv
-# registers for that Python. The `requirements` extension runs it with
+# built by rules_venv's `py_wasm_module` with the `py_wasm_toolchain` of
+# `//wasm/toolchain`: the trampoline CPython of periareon/cpython-wasi-build,
+# which Bazel's runtime compiles whole (see README.md, "Where the time goes"),
+# with rules_venv's wasi-sdk and Wizer. The `requirements` extension runs it with
 # `module_ctx.execute_wasm`; `req_compile/wasm/exports.py` is the entry point
 # and README.md describes the calling convention. A release builds it,
 # attaches it and bakes its hash into `req_compile/private/solver.bzl`. The
 # target is `manual`: building it fetches a CPython for wasm32-wasi, a
-# wasi-sdk and Wizer, and rules_venv has toolchains for Linux and macOS.
+# wasi-sdk and Wizer, and the toolchain exists for Linux and macOS hosts.
 py_wasm_module(
     name = "req_compile_solver",
     entry = "req_compile.wasm.exports",
