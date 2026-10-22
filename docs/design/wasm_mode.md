@@ -527,10 +527,11 @@ minimize, and so is the amount of Python each call executes.
   build, just over what fits one JVM method. CPython built with `-Os` and
   `ceval.c` with `-Oz -fno-inline-functions -mllvm -ir-outliner` (52 KB), and no
   `-O2` at link time, which alone pushed the function back over the limit, had
-  Chicory interpret nothing. Full solve: 88 s to 8.9 s. (This and the next
-  measurement are of a CPython this repository built from source at the time;
-  with rules_venv's stock build the loop is interpreted again, and a
-  `py_wasm_toolchain` of one's own is the way back.)
+  Chicory interpret nothing. Full solve: 88 s to 8.9 s. (This repository built
+  that CPython from source at the time; the builds now come from
+  periareon/cpython-wasi-build as the `small-eval` and `trampoline` variants,
+  and rules_venv 0.36.0's toolchain embeds the trampoline for 3.14 by default,
+  so the module built with it has nothing Chicory interprets.)
 - **A JIT-compiled evaluation loop.** Chicory's output for it is a 60 KB JVM
   method, which HotSpot runs in its own interpreter: the huge-method limit skips
   it, C1 runs out of virtual registers on it, and C2 runs out of nodes at the

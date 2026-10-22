@@ -12,7 +12,7 @@ resolves requirements without a host interpreter. The design is in
 `execute_wasm` gives a module an input buffer and expects an output buffer back.
 It provides no imports: no WASI, no filesystem, no clock, no network. The module
 is built by [rules_venv](https://github.com/periareon/rules_venv)'s `py_wasm_module`
-(`//wasm:req_compile_solver` in `BUILD.bazel`), which turns a stock CPython WASI
+(`//wasm:req_compile_solver` in `BUILD.bazel`), which turns a CPython WASI
 build into something that runs in that box: it defines every WASI function the
 interpreter imports inside the module (standard output and error are captured,
 the clock is a counter, randomness is a fixed-seed generator, the filesystem is
@@ -50,10 +50,12 @@ The output is `req_compile_solver.wasm`, about 28 MB; `bazel cquery
 the `bazel-bin` link because the module is built in a Python 3.14 configuration.
 The build fetches, the first time, the toolchain rules_venv registers for that
 Python: the CPython `wasm32-wasi` build of
-[cpython-wasi-build](https://github.com/brettcannon/cpython-wasi-build), the
-wasi-sdk release that built it and Wizer, each pinned by hash in rules_venv.
-Its bytecode comes from the hermetic Python 3.14 toolchain of this repository,
-which is the same minor version. rules_venv has toolchains for Linux and macOS,
+[periareon/cpython-wasi-build](https://github.com/periareon/cpython-wasi-build)
+in its `trampoline` variant, rules_venv's default for 3.14 (see "Where the time
+goes" for why), the wasi-sdk release that built it and Wizer, each pinned by
+hash in rules_venv. Its bytecode comes from the hermetic Python 3.14 toolchain
+of this repository, which is the same minor version. rules_venv has toolchains
+for Linux and macOS,
 on x86_64 and arm64; the target is `manual`, so `//...` leaves it alone. The
 same inputs give the same module. CI builds it on Linux and macOS for every
 change, and the release workflow builds it to attach the module to each release,
@@ -138,11 +140,11 @@ file pins no hash for.
 
 ## Measurements
 
-Taken on an Apple M-series laptop against PyPI, October 2026. The rows about a
-compiled evaluation loop and the trampoline interpreter were measured with a
-CPython that this repository then built from source; the module is now built
-with the stock CPython of rules_venv's toolchain, which the rows "after the
-optimization pass" describe (see "Where the time goes").
+Taken on an Apple M-series laptop against PyPI, October 2026. The module is
+built with the trampoline interpreter, the last rows; the rows "after the
+optimization pass" are what the stock CPython build gives, and the ones about a
+compiled evaluation loop what a size-optimized build gives (see "Where the time
+goes").
 
 | What | Result |
 | --- | --- |
@@ -238,10 +240,14 @@ huge-method limit, and HotSpot compiles the hot handlers on its own. The price i
 a call and a return per bytecode: under wasmtime the full solve takes 0.57 s
 against 0.27 s with the switch interpreter. Under Chicory it is the other way
 round, 2.5 s against 8.9 s with default JVM flags and 1.3 s against 3.5 to
-4.6 s with them. This repository built that CPython from source until the
-module moved to rules_venv's `py_wasm_module`, whose toolchain embeds the
-stock build of cpython-wasi-build; a `py_wasm_toolchain` of one's own, made of
-such a CPython, is the way to have these numbers back.
+4.6 s with them. That CPython is built and released by
+[periareon/cpython-wasi-build](https://github.com/periareon/cpython-wasi-build)
+as the `trampoline` variant beside `stock` and `small-eval` (the size-optimized
+build of the previous paragraph), and from 0.36.0 rules_venv's toolchain for
+3.14 embeds it by default; `--@rules_venv//python/wasm:cpython_variant=stock`
+builds the module with CPython's own build instead, which solves the same hub
+in 88 s. Measured on a 298-wheel hub, the trampoline module resolves a change
+in about 6 s where the stock one takes 108 to 163 s, with identical solutions.
 
 One JVM flag still pays with the trampoline. Other CPython functions exceed
 HotSpot's 8,000-byte huge-method limit, and letting the JIT compile them takes a

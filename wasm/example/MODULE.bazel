@@ -24,7 +24,7 @@ To move a pin on purpose:
 
 module(name = "req_compile_wasm_example")
 
-bazel_dep(name = "rules_venv", version = "0.35.0")
+bazel_dep(name = "rules_venv", version = "0.36.0")
 bazel_dep(name = "rules_req_compile", version = "0.0.0")
 local_path_override(
     module_name = "rules_req_compile",
