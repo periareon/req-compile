@@ -97,7 +97,7 @@ py_binary(
     srcs = ["{src}"],
     main = "{src}",
     deps = [":{pkg}"],
-    tags = ["manual"],
+    tags = {tags},
 )
 """
 
@@ -112,6 +112,11 @@ if __name__ == "__main__":
 # The root package of the repository holds the contents of the wheel. It is
 # independent of any hub so that the same repository can be shared by every hub
 # that pins this exact wheel.
+#
+# Every target is tagged `pypi_name=<package>` and `pypi_version=<version>`,
+# the tags rules_python puts on the targets of a wheel, so that a target found
+# by `bazel query` or `cquery` identifies its package without decoding the
+# repository name, and tooling that reads those tags works with either.
 _ROOT_BUILD_TEMPLATE = """\
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
 load("@rules_venv//python:defs.bzl", "py_binary", "py_library")
@@ -151,12 +156,13 @@ py_library(
     # search path for anything that depends on this.
     imports = ["site-packages"],
     deps = {deps_labels},
-    tags = ["manual"],
+    tags = {tags},
 )
 
 filegroup(
     name = "whl",
     srcs = ["{whl_name}"],
+    tags = {tags},
 )
 """
 
@@ -173,7 +179,7 @@ py_library(
     data = _DATA,
     imports = ["site-packages"],
     deps = {deps},
-    tags = ["manual"],
+    tags = {tags},
 )
 """
 
@@ -184,7 +190,7 @@ _HUB_ALIAS_TEMPLATE = """\
 alias(
     name = "{hub}.{name}",
     actual = ":{name}",
-    tags = ["manual"],
+    tags = {tags},
 )
 """
 
@@ -230,7 +236,7 @@ def _generate_entry_point_contents(
     )
     return contents
 
-def _generate_entry_point_rule(*, name, script, pkg):
+def _generate_entry_point_rule(*, name, script, pkg, tags):
     """Generate a Bazel `py_binary` rule for an entry point script.
 
     Note that the script is used to determine the name of the target. The name of
@@ -242,6 +248,7 @@ def _generate_entry_point_rule(*, name, script, pkg):
         script (str): The label of the entry point's python file.
         pkg (str): The name of the library the entry point runs against, the
             target of the hub the entry point belongs to.
+        tags (str): The rendered `tags` of every target of the repository.
 
     Returns:
         str: A `py_binary` instantiation.
@@ -250,6 +257,7 @@ def _generate_entry_point_rule(*, name, script, pkg):
         name = name,
         src = script.replace("\\", "/"),
         pkg = pkg,
+        tags = tags,
     )
 
 def _parse_entry_points_txt(content):
@@ -514,8 +522,16 @@ def _whl_repository_impl(repository_ctx):
     hubs = json.decode(repository_ctx.attr.hubs)
     package_name = sanitize_package_name(repository_ctx.attr.package)
 
+    # The tags of every target, see `_ROOT_BUILD_TEMPLATE`.
+    tags = json.encode_indent([
+        "manual",
+        "pypi_name={}".format(repository_ctx.attr.package),
+        "pypi_version={}".format(repository_ctx.attr.version),
+    ], indent = " " * 4)
+
     root_content = [_ROOT_BUILD_TEMPLATE.format(
         name = package_name,
+        tags = tags,
         entry_point_scripts = json.encode(sorted(entry_point_scripts)),
         srcs = srcs,
         srcs_exclude = repr(srcs_exclude),
@@ -530,18 +546,24 @@ def _whl_repository_impl(repository_ctx):
     for hub, hub_data in hubs.items():
         deps = hub_deps(hub, hub_data, annotations)
         if deps.empty:
-            root_content.append(_HUB_ALIAS_TEMPLATE.format(hub = hub, name = package_name))
+            root_content.append(_HUB_ALIAS_TEMPLATE.format(
+                hub = hub,
+                name = package_name,
+                tags = tags,
+            ))
         else:
             root_content.append(_HUB_LIBRARY_TEMPLATE.format(
                 hub = hub,
                 name = package_name,
                 deps = render_deps(label_deps, deps),
+                tags = tags,
             ))
         for entry_point in sorted(entry_points):
             root_content.append(_generate_entry_point_rule(
                 name = "{}.{}_{}".format(hub, _WHEEL_ENTRY_POINT_PREFIX, entry_point),
                 script = "{}_{}.py".format(_WHEEL_ENTRY_POINT_PREFIX, entry_point),
                 pkg = "{}.{}".format(hub, package_name),
+                tags = tags,
             ))
 
     repository_ctx.file("BUILD.bazel", "\n".join(root_content) + additive_content)
