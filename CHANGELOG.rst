@@ -1,5 +1,9 @@
 New in version 1.6.5:
 
+* Every target of a wheel repository, the ``py_library`` of the package and of each hub, the ``whl``
+  filegroup and the entry points, is tagged ``pypi_name=<package>`` and ``pypi_version=<version>``, the tags
+  rules_python puts on the targets of a wheel. A target found by ``bazel query`` or ``cquery`` names its
+  package and version without decoding the repository name, and tooling reading those tags works with either.
 * A release is published to PyPI only when its wheel differs from the newest release there. The wheel is
   reproducible, so the Release workflow compares the files of the two (less the metadata that carries the
   version) and skips the upload when they are the same. The GitHub release still carries the wheel and sdist.
