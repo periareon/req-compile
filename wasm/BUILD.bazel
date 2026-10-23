@@ -31,10 +31,6 @@ py_wasm_module(
     name = "req_compile_solver",
     entry = "req_compile.wasm.exports",
     python_version = "3.14",
-    target_compatible_with = select({
-        "@platforms//os:windows": ["@platforms//:incompatible"],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     exports = ["solve"],
     deps = [
