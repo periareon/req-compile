@@ -258,7 +258,7 @@ str: A json encoded string of the provided content.
 load("@rules_req_compile//:defs.bzl", "py_requirements_repository")
 
 py_requirements_repository(<a href="#py_requirements_repository-name">name</a>, <a href="#py_requirements_repository-alias_of">alias_of</a>, <a href="#py_requirements_repository-default_lock">default_lock</a>, <a href="#py_requirements_repository-hub_name">hub_name</a>, <a href="#py_requirements_repository-legacy_root_pkg_aliases">legacy_root_pkg_aliases</a>, <a href="#py_requirements_repository-locks">locks</a>,
-                           <a href="#py_requirements_repository-package_aliases">package_aliases</a>, <a href="#py_requirements_repository-packages">packages</a>)
+                           <a href="#py_requirements_repository-package_aliases">package_aliases</a>, <a href="#py_requirements_repository-packages">packages</a>, <a href="#py_requirements_repository-pins_label">pins_label</a>, <a href="#py_requirements_repository-pins_path">pins_path</a>, <a href="#py_requirements_repository-pins_text">pins_text</a>)
 </pre>
 
 The hub repository of a set of Python requirements.
@@ -342,6 +342,9 @@ cross-platform behavior.
 | <a id="py_requirements_repository-locks"></a>locks |  A json encoded list of the locks of the hub and how each is selected.   | String | required |  |
 | <a id="py_requirements_repository-package_aliases"></a>package_aliases |  Packages to override with a local `py_library`.   | <a href="https://bazel.build/rules/lib/dict">Dictionary: Label -> String</a> | optional |  `{}`  |
 | <a id="py_requirements_repository-packages"></a>packages |  A json encoded mapping of package names to the version and `whl_repository` resolved by each lock.   | String | required |  |
+| <a id="py_requirements_repository-pins_label"></a>pins_label |  The label of the hub's pinned requirements file in the workspace, if it has one.   | String | optional |  `""`  |
+| <a id="py_requirements_repository-pins_path"></a>pins_path |  The workspace-relative path of that file.   | String | optional |  `""`  |
+| <a id="py_requirements_repository-pins_text"></a>pins_text |  The pinned requirements the hub resolved, as `render_pins` writes them.   | String | optional |  `""`  |
 
 
 <a id="whl_repository"></a>
@@ -364,6 +367,12 @@ files but none of its dependencies, and a target per hub using the wheel (`//:pi
 with the dependencies that hub resolved for the package, or aliasing the package when the hub resolved none. The
 console scripts of the wheel are a `py_binary` per hub (`//:pip_deps.entry_point_<script>`). This allows a single
 repository to be shared by every hub that pins the same wheel, even when they resolved its dependencies differently.
+
+Every target of the repository carries the `package_metadata` of the wheel (`//:package_metadata`), from the
+`@package_metadata` module: a `pkg:pypi` purl naming the distribution the lock pinned, with its file name, download
+URL and sha256 as qualifiers, and the license the wheel declares in its `METADATA` (`//:license`), when it declares
+one. The hub's aliases resolve to these targets, so tooling collecting the metadata of a binary's dependencies, such
+as an SBOM generator, sees the wheel behind each requirement.
 
 **ATTRIBUTES**
 

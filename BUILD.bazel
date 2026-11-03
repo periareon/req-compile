@@ -1,4 +1,8 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+load("@package_metadata//licenses/rules:license.bzl", "license")
+load("@package_metadata//purl:purl.bzl", "purl")
+load("@package_metadata//rules:package_metadata.bzl", "package_metadata")
+load("//:version.bzl", "VERSION")
 
 exports_files([
     "CHANGELOG.rst",
@@ -12,6 +16,23 @@ exports_files([
     "version.bzl",
     "defs.bzl",
 ])
+
+# What this module is and what it is licensed under, for the tooling that
+# collects the metadata of the packages a binary is built from, such as an
+# SBOM generator. `REPO.bazel` attaches it to every target of the repository.
+package_metadata(
+    name = "package_metadata",
+    attributes = [":license"],
+    purl = purl.bazel("rules_req_compile", VERSION),
+    visibility = ["//visibility:public"],
+)
+
+license(
+    name = "license",
+    kind = "@package_metadata//licenses/spdx:MIT",
+    text = "LICENSE.txt",
+    visibility = ["//visibility:public"],
+)
 
 alias(
     name = "buildifier",

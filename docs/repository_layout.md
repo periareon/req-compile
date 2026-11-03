@@ -57,6 +57,7 @@ flowchart LR
         hublib["//:pip_deps.requests<br/>py_library: sources + data + deps of hub pip_deps"]
         ep["//:pip_deps.entry_point_&lt;script&gt;<br/>py_binary"]
         other["//:other_hub.requests<br/>one per hub using this wheel; an alias to //:requests<br/>when the hub resolved no deps"]
+        metadata["//:package_metadata, //:license<br/>purl and license of the wheel; the package_metadata<br/>of every target of the repository"]
     end
 
     alias -- "lock A, lock B, ..." --> hublib
@@ -93,6 +94,8 @@ while the wheel repository stays shared.
 | `@<wheel>//:<hub>.<pkg>` | the hub's `# via` edges, per lock | `py_library` with the same sources and that hub's deps, or an alias to `//:<pkg>` when there are none |
 | `@<wheel>//:<hub>.entry_point_<script>` | `entry_points.txt` | `py_binary` depending on the hub's target |
 | `@<wheel>//:whl` | | the artifact |
+| `@<wheel>//:package_metadata` | the lock entry | `package_metadata` with the purl of the artifact, the default `package_metadata` of the repository |
+| `@<wheel>//:license` | the wheel's `METADATA` | `license` naming the SPDX kind and the license file, when the wheel declares them |
 
 ## Why the package library has no package dependencies
 
@@ -109,6 +112,32 @@ a single target carries both the sources and the dependencies. Tools that analyz
 at a time, such as the mypy aspect of `rules_venv`, rely on that. When a hub resolved no
 dependencies for a wheel the two would be identical, so the hub's target is an alias of the
 package library instead. Most wheels are leaves, so most hubs' targets are aliases.
+
+## Supply chain metadata
+
+A wheel repository declares what it holds with the rules of the `package_metadata` module,
+the successor of `rules_license`. Its `REPO.bazel` makes `//:package_metadata` the
+`package_metadata` of every target in the repository: the libraries of the package and of each
+hub, the entry points, the `whl` filegroup and anything an annotation adds. The target carries
+a purl naming the exact distribution the lock pinned,
+`pkg:pypi/requests@2.32.3?checksum=sha256:...&download_url=...&file_name=requests-2.32.3-py3-none-any.whl`,
+and a `license` attribute when the wheel's `METADATA` declares a license: the
+`License-Expression` of PEP 639, failing that a `License` field holding an SPDX identifier,
+failing that a trove classifier naming a single license. A single SPDX license points at the
+`license_kind` of `@package_metadata//licenses/spdx`; a compound expression, or a license file
+without an identifier, gets a `license_kind` of its own. The license file named by
+`License-File`, or found where setuptools used to put it, is the `text`. The rules are loaded
+through `rules_req_compile` and the kinds named canonically, since a repository created by
+an extension of another module, as `examples/find_links` does, cannot see `@package_metadata`.
+
+Hub repositories declare nothing. A hub target is an alias, and Bazel evaluates an alias as
+the target it points at, so the aspects that collect metadata see the wheel's. The attribute
+is also non-configurable, and a hub with several locks resolves a name to a different wheel
+per platform, so the hub could not name one.
+
+The wheel repositories are not the only ones: `rules_req_compile` declares its own
+`package_metadata`, `pkg:bazel/rules_req_compile@<version>` under the MIT license, the
+same way.
 
 ## Annotations
 

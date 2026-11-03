@@ -55,6 +55,11 @@ for every platform can be compiled from a single machine.
 Every wheel is downloaded once and shared by all the hubs of all the modules pinning it, while each hub
 keeps the dependencies it resolved. Packages missing from the lock of a platform make the targets using
 them incompatible with that platform instead of failing the build.
+
+Every target of a wheel repository carries the ``package_metadata`` of its wheel, from the
+``package_metadata`` module: a ``pkg:pypi`` purl naming the distribution the lock pinned and the license
+the wheel declares. Tooling that collects the metadata of a binary's dependencies, such as an SBOM
+generator, sees the wheel behind each requirement.
 See the `Bazel rules documentation <docs/docs.md>`_ for details and the
 `repository layout <docs/repository_layout.md>`_ for how hubs, wheel repositories and dependencies fit together.
 
