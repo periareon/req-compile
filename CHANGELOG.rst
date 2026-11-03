@@ -1,3 +1,8 @@
+New in version 1.7.0:
+
+* req-compile requires Python 3.11 or newer. 3.9 and 3.10 are past their end of life, and GitHub's
+  runner images no longer carry a 3.9 build for every platform the tests run on.
+
 New in version 1.6.5:
 
 * Every target of a wheel repository, the ``py_library`` of the package and of each hub, the ``whl``
