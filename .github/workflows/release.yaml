@@ -2,11 +2,6 @@
 name: Release
 on:
   workflow_dispatch:
-    inputs:
-      publish_bcr:
-        description: Also publish the release to the Bazel Central Registry
-        type: boolean
-        default: false
   pull_request:
     branches:
       - main
@@ -16,13 +11,13 @@ on:
       - version.bzl
       - .github/workflows/release.yaml
       - .github/workflows/release_prep.sh
-      - .github/workflows/pypi_check.py
       - .github/workflows/bcr-publish.yaml
   push:
     branches:
       - main
     paths:
-      # Only fire a real release when version.bzl is bumped.
+      # Only fire a real release when version.bzl is bumped. MODULE.bazel is
+      # bumped with it; `//rule_tests/version_test` fails CI when it is not.
       - version.bzl
 
 defaults:
@@ -109,20 +104,20 @@ jobs:
       prerelease: ${{ contains(needs.tag.outputs.tag, '-') }}
       tag_name: ${{ needs.tag.outputs.tag }}
 
-  # Upload the wheel and sdist built (and attested) by the `release`
-  # job to PyPI, unless the wheel has the same files as the newest release
-  # there: the wheel is reproducible, so a release without Python changes
-  # (a version bump for the Bazel side, release notes) publishes nothing new
-  # and is skipped. The `release_files` artifact is produced by the reusable
-  # workflow in this same run, so the bytes published to PyPI are exactly
-  # the ones attached to the GitHub release.
+  # Upload the wheel and sdist built (and attested) by the `release` job to
+  # PyPI. Every release is uploaded: the release notes say `pip install
+  # req-compile==<version>`, and pip does not pick a pre-release unless asked
+  # for one, so a release must be on PyPI even when its wheel has the same
+  # files as the release candidate before it. (1.6.5 was skipped for matching
+  # 1.6.5rc3 and is not on PyPI.) The `release_files` artifact is produced by
+  # the reusable workflow in this same run, so the bytes published to PyPI
+  # are exactly the ones attached to the GitHub release.
   pypi-publish:
     needs: [tag, release]
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
       - name: Download release files
         uses: actions/download-artifact@v4
         with:
@@ -136,11 +131,7 @@ jobs:
             exit 1
           fi
           ls -l release_files/dist
-      - name: Compare the wheel with the newest release on PyPI
-        id: check
-        run: python3 .github/workflows/pypi_check.py release_files/dist/*.whl
       - name: Publish distribution to PyPI
-        if: steps.check.outputs.publish == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: release_files/dist
@@ -153,13 +144,13 @@ jobs:
           # `id-token: write` to the job permissions.
           attestations: false
 
-  # Re-publish to the Bazel Central Registry, carrying the
-  # build-provenance attestation produced upstream.
-  # Not part of a release triggered by a version bump: the GitHub release and
-  # PyPI come first, and the registry entry follows when asked for, either by
-  # dispatching this workflow with `publish_bcr` or `bcr-publish.yaml` on its own.
+  # Open the Bazel Central Registry pull request for the release, carrying
+  # the build-provenance attestation produced upstream. Release candidates
+  # stay off the registry (the one opened for 1.6.5-rc1 was abandoned,
+  # bazelbuild/bazel-central-registry#11248); dispatch `bcr-publish.yaml`
+  # by hand to publish one, or to retry a release whose PR failed.
   bcr-publish:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_bcr }}
+    if: ${{ !contains(needs.tag.outputs.tag, '-') }}
     needs: [tag, release]
     permissions:
       contents: write
