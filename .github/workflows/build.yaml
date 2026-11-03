@@ -26,7 +26,7 @@ jobs:
         # retires on 2 November 2026 with brownouts before. The timeout makes a
         # lost runner fail within minutes instead of holding the run.
         platform: ["ubuntu-latest", "macos-15", "windows-latest"]
-        python_version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        python_version: ["3.11", "3.12", "3.13", "3.14"]
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 15
     name: test ${{ matrix.platform }} (py${{ matrix.python_version }})
@@ -34,7 +34,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python_version }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5
       with:
         python-version: "${{ matrix.python_version }}"
     - name: Setup pip

@@ -1,4 +1,4 @@
-New in version 1.6.6:
+New in version 1.7.0:
 
 * Every target of a wheel repository carries the ``package_metadata`` of its wheel, from the ``package_metadata``
   module of the Bazel Central Registry: a ``pkg:pypi`` purl naming the distribution the lock pinned, with its file
@@ -7,6 +7,8 @@ New in version 1.6.6:
   resolve to those targets, so an SBOM generator or license check collecting the metadata of a binary's
   dependencies sees the wheel behind each requirement. ``rules_req_compile`` itself declares the same for its own
   targets.
+* req-compile requires Python 3.11 or newer. 3.9 and 3.10 are past their end of life, and GitHub's
+  runner images no longer carry a 3.9 build for every platform the tests run on.
 
 New in version 1.6.5:
 

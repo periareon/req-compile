@@ -29,8 +29,6 @@ py_wheel_library(
     author_email = "sputt@alumni.iu.edu",
     classifiers = [
         "Programming Language :: Python",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
@@ -55,7 +53,7 @@ py_wheel_library(
     },
     homepage = "https://github.com/periareon/req-compile",
     license = "MIT License",
-    python_requires = ">=3.9",
+    python_requires = ">=3.11",
     repository_url = "https://upload.pypi.org/legacy/",
     summary = "Python requirements compiler",
     version = VERSION,
