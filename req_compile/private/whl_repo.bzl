@@ -1,5 +1,6 @@
 """Repository rules for downloading and extracting python wheel files"""
 
+load("@package_metadata//purl:purl.bzl", "purl")
 load(":annotation_utils.bzl", "deserialize_package_annotation")
 load(":utils.bzl", "execute", "parse_artifact_name", "sanitize_package_name")
 
@@ -116,10 +117,12 @@ if __name__ == "__main__":
 # Every target is tagged `pypi_name=<package>` and `pypi_version=<version>`,
 # the tags rules_python puts on the targets of a wheel, so that a target found
 # by `bazel query` or `cquery` identifies its package without decoding the
-# repository name, and tooling that reads those tags works with either.
+# repository name, and tooling that reads those tags works with either. The
+# targets describing the wheel itself, see `_PACKAGE_METADATA_TEMPLATE`, are
+# the exception: they are not the package, they are about it.
 _ROOT_BUILD_TEMPLATE = """\
 load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
-load("@rules_venv//python:defs.bzl", "py_binary", "py_library")
+{metadata_loads}load("@rules_venv//python:defs.bzl", "py_binary", "py_library")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -164,7 +167,7 @@ filegroup(
     srcs = ["{whl_name}"],
     tags = {tags},
 )
-"""
+{package_metadata}"""
 
 # The library of one hub. It owns the modules rather than depending on the
 # library of the package, so that tools analyzing a library together with its
@@ -193,6 +196,302 @@ alias(
     tags = {tags},
 )
 """
+
+# The supply chain metadata of the wheel. `REPO.bazel` makes it the
+# `package_metadata` of every target of the repository, so tooling that
+# collects the metadata of the packages a binary is built from, an SBOM
+# generator or a license check, reaches it through whichever hub target led
+# there. The purl names the exact distribution the lock pinned, and the license
+# is the one the wheel declares in its `METADATA`, when it declares one.
+_PACKAGE_METADATA_TEMPLATE = """
+package_metadata(
+    name = "package_metadata",
+    purl = {purl},
+    attributes = {attributes},
+)
+"""
+
+_LICENSE_TEMPLATE = """
+license(
+    name = "license",
+    kind = {kind},
+    text = {text},
+)
+"""
+
+# A license `@package_metadata` has no kind for: a compound SPDX expression,
+# an identifier it does not know, or a license text without an identifier.
+_LICENSE_KIND_TEMPLATE = """
+license_kind(
+    name = "license_kind",
+    full_name = {full_name},
+    identifier = {identifier},
+)
+"""
+
+_REPO_FILE = """\
+# The metadata of the wheel, `//:package_metadata`, is attached to every
+# target of the repository.
+repo(
+    default_package_metadata = ["//:package_metadata"],
+)
+"""
+
+# The rules a wheel repository declares its metadata with, loaded from this
+# module since the repository need not see `@package_metadata`.
+_METADATA_RULES = str(Label("//req_compile/private:package_metadata.bzl"))
+
+# The `license_kind`s of `@package_metadata`, one per SPDX license. The
+# package is named canonically for the same reason.
+_SPDX_BUILD = Label("@package_metadata//licenses/spdx:BUILD")
+_SPDX_PACKAGE = str(_SPDX_BUILD)[:-len(":BUILD")]
+
+# Trove classifiers naming one SPDX license. Classifiers predate the
+# `License-Expression` field and most do not say which version of a license
+# applies (`BSD License`), so only those that do are mapped. `Apache Software
+# License` is taken to be 2.0, the only version PyPI has seen in practice.
+_LICENSE_CLASSIFIERS = {
+    "License :: OSI Approved :: Apache Software License": "Apache-2.0",
+    "License :: OSI Approved :: Boost Software License 1.0 (BSL-1.0)": "BSL-1.0",
+    "License :: OSI Approved :: Eclipse Public License 2.0 (EPL-2.0)": "EPL-2.0",
+    "License :: OSI Approved :: GNU Affero General Public License v3": "AGPL-3.0-only",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)": "AGPL-3.0-or-later",
+    "License :: OSI Approved :: GNU General Public License v2 (GPLv2)": "GPL-2.0-only",
+    "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)": "GPL-2.0-or-later",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)": "GPL-3.0-only",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)": "GPL-3.0-or-later",
+    "License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)": "LGPL-2.0-only",
+    "License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)": "LGPL-2.0-or-later",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)": "LGPL-3.0-only",
+    "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)": "LGPL-3.0-or-later",
+    "License :: OSI Approved :: ISC License (ISCL)": "ISC",
+    "License :: OSI Approved :: MIT License": "MIT",
+    "License :: OSI Approved :: MIT No Attribution License (MIT-0)": "MIT-0",
+    "License :: OSI Approved :: Mozilla Public License 1.1 (MPL 1.1)": "MPL-1.1",
+    "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)": "MPL-2.0",
+    "License :: OSI Approved :: Python Software Foundation License": "PSF-2.0",
+    "License :: OSI Approved :: The Unlicense (Unlicense)": "Unlicense",
+    "License :: OSI Approved :: zlib/libpng License": "Zlib",
+}
+
+# Where setuptools put license files before it implemented PEP 639, which
+# puts them under `licenses/` and names each in a `License-File` header.
+_LICENSE_FILE_NAMES = ["LICENSE", "LICENSE.txt", "LICENSE.md", "LICENSE.rst", "COPYING"]
+
+def wheel_purl(package, version, file_name = None, url = None, sha256 = None):
+    """The purl of a distribution of a Python package.
+
+    Args:
+        package (str): The name of the package, as a lock file spells it.
+        version (str): The version of the package.
+        file_name (str): The file name of the distribution, a wheel or an sdist.
+        url (str): Where the distribution was downloaded from, if anywhere.
+        sha256 (str): The hex sha256 of the distribution, if known.
+
+    Returns:
+        str: A `pkg:pypi/...` purl naming the exact distribution.
+    """
+    builder = purl.builder().type("pypi").name(package).version(version)
+    if file_name:
+        builder.add_qualifier("file_name", file_name)
+    if url:
+        # The fragment, when there is one, repeats the hash.
+        builder.add_qualifier("download_url", url.partition("#")[0])
+    if sha256:
+        builder.add_qualifier("checksum", "sha256:" + sha256)
+    return builder.build()
+
+def parse_metadata_license(content):
+    """Read the license fields out of the `METADATA` of a wheel.
+
+    Args:
+        content (str): The file, RFC 822 headers followed by the description.
+
+    Returns:
+        struct: With `expression`, the `License-Expression` of PEP 639; `license`,
+            the first line of the free-form `License` field; `files`, the
+            `License-File` entries; and `classifiers`, the `License ::` trove
+            classifiers. Each is None or empty when the wheel has none.
+    """
+    expression = None
+    license = None
+    files = []
+    classifiers = []
+    for line in content.splitlines():
+        if not line.strip():
+            # The headers end at the first blank line.
+            break
+        if line[0] in " \t":
+            # A continuation. Only `License` is ever long enough to need one,
+            # when setuptools was given a whole license text for it, and its
+            # first line is all that is looked at.
+            continue
+        key, separator, value = line.partition(":")
+        if not separator:
+            continue
+        key = key.strip().lower()
+        value = value.strip()
+        if key == "license-expression":
+            expression = value
+        elif key == "license" and value and value != "UNKNOWN":
+            # Older setuptools wrote `UNKNOWN` when nothing was declared.
+            license = value
+        elif key == "license-file":
+            files.append(value)
+        elif key == "classifier" and value.startswith("License ::"):
+            classifiers.append(value)
+    return struct(
+        expression = expression,
+        license = license,
+        files = files,
+        classifiers = classifiers,
+    )
+
+def declared_license(metadata, spdx):
+    """The license a wheel declares, from the fields of its `METADATA`.
+
+    PEP 639's `License-Expression` is authoritative. Without it, the free-form
+    `License` field is used when it holds exactly an SPDX identifier, and
+    failing that a trove classifier naming one license.
+
+    Args:
+        metadata (struct): See `parse_metadata_license`.
+        spdx (dict): The SPDX identifiers `@package_metadata` has a `license_kind`
+            for, keyed by their lowercase form, which is how SPDX compares them.
+
+    Returns:
+        struct: With `identifier`, an SPDX identifier or expression, and `kind`,
+            the label of its `license_kind` when `@package_metadata` has one, else
+            None. None when the wheel declares nothing usable.
+    """
+    if metadata.expression:
+        kind = spdx.get(metadata.expression.lower())
+        return struct(
+            identifier = kind or metadata.expression,
+            kind = "{}:{}".format(_SPDX_PACKAGE, kind) if kind else None,
+        )
+
+    candidates = []
+    if metadata.license:
+        candidates.append(metadata.license)
+    for classifier in metadata.classifiers:
+        if classifier in _LICENSE_CLASSIFIERS:
+            candidates.append(_LICENSE_CLASSIFIERS[classifier])
+
+    for candidate in candidates:
+        kind = spdx.get(candidate.lower())
+        if kind:
+            return struct(
+                identifier = kind,
+                kind = "{}:{}".format(_SPDX_PACKAGE, kind),
+            )
+    return None
+
+def _spdx_license_kinds(repository_ctx):
+    """The SPDX identifiers `@package_metadata` has a `license_kind` for, keyed by lowercase form."""
+    kinds = {}
+    for line in repository_ctx.read(_SPDX_BUILD).splitlines():
+        line = line.strip()
+        if line.startswith("identifier = "):
+            identifier = line[len("identifier = "):].rstrip(",").strip("\"")
+            kinds[identifier.lower()] = identifier
+    return kinds
+
+def _license_text(dist_info_dir, files):
+    """The license file of a wheel, as a path in the repository, or None."""
+    candidates = []
+    for name in files:
+        candidates.extend(["licenses/" + name, name])
+    if not files:
+        candidates.extend(_LICENSE_FILE_NAMES)
+    for candidate in candidates:
+        if dist_info_dir.get_child(candidate).exists:
+            return "site-packages/{}/{}".format(dist_info_dir.basename, candidate)
+    return None
+
+def wheel_license(repository_ctx, dist_info_dir, package):
+    """The license of an extracted wheel, from its `METADATA`.
+
+    Args:
+        repository_ctx (repository_ctx): The rule's context object.
+        dist_info_dir (path): The `.dist-info` directory of the wheel.
+        package (str): The name of the package, for a license without an identifier.
+
+    Returns:
+        struct: With `kind`, the label of a `license_kind` of `@package_metadata`
+            or None; `identifier` and `full_name`, the kind to declare when it
+            is None; and `text`, the path of the license file or None. None when
+            the wheel declares no license at all.
+    """
+    metadata_file = dist_info_dir.get_child("METADATA")
+    metadata = parse_metadata_license(repository_ctx.read(metadata_file) if metadata_file.exists else "")
+    text = _license_text(dist_info_dir, metadata.files)
+
+    declared = None
+    if metadata.expression or metadata.license or metadata.classifiers:
+        declared = declared_license(metadata, _spdx_license_kinds(repository_ctx))
+
+    if declared:
+        return struct(
+            kind = declared.kind,
+            identifier = declared.identifier,
+            full_name = declared.identifier,
+            text = text,
+        )
+
+    if not text:
+        return None
+
+    # A license text that no identifier names, which SPDX refers to as
+    # `LicenseRef-<id>`. The `License` field is its name when it is one, the
+    # field is free text and has held whole license texts.
+    full_name = "License of {}".format(package)
+    if metadata.license and len(metadata.license) <= 80:
+        full_name = metadata.license
+    return struct(
+        kind = None,
+        identifier = "LicenseRef-{}".format(sanitize_package_name(package).replace("_", "-")),
+        full_name = full_name,
+        text = text,
+    )
+
+def render_package_metadata(distribution, license):
+    """Render the metadata targets of a wheel repository.
+
+    Args:
+        distribution (str): The purl of the distribution, see `wheel_purl`.
+        license (struct): The license of the wheel, see `wheel_license`, or None.
+
+    Returns:
+        struct: With `loads`, the `load` statement the targets need, and
+            `content`, the targets, both Starlark source.
+    """
+    symbols = ["package_metadata"]
+    content = _PACKAGE_METADATA_TEMPLATE.format(
+        purl = json.encode(distribution),
+        attributes = json.encode([":license"] if license else []),
+    )
+    if license:
+        symbols.insert(0, "license")
+        kind = license.kind
+        if not kind:
+            kind = ":license_kind"
+            symbols.insert(1, "license_kind")
+            content += _LICENSE_KIND_TEMPLATE.format(
+                full_name = json.encode(license.full_name),
+                identifier = json.encode(license.identifier),
+            )
+        content += _LICENSE_TEMPLATE.format(
+            kind = json.encode(kind),
+            text = json.encode(license.text) if license.text else "None",
+        )
+    return struct(
+        loads = "load({}, {})\n".format(
+            json.encode(_METADATA_RULES),
+            ", ".join([json.encode(symbol) for symbol in symbols]),
+        ),
+        content = content,
+    )
 
 def _generate_copy_commands(src, dest, is_executable = False):
     """Generate a [@bazel_skylib//rules:copy_file.bzl%copy_file][cf] target
@@ -376,6 +675,7 @@ def _whl_repository_impl(repository_ctx):
     repository_ctx.file("WORKSPACE.bazel", """workspace(name = "{}")""".format(
         repository_ctx.name,
     ))
+    repository_ctx.file("REPO.bazel", _REPO_FILE)
 
     if repository_ctx.attr.whl:
         whl_file = repository_ctx.path(repository_ctx.attr.whl)
@@ -402,9 +702,13 @@ def _whl_repository_impl(repository_ctx):
         )
         whl_sha256 = whl_result.sha256
 
-        if not whl_name.endswith(".whl"):
-            sdist_info = _build_sdist(repository_ctx, whl_name)
-            whl_name = sdist_info.wheel
+    # The distribution the lock pinned, which for an sdist is not the wheel
+    # built from it.
+    artifact_name = whl_name
+
+    if not whl_name.endswith(".whl"):
+        sdist_info = _build_sdist(repository_ctx, whl_name)
+        whl_name = sdist_info.wheel
 
     # Unfortunately `repository_ctx.extract` does not allow us to dictate
     # the type of the archive. So in order to get Bazel to extract a wheel
@@ -529,9 +833,22 @@ def _whl_repository_impl(repository_ctx):
         "pypi_version={}".format(repository_ctx.attr.version),
     ], indent = " " * 4)
 
+    metadata = render_package_metadata(
+        distribution = wheel_purl(
+            repository_ctx.attr.package,
+            repository_ctx.attr.version,
+            file_name = artifact_name,
+            url = repository_ctx.attr.urls[0] if repository_ctx.attr.urls else None,
+            sha256 = whl_sha256,
+        ),
+        license = wheel_license(repository_ctx, dist_info_dir, repository_ctx.attr.package),
+    )
+
     root_content = [_ROOT_BUILD_TEMPLATE.format(
         name = package_name,
         tags = tags,
+        metadata_loads = metadata.loads,
+        package_metadata = metadata.content,
         entry_point_scripts = json.encode(sorted(entry_point_scripts)),
         srcs = srcs,
         srcs_exclude = repr(srcs_exclude),
@@ -593,6 +910,12 @@ files but none of its dependencies, and a target per hub using the wheel (`//:pi
 with the dependencies that hub resolved for the package, or aliasing the package when the hub resolved none. The
 console scripts of the wheel are a `py_binary` per hub (`//:pip_deps.entry_point_<script>`). This allows a single
 repository to be shared by every hub that pins the same wheel, even when they resolved its dependencies differently.
+
+Every target of the repository carries the `package_metadata` of the wheel (`//:package_metadata`), from the
+`@package_metadata` module: a `pkg:pypi` purl naming the distribution the lock pinned, with its file name, download
+URL and sha256 as qualifiers, and the license the wheel declares in its `METADATA` (`//:license`), when it declares
+one. The hub's aliases resolve to these targets, so tooling collecting the metadata of a binary's dependencies, such
+as an SBOM generator, sees the wheel behind each requirement.
 """,
     implementation = _whl_repository_impl,
     attrs = {

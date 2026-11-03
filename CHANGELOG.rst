@@ -1,3 +1,13 @@
+New in version 1.6.6:
+
+* Every target of a wheel repository carries the ``package_metadata`` of its wheel, from the ``package_metadata``
+  module of the Bazel Central Registry: a ``pkg:pypi`` purl naming the distribution the lock pinned, with its file
+  name, download URL and sha256 as qualifiers, and the license the wheel declares in its ``METADATA``, as the
+  ``license_kind`` of ``@package_metadata//licenses/spdx`` when it is a single SPDX license. The aliases of a hub
+  resolve to those targets, so an SBOM generator or license check collecting the metadata of a binary's
+  dependencies sees the wheel behind each requirement. ``rules_req_compile`` itself declares the same for its own
+  targets.
+
 New in version 1.6.5:
 
 * Every target of a wheel repository, the ``py_library`` of the package and of each hub, the ``whl``

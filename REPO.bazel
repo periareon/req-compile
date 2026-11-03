@@ -1,0 +1,7 @@
+"""rules_req_compile"""
+
+# The supply chain metadata of the module, `//:package_metadata`, is attached
+# to every target of the repository.
+repo(
+    default_package_metadata = ["//:package_metadata"],
+)
