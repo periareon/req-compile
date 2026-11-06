@@ -1035,6 +1035,12 @@ def _py_requirements_repository_impl(repository_ctx):
         legacy_root_pkg_aliases = "True" if repository_ctx.attr.legacy_root_pkg_aliases else "False",
     ))
 
+    # The hub is rendered from its attributes and the files it reads, so Bazel
+    # may share it across workspaces. Bazel 7 has no `repo_metadata`.
+    if not hasattr(repository_ctx, "repo_metadata"):
+        return None
+    return repository_ctx.repo_metadata(reproducible = True)
+
 py_requirements_repository = repository_rule(
     doc = """\
 The hub repository of a set of Python requirements.

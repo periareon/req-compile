@@ -885,7 +885,10 @@ def _whl_repository_impl(repository_ctx):
 
     repository_ctx.file("BUILD.bazel", "\n".join(root_content) + additive_content)
 
-    return {
+    # A download without a checksum is pinned by the one Bazel computed. Bazel 7
+    # reads a returned dict as the attributes that would make the repository
+    # reproducible and has no `repo_metadata` to say anything else.
+    attrs_for_reproducibility = {
         "annotations": repository_ctx.attr.annotations,
         "hubs": repository_ctx.attr.hubs,
         "interpreter": repository_ctx.attr.interpreter,
@@ -898,6 +901,20 @@ def _whl_repository_impl(repository_ctx):
         "version": repository_ctx.attr.version,
         "whl": repository_ctx.attr.whl,
     }
+    if not hasattr(repository_ctx, "repo_metadata"):
+        return attrs_for_reproducibility
+    if not repository_ctx.attr.sha256:
+        return repository_ctx.repo_metadata(
+            attrs_for_reproducibility = attrs_for_reproducibility,
+        )
+
+    # A wheel pinned by its checksum is a function of the attributes and the
+    # files they name, so Bazel may share the repository across workspaces
+    # through the repo contents cache. A wheel built from an sdist is not: the
+    # build runs the interpreter against whatever the host provides.
+    return repository_ctx.repo_metadata(
+        reproducible = artifact_name.endswith(".whl"),
+    )
 
 whl_repository = repository_rule(
     doc = """\

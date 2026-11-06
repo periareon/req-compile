@@ -1,3 +1,10 @@
+New in version 1.7.1:
+
+* A wheel repository pinned by its sha256 and a hub repository return ``repo_metadata(reproducible = True)``, so
+  the repo contents cache of Bazel 9 (``--repo_contents_cache``) shares them across workspaces instead of fetching
+  each again. A wheel built from an sdist does not, since the build depends on the host, and a wheel downloaded
+  without a checksum keeps reporting the attributes that would pin it.
+
 New in version 1.7.0:
 
 * Every target of a wheel repository carries the ``package_metadata`` of its wheel, from the ``package_metadata``
